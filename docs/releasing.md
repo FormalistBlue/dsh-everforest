@@ -11,10 +11,12 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 | 0.1.0 | 2026-10-18 | 本地 `npm publish` + Web-OTP（账号 `shandawang`） | `latest` | `77459d903532a9618f04ba562bbea5aa6c12399d` | 无（本地发布） |
 | 0.1.1 | 2026-10-18 | GitHub Actions + Trusted Publishing（tag `v0.1.1`，run `39134686583`） | `latest` | `c88740ea3be8f19e888bba9f4370dbb2d98e7af8` | 有（SLSA v1） |
 | 0.1.2 | 2026-10-18 | GitHub Actions + Trusted Publishing（tag `v0.1.2`，run `39138160540`） | `latest` | `aebc8d78948f8c1bc14a52d06e4d0dddcc1a315f` | 有（SLSA v1） |
+| 0.2.0 | 2026-10-19 | GitHub Actions + Trusted Publishing（tag `v0.2.0`，run `39144602213`） | `latest` | `e817afe82e57d0279c4eb7eeefcb9b281f6095b3` | 有（SLSA v1） |
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
-- 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.1.2 --registry=https://registry.npmjs.org --cache <fresh-dir>`。
-- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
+- 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.2.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。本机 npm 默认 registry 是 `registry.npmmirror.com`（镜像同步有延迟），验证时务必显式指定 npmjs.org。
+- **发布后 registry 有分层传播**（0.2.0 实测）：版本元数据先出现（`https://registry.npmjs.org/dsh-everforest/0.2.0` 200），npm 命令在约 2 分钟内仍可能对 tarball 返回 404；直接 `GET .../-/dsh-everforest-0.2.0.tgz` 成功后再用空缓存安装即可。workflow 里的 `npm view` 校验步骤同理可能仍显示上一版，以 run 日志里的 `+ dsh-everforest@x.y.z` 为准。
+- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
 
 ## 0. 发布前必须确认
 
@@ -141,7 +143,7 @@ npm 侧：
 
 DSH 侧（本机 profile = `desktop`）：
 
-1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@0.1.0`）；
+1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@0.2.0`）；
 2. 期望：`application: applied`；插件列表出现标题/描述/图标（来自 `locale/*.json` 与 `icon.svg`）；
 3. `cordis_inspect_query`（Client `Theme.listTokens`）出现覆盖 token；`Slots.listSubTree` 根 `settings.section` 出现 `id: everforest`；
 4. Settings → Everforest 可见，切换即时生效；退出应用重启后强度保持；
@@ -203,7 +205,7 @@ description:
 | 仓库创建满 1 天（CI 自动检查） | 创建于 `2026-10-18 07:07 UTC` → **最早 2026-10-19 15:07（HK）提 PR** |
 | GitHub topic `dsh-plugin` | **需在仓库 Settings 添加**（当前 topics 为空） |
 | `screenshots.json` | 已加（仓库根，见 §8.4） |
-| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；当前 `dsh-everforest@0.1.2` 满足，**不要**在 yml 里写包名 |
+| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；当前 `dsh-everforest@0.2.0` 满足，**不要**在 yml 里写包名 |
 
 ### 8.4 截图（仓库根 `screenshots.json`）
 
