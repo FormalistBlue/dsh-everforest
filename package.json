@@ -1,0 +1,74 @@
+{
+  "name": "dsh-everforest",
+  "version": "0.1.0",
+  "description": "Everforest color themes (Dark/Light × Hard/Medium/Soft) for DeepSeek Harness Web/Desktop.",
+  "type": "module",
+  "main": "index.js",
+  "icon": "icon.svg",
+  "license": "MIT",
+  "author": "FormalistBlue",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FormalistBlue/dsh-everforest.git"
+  },
+  "homepage": "https://github.com/FormalistBlue/dsh-everforest#readme",
+  "bugs": {
+    "url": "https://github.com/FormalistBlue/dsh-everforest/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "plugin",
+    "theme",
+    "everforest",
+    "dark-theme",
+    "light-theme"
+  ],
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.2 <0.3.0-0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "generate": "node scripts/palette.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "check": "node scripts/palette.mjs --check && node scripts/build.mjs --check && node scripts/check-contrast.mjs --check",
+    "prepack": "node scripts/build.mjs -C"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  }
+}

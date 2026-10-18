@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：待实现
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：**已实现（v0.1.0，2026-10-18）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md)、[`reference/contrast.md`](reference/contrast.md) 与 README「验证」
 
 ## 1. 目标与非目标
 
@@ -24,7 +24,7 @@
 ┌────────────────────────── Browser（Client 半部 client.js）──────────────────────────┐
 │                                                                                     │
 │  apply(ctx)                                                                         │
-│   ├─ export const inject = ['theme']（slots / locale 用 ctx.get 可选读取）            │
+│   ├─ export const inject = ['theme']（slots / locale 用 ctx.get 读取，缺失时 ctx.inject 等待） │
 │   ├─ readState() ── localStorage('dsh-everforest/v1') ──► { light, dark }            │
 │   ├─ ctx.effect(() => ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state)))        │
 │   ├─ ctx.effect(() => ctx.locale.register(NS, { zh, en }))（en/zh 是内置 locale id）  │
@@ -167,7 +167,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `linear-gradient-think`、`linear-think-select` | `bg0` → `bg1` 渐隐 | 思考过程渐隐（Windows 可见） |
 | onboarding（accent + 3 渐变 stops + card/secondary/checkbox 边框） | `header-aqua` / `bg_*` 派生 | 首登页，7 个 token |
 | `brand-primary-new-color` | `header-aqua` | 品牌强调（light 侧是字面量） |
-| `tooltip-key-bg` | `bg3` | 键帽 |
+| `tooltip-key-bg` | tooltip 深色底向亮端 `mix(…, 25%)`（实现修正，原写 `bg3`） | 键帽 |
 | `focus-ring`（不覆盖） | 走 `state-business-primary` 派生 | 焦点环跟随状态色，不单独覆盖 |
 
 - **static 色阶**（77）：把 DSH 的 `neutral-bluish-00…1000`、`neutral-*`、`deepseek-*`、`blue-*`、`green/red/amber-*` 各自映射到 Everforest 对应色相当量。**不能按明度顺序一一对应**（两边步数不同）：以「最暗 = bg5、最亮 = bg0」为端点做分段线性插值，中间按目标色相的明度分布取档；4 个带 alpha 的 static（`green-500-a08/a12`、`red-400-a12`、`red-600-a08`）单独给 rgba。使所有 `var(--dsw-static-*)` 引用自动跟随。
@@ -215,7 +215,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 ## 5. 应用流程（伪代码）
 
 ```js
-export const inject = ['theme']   // 模块导出的 cordis 注入；slots / locale 用 ctx.get 可选读取
+export const inject = ['theme']   // 模块导出的 cordis 注入；slots / locale 用 ctx.get 可选读取，缺失时用 ctx.inject 等待
 
 const PACKAGE_ID = 'dsh-everforest'
 const NS = 'settings.everforest'
@@ -227,15 +227,23 @@ export function apply(ctx) {
   // overrideTokens 的 disposer 不会自动挂 fiber，必须自己注册清理
   ctx.effect(() => () => { layerDispose?.(); layerDispose = null }, 'everforest: token layer cleanup')
 
-  const locale = ctx.get('locale')
-  const t = locale ? locale.bind(NS) : (key) => enDict[key] ?? key
-  if (locale) ctx.effect(() => locale.register(NS, { zh: zhDict, en: enDict }), 'everforest: dictionaries')
-
-  const slots = ctx.get('slots')
-  if (slots) slots.inject('settings.section', () => slots.register({
-    name: 'settings.section', id: 'everforest', order: 25,
-    label: () => t('nav.title'), locale: NS, inject: () => ({ t }),
-  }, EverforestSection))
+  // slots/locale 是可选服务：先在 apply 时立即读取（正常路径），
+  // 拿不到再用 ctx.inject 等待它们出现后再挂载（两者都没有才跳过设置页）
+  let settingsUiMounted = false
+  const setupSettingsUi = () => {
+    const locale = ctx.get('locale')
+    const slots = ctx.get('slots')
+    if (!locale || !slots || settingsUiMounted) return
+    settingsUiMounted = true
+    ctx.effect(() => locale.register(NS, { zh: zhDict, en: enDict }), 'everforest: dictionaries')
+    const t = locale.bind(NS)
+    slots.inject('settings.section', () => slots.register({
+      name: 'settings.section', id: 'everforest', order: 25,
+      label: () => t('nav.title'), locale: NS, inject: () => ({ t, store }),
+    }, EverforestSection))
+  }
+  setupSettingsUi()
+  if (!settingsUiMounted && typeof ctx.inject === 'function') ctx.inject(['slots', 'locale'], setupSettingsUi)
 
   function applyLayer() {
     // 同 source 调用 = 整体替换并重新置顶；旧 disposer 自动变 no-op
@@ -254,7 +262,7 @@ export function apply(ctx) {
 
 - 覆盖层在 client 半部物化时同步建立，不等待网络；但 Host 的 loading 页 / 首帧底色来自 boot 注入的字面 CSS（`#fff` / `#151517`），插件晚于它生效 → 冷启动仍可能闪一次 DSH 原生色。`dsh.client.immediately` 在 0.2.1-rc.2 的 module system 里没有可观察的减闪作用，不要用它论证不闪；0.3.0 再评估首帧注入（Electron 窗口走 `dsh-app://` 协议，`webServer.tapIndex` 是否覆盖它需要实测）。
 - 页面内「当前」指示从 `ctx.theme.getTheme()` + 本地 `state` 推导（`active.colorScheme` 是 system 解析后的实际深浅色；`preference === 'system'` 时不要把它当成用户选择）；`theme/change` 只用于刷新指示（字号/字体变化也会触发，监听者必须幂等），不重建覆盖层。
-- `slots` / `locale` 缺失时只降级设置页/文案，主题仍生效（`theme` 是唯一硬依赖）。
+- `slots` / `locale` 缺失时只降级设置页/文案，主题仍生效（`theme` 是唯一硬依赖）。实现为「`ctx.get` 立即挂载 + `ctx.inject(['slots','locale'])` 延迟等待」的混合策略：正常 profile 走立即路径（真机 registrant = `dsh-everforest`）；服务晚到则挂载回调补上；两者都不可用才跳过设置页并 console.warn。
 - 所有注册走 `ctx.effect` / slot 的注入回调，插件停用时回到原生主题。
 
 ## 6. 设置页
@@ -269,7 +277,7 @@ export function apply(ctx) {
 - **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current`、`reset`、`hint.scheme`、`error.fallback`。
 - **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。卡片外观参照 DSH 设置卡片（圆角、边框、hover、selected 用 token，不抄写死颜色）。
 - **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分。
-- **降级**：`slots.inject('settings.section')` 不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
+- **降级**：`ctx.get('slots'/'locale')` 立即不可用时用 `ctx.inject` 等待再挂载；等待也不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
 - **已知限制**：`settings.section` 没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标（要换图标只能像 `dshmarket` 那样用 DOM 标记 + MutationObserver 改写，0.x 不做）。
 
 ## 7. 持久化
@@ -356,6 +364,8 @@ export function apply(ctx) {
 | 0.1.0 | 6 套调色板、覆盖层、设置页、持久化、本机可安装 | 上表前 7 项通过（安装 / 覆盖 / 设置页 / 持久化 / 深浅色 / 停用 / 首帧记录） |
 | 0.2.0 | 对比度与全页走查、shiki、i18n、图标、README 截图、npm 发布 | 走查无阻断问题；npm 包可安装并生效；中英文案与图标经检查 |
 | 0.3.0（可选） | Host 侧持久化（`configForms` 路线）、首帧注入消除闪动 | 跨浏览器一致；无明显闪动（Electron 窗口也要覆盖） |
+
+> **0.1.0 验收证据**：构建 / 单测 / 集成 / 对比度 / 安装 / 停用清理为自动化项，证据见 README「验证」；持久化跨重启、深浅色与 system 切换、首帧记录、全站视觉走查仍为人工目检项（交付时如实标注）。
 
 ## 11. 开放问题
 

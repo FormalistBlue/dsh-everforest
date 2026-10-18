@@ -1,6 +1,6 @@
 # 调色板数据源与取值
 
-本文件是插件配色数据的**权威参考**：实现时由 `scripts/palette.mjs` 从这里的表格生成 `src/palette.js`，并在单元测试里固定期望值（防止手抄漂移）。
+本文件是插件配色数据的**权威参考**：`scripts/palette.mjs` 内嵌同一份数据并生成 `src/palette.js`；`tests/palette.test.mjs` 会解析本文件的表格逐值核对（防止文档与实现漂移），并用固定期望值锁住生成物。
 
 ## 1. 来源
 
@@ -39,7 +39,7 @@
 - 官方 light 色阶中 `bg_dim` 与 `bg2` 同值（表中已合并）。
 - `bg5` 官方标注「当前未使用」；Enchanted 用它作边框色，本项目沿用（见 §5）。
 - **Enchanted 的 light 选中色修正**：`bg_visual` 使用 `#DED8DB`（而非官方值），因为官方值在浅色下几乎不可见。**表里 `bg_visual` 列保留官方值；`scripts/palette.mjs` 对 light 三档必须改用生效值 `#DED8DB`**（Enchanted 只在 light · hard 上用该修正，light · medium / soft 沿用是本项目外推）。
-- 本表是配色数据的**唯一来源**：表格中的「生效值」以注记为界，生成脚本按注记替换，不得手改 `src/palette.js`。
+- 本表是配色数据的**唯一来源**：表格中的「生效值」以注记为界，`scripts/palette.mjs` 按注记替换；`tests/palette.test.mjs` 解析本表并与生成物逐值比对，不得手改 `src/palette.js`。
 
 ## 4. 前景 / 强调 / 灰阶（按 scheme 共享，不随 hard/medium/soft 变化）
 

@@ -1,0 +1,513 @@
+#!/usr/bin/env node
+/**
+ * Verify the Everforest token overlay against WCAG 2.x contrast requirements and
+ * write the human-readable report (docs/reference/contrast.md).
+ *
+ * Usage: node scripts/check-contrast.mjs [--check]
+ *
+ * Hard gates (failure -> exit 1, docs/design.md §4 + the 2026-10-18 colour audit):
+ *   1. --dsw-alias-label-primary on bg-base / bg-layer-1 / bg-layer-2 >= 4.5:1,
+ *      for all six variants (light/dark x hard/medium/soft).
+ *   2. --shiki-foreground on --shiki-background >= 4.5:1 for all six variants.
+ *   3. every covered colour value is a legal CSS colour; label-primary != bg-base.
+ *   4. brand foreground (label-primary-foreground = bg0) on brand-primary
+ *      (header-aqua) >= 2.5:1 (upstream Everforest aqua cannot reach 4.5; accepted
+ *      design trade-off, docs/reference/palette.md §5).
+ *   5. the actual DSH pairings of --dsw-alias-label-primary-inverted (it is used as
+ *      a CONTRAST ink, not as ink on a dark surface): against label-primary
+ *      (sidebar build badge + brand wordmark) and button-contrast-fill
+ *      (attachment remove button) >= 4.5:1.
+ *
+ * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
+ * markers): upstream Everforest mutes these on purpose (Enchanted does the same).
+ * They are reported with their numeric values; only ratios below 1.5 are treated
+ * as a broken mapping (exit 1).
+ */
+import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { tokensFor, TOKEN_COVERAGE } from '../src/tokens.js'
+import { contrastRatio, hexToRgb, isHex, mix } from '../src/color.js'
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
+const REPO_ROOT = resolve(SCRIPT_DIR, '..')
+const REPORT_PATH = join(REPO_ROOT, 'docs', 'reference', 'contrast.md')
+
+const PRIMARY_THRESHOLD = 4.5
+const BRAND_FOREGROUND_THRESHOLD = 2.5
+const REPORT_FLOOR = 1.5
+const VARIANTS = ['light-hard', 'light-medium', 'light-soft', 'dark-hard', 'dark-medium', 'dark-soft']
+
+/** Core inventory tokens = covered minus the six auxiliary (gradient/material) ones. */
+const AUXILIARY = new Set([
+  '--dsw-menu-surface-fill',
+  '--dsw-linear-gradient-think',
+  '--dsw-linear-think-select',
+  '--dsw-gradient-onboarding-violet-stops',
+  '--dsw-gradient-onboarding-blue-stops',
+  '--dsw-gradient-onboarding-cyan-stops'
+])
+/** Auxiliary tokens whose value is a gradient list rather than a single colour. */
+const GRADIENT_AUXILIARY = new Set([
+  '--dsw-linear-gradient-think',
+  '--dsw-linear-think-select',
+  '--dsw-gradient-onboarding-violet-stops',
+  '--dsw-gradient-onboarding-blue-stops',
+  '--dsw-gradient-onboarding-cyan-stops'
+])
+const CORE_TOKENS = TOKEN_COVERAGE.covered.filter((name) => !AUXILIARY.has(name))
+
+/** Surfaces that carry `--dsw-alias-label-primary` text in the DSH UI. */
+const TEXT_SURFACES = [
+  '--dsw-alias-bg-layer-1',
+  '--dsw-alias-bg-layer-2',
+  '--dsw-alias-bg-layer-3',
+  '--dsw-alias-bg-overlay',
+  '--dsw-alias-bg-document-preview',
+  '--dsw-alias-bg-module-platform',
+  '--dsw-alias-bg-multi-select',
+  '--dsw-alias-settings-card-fill',
+  '--dsw-alias-markdown-code-block',
+  '--dsw-alias-markdown-code-block-banner',
+  '--dsw-alias-markdown-code-segment-selected',
+  '--dsw-alias-markdown-code-segment-unselected',
+  '--dsw-alias-markdown-citation',
+  '--dsw-alias-markdown-placeholder',
+  '--dsw-alias-markdown-tag',
+  '--dsw-alias-button-elevated-fill',
+  '--dsw-alias-button-floating-fill',
+  '--dsw-alias-button-ghost-active-fill',
+  '--dsw-alias-interactive-bg-hover-solid',
+  '--dsw-alias-turn-trigger-bg',
+  '--dsw-alias-menu-group-header-fill',
+  '--dsw-menu-surface-fill',
+  '--dsw-specific-menu',
+  '--dsw-specific-bubble',
+  '--dsw-specific-bubble-highlight',
+  '--dsw-specific-input-major',
+  '--dsw-specific-login-input',
+  '--dsw-specific-selector',
+  '--dsw-specific-tip',
+  '--dsw-specific-sidebar-nav-item-active',
+  '--dsw-specific-sidebar-nav-item-hover',
+  '--dsw-alias-onboarding-card-fill',
+  '--dsw-alias-onboarding-secondary-fill'
+]
+
+/** Report-only measurements: [label, token, background token]. */
+const REPORT_PAIRS = [
+  ['label-secondary', '--dsw-alias-label-secondary', '--dsw-alias-bg-base'],
+  ['label-secondary / layer-1', '--dsw-alias-label-secondary', '--dsw-alias-bg-layer-1'],
+  ['label-secondary / layer-2', '--dsw-alias-label-secondary', '--dsw-alias-bg-layer-2'],
+  ['label-secondary / layer-3', '--dsw-alias-label-secondary', '--dsw-alias-bg-layer-3'],
+  ['label-tertiary', '--dsw-alias-label-tertiary', '--dsw-alias-bg-base'],
+  ['link', '--dsw-alias-link', '--dsw-alias-bg-base'],
+  ['state-success', '--dsw-alias-state-success-primary', '--dsw-alias-bg-base'],
+  ['state-warn', '--dsw-alias-state-warn-primary', '--dsw-alias-bg-base'],
+  ['state-error', '--dsw-alias-state-error-primary', '--dsw-alias-bg-base'],
+  ['state-business', '--dsw-alias-state-business-primary', '--dsw-alias-bg-base'],
+  ['state-warn-label', '--dsw-alias-state-warn-label', '--dsw-alias-bg-base'],
+  ['diff-added-marker', '--dsw-alias-file-diff-added-marker', '--dsw-alias-file-diff-added-bg'],
+  ['diff-deleted-marker', '--dsw-alias-file-diff-deleted-marker', '--dsw-alias-file-diff-deleted-bg'],
+  ['toast-label (inverted)', '--dsw-alias-toast-label', '--dsw-alias-toast-bg'],
+  ['primary-foreground (brand)', '--dsw-alias-label-primary-foreground', '--dsw-alias-brand-primary']
+]
+
+/**
+ * Real DSH pairings of `--dsw-alias-label-primary-inverted`, taken from the
+ * installed 0.2.1-rc.2 client CSS. This token is a contrast ink (it must invert
+ * against the scheme ink), so it is hard-gated against its real partners instead
+ * of being paired with the dark toast/tooltip surfaces.
+ * [label, foreground token, background token, threshold]
+ */
+const INVERTED_PAIRS = [
+  [
+    'attachment remove button: label-primary-inverted on button-contrast-fill',
+    '--dsw-alias-label-primary-inverted',
+    '--dsw-alias-button-contrast-fill',
+    4.5
+  ],
+  [
+    'sidebar build badge + brand wordmark: label-primary-inverted on label-primary ink',
+    '--dsw-alias-label-primary-inverted',
+    '--dsw-alias-label-primary',
+    4.5
+  ]
+]
+
+/**
+ * Native DSH light-theme reference values from the ui-theme sheets (used only to
+ * show that the upstream semantic colours are equally low-contrast on white).
+ * [label, foreground, background]
+ */
+const NATIVE_REFERENCES = [
+  ['label-secondary (native)', '#61666b', '#ffffff'],
+  ['label-tertiary (native)', '#81858c', '#ffffff'],
+  ['link / state-business (native)', '#4176e6', '#ffffff'],
+  ['state-success (native)', '#22c55e', '#ffffff'],
+  ['state-warn (native)', '#f59e0b', '#ffffff'],
+  ['state-error (native)', '#ec1313', '#ffffff'],
+  ['diff added marker (native)', '#01a241', '#e6f4e7'],
+  ['diff deleted marker (native)', '#ba2723', '#fce6e2']
+]
+
+/**
+ * Contrast of `foreground` on `background`, flattening translucent colours over
+ * `underlay` first (CSS alpha compositing; everything the DSH UI puts behind
+ * these tokens ultimately sits on bg-base).
+ */
+function contrastOn (foreground, background, underlay) {
+  const backgroundRgba = hexToRgb(background)
+  const flatBackground = backgroundRgba.a < 1 ? mix(underlay, background, backgroundRgba.a) : background
+  const foregroundRgba = hexToRgb(foreground)
+  const flatForeground = foregroundRgba.a < 1 ? mix(flatBackground, foreground, foregroundRgba.a) : foreground
+  return contrastRatio(flatForeground, flatBackground)
+}
+
+/** Build the six variant overlays + scheme getter. */
+function variantStates () {
+  return VARIANTS.map((variant) => {
+    const [scheme, strength] = variant.split('-')
+    const state = { light: 'hard', dark: 'soft', [scheme]: strength }
+    const overlay = tokensFor(state)
+    return {
+      variant,
+      scheme,
+      strength,
+      get: (name) => {
+        const pair = overlay[name]
+        if (!pair) throw new Error(`missing token ${name}`)
+        return pair[scheme]
+      }
+    }
+  })
+}
+
+const LEGAL_HEX = /^#[0-9a-f]{3,8}$/i
+const LEGAL_RGB = /^rgba?\(\s*\d/i
+const LEGAL_COLOR_MIX = /^color-mix\(in srgb, #[0-9a-f]{3,8} \d+(\.\d+)?%, transparent\)$/i
+
+function isLegalColor (value) {
+  return LEGAL_HEX.test(value) || LEGAL_RGB.test(value) || LEGAL_COLOR_MIX.test(value)
+}
+
+function isGradient (value) {
+  return /^linear-gradient\(/i.test(value) || /^#[0-9a-f]{3,8} \d+(\.\d+)?%(, #[0-9a-f]{3,8}( \d+(\.\d+)?%)?)+$/i.test(value)
+}
+
+const failures = []
+const reportIssues = []
+const states = variantStates()
+const failuresByKey = new Map()
+
+function recordFailure (key, message) {
+  if (!failuresByKey.has(key)) {
+    failuresByKey.set(key, message)
+    failures.push(message)
+  }
+}
+
+/* ---- Gate 3: value validity (all core tokens, both schemes) --------------- */
+for (const variant of states) {
+  for (const name of CORE_TOKENS) {
+    const value = variant.get(name)
+    if (!isLegalColor(value)) recordFailure(`color:${name}:${variant.scheme}`, `token ${name} (${variant.scheme}) is not a legal CSS colour: ${value}`)
+  }
+}
+// Auxiliary tokens must still produce legal colours / gradient-shaped values.
+for (const variant of states) {
+  for (const name of AUXILIARY) {
+    const value = variant.get(name)
+    const ok = GRADIENT_AUXILIARY.has(name)
+      ? (name.startsWith('--dsw-linear') ? /^linear-gradient\(/i.test(value) : isGradient(value))
+      : isLegalColor(value)
+    if (!ok) recordFailure(`aux:${name}:${variant.scheme}`, `auxiliary token ${name} (${variant.scheme}) has an unexpected value: ${value}`)
+  }
+}
+
+/* ---- Gate 1 / 2 / 3b / 4 per variant ------------------------------------- */
+const gateRows = []
+for (const variant of states) {
+  const primary = variant.get('--dsw-alias-label-primary')
+  const base = variant.get('--dsw-alias-bg-base')
+  const layer1 = variant.get('--dsw-alias-bg-layer-1')
+  const layer2 = variant.get('--dsw-alias-bg-layer-2')
+  const shikiFg = variant.get('--shiki-foreground')
+  const shikiBg = variant.get('--shiki-background')
+  const brandBg = variant.get('--dsw-alias-brand-primary')
+  const brandFg = variant.get('--dsw-alias-label-primary-foreground')
+  const baseRatio = contrastRatio(primary, base)
+  const layer1Ratio = contrastRatio(primary, layer1)
+  const layer2Ratio = contrastRatio(primary, layer2)
+  const shikiRatio = contrastRatio(shikiFg, shikiBg)
+  const brandRatio = contrastRatio(brandFg, brandBg)
+  const row = {
+    variant: variant.variant,
+    scheme: variant.scheme,
+    primary: baseRatio,
+    layer1: layer1Ratio,
+    layer2: layer2Ratio,
+    shiki: shikiRatio,
+    brand: brandRatio,
+    labelDiffers: primary !== base
+  }
+  gateRows.push(row)
+  if (baseRatio < PRIMARY_THRESHOLD) recordFailure(`g1:${variant.variant}:base`, `${variant.variant}: label-primary on bg-base = ${baseRatio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
+  if (layer1Ratio < PRIMARY_THRESHOLD) recordFailure(`g1:${variant.variant}:l1`, `${variant.variant}: label-primary on bg-layer-1 = ${layer1Ratio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
+  if (layer2Ratio < PRIMARY_THRESHOLD) recordFailure(`g1:${variant.variant}:l2`, `${variant.variant}: label-primary on bg-layer-2 = ${layer2Ratio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
+  if (shikiRatio < PRIMARY_THRESHOLD) recordFailure(`g2:${variant.variant}`, `${variant.variant}: shiki foreground on background = ${shikiRatio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
+  if (brandRatio < BRAND_FOREGROUND_THRESHOLD) recordFailure(`g4:${variant.variant}`, `${variant.variant}: brand foreground on brand-primary = ${brandRatio.toFixed(2)} < ${BRAND_FOREGROUND_THRESHOLD}`)
+  if (!row.labelDiffers) recordFailure(`g3:${variant.variant}`, `${variant.variant}: label-primary equals bg-base (${primary})`)
+}
+
+/* ---- Gate 5: real pairings of the inverted contrast ink ------------------- */
+const invertedRows = INVERTED_PAIRS.map(([label, foreground, background, threshold]) => {
+  const ratios = {}
+  for (const variant of states) {
+    ratios[variant.variant] = contrastOn(
+      variant.get(foreground),
+      variant.get(background),
+      variant.get('--dsw-alias-bg-base')
+    )
+  }
+  return { label, foreground, background, threshold, ratios }
+})
+for (const row of invertedRows) {
+  for (const [variant, ratio] of Object.entries(row.ratios)) {
+    if (ratio < row.threshold) {
+      recordFailure(`g5:${row.foreground}:${variant}`, `${variant}: ${row.label} = ${ratio.toFixed(2)} < ${row.threshold}`)
+    }
+  }
+}
+
+/* ---- Text-bearing surface table + consistency check ---------------------- */
+const surfaceRows = TEXT_SURFACES.map((name) => {
+  const ratios = {}
+  for (const variant of states) {
+    ratios[variant.variant] = contrastOn(
+      variant.get('--dsw-alias-label-primary'),
+      variant.get(name),
+      variant.get('--dsw-alias-bg-base')
+    )
+  }
+  return { name, ratios }
+})
+
+for (const row of surfaceRows) {
+  for (const [variant, ratio] of Object.entries(row.ratios)) {
+    if (ratio < PRIMARY_THRESHOLD) {
+      recordFailure(`surface:${row.name}:${variant}`, `${variant}: label-primary on ${row.name} = ${ratio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
+    }
+  }
+}
+
+/* ---- Report-only measurements -------------------------------------------- */
+const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
+  const ratios = {}
+  for (const variant of states) {
+    ratios[variant.variant] = contrastOn(
+      variant.get(token),
+      variant.get(background),
+      variant.get('--dsw-alias-bg-base')
+    )
+  }
+  return { label, token, background, ratios }
+})
+for (const row of reportRows) {
+  for (const [variant, ratio] of Object.entries(row.ratios)) {
+    if (ratio < REPORT_FLOOR) {
+      reportIssues.push(`${variant}: ${row.label} = ${ratio.toFixed(2)} < ${REPORT_FLOOR} (mapping suspect)`)
+    }
+  }
+}
+const nativeRows = NATIVE_REFERENCES.map(([label, fg, bg]) => ({
+  label,
+  fg,
+  bg,
+  ratio: contrastRatio(fg, bg)
+}))
+
+/* ---- Markdown report ------------------------------------------------------ */
+const format = (value) => value.toFixed(2)
+const pass = (ok) => (ok ? '✅' : '❌')
+
+function renderMarkdown () {
+  const lines = []
+  const push = (...rows) => lines.push(...rows)
+
+  push(
+    '# Everforest token contrast report',
+    '',
+    '> 由 `node scripts/check-contrast.mjs` 生成，请勿手改。',
+    '> WCAG 2.x 相对亮度公式；6 档 = light/dark × hard/medium/soft。',
+    '',
+    '## 1. 结论',
+    '',
+    `- 硬门槛：${failures.length === 0 ? '**全部通过** ✅' : `**${failures.length} 项不达标** ❌`}`,
+    `- 报告项（次要文本 / 语义色 / diff / 反色前景）：${reportIssues.length === 0 ? '全部 ≥ 1.5，无映射损坏 ✅' : `${reportIssues.length} 项 < 1.5 ❌`}`,
+    `- 覆盖 token 数：${TOKEN_COVERAGE.covered.length}（206 颜色 + ${AUXILIARY.size} 辅助 token）`,
+    '',
+    '硬门槛定义：',
+    '',
+    '1. `label-primary`（= `fg`）对 `bg-base` / `bg-layer-1` / `bg-layer-2` ≥ 4.5:1（6 档）；',
+    '2. `--shiki-foreground` 对 `--shiki-background` ≥ 4.5:1（6 档）；',
+    '3. 每个被覆盖的颜色值必须是合法 CSS 颜色，且 `label-primary` ≠ `bg-base`；',
+    '4. 品牌实底前景（`label-primary-foreground` = `bg0` on `header-aqua`）≥ 2.5:1（上游 aqua 能力上限，见 `palette.md` §5）；',
+    '5. `--dsw-alias-label-primary-inverted` 的真实配对（DSH 把它用作对比墨色）：对 `label-primary`（侧栏 build 徽标 + brand wordmark 的反色镂空）与 `button-contrast-fill`（附件删除按钮）≥ 4.5:1。',
+    '',
+    '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
+    '',
+    '## 2. 硬门槛明细（6 档）',
+    '',
+    '| 变体 | label-primary / bg-base | / bg-layer-1 | / bg-layer-2 | shiki fg / bg | 品牌前景 / 品牌底 | 结果 |',
+    '|---|---:|---:|---:|---:|---:|---|'
+  )
+  for (const row of gateRows) {
+    const ok =
+      row.primary >= PRIMARY_THRESHOLD &&
+      row.layer1 >= PRIMARY_THRESHOLD &&
+      row.layer2 >= PRIMARY_THRESHOLD &&
+      row.shiki >= PRIMARY_THRESHOLD &&
+      row.brand >= BRAND_FOREGROUND_THRESHOLD &&
+      row.labelDiffers
+    push(
+      `| ${row.variant} | ${format(row.primary)} | ${format(row.layer1)} | ${format(row.layer2)} | ${format(row.shiki)} | ${format(row.brand)} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '## 2b. 反色前景真实配对（硬门槛）',
+    '',
+    '`--dsw-alias-label-primary-inverted` 在 DSH 0.2.1-rc.2 中不是 toast/tooltip 深色底的文字色，而是与 `label-primary` / `button-contrast-fill` 配对的「对比墨色」（安装包 CSS：侧栏 build 徽标、附件删除按钮、brand wordmark 在当前 ink 上的反色镂空）。实现按真实配对硬门槛：',
+    '',
+    '| 真实配对 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft | 阈值 | 结果 |',
+    '|---|---:|---:|---:|---:|---:|---:|---:|---|'
+  )
+  for (const row of invertedRows) {
+    const cells = VARIANTS.map((variant) => {
+      const ratio = row.ratios[variant]
+      return `${format(ratio)} ${pass(ratio >= row.threshold)}`
+    })
+    const ok = VARIANTS.every((variant) => row.ratios[variant] >= row.threshold)
+    push(`| ${row.label} | ${cells.join(' | ')} | ${row.threshold} | ${pass(ok)} |`)
+  }
+  push(
+    '',
+    '## 3. 文本承载表面（label-primary 对比度）',
+    '',
+    '`docs/design.md` §4 要求这些表面上的主文本可读；`src/tokens.js` 的 `readableSurface` 会在不达标时向方案背景色 `bg0` 微调（light 提亮、dark 压暗，bg0 始终是该 scheme 下与 `fg` 对比最高的背景），实际值如下。',
+    '',
+    '| token | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft |',
+    '|---|---:|---:|---:|---:|---:|---:|'
+  )
+  for (const row of surfaceRows) {
+    const cells = VARIANTS.map((variant) => {
+      const ratio = row.ratios[variant]
+      return `${format(ratio)} ${pass(ratio >= PRIMARY_THRESHOLD)}`
+    })
+    push(`| \`${row.name}\` | ${cells.join(' | ')} |`)
+  }
+  push(
+    '',
+    '## 4. 语义色 / 次要文本报告（不 exit 1）',
+    '',
+    '| 用途 | token | 背景 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft |',
+    '|---|---|---|---:|---:|---:|---:|---:|---:|'
+  )
+  for (const row of reportRows) {
+    const cells = VARIANTS.map((variant) => format(row.ratios[variant]))
+    push(`| ${row.label} | \`${row.token}\` | \`${row.background}\` | ${cells.join(' | ')} |`)
+  }
+  push(
+    '',
+    `以上报告项 floor = ${REPORT_FLOOR}。状态色/次要文本低于 4.5 属**上游设计取舍**：` +
+      'DSH 原生语义色在 light 主题下同样偏低（见 §5），插件保持 Enchanted/上游语义色，不为了数字把它们改成 `fg`。',
+    '',
+    '## 5. native DSH 参考值（light 主题，on #fff 或对应底色）',
+    '',
+    '| 项 | 前景 | 背景 | 对比度 |',
+    '|---|---|---|---:|'
+  )
+  for (const row of nativeRows) {
+    push(`| ${row.label} | \`${row.fg}\` | \`${row.bg}\` | ${format(row.ratio)} |`)
+  }
+  const nativeRatio = (prefix) => nativeRows.find((row) => row.label.startsWith(prefix))?.ratio ?? 0
+  push(
+    '',
+    `对照可见：native DSH 的 \`state-warn\`（amber-500 on #fff = ${format(nativeRatio('state-warn'))}）与 \`state-success\`（green-500 on #fff = ${format(nativeRatio('state-success'))}）本身就是低对比；` +
+      'Everforest 的 `yellow` / `green` 与之同级，属于语义色层固有取舍，而不是映射错误。' +
+      `\`label-secondary\` 同理：native 用 \`neutral-bluish-700\`（on #fff = ${format(nativeRatio('label-secondary'))}），Everforest \`grey1\` 在 light 下只有 2.30–2.67 —— 这是 Enchanted/上游刻意采用的 muted 语义，不为了数字把它提亮成 \`fg\`。`,
+    '',
+    '## 6. 与 design.md 的偏差',
+    '',
+    '### 6.1 light scheme 文本表面提亮（approved）',
+    '',
+    '- **原因**：上游 light·soft 档 `bg1 = #EAE4CA`、`bg2 = bgDim = #E5DFC5`，`fg = #5C6A72` 只得到 4.38 / 4.17:1，达不到硬门槛 4.5；而 light·hard / light·medium 的对应值原本就达标（4.66–5.40）。',
+    '- **做法**：light scheme 的文本表面（`bg-layer-1/2/3`、`bg-overlay`、`bg-document-preview`、`markdown-code-block` / `--shiki-background`、输入框 / 气泡 / 菜单 / settings 卡片 / diff 底色等）以 `mix(bg0, bgN, 0.25)` 提亮（diff 为 0.45），再由 `readableSurface` 按实际对比度向 `bg0` 微调直到 `label-primary` ≥ 4.5:1；实际值见 §3。',
+    '- **影响 token**：见 §3 全表（light 三档）；dark scheme 保持 design 原值（原生 bg1/bg2 已 ≥4.99，`bg-layer-3` 在 dark·soft 下 4.27 也由 `readableSurface` 微调到达标）。',
+    '- **依据**：DSH 原生 light 主题的 `bg-layer-1/2/3` 全部是 `#fff`（`static-neutral-bluish-00`），层次靠边框/阴影；Everforest Enchanted 也是平铺风格（`palette.md` §5「主背景 bg0 平铺」）。因此 light 表面趋近 bg0 并不破坏 DSH 结构语义，只是修正 `fg` 在较暗浅色底上的可读性。',
+    '',
+    '### 6.2 static 色阶插值的端点解释',
+    '',
+    '- design 写「最暗 = bg5、最亮 = bg0」。对 dark scheme 而言 `bg5` 比 `bg0` **更亮**，按字面会得到反向亮度（statics 无法作为浅色文本色）。',
+    '- 实现按「绝对亮度锚定」解释：DSH static 是双 scheme 相同的绝对色阶（00 = 白 … 1000 = 黑），映射到各 scheme 的最亮锚点 → `bg5` → 最暗锚点：',
+    '  - light：`bg0` → `bg5` → `fg`；dark：`fg` → `bg5` → `bgDim`；色相族为「浅 tint → fg 色相 → 深 tint」。',
+    '- 该解释让所有 `var(--dsw-static-*)` 引用在两个 scheme 下都保持方向正确（design 对 static 层的目标），且不改变 206 个 token 的显式覆盖。',
+    '',
+    '### 6.3 diff 底色',
+    '',
+    '- `file-diff-added/deleted-bg` 在 light 下由 `bg_green` / `bg_red` 向 `bg0` 混合 45%（并经过 `readableSurface` 保证代码文本 ≥4.5），dark 保持 `bg_green` / `bg_red` 原值；gutter 在底色基础上向亮端 `lift` 35%。',
+    '',
+    '### 6.4 toast / tooltip / 反色前景',
+    '',
+    '- DSH 原生 `toast-bg` / `tooltip-bg` 在**两个 scheme 下都是深色表面**（light: `toast-bg` = `neutral-bluish-800`、`tooltip-bg` = `neutral-bluish-850`；dark: 两者都是 `neutral-bluish-750`），`toast-label` 恒为 `neutral-bluish-00`。',
+    '- 因此实现为「反色表面 + 反色前景」：`toast-bg` / `tooltip-bg` = `fg`（light）/ `bgDim`（dark）派生深色，`toast-label` = `bg0`（light）/ `fg`（dark）。design §4 把 `tooltip-key-bg` 标为 `bg3`，这里改为在 tooltip 深色底上向亮端混合 25%（保持键帽可见），属实现细节偏差。',
+    '- `label-primary-inverted` 单独处理：它在 DSH 中与 `label-primary`（侧栏 build 徽标、brand wordmark 的 currentColor 反色镂空）、`button-contrast-fill`（附件删除按钮）配对，必须是 scheme ink 的反色（light = `bg0`、dark = `bgDim`），不能沿用 toast/tooltip 的浅色文字（否则 dark 主题下与背景同色不可见）。真实配对对比度见 §2b。',
+    '',
+    '### 6.5 菜单/浮层材质',
+    '',
+    '- `menu-surface-fill` / `menu-group-header-fill` / `button-tool-bar-*` 保持 `bg2` + 原 45%–94% 不透明度语义（design §4 第 2 层）；alpha 值不变。',
+    '',
+    '### 6.6 未覆盖项',
+    '',
+    '字体 / 圆角 / 阴影 / 焦点环 / 菜单模糊 / `--dsh-*` 终端几何等保持 DSH 原生值，清单见 `src/tokens.js` 顶部与 `TOKEN_COVERAGE.uncovered`。焦点环颜色通过 `--dsw-alias-state-business-primary` 自动跟随 Everforest blue。',
+    '',
+    '## 7. 复现',
+    '',
+    '```bash',
+    'node scripts/check-contrast.mjs',
+    'node --test tests/color.test.mjs tests/tokens.test.mjs',
+    '```',
+    ''
+  )
+  return lines.join('\n')
+}
+
+function main () {
+  const markdown = renderMarkdown()
+  const checkOnly = process.argv.includes('--check')
+  if (checkOnly) {
+    let current = ''
+    try {
+      current = readFileSync(REPORT_PATH, 'utf8')
+    } catch {
+      current = ''
+    }
+    if (current !== markdown) {
+      console.error(`contrast report out of date: ${REPORT_PATH}`)
+      process.exit(1)
+    }
+    console.log(`contrast report up to date: ${REPORT_PATH}`)
+  } else {
+    writeFileSync(REPORT_PATH, markdown)
+    console.log(`wrote ${REPORT_PATH}`)
+  }
+  console.log(`hard gates: ${failures.length === 0 ? 'pass' : `${failures.length} failed`}`)
+  for (const failure of failures) console.error(` - ${failure}`)
+  console.log(`report items: ${reportIssues.length === 0 ? 'all >= ' + REPORT_FLOOR : `${reportIssues.length} below ${REPORT_FLOOR}`}`)
+  for (const issue of reportIssues) console.error(` - REPORT ${issue}`)
+  if (failures.length > 0 || reportIssues.length > 0) process.exit(1)
+}
+
+main()

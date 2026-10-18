@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Everforest">
+  <title>Everforest</title>
+  <desc>Everforest mountains and pines under a warm moon, above a five-band palette strip.</desc>
+  <defs>
+    <clipPath id="everforest-frame">
+      <rect width="64" height="64" rx="14" ry="14"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#everforest-frame)">
+    <!-- dark · soft background -->
+    <rect width="64" height="64" fill="#333C43"/>
+    <!-- moon / sun -->
+    <circle cx="45" cy="17" r="7" fill="#DBBC7F"/>
+    <!-- distant ridge -->
+    <path d="M0 41 L9 30 L17 37 L27 27 L37 37 L46 30 L54 37 L64 31 L64 52 L0 52 Z" fill="#4D5960"/>
+    <!-- forest ridge -->
+    <path d="M0 47 L8 39 L16 45 L26 36 L35 44 L43 37 L52 45 L58 41 L64 45 L64 52 L0 52 Z" fill="#A7C080"/>
+    <!-- pines -->
+    <path d="M18 31 L11 48 L25 48 Z" fill="#293136"/>
+    <path d="M18 26 L13 37 L23 37 Z" fill="#293136"/>
+    <rect x="17" y="48" width="2" height="4" fill="#293136"/>
+    <path d="M44 36 L38 50 L50 50 Z" fill="#293136"/>
+    <path d="M44 32 L40 41 L48 41 Z" fill="#293136"/>
+    <rect x="43" y="50" width="2" height="2" fill="#293136"/>
+    <!-- palette strip: bg0, bg2, fg, green, header-aqua -->
+    <rect x="0" y="52" width="12.8" height="12" fill="#333C43"/>
+    <rect x="12.8" y="52" width="12.8" height="12" fill="#434F55"/>
+    <rect x="25.6" y="52" width="12.8" height="12" fill="#D3C6AA"/>
+    <rect x="38.4" y="52" width="12.8" height="12" fill="#A7C080"/>
+    <rect x="51.2" y="52" width="12.8" height="12" fill="#569D79"/>
+  </g>
+</svg>

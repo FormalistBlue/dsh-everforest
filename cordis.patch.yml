@@ -1,0 +1,6 @@
+# dsh bundle patch: inserts the Everforest theme plugin into a profile's layer stack.
+# The Host half is intentionally empty; the Browser half (client.js) owns the
+# token override layer and the Settings page.
+- insert:
+    - id: everforest
+      name: 'dsh-everforest'
