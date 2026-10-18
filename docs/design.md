@@ -9,13 +9,13 @@
 1. 6 套 Everforest 调色板：`dark-hard` / `dark-medium` / `dark-soft` / `light-hard` / `light-medium` / `light-soft`；**默认配对对齐 Everforest Enchanted**（深色 soft、浅色 hard）。
 2. 全站改色：背景、文字、边框、品牌、状态、侧栏、菜单/浮层、diff、代码高亮。
 3. 设置页可选强度，切换即时生效、重载后保持。
-4. 可用 npm 安装；DSH 版本不匹配时给出可读的失败而不是白屏。
+4. 可用 npm 安装。DSH 版本不匹配时给出可读结果：安装前被插件管理器拒绝（`engines.dsh`，可读错误）；已安装后升级 DSH 导致不兼容时，该 bundle 在装载 profile 时被跳过并在启动诊断里打印警告（不会白屏）。
 
 **非目标（0.x）**
 
 - 不替换 DSH 的 Appearance 开关（light / dark / system 仍由 DSH 决定）。
-- 不接管终端 ANSI 16 色、brand mark、macOS 专用渐变。
-- 不写 DSH 设置文档（第三方主题 id 不参与持久化），偏好先用 localStorage。
+- 不接管终端 ANSI 16 色、brand mark、macOS 专用渐变、首帧 loading 页。
+- 不写 DSH 设置文档里的**强度偏好**（第三方主题 id 不参与持久化）；强度先用 localStorage，0.3.0 再评估 Host 侧。**Appearance 偏好例外**：点色卡会通过 `ctx.theme.setTheme` 写入（见 §2，已决策）。
 - 不做 Enchanted 的逐级标题彩色（h1–h6 各一色）：DSH 没有逐级标题颜色 token，实现它需要改写组件选择器，违背「只走 token」的原则。
 
 ## 2. 总体架构
@@ -24,15 +24,15 @@
 ┌────────────────────────── Browser（Client 半部 client.js）──────────────────────────┐
 │                                                                                     │
 │  apply(ctx)                                                                         │
-│   ├─ inject: ['theme', 'slots', 'locale']                                           │
+│   ├─ export const inject = ['theme']（slots / locale 用 ctx.get 可选读取）            │
 │   ├─ readState() ── localStorage('dsh-everforest/v1') ──► { light, dark }            │
-│   ├─ ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state))  ──► layer (disposer)    │
-│   ├─ ctx.slots.inject('settings.section', () => register EverforestSection)          │
-│   └─ ctx.locale.register('settings.everforest', { en, 'zh-CN' })                     │
+│   ├─ ctx.effect(() => ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state)))        │
+│   ├─ ctx.effect(() => ctx.locale.register(NS, { zh, en }))（en/zh 是内置 locale id）  │
+│   └─ ctx.slots.inject('settings.section', () => ctx.slots.register({ id: 'everforest', … })) │
 │                                                                                     │
 │  EverforestSection                                                                  │
 │   ├─ 深色组 3 张卡 / 浅色组 3 张卡                                                   │
-│   └─ onClick: writeState → overrideTokens(同 source 替换层) → ctx.theme.setTheme()   │
+│   └─ onClick: writeState → 替换同 source 覆盖层 → ctx.theme.setTheme(scheme)（已决策）│
 └─────────────────────────────────────────────────────────────────────────────────────┘
                                         │
                      DSH ThemeRuntime + ui-layout ThemePresenter
@@ -45,9 +45,10 @@
 
 生命周期要点：
 
-- 覆盖层由插件自己的 effect 持有；插件停用 / 卸载 / 页面重载时 DSH 撤销该层，界面回到原生配色。
-- 选强度不重建插件，只替换同一 `source` 的覆盖层（`overrideTokens` 文档语义：同 source 整体替换并重新置顶，旧 disposer 变为 no-op）。
-- 深浅色切换不需要插件做任何事：覆盖层里每个 token 同时带 `light` 与 `dark`，presenter 按当前 scheme 取值。
+- **覆盖层必须由插件自己的 effect 持有**：`overrideTokens` 返回的 disposer 不会随插件 fiber 自动调用（层存在 root 级 `ThemeRuntime` 里），所以必须 `ctx.effect(() => ctx.theme.overrideTokens(...))` 或把返回的 disposer 挂进 effect；否则插件停用后会残留到页面重载。`ctx.locale.register` 同理需要 `ctx.effect`；`ctx.slots.register` / `ctx.slots.inject` 由 slot service 代挂调用者 fiber，可省略。
+- 选强度不重建插件，只替换同一 source 的覆盖层（`overrideTokens` 语义：同 source 整体替换并重新置顶，旧 disposer 变为 no-op）；替换后发 `theme/change`，presenter 同步重新应用。
+- 深浅色切换不需要插件做任何事：覆盖层里每个 token 同时带 `light` 与 `dark`，presenter 按当前 `active.colorScheme` 取值。
+- 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色——设置页文案必须说明（已决策，2026-10-18）。
 
 ## 3. 数据模型
 
@@ -66,7 +67,7 @@
 
 - **变体只切换背景色阶**：`dark-hard / dark-medium / dark-soft / light-hard / light-medium / light-soft`，共 6 套；前景、强调、`header-*` 色在同一 scheme 内保持不变。这样选强度只改「底」，语义色（链接、状态、品牌）始终是同一套 Everforest 色。
 - **默认配对对齐 Everforest Enchanted**：深色 = `soft`、浅色 = `hard`。Enchanted 的背景值严格等于官方这两套，所以默认观感与其一致；另外四套作为可选的强度档。
-- **`header-*` 自定义色**也来自 Enchanted（比 `fg-*` 更沉稳，用于链接 / 交互强调 / 品牌）；light 的文档选中色采用 Enchanted 的 `#DED8DB` 修正。
+- **`header-*` 自定义色**也来自 Enchanted（比 `fg-*` 更沉稳，用于链接 / 交互强调 / 品牌）；light 的文档选中色采用 Enchanted 的 `#DED8DB` 修正——该修正上游只在 light · hard 上出现，本插件外推到 light · medium / soft（见 `reference/palette.md` §3 注）。
 - 数据由 `scripts/palette.mjs` 生成 `src/palette.js`，单元测试固定期望值，避免手抄漂移。
 
 ### 3.2 用户状态
@@ -96,6 +97,16 @@ tokensFor(state) → {
 ```
 
 ## 4. token 映射策略（三层）
+
+> **2026-10-18 实现前审计修正**（证据：DSH 0.2.1-rc.2 的 `@deepseek-ai/dsh-client-ui-theme` 8 张样式表；与本机 asar 交叉）：
+>
+> - 统计口径：403 个 `--dsw-*` 是 **ui-theme 单包 8 张 sheet 的唯一名合计**（不是四个包）；颜色类 77 static + 107 alias + 11 specific = 195 ✔；107 alias = 101 design-platform + 2 settings-card + 4 onboarding；dark 侧 alias 重定义为 **101**（旧文档写 105 有误）；「11 个 `--shiki-token-*`」实为 **9 个 token 变量 + `--shiki-foreground` + `--shiki-background`**。
+> - light 侧 112 条 alias/specific 声明（101 alias + 11 specific）：74 条直接 `var(--dsw-static-*)` + 5 条 color-mix（内含 static）可跟随；**28 条字面量 + 5 条 alias 间引用**需要显式处理。
+> - **static 色阶不能「按明度顺序一一映射」**：DSH 的 blue 12 步、neutral-bluish 19 步，Everforest 同色相只有 3–5 档。实现时先写映射公式（分段线性插值 + 明度端点锚定，必要时 `color-mix`），再用对比度检查验证，不能逐条手抄。
+> - **必须显式覆盖的新增项**（旧文档未提）：`border-inverted*`、`label-primary-foreground` / `brand-text`（品牌实底上的前景）、`button-primary-hover` / `-dimmed`、`markdown-inline-code`（默认引用中性 static，只改 static 会变中性）、4 个带 alpha 的 static（`green-500-a08/a12`、`red-400-a12`、`red-600-a08`）、`menu-surface-fill` / `menu-group-header-fill` / `button-tool-bar-*`、遮罩族、`linear-gradient-think*`（Windows 可见）、onboarding 7 个 token、`tooltip-key-bg`。
+> - **文档选中色保留 40% 透明语义**：`--dsw-alias-bg-document-selection` 给 `color-mix(in srgb, bg_visual 40%, transparent)`，不要直接给实色（否则文档预览选区会盖住底图）。
+> - **shiki 必须显式**：`shiki.css` 在 `:root` 声明 light 值，且 `--shiki-background` / `--shiki-foreground` 在 `:root` 引用的是 body 级 alias（级联上属 guaranteed-invalid），不能靠 alias 继承。
+> - **明确不覆盖**：字体 / 圆角 / 阴影 / `--dsw-focus-ring-color` / `--dsw-focus-ring-width` / `--dsw-menu-backdrop-filter` / 终端 ANSI 16 色 / brand mark 与文件图标 artwork / macOS darwin 渐变 / boot 首帧色。未覆盖的 alias 保持 DSH 原值，并在 `src/tokens.js` 顶部登记清单。
 
 ### 第 1 层：派生映射（覆盖 195 个颜色 token）
 
@@ -147,22 +158,36 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `state-success / warn / error / business / idle` | `green` / `yellow` / `red` / `blue` / `grey2` | Enchanted 语义 + 状态可读性 |
 | `bg-document-selection` | `bg_visual`（light 用 `#DED8DB`） | Enchanted 选区修正 |
 | `file-diff-*` / `code-diff-*` | `bg_green` / `bg_red` 底 + `green` / `red` 标记 | Everforest diff 语义 |
-| 焦点环（`state-business-primary`） | `blue` | 派生变量跟随，无需单独覆盖 |
+| `bg-mask-1/2/3`、`bg-mask-photo`、`bg-mask-drop`、`bg-skeleton` | 保持黑白高透明，仅按变体微调 | 遮罩语义 |
+| `menu-surface-fill`、`alias-menu-group-header-fill`、`button-tool-bar-*` | `bg2` + 原不透明度 alpha | 浮层 / 工具栏材质 |
+| `border-inverted` / `border-inverted2` | `bg5` alpha（浅色低透明度、深色约白 6%） | 反向边框 |
+| `label-primary-foreground` / `brand-text` | `bg0`（品牌 / 主按钮实色底上的前景） | 避免青绿底配白字对比不足 |
+| `button-primary-hover` / `button-primary-dimmed` | `header-blue`（hover）/ `header-aqua` 降低饱和（dimmed） | 主按钮状态，默认引用中性 static |
+| `interactive-bg-active` / `-hover` / `-hover-accent` / `-hover-danger` | `bg3` / `bg4` + `header-*` 半透明 | 交互反馈 |
+| `linear-gradient-think`、`linear-think-select` | `bg0` → `bg1` 渐隐 | 思考过程渐隐（Windows 可见） |
+| onboarding（accent + 3 渐变 stops + card/secondary/checkbox 边框） | `header-aqua` / `bg_*` 派生 | 首登页，7 个 token |
+| `brand-primary-new-color` | `header-aqua` | 品牌强调（light 侧是字面量） |
+| `tooltip-key-bg` | `bg3` | 键帽 |
+| `focus-ring`（不覆盖） | 走 `state-business-primary` 派生 | 焦点环跟随状态色，不单独覆盖 |
 
-- **static 色阶**（77）：把 DSH 的 `neutral-bluish-00…1000`、`neutral-*`、`deepseek-*`、`blue-*`、`green/red/amber-*` 各自重排到 Everforest 对应色阶（按明度顺序一一映射），使所有 `var(--dsw-static-*)` 引用自动跟随。
-- **alias / specific**（118）：79 条 var 引用无需单独处理；其余按语义映射。
-- 保底规则：任何没有显式映射的 `--dsw-alias-*` 不覆盖（保持 DSH 值），避免误伤；但会在 `src/tokens.js` 顶部列出「未覆盖清单」，便于逐版本核对。
+- **static 色阶**（77）：把 DSH 的 `neutral-bluish-00…1000`、`neutral-*`、`deepseek-*`、`blue-*`、`green/red/amber-*` 各自映射到 Everforest 对应色相当量。**不能按明度顺序一一对应**（两边步数不同）：以「最暗 = bg5、最亮 = bg0」为端点做分段线性插值，中间按目标色相的明度分布取档；4 个带 alpha 的 static（`green-500-a08/a12`、`red-400-a12`、`red-600-a08`）单独给 rgba。使所有 `var(--dsw-static-*)` 引用自动跟随。
+- **alias / specific**（118）：74 条直接 static var + 5 条含 static 的 color-mix 自动跟随；**28 条字面量 + 5 条 alias 间引用**必须显式给值（见第 2 层）。
+- 保底规则：任何没有显式映射、且不引用被覆盖 static 的 `--dsw-alias-*` 不覆盖（保持 DSH 值），避免误伤；在 `src/tokens.js` 顶部列出「未覆盖清单」，便于逐版本核对。
 
 ### 第 2 层：33 个字面量 alias（必须显式给值）
 
 | 分类 | 例子 | 处理 |
 |---|---|---|
 | 边框透明度 | `border-l1/l2/l3/l4`、`border-l2-darkmode-thin`、`interactive-bg-hover*` | 用 `bg5` 的 alpha 重算（`color-mix` 或 8 位 hex），保持「边框 = bg5、hover 边框 = bg3」的 Enchanted 语义 |
+| 反向边框 | `border-inverted`、`border-inverted2`（旧文档漏） | `bg5` alpha：浅色低透明度、深色约白 6% |
 | 遮罩 | `bg-mask-1/2/3`、`bg-mask-photo`、`bg-mask-drop`、`bg-skeleton` | 保持黑色/白色高透明，仅按变体微调 |
 | 菜单 / 浮层材质 | `menu-surface-fill`、`alias-menu-group-header-fill`、`button-tool-bar-*` | `bg2` + 45%–94% alpha，保持原不透明度语义 |
 | diff | `file-diff-added/deleted-{bg,gutter,marker}`、`code-diff-*` | `bg_green` / `bg_red` 底，`green` / `red` 作 gutter 与标记 |
-| 选区 | `bg-document-selection`（原生是 blue-500 40%） | 直接给 `bg_visual`；light 用 `#DED8DB` |
-| 其它 | `label-deep-diving*`、`label-shimmer`、`brand-primary-new-color`、`tooltip-key-bg` | 按语义取 accent / 半透明叠加 |
+| 选区 | `bg-document-selection`（原生是 blue-500 40%） | `color-mix(in srgb, bg_visual 40%, transparent)`；light 用 `#DED8DB` 的 40% |
+| 品牌 / 主按钮 | `brand-primary-new-color`、`label-primary-foreground`、`brand-text`、`button-primary-hover` / `-dimmed` | `header-aqua` + `bg0` 前景；hover 用 `header-blue` |
+| 思考渐隐 | `linear-gradient-think`、`linear-think-select` | `bg0` → `bg1` 渐变（Windows 可见） |
+| 首登页 | `onboarding-accent`、`gradient-onboarding-{violet,blue,cyan}-stops`、`onboarding-card-fill` / `secondary-fill` / `checkbox-border` | `header-*` / `bg1` / `bg2` 派生（7 个 token） |
+| 其它 | `label-deep-diving*`、`label-shimmer`、`tooltip-key-bg` | 按语义取 accent / 半透明叠加 |
 
 ### 第 3 层：代码高亮（11 个）
 
@@ -181,77 +206,99 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `constant` | `purple` | `--code-value` |
 | `link` | `header-blue` | 链接色 |
 
-两套 scheme 各一份值；`--dsw-alias-markdown-inline-code` 用 `blue`（Enchanted `--code-inline`）。
+两套 scheme 各一份值。**11 个全部显式覆盖**（9 个 `--shiki-token-*` + `--shiki-background` + `--shiki-foreground`）：`shiki.css` 在 `:root` 声明 light 值，且 foreground/background 在 `:root` 引用 body 级 alias（级联上 guaranteed-invalid），不能依赖 alias 继承。`--dsw-alias-markdown-inline-code` 需显式用 `blue`（Enchanted `--code-inline`；默认引用中性 static，不显式会变中性）。
 
 ### 焦点环与派生变量
 
-`--dsw-focus-ring-color` 走 `--dsw-alias-state-business-primary`（DSH 默认蓝），所以映射 `state-business-*` 即自动换色；不单独覆盖派生变量。
+`--dsw-focus-ring-color` 走 `--dsw-alias-state-business-primary`（DSH 默认蓝），所以映射 `state-business-*` 即自动换色；**不要覆盖 `--dsw-focus-ring-color` 本身**（pointer 模态靠它置 transparent 来消隐焦点环），也不要覆盖 `--dsw-focus-ring-width`。
 
 ## 5. 应用流程（伪代码）
 
 ```js
+export const inject = ['theme']   // 模块导出的 cordis 注入；slots / locale 用 ctx.get 可选读取
+
 const PACKAGE_ID = 'dsh-everforest'
-let layer = null
+const NS = 'settings.everforest'
 
 export function apply(ctx) {
   let state = readState()
-  layer = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state))
-  ctx.effect(() => () => { layer = null }, 'everforest: token layer handle')
+  let layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state))
 
-  ctx.locale.register(NS, { en: enDict, 'zh-CN': zhDict })
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
+  // overrideTokens 的 disposer 不会自动挂 fiber，必须自己注册清理
+  ctx.effect(() => () => { layerDispose?.(); layerDispose = null }, 'everforest: token layer cleanup')
+
+  const locale = ctx.get('locale')
+  const t = locale ? locale.bind(NS) : (key) => enDict[key] ?? key
+  if (locale) ctx.effect(() => locale.register(NS, { zh: zhDict, en: enDict }), 'everforest: dictionaries')
+
+  const slots = ctx.get('slots')
+  if (slots) slots.inject('settings.section', () => slots.register({
     name: 'settings.section', id: 'everforest', order: 25,
-    label: () => ctx.locale.bind(NS).('nav.title'),
-  }, createSection({ getState: () => state, select })))
+    label: () => t('nav.title'), locale: NS, inject: () => ({ t }),
+  }, EverforestSection))
+
+  function applyLayer() {
+    // 同 source 调用 = 整体替换并重新置顶；旧 disposer 自动变 no-op
+    layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state))
+  }
 
   function select(scheme, strength) {
     state = { ...state, [scheme]: strength }
     writeState(state)
-    layer = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state)) // 同 source 替换
+    applyLayer()
+    // 已决策：点另一深浅色卡立即预览；会持久写 DSH 全局 Appearance 偏好（system → 固定）
     if (ctx.theme.getTheme().active.colorScheme !== scheme) ctx.theme.setTheme(scheme)
   }
 }
 ```
 
-- 覆盖层同步建立，首屏不等待网络。
-- 页面内「当前」指示从 `ctx.theme.getTheme()` + 本地 `state` 推导；`theme/change` 事件只用于刷新指示，不重建覆盖层。
+- 覆盖层在 client 半部物化时同步建立，不等待网络；但 Host 的 loading 页 / 首帧底色来自 boot 注入的字面 CSS（`#fff` / `#151517`），插件晚于它生效 → 冷启动仍可能闪一次 DSH 原生色。`dsh.client.immediately` 在 0.2.1-rc.2 的 module system 里没有可观察的减闪作用，不要用它论证不闪；0.3.0 再评估首帧注入（Electron 窗口走 `dsh-app://` 协议，`webServer.tapIndex` 是否覆盖它需要实测）。
+- 页面内「当前」指示从 `ctx.theme.getTheme()` + 本地 `state` 推导（`active.colorScheme` 是 system 解析后的实际深浅色；`preference === 'system'` 时不要把它当成用户选择）；`theme/change` 只用于刷新指示（字号/字体变化也会触发，监听者必须幂等），不重建覆盖层。
+- `slots` / `locale` 缺失时只降级设置页/文案，主题仍生效（`theme` 是唯一硬依赖）。
 - 所有注册走 `ctx.effect` / slot 的注入回调，插件停用时回到原生主题。
 
 ## 6. 设置页
 
-- **插槽**：`settings.section`（list），注册 `{ id: 'everforest', order: 25, label: thunk }`；owner props 提供 `close`（本页不使用）。
+- **插槽**：`settings.section`（list），在 `ctx.slots.inject(...)` 回调内注册 `{ name: 'settings.section', id: 'everforest', order: 25, label: thunk, locale: NS, inject: () => ({ t }) }`；owner props 提供 `close`（本页不使用）。`label` thunk 每次投影重读，locale 切换不必重注册；`locale` / `inject` 面与 `dshmarket` 的注册方式一致。
 - **布局**：
-  - 标题「Everforest」+ 说明（深浅色由 DSH 的「外观」决定；此处分别选择深色与浅色强度）。
+  - 标题「Everforest」+ 说明（深浅色由 DSH 的「外观」决定；此处分别选择深色与浅色强度；点击另一深浅色组的色卡会切换 DSH 外观并写入全局偏好）。
   - `深色` 分组：3 张卡（Hard / Medium / Soft，默认 Soft），每张含 5 段色带（`bg0`、`bg1`、`bg2`、`fg`、`header-aqua`）。
   - `浅色` 分组：同上（默认 Hard）。
-  - 当前生效行：「深色 Soft · 浅色 Hard」；右侧「恢复默认」（恢复为 Enchanted 默认配对）。
-- **交互**：点击卡片 → 立即应用；若该卡属于另一个 scheme，同时调用 `ctx.theme.setTheme(scheme)`，让用户马上看到效果（Appearance 开关之后仍可自由切换，插件按已保存的强度自动跟随）。
-- **i18n**：命名空间 `settings.everforest`，`en` / `zh-CN` 两份字典；键：`nav.title`、`intro`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current`、`reset`、`hint.scheme`、`error.fallback`。
-- **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`，通过内置 `styles.insert(css)` 注入（随 Client run 清理）。卡片外观参照 DSH 设置卡片（圆角、边框、hover、selected 用 token，不抄写死颜色）。
+  - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（恢复为 Enchanted 默认配对）。
+- **交互**：点击卡片 → 立即保存并应用；若该卡属于另一个 scheme，同时调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。`setTheme` 会写 DSH 全局 Appearance 偏好（所有已认证浏览器共享，`system` 会被改成固定深浅色），页面说明文案必须写清楚。
+- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current`、`reset`、`hint.scheme`、`error.fallback`。
+- **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。卡片外观参照 DSH 设置卡片（圆角、边框、hover、selected 用 token，不抄写死颜色）。
 - **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分。
 - **降级**：`slots.inject('settings.section')` 不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
+- **已知限制**：`settings.section` 没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标（要换图标只能像 `dshmarket` 那样用 DOM 标记 + MutationObserver 改写，0.x 不做）。
 
 ## 7. 持久化
 
 | 项 | 方案 |
 |---|---|
 | 存储 | `localStorage['dsh-everforest/v1']`（JSON） |
-| 读 | `apply` 时同步读；解析/校验失败回退 `{ light:'medium', dark:'medium' }` |
+| 读 | `apply` 时同步读；解析/校验失败回退 **DeepSeek 默认配对 `{ light:'hard', dark:'soft' }`**（与 §3.2 一致） |
 | 写 | 只在用户选择时写；写入失败（隐私模式/配额）静默降级为会话内生效 |
-| 范围 | 逐浏览器（与 DSH Host 偏好不同，设置页文案说明） |
-| 迁移 | 0.3.0：改存 Host 侧（方案见 assessment §5 附注），读取时兼容旧 key 并回写 |
+| 范围 | 逐 origin 生效。**Desktop（Electron 窗口）origin 固定为 `dsh-app://app`（标准、安全协议），跨重启保持**；用浏览器打开 Host URL 时端口每次启动随机，localStorage 不跨重启（不同 origin 之间也不共享）。设置页文案说明「按浏览器 / 窗口保存」。 |
+| 迁移 | 0.3.0：评估改存 Host 侧（`ctx.configForms.get(<本插件 Host entry id>)` 路线，见 assessment §11），读取时兼容旧 key 并回写；注意 Host 读取是异步的，会让主题晚于首帧生效（可能闪动），迁移要先实测再定 |
 
 ## 8. 清单与构建
 
 ```jsonc
-// package.json（草案）
+// package.json（草案；2026-10-18 审计后更新）
 {
   "name": "dsh-everforest",
   "version": "0.1.0",
+  "description": "Everforest color themes (6 palettes) for DeepSeek Harness Web/Desktop.",
   "type": "module",
   "license": "MIT",
+  "author": "FormalistBlue",
+  "repository": { "type": "git", "url": "git+https://github.com/FormalistBlue/dsh-everforest.git" },
+  "homepage": "https://github.com/FormalistBlue/dsh-everforest#readme",
+  "bugs": { "url": "https://github.com/FormalistBlue/dsh-everforest/issues" },
+  "keywords": ["deepseek", "harness", "dsh", "dsh-plugin", "theme", "everforest"],
   "icon": "icon.svg",
-  "engines": { "node": ">=20", "dsh": ">=0.2.1-rc.2 <0.3.0" },
+  "engines": { "node": ">=20", "dsh": ">=0.2.1-rc.2 <0.3.0-0" },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -261,8 +308,12 @@ export function apply(ctx) {
   },
   "files": ["index.js", "client.js", "cordis.patch.yml", "locale", "icon.svg", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
   "dsh": {
+    "manifestVersion": 1,
     "bundle": { "patch": "./cordis.patch.yml" },
-    "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-theme"] }
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-ui-theme", "@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-settings"]
+    }
   }
 }
 ```
@@ -274,23 +325,27 @@ export function apply(ctx) {
       name: dsh-everforest
 ```
 
-- **无运行时依赖、无 peerDependencies**（正文不使用任何 DSH 包模块，只用注入的服务与 `styles` 内建）。
+- **无运行时依赖、无 peerDependencies**；`dsh.client.inject` 只影响**浏览器 bundle 的到达顺序**，不是服务注入——真正的服务门是模块导出 `export const inject = ['theme']`。`<pkg>/client` 与裸包名归一化到同一模块。
+- `dsh.client.immediately`：本版本 module system 里没有可观察作用（所有插件行都会在 boot 时创建），保留与否不影响减闪；`platform: 'web'` 是必需字段，package 必须导出 `./client`。
 - `scripts/build.mjs`：零依赖 Node，把 `src/*.js` 合成 `client.js` 并包成
-  `window.__ModuleLoader__.load({ id: 'dsh-everforest', factory(require) { … } })`；产物提交入库，安装/运行不执行构建脚本（`prepack` 只在发布前构建）。
-- 调色板提取脚本（开发期可重复）：按 [`reference/palette.md`](reference/palette.md) 的表格生成 `src/palette.js`（6 套背景色阶 + 两套前景/强调/header 色）。
+  `window.__ModuleLoader__.load({ id: 'dsh-everforest', factory(require) { … } })`（id 必须等于包名）；产物提交入库，安装/运行不执行构建脚本（`prepack` 只在发布前构建）。
+- 调色板提取脚本（开发期可重复）：按 [`reference/palette.md`](reference/palette.md) 的表格生成 `src/palette.js`（6 套背景色阶 + 两套前景/强调/header 色；light `bg_visual` 使用注记的生效值 `#DED8DB`）。
 
 ## 9. 验证计划
 
 | 步骤 | 通过标准 |
 |---|---|
 | 安装 | `plugin_manager.install_bundle` 返回 `application: applied`；Plugin Manager 显示标题/描述/图标 |
-| 覆盖生效 | Client `Theme.listTokens` 出现本插件注册的覆盖 token（如 `--dsw-alias-bg-base` 在 override 层里被列出）；body 计算值与调色板一致 |
-| 设置页 | `Slots.listSubTree` 根 `settings.section` 出现 `id: everforest, order: 25`；页面可见、切换即时生效 |
-| 持久化 | 选择 Hard → 刷新页面 → 仍是 Hard；清除 localStorage → 回到默认（深色 Soft / 浅色 Hard） |
-| 深浅色 | 用 DSH Appearance 切换 light/dark/system，主题自动使用对应调色板 |
-| 停用 | 关闭插件 → 回到 DSH 原生配色，无残留样式 |
+| 覆盖生效 | Client `Theme.listTokens` 出现本插件注册的覆盖 token 名（内置 14 个推荐 token + 动态注册/覆盖 token 都会列出）；`document.body.style.getPropertyValue('--dsw-alias-bg-base')` 等于当前调色板；**不要用 body 的 `background-color` 计算值校验**（首帧 CSS 会覆盖它） |
+| 设置页 | `Slots.listSubTree` 根 `settings.section` 出现 `id: everforest, order: 25`；页面可见、切换即时生效、中英文案随 locale 切换 |
+| 持久化 | Desktop：选择 Hard → **退出应用并重新启动** → 仍是 Hard；清除 localStorage → 回到默认（深色 Soft / 浅色 Hard）。浏览器打开 Host URL 时不要求跨重启保持（端口随机），文案已说明 |
+| 深浅色 | 用 DSH Appearance 切换 light/dark/system，主题自动使用对应调色板；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此，页面文案已说明） |
+| 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理） |
+| 首帧 | 冷启动记录 loading → 首帧是否可见 DSH 原生色（已知缺口，0.3.0 再评估）；`immediately` 不能减闪 |
 | 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；记录已知缺口 |
-| 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效 |
+| 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效；包名 `dsh-everforest` 仍可用 |
+
+**改动生效方式（开发循环）**：`client.js` 内容改动 → Plugins 页停用/启用该插件（Host 重新快照 bundle，浏览器经 HMR 换模块）或重启 Host；`package.json` / `cordis.patch.yml` 改动 → HMR 即时重组合；单纯刷新页面不会换 bundle 字节。
 
 无浏览器控制能力时：自动项按上表验证，视觉项请用户目检并回传截图。
 
@@ -298,14 +353,17 @@ export function apply(ctx) {
 
 | 版本 | 交付 | 验收 |
 |---|---|---|
-| 0.1.0 | 6 套调色板、覆盖层、设置页、持久化、本机可安装 | 上表前 6 项通过 |
-| 0.2.0 | 对比度与全页走查、shiki、i18n、图标、README 截图、npm 发布 | 走查无阻断问题；npm 包可安装并生效 |
-| 0.3.0（可选） | Host 侧持久化、`tapIndex` 首屏注入 | 跨浏览器一致；无明显闪动 |
+| 0.1.0 | 6 套调色板、覆盖层、设置页、持久化、本机可安装 | 上表前 7 项通过（安装 / 覆盖 / 设置页 / 持久化 / 深浅色 / 停用 / 首帧记录） |
+| 0.2.0 | 对比度与全页走查、shiki、i18n、图标、README 截图、npm 发布 | 走查无阻断问题；npm 包可安装并生效；中英文案与图标经检查 |
+| 0.3.0（可选） | Host 侧持久化（`configForms` 路线）、首帧注入消除闪动 | 跨浏览器一致；无明显闪动（Electron 窗口也要覆盖） |
 
 ## 11. 开放问题
 
 1. DSH 的 token 集合是否随版本扩展（新增 alias 未覆盖时会保留原生色）——以 `src/tokens.js` 的未覆盖清单跟踪。
-2. 设置页文案是否需要跟随 DSH 的 locale 完整语言列表（当前 en + zh-CN，其余回退 en）。
+2. 设置页文案只做 `zh` / `en`（内置 locale id），其余语言回退英文；是否要随 DSH 语言包扩展再议。
 3. 是否需要在 Appearance 行旁增加「Everforest」快捷入口（`settings.general.item`），还是只保留独立页面。
-4. 非默认的 4 个变体是否沿用 Enchanted 的 `header-*` 常量值：若硬/软档的对比度检查不通过，需要按背景亮度做小幅修正，并回写 `docs/reference/palette.md`。
+4. 非默认的 4 个变体沿用 Enchanted 的 `header-*` 常量值：若硬/软档的对比度检查不通过，需要按背景亮度做小幅修正，并回写 `docs/reference/palette.md`。
 5. 侧栏是否要保留 Enchanted 的「平铺背景」（当前方案侧栏用 `bg0`；若视觉上侧栏与主区难以区分，再引入 `bg1`）。
+6. 冷启动首帧（loading 页 / 首帧底色是 Host 字面 CSS）是否接受；若要消除，需要评估首帧注入在 Electron `dsh-app://` 窗口是否可用（`webServer.tapIndex` 只覆盖 HTTP 渲染路径的可能性大）。
+7. 是否值得为设置导航项做自定义图标（`settings.section` 无 icon 字段；`dshmarket` 用 DOM 改写实现，0.x 先沿用默认齿轮）。
+8. `--dsw-token` 自检策略：启动时读取若干关键 token 的 computed 值判断是否缺失/改名；缺失时降级（保留原生值）并 console.warn，是否要暴露到设置页「诊断」区。

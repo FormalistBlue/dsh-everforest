@@ -19,7 +19,7 @@
   - `Light` = 官方 **light · hard**（`bg_dim #F2EFDF`、`bg0 #FFFBEF` …）
 - 在此之上，Enchanted 增加了：
   - `header-*` 自定义色（比 `fg-*` 强调色更沉稳，用于链接 / 标题 / 交互强调）；
-  - 一处 light 选中色修正：`bg_visual` 由官方 `#F0F2D4` 改为 `#DED8DB`（提高可见性）；
+  - 一处 light 选中色修正：`bg_visual` 由官方 `#F0F2D4` 改为 `#DED8DB`（提高可见性）。该修正发生在 Enchanted 的 **Light（= 官方 light · hard）** 上；本插件把它**外推到 light · medium / light · soft**（属于本项目外推，不是上游数据，见 §3 表注）；
   - UI 语义约定（见 §5）。
 - 因此本插件的**默认配对**是：深色 = `soft`，浅色 = `hard`；6 个变体只是把背景色阶换成另外四套官方值，前景 / 强调 / header 色在同一 scheme 内保持不变（官方语义也是这样：强调色不随对比度变化）。
 
@@ -38,7 +38,8 @@
 
 - 官方 light 色阶中 `bg_dim` 与 `bg2` 同值（表中已合并）。
 - `bg5` 官方标注「当前未使用」；Enchanted 用它作边框色，本项目沿用（见 §5）。
-- **Enchanted 的 light 选中色修正**：light 三档统一使用 `#DED8DB`（而非官方 `bg_visual`），因为官方值在浅色下几乎不可见。
+- **Enchanted 的 light 选中色修正**：`bg_visual` 使用 `#DED8DB`（而非官方值），因为官方值在浅色下几乎不可见。**表里 `bg_visual` 列保留官方值；`scripts/palette.mjs` 对 light 三档必须改用生效值 `#DED8DB`**（Enchanted 只在 light · hard 上用该修正，light · medium / soft 沿用是本项目外推）。
+- 本表是配色数据的**唯一来源**：表格中的「生效值」以注记为界，生成脚本按注记替换，不得手改 `src/palette.js`。
 
 ## 4. 前景 / 强调 / 灰阶（按 scheme 共享，不随 hard/medium/soft 变化）
 
@@ -58,6 +59,8 @@
 | statusline1 | `#A7C080` | `#93B259` |
 | statusline2 | `#D3C6AA` | `#708089` |
 | statusline3 | `#E67E80` | `#E66868` |
+
+> `statusline1-3` 仅作上游数据留档：本项目的 Foreground 模型（`docs/design.md` §3.1）不使用 statusline 色。
 
 ### Enchanted `header-*` 自定义色
 
