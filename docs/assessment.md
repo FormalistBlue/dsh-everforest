@@ -188,6 +188,7 @@
 - Host 半部 `index.js`：监听 `webserver/index-inject`，追加一条 `{ kind: 'script', placement: 'body', text }`；`createBootScript()` 从 `tokensFor()` 生成 6 个变体的值表，脚本读 ui-theme 已解析的 scheme + localStorage 强度，写 6 个 boot token 的 body 内联变量。
 - `package.json`：版本 0.2.0；`files` 增加 Host 半部运行时 import 的 `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js`。
 - 测试：`tests/host-boot.test.mjs`（row 形状、JSON/HTML 安全、6×6 与 Client token 同值、默认/损坏存储回退、固定深浅色 + 相反 OS、ui-theme 缺失回退、storage 抛错、幂等）；集成测试新增「Host 半部 import ↔ `files` 覆盖」核对。
+- 2026-10-19 追加视觉修正：浅色聊天气泡与画布融为一体（旧映射 1.02:1）→ sage tint / light·soft 近白抬起卡片，新增「气泡 vs bg-base ≥ 1.10:1」硬门槛与单测（见 [design.md](design.md) §12 / [`reference/contrast.md`](reference/contrast.md) §2d）。
 - 文档：本文件 §1/§3/§5/§6/§7/§8/§9/§11 更新；[design.md](design.md) §1/§2/§4/§5（新增「首帧注入」）/§7/§8/§9/§10/§11 更新 + §12 实现记录；README 中英与 `src/tokens.js` 顶部注释同步。
 
 **证据补正**

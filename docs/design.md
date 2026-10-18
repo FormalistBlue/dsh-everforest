@@ -146,7 +146,8 @@ export const TOKEN_MAP = {
   '--dsw-alias-bg-overlay':            r => r.bg2,
   // 侧栏 = bg0 向 bg1 混 80% + 对比度守卫：与 bg-base 拉开可辨边界（见上方修正）
   '--dsw-specific-sidebar-fill':       r => sidebarSurface(r),
-  '--dsw-specific-bubble':             r => r.bg1,
+  // 气泡 = 浅色 sage tint（light·soft 因 4.5:1 文本上限改用近白抬起卡片）；深色 bg1（见 §12）
+  '--dsw-specific-bubble':             r => bubbleSurface(r),
   '--dsw-alias-markdown-code-block':   r => r.bgDim,
   // 文字 / 边框
   '--dsw-alias-label-primary':         r => r.fg,
@@ -174,7 +175,8 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `bg-layer-1/2/3` | `bg1` / `bg2` / `bg3` | 输入框、行 hover、菜单、嵌套层 |
 | `bg-overlay` | `bg2` | 浮层 / popover |
 | `specific-sidebar-fill` | `bg0` → `bg1` 的 80% 混合（对比度守卫） | 侧栏列 / Windows 标题栏条与内容卡（`bg-base` + 16px 圆角）之间需要可辨边界；平铺 `bg0` 会让边界消失（见上方 2026-10-18 修正） |
-| `specific-bubble` / `bubble-highlight` | `bg1` / `bg2` | DSH 专有，按最近层级取 |
+| `specific-bubble` | 浅色：`bg0` → `header-aqua` 16% 的 sage 纸面（`readableToward` 向白守卫）；light·soft 因文本 4.5:1 上限改为近白冷调抬起卡片。深色：`bg1`（对比度守卫） | DSH 用户消息气泡；2026-10-19 修正：旧映射 `bg1` 与 `bg0` 仅 1.02–1.06，浅色下与画布融为一体（见 §12） |
+| `specific-bubble-highlight` | 浅色 / 深色均 `surface(p, 2)` | 气泡高亮态（当前 chat 未使用，保留最近层级语义） |
 | `markdown-code-block` | `bg_dim` | Enchanted 代码底 |
 | `markdown-inline-code` | `bg_blue`（芯片表面） | DSH 用作 inline code 的**背景**（文字继承 `label-primary`）；Enchanted `--code-inline` 是前景色，不可复用 |
 | `label-primary/secondary/tertiary` | `fg` / `grey1` / `grey2` | — |
@@ -399,6 +401,7 @@ export function apply(ctx) {
 | 持久化 | Desktop：选择 Hard → **退出应用并重新启动** → 仍是 Hard；清除 localStorage → 回到默认（深色 Soft / 浅色 Hard）。浏览器打开 Host URL 时不要求跨重启保持（端口随机），文案已说明 |
 | 深浅色 | 用 DSH 自带 Appearance 或设置页外观控制切到 light/dark/system，主题自动使用对应调色板；`system` 下改 OS 深浅色应实时跟随（聊天区、设置页「当前」行、Windows 标题栏都要变）；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复；点同侧色卡不得改偏好 |
 | 代码高亮 | 三处代码块（聊天气泡 fenced code / 工具输出 / 右侧文件预览）的 token 色与块底正确；diff 的 add/del 底色与 marker 来自 `--dsw-alias-file-diff-*` / `code-diff-*`（diff 没有语法高亮，**不要**按 shiki 验收） |
+| 聊天气泡 | 浅色（hard / medium）为 sage tint、light·soft 为近白抬起卡片，与画布边界 ≥ 1.10:1；深色保持 `bg1`；气泡内文字 4.5:1（2026-10-19 修正，见 §12 / `reference/contrast.md` §2d） |
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失 |
 | 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧）；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的灰 spinner / 边框仍原生（已知、不修） |
 | 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；记录已知缺口 |
@@ -460,4 +463,11 @@ export function apply(ctx) {
 - `package.json`：版本 0.2.0；`files` 增加 Host 半部运行时 import 的 `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js`（集成测试遍历 import 核对）。
 - README（中英）与 `assessment.md` 更新首帧/代码高亮口径；`src/tokens.js` 顶部注释同步。
 
-**残余与人工项**：Web 首帧截图、Desktop 冷启动录屏（≤1 帧）、三处代码块与 diff 目检、系统跟随全链路走查（OS 切换 / DSH Appearance / 插件按钮 / Windows 标题栏），见 §9。Desktop 的欢迎 / 登录窗口是 shell 自己的文档（`dsh-app://shell/...`），只跟随 light/dark，不走 `index-inject`，0.x 不覆盖（可接受边界）。
+### 2026-10-19 视觉修正（聊天气泡）
+
+- **问题**：用户消息气泡 `--dsw-specific-bubble` 旧映射 `surface(p, 1)`，light 下 `#FDFAEE` 对画布 `#FFFBEF` 仅 1.02:1；用户报告「浅色模式下聊天气泡和背景融为一体，区分不出来」。DSH native light 气泡是 `static-deepseek-50` 冷色 tint（≈1.08），不是中性色阶。
+- **做法**：light 改为 `mix(bg0, header-aqua, 16%)` 的 sage 纸面，经 **向白** 的 `readableToward` 守卫（不能向暖色 bg0 回退，否则 tint 消失）。light·hard / medium 边界 1.17 / 1.14、气泡文字 4.61 / 4.53；light·soft 的 `bg0` 已只有 4.66:1 文本余量，不能压暗，改用近白冷调「抬起卡片」（`#ffffff` + 4% `header-aqua`，边界 1.15、文字 5.37）；两个方向由代码按实际边界对比度自动择大。dark 保持 `bg1`（1.15–1.16）。
+- **验收**：新增硬门槛「气泡 vs `bg-base` ≥ 1.10:1（6 档）」+ 既有文本承载表面 4.5:1；单测固定在 `tests/tokens.test.mjs`，报告见 [`reference/contrast.md`](reference/contrast.md) §2d / §6.8。
+- **未动**：`--dsw-specific-bubble-highlight`（当前 chat 未使用，保持 `surface(p, 2)`）。
+
+**残余与人工项**：Web 首帧截图、Desktop 冷启动录屏（≤1 帧）、三处代码块与 diff 目检、系统跟随全链路走查（OS 切换 / DSH Appearance / 插件按钮 / Windows 标题栏）、浅色气泡在 light·soft 下的目检，见 §9。Desktop 的欢迎 / 登录窗口是 shell 自己的文档（`dsh-app://shell/...`），只跟随 light/dark，不走 `index-inject`，0.x 不覆盖（可接受边界）。

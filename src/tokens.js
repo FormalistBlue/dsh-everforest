@@ -124,22 +124,35 @@ function rampSurface (p, step) {
 
 /**
  * Deterministic contrast guard for surfaces that carry label-primary text:
- * nudge the surface toward the scheme background anchor until the primary label
- * reaches WCAG AA (4.5:1). `p.ramp.bg0` always maximises the scheme's primary
- * text contrast (it is the lightest colour in light, the darkest in dark), so a
- * single direction works for both schemes. Leaves the input untouched when it
- * already passes, so most tokens keep their exact design value.
+ * nudge the surface toward a lighter anchor until the primary label reaches
+ * WCAG AA (4.5:1). `readableSurface` moves toward `bg0` (the scheme's lightest
+ * colour); the chat bubble moves toward white instead, because moving toward
+ * the warm canvas would erase the tint that makes it recognizable (see
+ * `bubbleSurface`). Leaves the input untouched when it already passes, so most
+ * tokens keep their exact design value.
+ * @param {{ scheme: string, ramp: object, fg: object }} p
+ * @param {string} color
+ * @param {string} toward - colour mixed in until the text target is met.
+ * @returns {string}
+ */
+function readableToward (p, color, toward) {
+  if (contrastRatio(p.fg.fg, color) >= SURFACE_CONTRAST_TARGET) return color
+  for (let weight = 0.02; weight <= 1.0001; weight += 0.02) {
+    const candidate = mix(color, toward, weight)
+    if (contrastRatio(p.fg.fg, candidate) >= SURFACE_CONTRAST_TARGET) return candidate
+  }
+  return toward
+}
+
+/**
+ * Contrast guard toward the scheme background (`bg0`), the anchor with the
+ * highest primary-text contrast in both schemes.
  * @param {{ scheme: string, ramp: object, fg: object }} p
  * @param {string} color
  * @returns {string}
  */
 function readableSurface (p, color) {
-  if (contrastRatio(p.fg.fg, color) >= SURFACE_CONTRAST_TARGET) return color
-  for (let weight = 0.02; weight <= 1.0001; weight += 0.02) {
-    const candidate = mix(color, p.ramp.bg0, weight)
-    if (contrastRatio(p.fg.fg, candidate) >= SURFACE_CONTRAST_TARGET) return candidate
-  }
-  return p.ramp.bg0
+  return readableToward(p, color, p.ramp.bg0)
 }
 
 /** A text-bearing background surface at ramp depth `step` (1-3). */
@@ -172,6 +185,43 @@ const SIDEBAR_STEP_MIX = 0.8
  */
 function sidebarSurface (p) {
   return readableSurface(p, mix(p.ramp.bg0, p.ramp.bg1, SIDEBAR_STEP_MIX))
+}
+
+/** How far the tinted light chat bubble is mixed from bg0 toward header-aqua. */
+const BUBBLE_TINT_MIX = 0.16
+
+/** How strongly the raised (light·soft) bubble is tinted from white toward header-aqua. */
+const BUBBLE_WHITE_TINT = 0.04
+
+/**
+ * Chat user-message bubble (`--dsw-specific-bubble`).
+ *
+ * DSH paints user messages with this token and `label-primary` ink (chat
+ * `MessageItem.module.css`: `.bubble { background: var(--dsw-specific-bubble); color: var(--dsw-alias-label-primary) }`).
+ * Mapping it to `surface(p, 1)` produced #FDFAEE against the light canvas
+ * #FFFBEF — 1.02:1, i.e. effectively invisible (2026-10-19 visual report:
+ * "聊天气泡和背景融为一体了"). The native light bubble is not a neutral ramp
+ * step either: it is a pale blue tint (`static-deepseek-50` on white).
+ *
+ * The Everforest analogue is a sage tint of `header-aqua` on the canvas. The
+ * bubble carries primary text, so the 4.5:1 gate applies on top: in light·hard
+ * and light·medium the tint can darken to ~1.17 / 1.14:1 from bg0 while
+ * keeping the ink at 4.6:1. In light·soft `bg0` is already 4.66:1 from the ink,
+ * so a darker tint would fail the gate; there the bubble flips direction and
+ * becomes a slightly cool near-white raised card instead — same 4.5 gate, a
+ * larger luminance step (≈1.15:1) instead of a hue-only cue. The branch picks
+ * whichever direction separates further from the canvas, so palette changes
+ * cannot silently collapse it back onto the background.
+ *
+ * Dark keeps the existing `bg1` step (1.14–1.16:1 from bg0, ink ≥5.7:1).
+ * @param {{ scheme: string, strength: string, ramp: object, fg: object }} p
+ * @returns {string}
+ */
+function bubbleSurface (p) {
+  if (p.scheme === 'dark') return surface(p, 1)
+  const tinted = readableToward(p, mix(p.ramp.bg0, p.fg.headerAqua, BUBBLE_TINT_MIX), '#ffffff')
+  const raised = mix('#ffffff', p.fg.headerAqua, BUBBLE_WHITE_TINT)
+  return contrastRatio(p.ramp.bg0, tinted) >= contrastRatio(p.ramp.bg0, raised) ? tinted : raised
 }
 
 /** Code-block / markdown background (Everforest `bg_dim`; contrast guarded). */
@@ -526,7 +576,7 @@ const ALIAS_TOKENS = {
 
 /** The 11 `--dsw-specific-*` colour tokens. @type {Record<string, (p: object) => string>} */
 const SPECIFIC_TOKENS = {
-  '--dsw-specific-bubble': (p) => surface(p, 1),
+  '--dsw-specific-bubble': (p) => bubbleSurface(p),
   '--dsw-specific-bubble-highlight': (p) => surface(p, 2),
   '--dsw-specific-input-major': (p) => surface(p, 1),
   '--dsw-specific-login-input': (p) => surface(p, 1),

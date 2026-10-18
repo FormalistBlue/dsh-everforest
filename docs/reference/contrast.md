@@ -17,6 +17,7 @@
 4. 品牌实底前景（`label-primary-foreground` = `bg0` on `header-aqua`）≥ 2.5:1（上游 aqua 能力上限，见 `palette.md` §5）；
 5. `--dsw-alias-label-primary-inverted` 的真实配对（DSH 把它用作对比墨色）：对 `label-primary`（侧栏 build 徽标 + brand wordmark 的反色镂空）与 `button-contrast-fill`（附件删除按钮）≥ 4.5:1；
 6. 侧栏表面 `--dsw-specific-sidebar-fill` 与内容底 `--dsw-alias-bg-base` 的边界对比度 ≥ 1.02:1（6 档）：DSH 用前者画侧栏列 / Windows 标题栏 / 内容卡背后的 frame，用后者画内容卡（16px 左上圆角），同色时边界消失（见 §2c）；
+7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（6 档），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；
 
 报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。
 
@@ -55,6 +56,21 @@ DSH 的 Windows 外壳把标题栏条、侧栏列以及内容卡背后的 frame 
 
 对照：DSH native light 侧栏 `#f9fafb` / 内容 `#fff` ≈ 1.045，native dark `#1b1b1c` / `#151517` ≈ 1.060，所以 1.03–1.12 的边界与 native 观感同级（light·soft 受正文 4.5:1 上限约束，取守卫后的最大步长）。侧栏上的正文可读性见 §3 第一行（`--dsw-specific-sidebar-fill` 已纳入文本承载表面）。
 
+## 2d. 聊天气泡边界（硬门槛）
+
+DSH 用 `--dsw-specific-bubble` 画用户消息气泡（`MessageItem.module.css`：`.bubble { background: var(--dsw-specific-bubble) }`），文字继承 `label-primary`。旧映射取 `surface(p, 1)`，light 下得到 `#FDFAEE` 对画布 `#FFFBEF` 只有 1.02:1，与背景融为一体（2026-10-19 走查）。现在改为 sage tint（`bg0` → `header-aqua` 16%）并经**向白**守卫；light·soft 因 `bg0` 已只有 4.66:1 文本余量、无法再压暗，改用近白冷调「抬起卡片」方向，取两方向中与画布分离更大者（见 §6.8）。本门槛确保它不会退回画布：
+
+| 变体 | bubble | bg-base | 边界对比度 | 阈值 | 结果 |
+|---|---|---|---:|---:|---|
+| light-hard | `#e4ecdc` | `#FFFBEF` | 1.17 | 1.1 | ✅ |
+| light-medium | `#e4ead6` | `#FDF6E3` | 1.14 | 1.1 | ✅ |
+| light-soft | `#f8fbfa` | `#F3EAD3` | 1.15 | 1.1 | ✅ |
+| dark-hard | `#2E383C` | `#272E33` | 1.15 | 1.1 | ✅ |
+| dark-medium | `#343F44` | `#2D353B` | 1.15 | 1.1 | ✅ |
+| dark-soft | `#3A464C` | `#333C43` | 1.16 | 1.1 | ✅ |
+
+对照：native light 气泡 `static-deepseek-50 #edf3fe` on `#fff` ≈ 1.08；本实现 light 1.14–1.17（light·soft 用近白方向 1.15），dark 1.15–1.16，均 ≥ native 观感。气泡文本对比度见 §3 的 `--dsw-specific-bubble` 行。
+
 ## 3. 文本承载表面（label-primary 对比度）
 
 `docs/design.md` §4 要求这些表面上的主文本可读；`src/tokens.js` 的 `readableSurface` 会在不达标时向方案背景色 `bg0` 微调（light 提亮、dark 压暗，bg0 始终是该 scheme 下与 `fg` 对比最高的背景），实际值如下。
@@ -86,7 +102,7 @@ DSH 的 Windows 外壳把标题栏条、侧栏列以及内容卡背后的 frame 
 | `--dsw-alias-menu-group-header-fill` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.30 ✅ | 5.65 ✅ | 5.07 ✅ |
 | `--dsw-menu-surface-fill` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.30 ✅ | 5.65 ✅ | 5.07 ✅ |
 | `--dsw-specific-menu` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.30 ✅ | 5.65 ✅ | 5.07 ✅ |
-| `--dsw-specific-bubble` | 5.34 ✅ | 5.12 ✅ | 4.61 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
+| `--dsw-specific-bubble` | 4.61 ✅ | 4.53 ✅ | 5.37 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
 | `--dsw-specific-bubble-highlight` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.20 ✅ | 5.57 ✅ | 4.99 ✅ |
 | `--dsw-specific-input-major` | 5.34 ✅ | 5.12 ✅ | 4.61 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
 | `--dsw-specific-login-input` | 5.34 ✅ | 5.12 ✅ | 4.61 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
@@ -139,7 +155,7 @@ DSH 的 Windows 外壳把标题栏条、侧栏列以及内容卡背后的 frame 
 ### 6.1 light scheme 文本表面提亮（approved）
 
 - **原因**：上游 light·soft 档 `bg1 = #EAE4CA`、`bg2 = bgDim = #E5DFC5`，`fg = #5C6A72` 只得到 4.38 / 4.17:1，达不到硬门槛 4.5；而 light·hard / light·medium 的对应值原本就达标（4.66–5.40）。
-- **做法**：light scheme 的文本表面（`bg-layer-1/2/3`、`bg-overlay`、`bg-document-preview`、`markdown-code-block` / `--shiki-background`、输入框 / 气泡 / 菜单 / settings 卡片 / diff 底色等）以 `mix(bg0, bgN, 0.25)` 提亮（diff 为 0.45），再由 `readableSurface` 按实际对比度向 `bg0` 微调直到 `label-primary` ≥ 4.5:1；实际值见 §3。inline code 芯片不在 bgN 表面族内：DSH 把它当 `background-color` 用，映射取调色板 `bg_blue`（见 `src/tokens.js`），同样经 `readableSurface` 守卫。
+- **做法**：light scheme 的文本表面（`bg-layer-1/2/3`、`bg-overlay`、`bg-document-preview`、`markdown-code-block` / `--shiki-background`、输入框 / 菜单 / settings 卡片 / diff 底色等）以 `mix(bg0, bgN, 0.25)` 提亮（diff 为 0.45），再由 `readableSurface` 按实际对比度向 `bg0` 微调直到 `label-primary` ≥ 4.5:1；实际值见 §3。聊天气泡不在这族里：它按 2026-10-19 走查单独处理（§6.8）。inline code 芯片同理不在 bgN 表面族内：DSH 把它当 `background-color` 用，映射取调色板 `bg_blue`（见 `src/tokens.js`），同样经 `readableSurface` 守卫。
 - **影响 token**：见 §3 全表（light 三档）；dark scheme 保持 design 原值（原生 bg1/bg2 已 ≥4.99，`bg-layer-3` 在 dark·soft 下 4.27 也由 `readableSurface` 微调到达标）。
 - **依据**：DSH 原生 light 主题的 `bg-layer-1/2/3` 全部是 `#fff`（`static-neutral-bluish-00`），层次靠边框/阴影；Everforest Enchanted 也是平铺风格（`palette.md` §5「主背景 bg0 平铺」）。因此 light 表面趋近 bg0 并不破坏 DSH 结构语义，只是修正 `fg` 在较暗浅色底上的可读性。
 
@@ -173,6 +189,13 @@ DSH 的 Windows 外壳把标题栏条、侧栏列以及内容卡背后的 frame 
 - **问题**：0.1.1 把 `--dsw-specific-sidebar-fill` 和 `--dsw-alias-bg-base` 都映射为 `bg0`（Enchanted 平铺风格），但 DSH 的 Windows 外壳用前者画侧栏列 / 标题栏条 / 内容卡背后的 frame，用后者画带 16px 左上圆角的内容卡；同色后整条边界消失，窗口看上去是一个平面（用户走查：「Everforest 全部用的同一个颜色，没法区分边界线」）。
 - **做法**：侧栏取 `mix(bg0, bg1, 80%)` 并经 `readableSurface` 守卫（light 更深、dark 更浅，方向与 native 侧栏 `#f9fafb`/`#fff`、`#1b1b1c`/`#151517` 一致）。light·soft 的正文 4.5:1 上限把步长压到 `#eee7ce`（边界 1.03），其余档 1.05–1.12；native 为 1.045 / 1.060，观感同级。数值见 §2c。
 - **连带影响**：`--dsw-specific-sidebar-fill` 同时是 DSH 桌面端 Windows 原生标题栏（DWM caption）的取色来源（`preload-app.cjs` 探针），标题栏会随侧栏一起变色，与自绘标题栏条保持一致；`settings-general` 的设置导航（`sidebar-nav-item-*`）位于内容区 `bg-base` 上，不受影响。
+
+### 6.8 聊天气泡（2026-10-19 走查修正）
+
+- **问题**：用户消息气泡 `--dsw-specific-bubble` 旧映射取 `surface(p, 1)`；light 下 `mix(bg0, bg1, 0.25)` = `#FDFAEE`，与画布 `#FFFBEF` 仅 1.02:1，用户报告「聊天气泡和背景融为一体，区分不出来」。DSH native light 气泡并不是中性色阶，而是 `static-deepseek-50` 的淡蓝色 tint（on `#fff` ≈ 1.08），靠色相 + 轻微明度区分。
+- **做法**：light 下取 `bg0` → `header-aqua` 16% 的 sage tint，经 `readableToward(..., #ffffff)`（**向白**而非向暖色画布）守卫到 4.5:1。light·hard / medium 的 tint 能保持 ~1.17 / 1.14:1 边界、气泡文字 4.6 / 4.5:1；light·soft 的 `bg0` 已是 4.66:1 文本余量，任何再压暗都会跌破 4.5，因此改用近白冷调「抬起卡片」（`#ffffff` + 4% `header-aqua`），边界反而达到 ~1.15:1。两个方向由代码按实际边界对比度自动择大，避免以后 palette 微调又把气泡粘回背景。dark 保持 `bg1`（边界 1.14–1.16，文字 ≥5.7:1）。
+- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，6 档）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。
+- **影响 token**：仅 `--dsw-specific-bubble`；其余表面与文字色不变。
 
 ## 7. 复现
 

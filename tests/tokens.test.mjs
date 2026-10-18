@@ -244,6 +244,38 @@ test('sidebar surface is one ramp step off bg-base so the column edge stays visi
   }
 })
 
+test('chat bubble separates from bg-base while keeping primary text readable', () => {
+  // DSH paints user messages with --dsw-specific-bubble and label-primary ink
+  // (chat MessageItem.module.css). The old surface(p, 1) mapping produced
+  // #FDFAEE on the #FFFBEF canvas (1.02:1): light bubbles blended into the
+  // background (2026-10-19 visual report). Light now uses a sage tint of
+  // header-aqua, except light·soft where the 4.5:1 ink cap forbids darkening, so
+  // the bubble flips to the raised near-white direction instead.
+  for (const scheme of ['light', 'dark']) {
+    for (const strength of STRENGTHS) {
+      const overlay = tokensFor({ light: strength, dark: strength })
+      const bubble = overlay['--dsw-specific-bubble'][scheme]
+      const base = overlay['--dsw-alias-bg-base'][scheme]
+      assert.ok(isLegalColor(bubble), `${scheme}-${strength}: bubble must be a colour`)
+      assert.notEqual(bubble, base)
+      const boundary = contrastRatio(bubble, base)
+      assert.ok(boundary >= 1.1, `${scheme}-${strength}: bubble/bg-base boundary = ${boundary.toFixed(3)} < 1.10`)
+      const textRatio = contrastRatio(overlay['--dsw-alias-label-primary'][scheme], bubble)
+      assert.ok(textRatio >= 4.5, `${scheme}-${strength}: label-primary on the bubble = ${textRatio.toFixed(2)} < 4.5`)
+
+      // Direction: dark keeps the lighter bg1 step; light uses the darker sage
+      // tint for hard/medium and the raised card for soft.
+      const bubbleLuminance = relativeLuminance(bubble)
+      const baseLuminance = relativeLuminance(base)
+      const lightRaised = scheme === 'light' && strength === 'soft'
+      assert.equal(bubbleLuminance > baseLuminance, lightRaised || scheme === 'dark', `${scheme}-${strength}: bubble luminance direction`)
+      if (scheme === 'dark') {
+        assert.equal(bubble.toLowerCase(), RAMPS.dark[strength].bg1.toLowerCase(), 'dark bubble keeps the bg1 step')
+      }
+    }
+  }
+})
+
 test('borders use bg5 alpha, not literal grey', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   assert.equal(overlay['--dsw-alias-border-l1'].light, alpha(RAMPS.light.hard.bg5, 0.45))
