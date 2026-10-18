@@ -1,10 +1,13 @@
 <h1 align="center">🌲 Everforest for DeepSeek Harness</h1>
 
 <p align="center">
-  Everforest is a green-based color scheme designed to be warm and soft in order to protect developers' eyes.<br>
-  This repo brings dark and light themes to <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> (DSH),
-  based on the original <a href="https://github.com/sainnhe/everforest">Everforest</a> scheme by
-  <a href="https://github.com/sainnhe">sainnhe</a>.
+  <a href="https://github.com/FormalistBlue/dsh-everforest/blob/main/README.en.md">English</a> | 中文
+</p>
+
+<p align="center">
+  Everforest 是一套以绿色为基调、温暖柔和的护眼配色。<br>
+  本项目为 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（DSH）带来深色 / 浅色主题，基于
+  <a href="https://github.com/sainnhe">sainnhe</a> 原创的 <a href="https://github.com/sainnhe/everforest">Everforest</a> 方案。
 </p>
 
 <p align="center">
@@ -12,7 +15,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/dsh-everforest" alt="license"></a>
 </p>
 
-<p align="center">基于 sainnhe 的 Everforest 方案，为 DeepSeek Harness 带来深色 / 浅色 × 硬 / 中 / 软共 6 档配色；默认对齐 <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>（深色 Soft / 浅色 Hard）。</p>
+<p align="center">提供深色 / 浅色 × 硬 / 中 / 软共 6 档配色，默认对齐 <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>（深色 Soft / 浅色 Hard）。</p>
 
 ## 预览
 

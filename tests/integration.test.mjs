@@ -465,18 +465,26 @@ test('contrast gate script passes for all six palettes', () => {
   assert.ok(existsSync(join(ROOT, 'docs/reference/contrast.md')))
 })
 
-test('README documents the implemented state', () => {
-  const readme = read('README.md')
-  assert.match(readme, /dsh-everforest/)
-  assert.doesNotMatch(readme, /插件代码尚未落地/)
-  assert.match(readme, /Settings → Everforest/)
-
-  // The intro carries the six-variant preview table; every referenced image
-  // must exist in the repository (the URLs are absolute for the npm page).
-  const previews = [...readme.matchAll(/raw\.githubusercontent\.com\/FormalistBlue\/dsh-everforest\/[^/]+\/(\.github\/assets\/[^)\s]+\.png)/g)]
+test('READMEs document the implemented state in both languages', () => {
   const variants = ['dark-hard', 'dark-medium', 'dark-soft', 'light-hard', 'light-medium', 'light-soft']
     .map((variant) => `.github/assets/everforest-${variant}.png`)
     .sort()
-  assert.deepEqual([...new Set(previews.map(([, path]) => path))].sort(), variants)
-  for (const path of variants) assert.ok(existsSync(join(ROOT, path)), `missing preview: ${path}`)
+
+  for (const file of ['README.md', 'README.en.md']) {
+    const readme = read(file)
+    assert.match(readme, /dsh-everforest/)
+    assert.doesNotMatch(readme, /插件代码尚未落地/)
+    assert.match(readme, /Settings → Everforest/)
+
+    // Each language carries the six-variant preview table; every referenced
+    // image must exist in the repository (the URLs are absolute for the npm page).
+    const previews = [...readme.matchAll(/raw\.githubusercontent\.com\/FormalistBlue\/dsh-everforest\/[^/]+\/(\.github\/assets\/[^)\s]+\.png)/g)]
+    assert.deepEqual([...new Set(previews.map(([, path]) => path))].sort(), variants)
+    for (const path of variants) assert.ok(existsSync(join(ROOT, path)), `missing preview in ${file}: ${path}`)
+  }
+
+  // The default README is Chinese and links to the English one; the English
+  // README links back.
+  assert.match(read('README.md'), /README\.en\.md/)
+  assert.match(read('README.en.md'), /README\.md/)
 })
