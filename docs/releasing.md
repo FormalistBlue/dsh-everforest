@@ -190,8 +190,8 @@ url: https://github.com/FormalistBlue/dsh-everforest
 name: FormalistBlue/dsh-everforest
 category: theme
 description:
-  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, and the Host half paints the boot palette so the loading screen and first frame are already Everforest; a Settings page picks the scheme and can follow the system appearance.'
-  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效；Host 半部在 Client 加载前注入 boot 调色板，loading 页与首帧即为 Everforest；设置页可选择色板与跟随系统外观。'
+  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, with the Host half painting the boot palette so the Web loading screen and first frame are already Everforest; a Settings page picks the scheme and can follow the system appearance.'
+  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效；Host 半部在 Client 加载前注入 boot 调色板，Web 的 loading 页与首帧即为 Everforest；设置页可选择色板与跟随系统外观。'
 ```
 
 字段白名单只有 `url` / `name` / `category` / `description`（可选 `tarball`）；多写 `npm:` / `author:` / `screenshots:` 会被校验直接拒。`description.en` 必须、单行、以句号结尾、**必须与代码相符**（评审会数描述里的数字与 API 名），`zh` 可选。描述里含 `: ` 时必须加引号。
