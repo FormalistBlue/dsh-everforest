@@ -4,6 +4,16 @@
 
 npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。首次发布前请先完成 `docs/design.md` §9 的安装/覆盖/设置页验证，不建议发布未在本机验证过的版本。
 
+## 发布记录
+
+| 版本 | 日期 | 方式 | dist-tag | shasum | provenance |
+|---|---|---|---|---|---|
+| 0.1.0 | 2026-10-18 | 本地 `npm publish` + Web-OTP（账号 `shandawang`） | `latest` | `77459d903532a9618f04ba562bbea5aa6c12399d` | 无（本地发布） |
+
+- 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
+- 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.1.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。
+- **Trusted Publishing 尚未配置**：配置前不要 push `v0.1.0` tag——tag 会触发 CI 再次发布 0.1.0 并得到 `EPUBLISHCONFLICT`。先完成 §3，再按 §3 的 tag 流程发布后续版本（0.1.1+）。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。
