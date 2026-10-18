@@ -52,9 +52,11 @@ dsh-everforest/
 ├── scripts/build.mjs       # 零依赖 node 脚本：src/ → client.js
 ├── locale/{en,zh}.json     # meta.title / meta.description（插件管理页显示元数据）
 ├── icon.svg                # 原创图标（必需）
+├── .github/workflows/publish.yml  # tag 触发：OIDC trusted publishing + provenance
 ├── docs/assessment.md
 ├── docs/design.md
 ├── docs/reference/palette.md  # 配色数据与来源（官方 palette.md + Everforest Enchanted）
+├── docs/releasing.md       # npm 发布与 DSH 安装验证 runbook
 ├── README.md
 ├── LICENSE                 # MIT
 └── THIRD_PARTY_NOTICES.md  # Everforest / Everforest Enchanted（均 MIT）署名
@@ -68,7 +70,7 @@ dsh-everforest/
 2. 或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标为本目录的绝对路径）；
 3. 刷新页面，打开 **Settings → Everforest** 选择配色。
 
-发布后（npm）：在插件管理页输入 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`。
+发布后（npm）：在插件管理页输入 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`。npm 侧发布（首次本地发布 → 配置 Trusted Publishing → 之后 tag 触发 CI）的完整步骤、检查清单与回滚方式见 [`docs/releasing.md`](docs/releasing.md)；CI 工作流为 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)。
 
 > 本机为目录安装（link 到本仓库），`files` 白名单不生效、移动或改名仓库会断链；`files` 只在 npm pack / 发布时过滤文件。
 

@@ -1,0 +1,82 @@
+# Publish dsh-everforest to npmjs.org via OIDC trusted publishing.
+#
+# One-time setup (after the first npm publish exists, see docs/releasing.md §1/§3):
+#   npmjs.com → dsh-everforest → Access → Trusted publishers → Add a publisher
+#     Provider: GitHub Actions
+#     Owner: FormalistBlue
+#     Repository: dsh-everforest
+#     Workflow filename: publish.yml   (basename only)
+#     Environment: (blank)
+#
+# Release: bump package.json version, commit, tag vX.Y.Z, push main + tags.
+# The tag must equal package.json version. Stable versions publish to `latest`;
+# prerelease versions (x.y.z-*) publish to `next`.
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for npm trusted publishing (OIDC)
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npmjs.org
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js with npmjs.org registry
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+
+      # The package has no runtime dependencies, so there is no install step.
+      # `prepack` (package.json) rebuilds client.js from src/ before packing.
+      - name: Resolve release version and dist-tag
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+            if [ "$TAG_VERSION" != "$VERSION" ]; then
+              echo "::error::tag (v${TAG_VERSION}) does not match package.json version (${VERSION})"
+              exit 1
+            fi
+          fi
+          if [ "${VERSION#*-}" != "$VERSION" ]; then
+            NPM_TAG=next
+          else
+            NPM_TAG=latest
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "npm_tag=${NPM_TAG}" >> "$GITHUB_OUTPUT"
+          node --version
+          npm --version
+
+      - name: Inspect package contents
+        run: npm pack --dry-run
+
+      - name: Publish with provenance
+        run: |
+          set -euo pipefail
+          npm publish --provenance --access public --tag "${{ steps.version.outputs.npm_tag }}"
+
+      - name: Verify published version
+        run: |
+          set -euo pipefail
+          echo "package: dsh-everforest@${{ steps.version.outputs.version }} (dist-tag: ${{ steps.version.outputs.npm_tag }})"
+          npm view dsh-everforest version --prefer-online
+          npm view dsh-everforest dist-tags --json --prefer-online
