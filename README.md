@@ -2,7 +2,7 @@
 
 [Everforest](https://github.com/sainnhe/everforest) 配色主题插件，用于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 Web / Desktop 界面。
 
-> 状态：**0.1.1 已发布到 npm**（2026-10-18；0.1.1 由 GitHub Actions + Trusted Publishing 发布、带 provenance；0.1.0 为本地首发）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`（页面含「跟随系统 / 深色 / 浅色」外观控制与 6 张色卡），`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 最新版本：[`dsh-everforest@0.1.1`](https://www.npmjs.com/package/dsh-everforest)。发布记录见 [`docs/releasing.md`](docs/releasing.md)。
+> 状态：**0.1.2 已发布到 npm**（2026-10-18；0.1.2 为侧栏 / 内容卡边界修正，由 tag `v0.1.2` 触发 GitHub Actions + Trusted Publishing 发布、带 provenance；0.1.0 为本地首发，0.1.1 首次验证 CI 链路）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`（页面含「跟随系统 / 深色 / 浅色」外观控制与 6 张色卡），`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 最新版本：[`dsh-everforest@0.1.2`](https://www.npmjs.com/package/dsh-everforest)。发布记录见 [`docs/releasing.md`](docs/releasing.md)。
 
 ## 功能
 
@@ -83,7 +83,7 @@ dsh-everforest/
 2. 或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标为本目录的绝对路径）；
 3. 刷新页面，打开 **Settings → Everforest** 选择配色。
 
-从 npm 安装（0.1.0 起，当前 0.1.1）：在插件管理页输入 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标 `dsh-everforest` / `dsh-everforest@0.1.1`）。发布流程（首次本地发布 → 配置 Trusted Publishing → 之后 tag 触发 CI）、检查清单、发布记录与回滚方式见 [`docs/releasing.md`](docs/releasing.md)；CI 工作流为 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)。
+从 npm 安装（0.1.0 起，当前 0.1.2）：在插件管理页输入 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标 `dsh-everforest` / `dsh-everforest@0.1.2`）。发布流程（首次本地发布 → 配置 Trusted Publishing → 之后 tag 触发 CI）、检查清单、发布记录与回滚方式见 [`docs/releasing.md`](docs/releasing.md)；CI 工作流为 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)。
 
 > 本机为目录安装（link 到本仓库），`files` 白名单不生效、移动或改名仓库会断链；`files` 只在 npm pack / 发布时过滤文件。
 
@@ -127,16 +127,16 @@ dsh-everforest/
 | 项 | 证据 |
 |---|---|
 | 构建产物 | `node scripts/build.mjs --check` 通过；`node --check client.js` 通过；`factory` 返回 `{ name, inject, apply }`（VM 加载测试） |
-| 单测 / 集成 | `node --test` 91 项全绿（palette 12、color 8、tokens 17、state 17、settings-page 23、integration 14；含 `apply()` 生命周期、延迟 slots/locale 挂载、token 覆盖率、inline code 芯片映射、palette.md↔生成物一致性、bundle 格式、manifest/patch/locale/icon） |
+| 单测 / 集成 | `node --test` 92 项全绿（palette 12、color 8、tokens 18、state 17、settings-page 23、integration 14；含 `apply()` 生命周期、延迟 slots/locale 挂载、token 覆盖率、inline code 芯片映射、侧栏边界、palette.md↔生成物一致性、bundle 格式、manifest/patch/locale/icon） |
 | token 覆盖 | `docs/reference/token-inventory.json` 206 色 + 6 辅助全部在 `tokensFor()` 输出中；`Theme.listTokens` 出现全部覆盖 token（含 `--shiki-*` 与 `--dsw-linear-*`） |
-| 对比度 | `node scripts/check-contrast.mjs --check` 硬门槛全过（label-primary vs bg-base/layer-1/2 最小 4.53、shiki fg/bg 最小 4.53、反色前景真实配对 ≥4.66、品牌实底前景 2.70、值合法）；报告见 [`docs/reference/contrast.md`](docs/reference/contrast.md) |
+| 对比度 | `node scripts/check-contrast.mjs --check` 硬门槛全过（label-primary vs bg-base/layer-1/2/**侧栏** 最小 4.51、shiki fg/bg 最小 4.53、反色前景真实配对 ≥4.66、品牌实底前景 2.70、侧栏 vs bg-base 边界 1.03–1.12、值合法）；报告见 [`docs/reference/contrast.md`](docs/reference/contrast.md) |
 | 外观控制 | 设置页新增「跟随系统 / 深色 / 浅色」三按钮，点击经 store 调 `ctx.theme.setTheme`（写入 DSH 全局外观偏好，`system` 恢复 OS 跟随）；非法值被忽略，`aria-pressed` 与说明文案由单测 / 集成测试覆盖 |
 | 安装 | `plugin_manager.install_bundle` → `application: applied`；`Slots.listSubTree(settings.section)` 出现 `registrant: dsh-everforest, id: everforest, order: 25, active: true` |
 | 启用 / 外观控制上线 | 本轮 `plugin_manager.set_bundle(dsh-everforest, enabled=true)` → `application: applied`；`settings.section` occupant 与 `Theme.listTokens` 的 212 个覆盖 token 均恢复；新页面控件（外观控制 + 6 张色卡）的实际渲染与点击效果仍属人工目检项 |
 | 停用清理 | 真机验证：`plugin_manager.set_bundle(dsh-everforest, enabled=false)` → `settings.section` 的 everforest occupant 消失、`Theme.listTokens` 从 212 个覆盖 token 回到内置 14 条（覆盖层已撤销）；重新 enable 后两项均恢复，全程 HMR 生效、无需重启 |
 | npm 发布 | 2026-10-18 发布 `dsh-everforest@0.1.0`（dist-tag `latest`）；`npm view` 的 version / dist-tags / shasum（`77459d90…`）与本地打包一致；空缓存 `npm install dsh-everforest@0.1.0` 成功且包含 10 个运行时文件。Provenance 尚未生成（本次为本地 Web-OTP 发布，后续走 Trusted Publishing） |
 | npm 发布（0.1.1 / CI） | 2026-10-18 推送 tag `v0.1.1` → GitHub Actions run `39134686583` 成功；registry `latest=0.1.1`、shasum `c88740ea…`；`dist.attestations.provenance` 为 SLSA v1，`_npmUser` 为 GitHub Actions（trustedPublisher id `177c86cc…`）；空缓存 `npm install dsh-everforest@0.1.1` 成功，tarball README 已刷新 |
-| Trusted Publishing | 2026-10-18 通过 `npm trust github` 配置 GitHub Actions（repo `FormalistBlue/dsh-everforest`、workflow `publish.yml`、permissions = publish + stage publish、id `177c86cc…`）；`npm trust list` 复核通过。tag → CI 首发（0.1.1）尚未执行 |
+| Trusted Publishing | 2026-10-18 通过 `npm trust github` 配置 GitHub Actions（repo `FormalistBlue/dsh-everforest`、workflow `publish.yml`、permissions = publish + stage publish、id `177c86cc…`）；`npm trust list` 复核通过；0.1.1 / 0.1.2 均由 CI 发布 |
 
 仍需人工目检（无浏览器控制能力，自动项无法替代）：
 
@@ -166,7 +166,8 @@ dsh-everforest/
 
 - [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页（含「跟随系统 / 深色 / 浅色」外观控制）+ inline code 芯片修正 + 本地持久化 + 本机安装验证 + npm 首发（2026-10-18，本地发布）
 - [x] **0.1.1** — 补丁发布：通过 tag → GitHub Actions + Trusted Publishing 验证 CI 发布链路（无 2FA、带 provenance），刷新 npm 页面 README
-- [ ] **0.2.0** — 真机目检与视觉回归修正（含侧栏 / 内容卡边界修正）、shiki 三处生效确认、README 截图
+- [x] **0.1.2** — 侧栏 / 内容卡边界修正：`--dsw-specific-sidebar-fill` 不再平铺 `bg0`，改为 `bg0` → `bg1` 80% 混合 + 对比度守卫；新增「侧栏边界 ≥ 1.02:1」「侧栏正文 ≥ 4.5:1」硬门槛
+- [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图
 - [ ] **0.3.0** —（可选）Host 侧偏好持久化（跨浏览器一致）、消除首帧 loading 闪动（评估首帧注入在 Electron 窗口是否可用）、系统配色跟随细节
 
 ## 参考
