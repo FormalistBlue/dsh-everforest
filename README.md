@@ -2,7 +2,7 @@
 
 [Everforest](https://github.com/sainnhe/everforest) 配色主题插件，用于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 Web / Desktop 界面。
 
-> 状态：**0.1.0 已实现、本机验证并发布到 npm**（2026-10-18）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`（页面含「跟随系统 / 深色 / 浅色」外观控制与 6 张色卡），`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 已发布 [`dsh-everforest@0.1.0`](https://www.npmjs.com/package/dsh-everforest)（`latest`，本地 OTP 发布、无 provenance）；**Trusted Publishing 已配置**（GitHub Actions / `publish.yml`），后续版本由 tag 触发 CI 发布，零 2FA 且带 provenance。发布记录见 [`docs/releasing.md`](docs/releasing.md)。
+> 状态：**0.1.1 已发布到 npm**（2026-10-18；0.1.1 由 GitHub Actions + Trusted Publishing 发布、带 provenance；0.1.0 为本地首发）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`（页面含「跟随系统 / 深色 / 浅色」外观控制与 6 张色卡），`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 最新版本：[`dsh-everforest@0.1.1`](https://www.npmjs.com/package/dsh-everforest)。发布记录见 [`docs/releasing.md`](docs/releasing.md)。
 
 ## 功能
 
@@ -82,7 +82,7 @@ dsh-everforest/
 2. 或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标为本目录的绝对路径）；
 3. 刷新页面，打开 **Settings → Everforest** 选择配色。
 
-从 npm 安装（0.1.0 起）：在插件管理页输入 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标 `dsh-everforest` / `dsh-everforest@0.1.0`）。发布流程（首次本地发布 → 配置 Trusted Publishing → 之后 tag 触发 CI）、检查清单、发布记录与回滚方式见 [`docs/releasing.md`](docs/releasing.md)；CI 工作流为 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)。
+从 npm 安装（0.1.0 起，当前 0.1.1）：在插件管理页输入 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标 `dsh-everforest` / `dsh-everforest@0.1.1`）。发布流程（首次本地发布 → 配置 Trusted Publishing → 之后 tag 触发 CI）、检查清单、发布记录与回滚方式见 [`docs/releasing.md`](docs/releasing.md)；CI 工作流为 [`.github/workflows/publish.yml`](.github/workflows/publish.yml)。
 
 > 本机为目录安装（link 到本仓库），`files` 白名单不生效、移动或改名仓库会断链；`files` 只在 npm pack / 发布时过滤文件。
 
@@ -161,8 +161,9 @@ dsh-everforest/
 
 ## 路线图
 
-- [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页（含「跟随系统 / 深色 / 浅色」外观控制）+ inline code 芯片修正 + 本地持久化 + 本机安装验证 + npm 发布（2026-10-18）
-- [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图、用 0.1.1 tag 验证 CI 发布（provenance）
+- [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页（含「跟随系统 / 深色 / 浅色」外观控制）+ inline code 芯片修正 + 本地持久化 + 本机安装验证 + npm 首发（2026-10-18，本地发布）
+- [x] **0.1.1** — 补丁发布：通过 tag → GitHub Actions + Trusted Publishing 验证 CI 发布链路（无 2FA、带 provenance），刷新 npm 页面 README
+- [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图
 - [ ] **0.3.0** —（可选）Host 侧偏好持久化（跨浏览器一致）、消除首帧 loading 闪动（评估首帧注入在 Electron 窗口是否可用）、系统配色跟随细节
 
 ## 参考
