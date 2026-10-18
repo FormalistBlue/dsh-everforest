@@ -220,7 +220,7 @@ description:
 ### 8.5 提交步骤
 
 1. PR 前：给仓库加 `dsh-plugin` topic；`git status` 干净；`node --test` 与 `npm run check` 全绿（sandbox 下 `node --test` 会因 `spawn EPERM` 失败，需在普通终端跑）。
-2. fork awesome-dsh-plugin → 只新增 `data/plugins/FormalistBlue__dsh-everforest.yml` → 开 PR。一个 PR 最多 3 条、别动别人的条目、别手改两个 README。
+2. 提交：fork 与分支已在 2026-10-18 预置——`FormalistBlue/awesome-dsh-plugin` 的分支 `add-dsh-everforest` 已包含该条目文件（相对上游 `main` 只新增 1 个文件）。仓库满 1 天后打开 <https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/compare/main...FormalistBlue:add-dsh-everforest?expand=1> 点 **Create pull request**（标题 `Add FormalistBlue/dsh-everforest`）。需要重做时：fork → 只新增 `data/plugins/FormalistBlue__dsh-everforest.yml` → 开 PR。一个 PR 最多 3 条、别动别人的条目、别手改两个 README。
 3. CI 顺序检查：条目数 ≤3 → 仓库 HEAD 的 `package.json#dsh.bundle` → 仓库年龄 ≥1 天 → `awesome-lint` + README 重生成。
 4. 合并后站点自动重建；`dsh-plugin-catalog` 每日发 npm；市场 App 下次打开即拉到最新目录（通常 1 天内出现）。
 5. 以后更新条目只改这一个 yml。
