@@ -439,8 +439,9 @@ test('token values follow the design decisions', async () => {
   const tokens = tokensFor(DEFAULT_STATE)
   const layer = (name) => tokens[name]
   assert.deepEqual(layer('--dsw-alias-bg-base'), { light: '#FFFBEF', dark: '#333C43' })
-  assert.equal(layer('--dsw-specific-sidebar-fill').light, '#FFFBEF')
-  assert.equal(layer('--dsw-specific-sidebar-fill').dark, '#333C43')
+  // Sidebar is one ramp step off bg-base so the DSH column edge stays visible.
+  assert.equal(layer('--dsw-specific-sidebar-fill').light, '#f9f6e6')
+  assert.equal(layer('--dsw-specific-sidebar-fill').dark, '#39444a')
   assert.equal(layer('--dsw-alias-label-primary').light, '#5C6A72')
   assert.equal(layer('--dsw-alias-label-primary').dark, '#D3C6AA')
   assert.equal(layer('--dsw-alias-brand-primary').light, '#569D79')

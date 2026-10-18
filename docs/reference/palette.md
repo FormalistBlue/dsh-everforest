@@ -81,6 +81,7 @@
 | 用途 | Enchanted 取值 | 说明 |
 |---|---|---|
 | 主背景 | `bg0` | primary / secondary 都是 bg0（**平铺风格**，不靠明度分层） |
+| 侧栏 / 标题栏条 | `bg0` → `bg1` 的 80% 混合（对比度守卫） | 本项目偏离 Enchanted 的平铺：DSH 用 `--dsw-specific-sidebar-fill` 画侧栏 / Windows 标题栏，内容卡是 `bg-base`（bg0）+ 16px 圆角，平铺会让整条边界消失（见 `docs/design.md` §4 的 2026-10-18 修正） |
 | 代码块底 | `bg_dim` | 比正文底色更暗/更深一点 |
 | 弹层 / 浮窗 | `bg2` | 菜单、popover |
 | 次级表面 / 输入框 | `bg1` | 表单、行 hover 底 |
@@ -108,5 +109,5 @@
 
 1. **逐级标题色**：Enchanted 给 h1–h6 不同颜色；DSH 的 Markdown 标题走统一的字号/字重 token + `label-primary`，没有逐级颜色 token。0.x 不做（保持 token 路线），必要时再议。
 2. **Obsidian 专有变量**：`text-muted`（`color-base-70`）、`tag-color-hsl`、`code-header` 等没有 DSH 对应物，仅作语义参考。
-3. **平铺背景**：Enchanted 把 secondary 也设成 bg0；DSH 的侧栏 / composer / 气泡需要若干区分面，本项目在保持 bg0 主底的前提下，用 `bg1` / `bg2` 做必要的层级（见 `docs/design.md` §4 的 DSH token 映射）。
+3. **平铺背景**：Enchanted 把 secondary 也设成 bg0；DSH 的侧栏 / composer / 气泡需要若干区分面，本项目在保持 bg0 主底的前提下，用 `bg1` / `bg2` 做必要的层级（见 `docs/design.md` §4 的 DSH token 映射）。其中**侧栏例外**：`--dsw-specific-sidebar-fill` 取 `bg0` → `bg1` 的 80% 混合并经对比度守卫，否则 Windows 外壳把侧栏 / 标题栏 / 内容卡背后的 frame 画成同色、列边界消失（2026-10-18 视觉走查修正）。
 4. **header 色不随变体调整**：非默认的 4 个变体沿用同一组 header 色；实现后若对比度检查不达标，再按背景亮度做小幅修正并记录在此。

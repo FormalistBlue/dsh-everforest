@@ -81,7 +81,7 @@
 | 边框 / 分隔 / 焦点环 | `--dsw-alias-border-l*`、`--dsw-alias-state-business-primary` | ✅（含 7 条边框类字面量，含旧文档漏掉的 `border-inverted*`） |
 | 品牌 / 主按钮 / 链接 | `--dsw-alias-brand-primary`（=`header-aqua`）、`--dsw-alias-link`（=`header-blue`） | ✅（另需显式覆盖 `label-primary-foreground` / `brand-text` / `button-primary-hover` / `-dimmed`） |
 | 状态色（成功 / 警告 / 错误 / 进行中） | `--dsw-alias-state-*`（`green` / `yellow` / `red` / `blue`） | ✅ |
-| 侧栏 / 气泡 / 输入框 / selector / settings 卡片 | `--dsw-specific-*`（Enchanted 平铺风格，侧栏 = `bg0`）、`settings-card-*`（alias 引用，自动跟随） | ✅ |
+| 侧栏 / 气泡 / 输入框 / selector / settings 卡片 | `--dsw-specific-*`（侧栏 = `bg0` → `bg1` 80% 混合 + 对比度守卫，保留列边界；其余 Enchanted 平铺/层级风格）、`settings-card-*`（alias 引用，自动跟随） | ✅ |
 | 菜单 / 浮层材质 | `--dsw-menu-surface-fill`、`--dsw-alias-menu-group-header-fill`、`--dsw-menu-backdrop-filter`（非颜色，保持默认）；`--dsw-specific-menu` 是 alias 引用自动跟随 | ✅（字面量，需显式） |
 | 滚动条 | `--dsw-alias-scrollbar-*` 实际引用 `--dsw-static-neutral-200/300`（light）与 `700/600`（dark），随 static 映射自动跟随 | ✅ |
 | diff（代码差异） | `--dsw-alias-file-diff-*`（字面 rgb）/ `code-diff-*`（static 引用，自动） | ✅ |
@@ -107,7 +107,7 @@
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
 | 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | 已知限制；0.x 不做 DOM 改写（`dshmarket` 的做法），后续看 DSH 是否加 `icon` 字段 |
-| Enchanted 的平铺背景 | DSH 部分表面依赖明度差，平铺后可能层次不清 | 保持 `bg0` 主底，仅对必要的层级用 `bg1`/`bg2`；视觉走查确认，必要时按 `design.md` 开放问题 5 调整 |
+| Enchanted 的平铺背景 | DSH 部分表面依赖明度差，平铺后可能层次不清（**已发生**：Windows 下侧栏 / 标题栏 / 内容卡同色，列边界消失） | 已按 `design.md` 开放问题 5 落地修正：保持 `bg0` 主底，侧栏单独取 `bg0` → `bg1` 80% 混合 + 对比度守卫，并新增「侧栏边界 ≥ 1.02:1」硬门槛；其余层级仍用 `bg1`/`bg2` |
 | `header-*` 色不随强度变化 | 硬/软档的背景亮度差较大时，Enchanted 的常量 header 色对比度可能不足 | 6 档逐页对比度检查；不达标则按背景亮度小幅修正并回写 `reference/palette.md` |
 
 ## 8. 工作量

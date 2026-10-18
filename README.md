@@ -31,6 +31,7 @@ ui-layout ThemePresenter
 - 主题 token 是**内联写在 `body` 上**的，因此覆盖层同时压过 DSH 自带样式表，并按 `{ light, dark }` 自动随 Appearance 切换；插件卸载 / 停用时由插件注册的 cleanup 撤销该层（DSH 不会自动清理 override 层）。
 - 覆盖的是任意 CSS 变量名，运行时只校验「每个 token 必须给出 light 与 dark 两个值」。这使 `--dsw-static-*`、`--dsw-specific-*`、`--shiki-*` 和 `--dsw-linear-*` / `--dsw-gradient-*` 都能一起接管。
 - 映射策略（详见 [`docs/design.md`](docs/design.md) §4 与 [`docs/reference/contrast.md`](docs/reference/contrast.md)）：static 色阶用「明度锚定分段插值」而非按步数一一对应；alias / specific / shiki 全部显式给值，不依赖 static 自动跟随；浅色下承载正文的表面按 25% 向 `bg0` 提亮 + 对比度守卫，保证 6 档正文对比度 ≥ 4.5:1。
+- 侧栏不是平铺 `bg0`：`--dsw-specific-sidebar-fill` 取 `bg0` → `bg1` 的 80% 混合并经对比度守卫，与内容卡（`bg-base` + 16px 圆角）保持可辨边界；同时新增「边界 ≥ 1.02:1」与「侧栏正文 ≥ 4.5:1」两道硬门槛，防止退回同色（`contrast.md` §2c）。
 - 不为「应用内注册第三方主题」路线：DSH 设置文档只接受 `light | dark | system`，第三方主题 id 不参与持久化，也不出现在 Appearance 色卡里。
 
 详细设计见 [`docs/design.md`](docs/design.md)；可行性证据与方案取舍见 [`docs/assessment.md`](docs/assessment.md)。
@@ -144,7 +145,7 @@ dsh-everforest/
 3. 用设置页控制与 DSH 自带 Appearance 分别切到深色 / 浅色 / 跟随系统，主题自动使用对应调色板；改 OS 深浅色时「跟随系统」状态应实时跟随；
 4. Desktop 选择强度后退出应用重启，选择保持；
 5. 代码高亮（`--shiki-*`）在聊天气泡、diff、工具输出三处生效；终端底色 / 字色跟随；
-6. 全站视觉走查（聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中 / 状态色）与首帧闪动记录（已知缺口，0.3.0 再评估）。
+6. 全站视觉走查（聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏（含与内容卡的边界）/ composer / hover / 选中 / 状态色）与首帧闪动记录（已知缺口，0.3.0 再评估）。
 
 ## 兼容性
 
@@ -157,6 +158,7 @@ dsh-everforest/
 - **浅色表面提亮**：light 三档的 `bg-layer-1/2/3`、代码块 / overlay 等承载正文的表面按 `mix(bg0, bgN, 0.25)` 向 `bg0` 提亮，并用对比度守卫微调，以满足正文 ≥ 4.5:1（上游 light·soft 原始映射为 4.17–4.38）。视觉上 light 更接近 DSH 原生（light layer1/2/3 = `#fff`）与 Enchanted 的平铺风格；dark 保留设计原值。详见 `docs/reference/contrast.md` §6。
 - **语义色保持上游低对比度**：`state-warn/success/error` 等沿用 Enchanted/官方色（light warn 在 bg0 上约 1.9–2.2:1），与 DSH 原生语义色同级（native amber-500 on `#fff` ≈ 2.15），属图标 / 语义色用途，报告而非强改。
 - **inline code 芯片是「表面」不是「前景色」**：DSH 把 `--dsw-alias-markdown-inline-code` 用作 inline code 的 `background-color`（文字继承 `label-primary`），并不是 Enchanted 的 `--code-inline` 前景蓝。旧映射取 `fg.blue` 会渲染成饱和蓝块 + 深色字（light 1.65:1、dark 1.29:1），既显眼又难读；现改为 Everforest `bg_blue` 芯片底（light 淡薄荷 / dark 灰蓝），并纳入文本承载表面硬门槛，6 档 `label-primary` 对比度 ≥ 4.50:1。
+- **侧栏与内容卡之间有可见边界**：DSH 的 Windows 外壳用 `--dsw-specific-sidebar-fill` 画侧栏列 / 标题栏条 / 内容卡背后的 frame，用 `--dsw-alias-bg-base` 画带 16px 左上圆角的内容卡；native 两侧本就不同（light `#f9fafb` / `#fff`，dark `#1b1b1c` / `#151517`）。旧版把两者都设成 `bg0`，整条边界消失；现改为侧栏 `mix(bg0, bg1, 80%)` + 对比度守卫（light 更深 / dark 更浅，6 档边界对比度 1.03–1.12，native 为 1.045 / 1.060），并保留 light·soft 的 `label-primary` ≥ 4.5:1。
 - **不覆盖**：字体 / 圆角 / 阴影 / `--dsw-focus-ring-*` / `--dsw-menu-backdrop-filter` / 终端 ANSI 16 色 / brand mark 与文件图标 artwork / macOS darwin 渐变 / boot 首帧色（清单见 `src/tokens.js` 顶部与 `TOKEN_COVERAGE.uncovered`）。
 - **强度偏好按 origin 保存**：Desktop 窗口 origin 固定（`dsh-app://app`）可跨重启；用浏览器打开 Host URL 时端口每次随机，localStorage 不跨重启（设置页文案已说明）。
 
@@ -164,7 +166,7 @@ dsh-everforest/
 
 - [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页（含「跟随系统 / 深色 / 浅色」外观控制）+ inline code 芯片修正 + 本地持久化 + 本机安装验证 + npm 首发（2026-10-18，本地发布）
 - [x] **0.1.1** — 补丁发布：通过 tag → GitHub Actions + Trusted Publishing 验证 CI 发布链路（无 2FA、带 provenance），刷新 npm 页面 README
-- [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图
+- [ ] **0.2.0** — 真机目检与视觉回归修正（含侧栏 / 内容卡边界修正）、shiki 三处生效确认、README 截图
 - [ ] **0.3.0** —（可选）Host 侧偏好持久化（跨浏览器一致）、消除首帧 loading 闪动（评估首帧注入在 Electron 窗口是否可用）、系统配色跟随细节
 
 ## 参考

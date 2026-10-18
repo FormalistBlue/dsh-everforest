@@ -17,6 +17,12 @@
  *      a CONTRAST ink, not as ink on a dark surface): against label-primary
  *      (sidebar build badge + brand wordmark) and button-contrast-fill
  *      (attachment remove button) >= 4.5:1.
+ *   6. the sidebar surface stays perceptibly distinct from bg-base: DSH paints the
+ *      sidebar column / Windows titlebar / content-card frame with
+ *      --dsw-specific-sidebar-fill while the content card is bg-base, so equal
+ *      values erase the boundary (2026-10-18 visual report). Boundary contrast
+ *      must stay >= 1.02:1 for all six variants, and label-primary on the sidebar
+ *      >= 4.5:1 (it is a text-bearing surface, checked in §3).
  *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers): upstream Everforest mutes these on purpose (Enchanted does the same).
@@ -37,6 +43,8 @@ const REPORT_PATH = join(REPO_ROOT, 'docs', 'reference', 'contrast.md')
 const PRIMARY_THRESHOLD = 4.5
 const BRAND_FOREGROUND_THRESHOLD = 2.5
 const REPORT_FLOOR = 1.5
+/** Minimum contrast between the sidebar surface and bg-base (column boundary). */
+const SIDEBAR_BOUNDARY_MIN = 1.02
 const VARIANTS = ['light-hard', 'light-medium', 'light-soft', 'dark-hard', 'dark-medium', 'dark-soft']
 
 /** Core inventory tokens = covered minus the six auxiliary (gradient/material) ones. */
@@ -60,6 +68,8 @@ const CORE_TOKENS = TOKEN_COVERAGE.covered.filter((name) => !AUXILIARY.has(name)
 
 /** Surfaces that carry `--dsw-alias-label-primary` text in the DSH UI. */
 const TEXT_SURFACES = [
+  // Entire sidebar column (nav rows, session titles, section headers).
+  '--dsw-specific-sidebar-fill',
   '--dsw-alias-bg-layer-1',
   '--dsw-alias-bg-layer-2',
   '--dsw-alias-bg-layer-3',
@@ -238,11 +248,13 @@ for (const variant of states) {
   const shikiBg = variant.get('--shiki-background')
   const brandBg = variant.get('--dsw-alias-brand-primary')
   const brandFg = variant.get('--dsw-alias-label-primary-foreground')
+  const sidebar = variant.get('--dsw-specific-sidebar-fill')
   const baseRatio = contrastRatio(primary, base)
   const layer1Ratio = contrastRatio(primary, layer1)
   const layer2Ratio = contrastRatio(primary, layer2)
   const shikiRatio = contrastRatio(shikiFg, shikiBg)
   const brandRatio = contrastRatio(brandFg, brandBg)
+  const sidebarBoundaryRatio = contrastRatio(sidebar, base)
   const row = {
     variant: variant.variant,
     scheme: variant.scheme,
@@ -251,6 +263,9 @@ for (const variant of states) {
     layer2: layer2Ratio,
     shiki: shikiRatio,
     brand: brandRatio,
+    sidebar,
+    base,
+    sidebarBoundary: sidebarBoundaryRatio,
     labelDiffers: primary !== base
   }
   gateRows.push(row)
@@ -259,6 +274,7 @@ for (const variant of states) {
   if (layer2Ratio < PRIMARY_THRESHOLD) recordFailure(`g1:${variant.variant}:l2`, `${variant.variant}: label-primary on bg-layer-2 = ${layer2Ratio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
   if (shikiRatio < PRIMARY_THRESHOLD) recordFailure(`g2:${variant.variant}`, `${variant.variant}: shiki foreground on background = ${shikiRatio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
   if (brandRatio < BRAND_FOREGROUND_THRESHOLD) recordFailure(`g4:${variant.variant}`, `${variant.variant}: brand foreground on brand-primary = ${brandRatio.toFixed(2)} < ${BRAND_FOREGROUND_THRESHOLD}`)
+  if (sidebarBoundaryRatio < SIDEBAR_BOUNDARY_MIN) recordFailure(`g6:${variant.variant}`, `${variant.variant}: sidebar-fill vs bg-base boundary = ${sidebarBoundaryRatio.toFixed(2)} < ${SIDEBAR_BOUNDARY_MIN} (the column edge disappears)`)
   if (!row.labelDiffers) recordFailure(`g3:${variant.variant}`, `${variant.variant}: label-primary equals bg-base (${primary})`)
 }
 
@@ -355,7 +371,8 @@ function renderMarkdown () {
     '2. `--shiki-foreground` 对 `--shiki-background` ≥ 4.5:1（6 档）；',
     '3. 每个被覆盖的颜色值必须是合法 CSS 颜色，且 `label-primary` ≠ `bg-base`；',
     '4. 品牌实底前景（`label-primary-foreground` = `bg0` on `header-aqua`）≥ 2.5:1（上游 aqua 能力上限，见 `palette.md` §5）；',
-    '5. `--dsw-alias-label-primary-inverted` 的真实配对（DSH 把它用作对比墨色）：对 `label-primary`（侧栏 build 徽标 + brand wordmark 的反色镂空）与 `button-contrast-fill`（附件删除按钮）≥ 4.5:1。',
+    '5. `--dsw-alias-label-primary-inverted` 的真实配对（DSH 把它用作对比墨色）：对 `label-primary`（侧栏 build 徽标 + brand wordmark 的反色镂空）与 `button-contrast-fill`（附件删除按钮）≥ 4.5:1；',
+    '6. 侧栏表面 `--dsw-specific-sidebar-fill` 与内容底 `--dsw-alias-bg-base` 的边界对比度 ≥ 1.02:1（6 档）：DSH 用前者画侧栏列 / Windows 标题栏 / 内容卡背后的 frame，用后者画内容卡（16px 左上圆角），同色时边界消失（见 §2c）；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -393,6 +410,30 @@ function renderMarkdown () {
     const ok = VARIANTS.every((variant) => row.ratios[variant] >= row.threshold)
     push(`| ${row.label} | ${cells.join(' | ')} | ${row.threshold} | ${pass(ok)} |`)
   }
+  push(
+    '',
+    '## 2c. 侧栏边界（硬门槛）',
+    '',
+    'DSH 的 Windows 外壳把标题栏条、侧栏列以及内容卡背后的 frame 都画成 `--dsw-specific-sidebar-fill`，' +
+      '内容卡本身是 `--dsw-alias-bg-base`（`bg0`）+ 16px 左上圆角（`ui-layout` 的 `AppFrame.module.css`）。' +
+      '两者取值相同时整条边界消失 —— 这正是 0.1.1 视觉走查报告的「Everforest 全屏一个颜色」。' +
+      `实现把侧栏定为从 \`bg0\` 向 \`bg1\` 混合 80%（` +
+      'light 更深、dark 更浅，方向与 native 侧栏一致）并经对比度守卫；本门槛确保它不会退回 `bg0`：',
+    '',
+    `| 变体 | sidebar-fill | bg-base | 边界对比度 | 阈值 | 结果 |`,
+    '|---|---|---|---:|---:|---|',
+  )
+  for (const row of gateRows) {
+    push(
+      `| ${row.variant} | \`${row.sidebar}\` | \`${row.base}\` | ${format(row.sidebarBoundary)} | ${SIDEBAR_BOUNDARY_MIN} | ${pass(row.sidebarBoundary >= SIDEBAR_BOUNDARY_MIN)} |`,
+    )
+  }
+  push(
+    '',
+    '对照：DSH native light 侧栏 `#f9fafb` / 内容 `#fff` ≈ 1.045，native dark `#1b1b1c` / `#151517` ≈ 1.060，' +
+      '所以 1.03–1.12 的边界与 native 观感同级（light·soft 受正文 4.5:1 上限约束，取守卫后的最大步长）。' +
+      '侧栏上的正文可读性见 §3 第一行（`--dsw-specific-sidebar-fill` 已纳入文本承载表面）。',
+  )
   push(
     '',
     '## 3. 文本承载表面（label-primary 对比度）',
@@ -473,6 +514,12 @@ function renderMarkdown () {
     '### 6.6 未覆盖项',
     '',
     '字体 / 圆角 / 阴影 / 焦点环 / 菜单模糊 / `--dsh-*` 终端几何等保持 DSH 原生值，清单见 `src/tokens.js` 顶部与 `TOKEN_COVERAGE.uncovered`。焦点环颜色通过 `--dsw-alias-state-business-primary` 自动跟随 Everforest blue。',
+    '',
+    '### 6.7 侧栏与内容卡的边界（视觉走查修正）',
+    '',
+    '- **问题**：0.1.1 把 `--dsw-specific-sidebar-fill` 和 `--dsw-alias-bg-base` 都映射为 `bg0`（Enchanted 平铺风格），但 DSH 的 Windows 外壳用前者画侧栏列 / 标题栏条 / 内容卡背后的 frame，用后者画带 16px 左上圆角的内容卡；同色后整条边界消失，窗口看上去是一个平面（用户走查：「Everforest 全部用的同一个颜色，没法区分边界线」）。',
+    '- **做法**：侧栏取 `mix(bg0, bg1, 80%)` 并经 `readableSurface` 守卫（light 更深、dark 更浅，方向与 native 侧栏 `#f9fafb`/`#fff`、`#1b1b1c`/`#151517` 一致）。light·soft 的正文 4.5:1 上限把步长压到 `#eee7ce`（边界 1.03），其余档 1.05–1.12；native 为 1.045 / 1.060，观感同级。数值见 §2c。',
+    '- **连带影响**：`--dsw-specific-sidebar-fill` 同时是 DSH 桌面端 Windows 原生标题栏（DWM caption）的取色来源（`preload-app.cjs` 探针），标题栏会随侧栏一起变色，与自绘标题栏条保持一致；`settings-general` 的设置导航（`sidebar-nav-item-*`）位于内容区 `bg-base` 上，不受影响。',
     '',
     '## 7. 复现',
     '',

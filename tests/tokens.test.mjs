@@ -213,6 +213,37 @@ test('inline code is a background chip, not a foreground accent', () => {
   }
 })
 
+test('sidebar surface is one ramp step off bg-base so the column edge stays visible', () => {
+  // DSH paints the sidebar column / Windows titlebar / content-card frame with
+  // --dsw-specific-sidebar-fill and the content card itself with bg-base; mapping
+  // both to bg0 erased the boundary (2026-10-18 visual report).
+  for (const scheme of ['light', 'dark']) {
+    for (const strength of STRENGTHS) {
+      const overlay = tokensFor({ light: strength, dark: strength })
+      const sidebar = overlay['--dsw-specific-sidebar-fill'][scheme]
+      const base = overlay['--dsw-alias-bg-base'][scheme]
+      const ramp = RAMPS[scheme][strength]
+      assert.ok(isHex(sidebar), `${scheme}-${strength}: sidebar must be a solid colour`)
+      assert.notEqual(sidebar, base, `${scheme}-${strength}: sidebar must not equal bg-base`)
+      // Perceptible boundary (the flat-bg0 regression must fail this).
+      const boundary = contrastRatio(sidebar, base)
+      assert.ok(boundary >= 1.02, `${scheme}-${strength}: sidebar/bg-base boundary = ${boundary.toFixed(3)}`)
+      // One step off bg0 in the native direction, never a full bg1 jump.
+      const sidebarLuminance = relativeLuminance(sidebar)
+      const baseLuminance = relativeLuminance(base)
+      const bg1Luminance = relativeLuminance(ramp.bg1)
+      assert.equal(sidebarLuminance < baseLuminance, scheme === 'light', `${scheme}: sidebar luminance direction`)
+      assert.ok(
+        scheme === 'light' ? sidebarLuminance > bg1Luminance : sidebarLuminance < bg1Luminance,
+        `${scheme}-${strength}: sidebar must stay between bg0 and bg1`
+      )
+      // The whole column renders label-primary text on this surface.
+      const textRatio = contrastRatio(overlay['--dsw-alias-label-primary'][scheme], sidebar)
+      assert.ok(textRatio >= 4.5, `${scheme}-${strength}: label-primary on the sidebar = ${textRatio.toFixed(2)}`)
+    }
+  }
+})
+
 test('borders use bg5 alpha, not literal grey', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   assert.equal(overlay['--dsw-alias-border-l1'].light, alpha(RAMPS.light.hard.bg5, 0.45))

@@ -46,9 +46,10 @@
 //      tint → fg hue → dark tint; the level order of each family provides `t`.
 //    - the four alpha statics get 8-digit hex values (alpha green/red).
 // 2. alias / specific / shiki: explicit semantic mapping to Everforest roles per
-//    docs/design.md §4 (bg layers, labels, borders = bg5 alpha, brand = header-aqua,
-//    link = header-blue, states, diff = bg_green/bg_red + green/red, masks, menu
-//    materials, brand foreground = bg0, tooltip/toast = inverted surfaces, ...).
+//    docs/design.md §4 (bg layers, sidebar = one ramp step off bg0, labels,
+//    borders = bg5 alpha, brand = header-aqua, link = header-blue, states,
+//    diff = bg_green/bg_red + green/red, masks, menu materials, brand
+//    foreground = bg0, tooltip/toast = inverted surfaces, ...).
 //    No alias relies on automatic following: all 206 tokens are explicit.
 // 3. contrast guard for text-bearing light surfaces: DSH light layers are all
 //    #fff natively and Everforest Enchanted uses a flat background, but the
@@ -141,6 +142,33 @@ function readableSurface (p, color) {
 /** A text-bearing background surface at ramp depth `step` (1-3). */
 function surface (p, step) {
   return readableSurface(p, rampSurface(p, step))
+}
+
+/** How far the sidebar surface is blended from bg0 toward bg1. */
+const SIDEBAR_STEP_MIX = 0.8
+
+/**
+ * Sidebar column surface (`--dsw-specific-sidebar-fill`).
+ *
+ * DSH paints three things with this token — the sidebar column, the Windows
+ * titlebar strip and the frame behind the content card — while the content card
+ * itself is `--dsw-alias-bg-base` (bg0) with a 16px top-left radius. Mapping
+ * both to bg0 erased that edge, so an Everforest window had no sidebar/content
+ * boundary at all (2026-10-18 visual report). The sidebar is therefore one
+ * deliberate ramp step off the content: bg0 blended 80% toward bg1 — slightly
+ * darker paper in light, slightly lighter panel in dark, the same direction as
+ * DSH's native sidebar values.
+ *
+ * Every sidebar text role (nav labels, session titles, section headers) is
+ * `label-primary`, so the surface goes through the same contrast guard as the
+ * other text-bearing surfaces (WCAG AA 4.5:1; in light·soft that caps the step
+ * at roughly two thirds of the raw blend).
+ *
+ * @param {{ scheme: string, ramp: object, fg: object }} p
+ * @returns {string}
+ */
+function sidebarSurface (p) {
+  return readableSurface(p, mix(p.ramp.bg0, p.ramp.bg1, SIDEBAR_STEP_MIX))
 }
 
 /** Code-block / markdown background (Everforest `bg_dim`; contrast guarded). */
@@ -501,7 +529,7 @@ const SPECIFIC_TOKENS = {
   '--dsw-specific-login-input': (p) => surface(p, 1),
   '--dsw-specific-menu': (p) => menuFill(p),
   '--dsw-specific-selector': (p) => surface(p, 2),
-  '--dsw-specific-sidebar-fill': (p) => p.ramp.bg0,
+  '--dsw-specific-sidebar-fill': (p) => sidebarSurface(p),
   '--dsw-specific-sidebar-nav-item-active': (p) => surface(p, 2),
   '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.headerAqua, 0.2),
   '--dsw-specific-sidebar-nav-item-hover': (p) => surface(p, 1),

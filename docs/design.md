@@ -115,6 +115,13 @@ tokensFor(state) → {
 > - 修正：映射为 Everforest 的 `bg_blue` 芯片表面（`inlineCodeSurface`，取调色板里「蓝色背景」角色：light 淡薄荷、dark 灰蓝），文案仍继承 `label-primary`；并把该 token 加入 `scripts/check-contrast.mjs` 的文本承载表面硬门槛，6 档 ≥ 4.5:1。
 > - 结果：light-hard 芯片 `#ECF5ED`（5.01:1）、light-soft `#E6E8DA`（4.50:1）、dark-hard `#384B55`（5.39:1）、dark-soft `#3F5764`（4.51:1）；芯片比 `bg0` 略深（light）/ 略浅（dark），只是一个安静的代码底，不再是前景强调色。
 
+> **2026-10-18 视觉走查修正（侧栏边界）**（证据：`@deepseek-ai/dsh-client-ui-layout` 的 `AppFrame.module.css`、`dsh-client-ui-sidebar` 的 `SidebarRoot.module.css`；用户截图对比）：
+>
+> - DSH 用 `--dsw-specific-sidebar-fill` 画三处：侧栏列（`.sidebarCol`）、Windows 标题栏条（`[data-windows-titlebar] .frame:before`）以及内容卡背后的 frame；内容卡本身是 `--dsw-alias-bg-base`（bg0）+ 16px 左上圆角（`[data-windows-titlebar] .centerCol`）。native 两侧本就不同（light 侧栏 `#f9fafb` / 内容 `#fff`，dark `#1b1b1c` / `#151517`），所以能看出边界。
+> - 旧方案把两者都映射成 `bg0`（Enchanted 平铺风格），整条边界消失 —— 用户报告「Everforest 全部用的同一个颜色，没法区分边界线了」。
+> - 修正：`--dsw-specific-sidebar-fill` = `mix(bg0, bg1, 80%)` 再经 `readableSurface` 守卫（light 更深、dark 更浅，方向与 native 侧栏一致）；6 档边界对比度 1.03–1.12（native 1.045 / 1.060，观感同级）。light·soft 受正文 4.5:1 上限约束，实际取 `#eee7ce`（守卫后的最大步长）。该 token 已加入 `scripts/check-contrast.mjs` 的文本承载表面，并新增「侧栏边界 ≥ 1.02:1」硬门槛（`contrast.md` §2c/§3）。
+> - 连带：该 token 同时是桌面端 Windows 原生标题栏（DWM caption）的取色来源（`preload-app.cjs` 探针），标题栏会与自绘标题栏条同色；`settings-general` 的设置导航（`sidebar-nav-item-*`）位于内容区 `bg-base` 上，不受影响。
+
 ### 第 1 层：派生映射（覆盖 195 个颜色 token）
 
 `src/tokens.js` 用「角色 / 表达式」描述，而不是逐条写死六份颜色：
@@ -127,7 +134,8 @@ export const TOKEN_MAP = {
   '--dsw-alias-bg-layer-2':            r => r.bg2,
   '--dsw-alias-bg-layer-3':            r => r.bg3,
   '--dsw-alias-bg-overlay':            r => r.bg2,
-  '--dsw-specific-sidebar-fill':       r => r.bg0,    // Enchanted 平铺风格
+  // 侧栏 = bg0 向 bg1 混 80% + 对比度守卫：与 bg-base 拉开可辨边界（见上方修正）
+  '--dsw-specific-sidebar-fill':       r => sidebarSurface(r),
   '--dsw-specific-bubble':             r => r.bg1,
   '--dsw-alias-markdown-code-block':   r => r.bgDim,
   // 文字 / 边框
@@ -155,7 +163,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `bg-base` | `bg0` | 主背景 |
 | `bg-layer-1/2/3` | `bg1` / `bg2` / `bg3` | 输入框、行 hover、菜单、嵌套层 |
 | `bg-overlay` | `bg2` | 浮层 / popover |
-| `specific-sidebar-fill` | `bg0` | Enchanted 的平铺（不靠明度分层） |
+| `specific-sidebar-fill` | `bg0` → `bg1` 的 80% 混合（对比度守卫） | 侧栏列 / Windows 标题栏条与内容卡（`bg-base` + 16px 圆角）之间需要可辨边界；平铺 `bg0` 会让边界消失（见上方 2026-10-18 修正） |
 | `specific-bubble` / `bubble-highlight` | `bg1` / `bg2` | DSH 专有，按最近层级取 |
 | `markdown-code-block` | `bg_dim` | Enchanted 代码底 |
 | `markdown-inline-code` | `bg_blue`（芯片表面） | DSH 用作 inline code 的**背景**（文字继承 `label-primary`）；Enchanted `--code-inline` 是前景色，不可复用 |
@@ -365,7 +373,7 @@ export function apply(ctx) {
 | 深浅色 | 用 DSH 自带 Appearance 或设置页外观控制切到 light/dark/system，主题自动使用对应调色板；`system` 下改 OS 深浅色应实时跟随；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复 |
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理） |
 | 首帧 | 冷启动记录 loading → 首帧是否可见 DSH 原生色（已知缺口，0.3.0 再评估）；`immediately` 不能减闪 |
-| 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；记录已知缺口 |
+| 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；记录已知缺口 |
 | 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效；包名 `dsh-everforest` 仍可用 |
 
 **改动生效方式（开发循环）**：`client.js` 内容改动 → Plugins 页停用/启用该插件（Host 重新快照 bundle，浏览器经 HMR 换模块）或重启 Host；`package.json` / `cordis.patch.yml` 改动 → HMR 即时重组合；单纯刷新页面不会换 bundle 字节。
@@ -388,7 +396,7 @@ export function apply(ctx) {
 2. 设置页文案只做 `zh` / `en`（内置 locale id），其余语言回退英文；是否要随 DSH 语言包扩展再议。
 3. 是否需要在 Appearance 行旁增加「Everforest」快捷入口（`settings.general.item`），还是只保留独立页面。
 4. 非默认的 4 个变体沿用 Enchanted 的 `header-*` 常量值：若硬/软档的对比度检查不通过，需要按背景亮度做小幅修正，并回写 `docs/reference/palette.md`。
-5. 侧栏是否要保留 Enchanted 的「平铺背景」（当前方案侧栏用 `bg0`；若视觉上侧栏与主区难以区分，再引入 `bg1`）。
+5. ~~侧栏是否要保留 Enchanted 的「平铺背景」~~ **已决策（2026-10-18 视觉走查）**：不保留 —— 侧栏改为 `bg0` → `bg1` 的 80% 混合 + 对比度守卫；平铺时 Windows 下侧栏 / 标题栏 / 内容卡同色，边界完全消失（并新增边界 ≥ 1.02:1 硬门槛）。
 6. 冷启动首帧（loading 页 / 首帧底色是 Host 字面 CSS）是否接受；若要消除，需要评估首帧注入在 Electron `dsh-app://` 窗口是否可用（`webServer.tapIndex` 只覆盖 HTTP 渲染路径的可能性大）。
 7. 是否值得为设置导航项做自定义图标（`settings.section` 无 icon 字段；`dshmarket` 用 DOM 改写实现，0.x 先沿用默认齿轮）。
 8. `--dsw-token` 自检策略：启动时读取若干关键 token 的 computed 值判断是否缺失/改名；缺失时降级（保留原生值）并 console.warn，是否要暴露到设置页「诊断」区。
