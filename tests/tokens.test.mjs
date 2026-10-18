@@ -191,7 +191,26 @@ test('brand mapping: header-aqua with bg0 foreground, header-blue link', () => {
   }
   assert.equal(overlay['--dsw-alias-link'].light, FOREGROUNDS.light.headerBlue)
   assert.equal(overlay['--dsw-alias-link'].dark, FOREGROUNDS.dark.headerBlue)
-  assert.equal(overlay['--dsw-alias-markdown-inline-code'].light, FOREGROUNDS.light.blue)
+})
+
+test('inline code is a background chip, not a foreground accent', () => {
+  // DSH applies --dsw-alias-markdown-inline-code as `background-color` on inline
+  // code and lets the chip text inherit label-primary. Mapping it to fg.blue made a
+  // loud blue block with 1.65:1 (light) / 1.29:1 (dark) text contrast.
+  const overlay = tokensFor(DEFAULT_STATE)
+  const chip = overlay['--dsw-alias-markdown-inline-code']
+  assert.ok(isLegalColor(chip.light) && isLegalColor(chip.dark))
+  for (const scheme of ['light', 'dark']) {
+    assert.notEqual(chip[scheme], FOREGROUNDS[scheme].blue, `${scheme}: chip must not be the blue accent`)
+    assert.notEqual(chip[scheme], RAMPS[scheme][DEFAULT_STATE[scheme]].bg0, `${scheme}: chip must differ from bg0`)
+    // Inherited label-primary text on the chip must reach WCAG AA.
+    const ratio = contrastRatio(FOREGROUNDS[scheme].fg, chip[scheme])
+    assert.ok(ratio >= 4.5, `${scheme}: label-primary on inline code = ${ratio.toFixed(2)} < 4.5`)
+    // The chip is a light surface: darker than bg0 in light, lighter than bg0 in dark.
+    const chipLuminance = relativeLuminance(chip[scheme])
+    const bgLuminance = relativeLuminance(RAMPS[scheme][DEFAULT_STATE[scheme]].bg0)
+    assert.equal(chipLuminance < bgLuminance, scheme === 'light', `${scheme}: chip luminance direction`)
+  }
 })
 
 test('borders use bg5 alpha, not literal grey', () => {

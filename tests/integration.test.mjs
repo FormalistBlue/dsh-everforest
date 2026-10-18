@@ -316,6 +316,9 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
   assert.equal(typeof store.select, 'function')
   assert.equal(typeof store.reset, 'function')
+  assert.equal(typeof store.setPreference, 'function')
+  assert.equal(typeof store.setPreference('auto'), 'undefined')
+  assert.deepEqual(recorded.setThemeCalls, [])
 
   // Selecting a strength replaces the layer; selecting another scheme also
   // switches DSH's Appearance preference.
@@ -333,6 +336,16 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   store.reset()
   assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
   assert.deepEqual(recorded.setThemeCalls, ['light', 'dark'])
+
+  // The appearance control writes the same global preference DSH owns; the
+  // store only accepts DSH's three values (no plugin-local appearance state).
+  store.setPreference('system')
+  assert.deepEqual(recorded.setThemeCalls, ['light', 'dark', 'system'])
+  assert.equal(store.getSnapshot().theme.preference, 'system')
+  assert.equal(store.getSnapshot().theme.active.colorScheme, 'dark')
+  store.setPreference('light')
+  assert.deepEqual(recorded.setThemeCalls, ['light', 'dark', 'system', 'light'])
+  assert.equal(store.getSnapshot().theme.active.colorScheme, 'light')
 
   // Plugin unload releases the override layer (not automatic in ThemeRuntime).
   harness.disposeAll()

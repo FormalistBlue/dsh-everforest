@@ -72,6 +72,7 @@ const TEXT_SURFACES = [
   '--dsw-alias-markdown-code-block-banner',
   '--dsw-alias-markdown-code-segment-selected',
   '--dsw-alias-markdown-code-segment-unselected',
+  '--dsw-alias-markdown-inline-code',
   '--dsw-alias-markdown-citation',
   '--dsw-alias-markdown-placeholder',
   '--dsw-alias-markdown-tag',

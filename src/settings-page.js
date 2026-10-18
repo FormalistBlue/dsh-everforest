@@ -7,12 +7,14 @@
  * the module loader) and in plain Node tests (where a tiny mock React is
  * enough). Nothing here requires a `@deepseek-ai/*` package.
  *
- * The page shows two groups of three strength cards — Dark (default Soft) and
- * Light (default Hard) — each card previewing the five signature colors of its
- * palette: bg0, bg1, bg2, fg and header-aqua. Selecting a card persists the
- * choice (through the injected store) and, when it belongs to the other color
- * scheme, also switches DSH Appearance; both facts are spelled out in the hint
- * copy.
+ * The page shows an Appearance control — follow the system, or fix light/dark —
+ * followed by two groups of three strength cards (Dark, default Soft; Light,
+ * default Hard). Each card previews the five signature colors of its palette:
+ * bg0, bg1, bg2, fg and header-aqua. Selecting a card persists the choice
+ * (through the injected store) and, when it belongs to the other color scheme,
+ * also switches DSH Appearance; the Appearance control switches it back to
+ * `system` (or a fixed side) without touching the palette strengths, and the
+ * hint copy spells both facts out.
  *
  * Styling uses only `--dsw-*` design tokens for interface colors. The palette
  * colors in the preview stripes are Everforest data, supplied inline by the
@@ -68,6 +70,47 @@ export const SETTINGS_STYLES = `
   font-weight: 600;
   line-height: 20px;
 }
+.everforest-appearance-options {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-2);
+}
+.everforest-appearance-option {
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-sm);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+}
+.everforest-appearance-option:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.everforest-appearance-option[aria-pressed='true'] {
+  border-color: var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+}
+.everforest-appearance-option:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+.everforest-appearance-note {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
 .everforest-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -76,6 +119,15 @@ export const SETTINGS_STYLES = `
 @media (max-width: 520px) {
   .everforest-cards {
     grid-template-columns: 1fr;
+  }
+  .everforest-appearance-options {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .everforest-appearance-option {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 .everforest-card {
@@ -213,6 +265,9 @@ export const SETTINGS_STYLES = `
 /** Color schemes in display order (dark group first, then light). */
 const GROUP_SCHEMES = ['dark', 'light']
 
+/** Appearance preferences in display order (mirrors DSH's own three-way switch). */
+const APPEARANCE_OPTIONS = ['system', 'dark', 'light']
+
 /** Fallback strength order, used when the palette module is not yet readable. */
 const FALLBACK_STRENGTHS = ['hard', 'medium', 'soft']
 
@@ -228,6 +283,7 @@ const EMPTY_STORE = {
   subscribe: () => () => {},
   select: () => {},
   reset: () => {},
+  setPreference: () => {},
 }
 
 /**
@@ -431,6 +487,52 @@ export function createSettingsComponent(dependencies) {
       ])
     }
 
+    /** One appearance-preference option: native button with `aria-pressed`. */
+    function renderAppearanceOption(preference) {
+      const selected = theme.preference === preference
+      return h('button', {
+        key: preference,
+        type: 'button',
+        className: selected
+          ? 'everforest-appearance-option everforest-appearance-option-selected'
+          : 'everforest-appearance-option',
+        'aria-pressed': selected ? 'true' : 'false',
+        'data-preference': preference,
+        onClick: () => {
+          if (typeof store.setPreference === 'function') store.setPreference(preference)
+        },
+      }, t('appearance.' + preference))
+    }
+
+    /**
+     * Appearance control: follow the OS (`system`, DSH resolves the active
+     * scheme) or fix light/dark. The note explains which one is in effect; the
+     * actual scheme follows the OS while `system` is selected.
+     */
+    function renderAppearance() {
+      const headingId = 'everforest-appearance-title'
+      const schemeLabel = theme.preference === 'system'
+        ? t('group.' + theme.colorScheme)
+        : t('group.' + theme.preference)
+      const note = theme.preference === 'system'
+        ? t('appearance.systemActive', { scheme: schemeLabel })
+        : t('appearance.fixed', { scheme: schemeLabel })
+      return h('section', {
+        key: 'appearance',
+        className: 'everforest-group everforest-appearance',
+        'aria-labelledby': headingId,
+      }, [
+        h('h3', { key: 'heading', id: headingId, className: 'everforest-group-title' }, t('appearance.title')),
+        h('div', {
+          key: 'options',
+          className: 'everforest-appearance-options',
+          role: 'group',
+          'aria-label': t('appearance.label'),
+        }, APPEARANCE_OPTIONS.map((preference) => renderAppearanceOption(preference))),
+        h('p', { key: 'note', className: 'everforest-appearance-note' }, note),
+      ])
+    }
+
     /** One scheme group: heading + three strength cards. */
     function renderGroup(scheme) {
       const headingId = 'everforest-group-' + scheme
@@ -490,6 +592,7 @@ export function createSettingsComponent(dependencies) {
         h('h2', { key: 'title', className: 'everforest-title' }, t('nav.title')),
         h('p', { key: 'intro', className: 'everforest-intro' }, t('intro')),
       ]),
+      renderAppearance(),
       GROUP_SCHEMES.map((scheme) => renderGroup(scheme)),
       renderCurrent(),
       renderHints(),

@@ -2,13 +2,13 @@
 
 [Everforest](https://github.com/sainnhe/everforest) 配色主题插件，用于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 Web / Desktop 界面。
 
-> 状态：**0.1.0 已实现并在本机安装验证**（2026-10-18）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`，`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 尚未发布，发布步骤见 [`docs/releasing.md`](docs/releasing.md)。
+> 状态：**0.1.0 已实现并在本机安装验证**（2026-10-18）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`（页面含「跟随系统 / 深色 / 浅色」外观控制与 6 张色卡），`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 尚未发布，发布步骤见 [`docs/releasing.md`](docs/releasing.md)。
 
 ## 功能
 
-- **6 套调色板**：Everforest `Dark` / `Light` × `Hard` / `Medium` / `Soft`。**默认配对对齐 [Everforest Enchanted](https://github.com/FireIsGood/obsidian-everforest-enchanted)**（深色 Soft / 浅色 Hard）；深浅色由 DSH 内置的 Appearance（浅色 / 深色 / 跟随系统）决定，每组深浅色各自选择强度。**在设置页点击另一深浅色组的色卡会同时切换 DSH 外观**（会写入 DSH 的全局外观偏好，因此「跟随系统」会变成固定深浅色；设置页文案会说明）。
+- **6 套调色板**：Everforest `Dark` / `Light` × `Hard` / `Medium` / `Soft`。**默认配对对齐 [Everforest Enchanted](https://github.com/FireIsGood/obsidian-everforest-enchanted)**（深色 Soft / 浅色 Hard）；深浅色由 DSH 内置的 Appearance（浅色 / 深色 / 跟随系统）决定，每组深浅色各自选择强度。**在设置页点击另一深浅色组的色卡会同时切换 DSH 外观**（会写入 DSH 的全局外观偏好，因此「跟随系统」会变成固定深浅色；设置页的「跟随系统」按钮可随时恢复自动跟随）。
 - **token 级覆盖，不改组件 CSS**：通过 Client 的 `ctx.theme.overrideTokens()` 覆盖 `--dsw-*`（77 个 static 色阶 + 107 个 alias + 11 个 specific + 6 个辅助 token）与 `--shiki-*`（9 个 token + foreground/background，共 11 个），随 DSH 换肤机制自动按深浅色应用；插件停用 / 卸载时由插件自己的 `ctx.effect` 清理撤销（`overrideTokens` 的 disposer 不会自动挂 fiber）。
-- **设置页**：在 Settings 中提供独立页面（`settings.section`），6 张色卡（深色 / 浅色各 3 档强度）+ 当前生效行 + 恢复默认，切换即时生效并持久化；色卡带 `aria-pressed`、键盘可达，样式只用 `--dsw-*` token。
+- **设置页**：在 Settings 中提供独立页面（`settings.section`），顶部是「跟随系统 / 深色 / 浅色」外观控制（写入 DSH 同一份全局外观偏好，选择「跟随系统」后随 OS 深浅色自动切换），下面是 6 张色卡（深色 / 浅色各 3 档强度）+ 当前生效行 + 恢复默认；切换即时生效并持久化，色卡带 `aria-pressed`、键盘可达，样式只用 `--dsw-*` token。
 - **中英双语**：设置页文案经 Client locale 服务注册（`settings.everforest`，内置 `zh` / `en`）；插件管理页标题 / 描述读取 `locale/*.json`。
 - **零运行时依赖**：正文只有一份 `client.js`（普通 JS，无构建产物依赖、无 React 重复安装）。
 - **已知缺口**：终端 ANSI 16 色（xterm 内置盘，DSH 只传 bg / fg / cursor）、brand mark / 文件类型图标 artwork、Enchanted 的逐级标题彩色（DSH 无对应 token）、首帧 loading 页（Host 注入的字面底色，早于插件生效）、设置导航项图标（`settings.section` 不带 icon 字段，第三方页面显示默认齿轮）。
@@ -126,17 +126,19 @@ dsh-everforest/
 | 项 | 证据 |
 |---|---|
 | 构建产物 | `node scripts/build.mjs --check` 通过；`node --check client.js` 通过；`factory` 返回 `{ name, inject, apply }`（VM 加载测试） |
-| 单测 / 集成 | `node --test` 87 项全绿（palette 12、color/tokens 24、state/settings-page 37、integration 14；含 `apply()` 生命周期、延迟 slots/locale 挂载、token 覆盖率、palette.md↔生成物一致性、bundle 格式、manifest/patch/locale/icon） |
+| 单测 / 集成 | `node --test` 91 项全绿（palette 12、color 8、tokens 17、state 17、settings-page 23、integration 14；含 `apply()` 生命周期、延迟 slots/locale 挂载、token 覆盖率、inline code 芯片映射、palette.md↔生成物一致性、bundle 格式、manifest/patch/locale/icon） |
 | token 覆盖 | `docs/reference/token-inventory.json` 206 色 + 6 辅助全部在 `tokensFor()` 输出中；`Theme.listTokens` 出现全部覆盖 token（含 `--shiki-*` 与 `--dsw-linear-*`） |
 | 对比度 | `node scripts/check-contrast.mjs --check` 硬门槛全过（label-primary vs bg-base/layer-1/2 最小 4.53、shiki fg/bg 最小 4.53、反色前景真实配对 ≥4.66、品牌实底前景 2.70、值合法）；报告见 [`docs/reference/contrast.md`](docs/reference/contrast.md) |
+| 外观控制 | 设置页新增「跟随系统 / 深色 / 浅色」三按钮，点击经 store 调 `ctx.theme.setTheme`（写入 DSH 全局外观偏好，`system` 恢复 OS 跟随）；非法值被忽略，`aria-pressed` 与说明文案由单测 / 集成测试覆盖 |
 | 安装 | `plugin_manager.install_bundle` → `application: applied`；`Slots.listSubTree(settings.section)` 出现 `registrant: dsh-everforest, id: everforest, order: 25, active: true` |
+| 启用 / 外观控制上线 | 本轮 `plugin_manager.set_bundle(dsh-everforest, enabled=true)` → `application: applied`；`settings.section` occupant 与 `Theme.listTokens` 的 212 个覆盖 token 均恢复；新页面控件（外观控制 + 6 张色卡）的实际渲染与点击效果仍属人工目检项 |
 | 停用清理 | 真机验证：`plugin_manager.set_bundle(dsh-everforest, enabled=false)` → `settings.section` 的 everforest occupant 消失、`Theme.listTokens` 从 212 个覆盖 token 回到内置 14 条（覆盖层已撤销）；重新 enable 后两项均恢复，全程 HMR 生效、无需重启 |
 
 仍需人工目检（无浏览器控制能力，自动项无法替代）：
 
-1. Settings → Everforest 页面实际渲染（6 张色卡、当前行、恢复默认）、中英文案随 DSH 语言切换；
+1. Settings → Everforest 页面实际渲染（外观控制、6 张色卡、当前行、恢复默认）、中英文案随 DSH 语言切换；
 2. 切换强度 / 点击另一深浅色组色卡的效果，以及 `document.body.style.getPropertyValue('--dsw-alias-bg-base')` 等于对应调色板值（DevTools）；
-3. 深色 / 浅色 / 跟随系统切换时主题自动跟随；
+3. 用设置页控制与 DSH 自带 Appearance 分别切到深色 / 浅色 / 跟随系统，主题自动使用对应调色板；改 OS 深浅色时「跟随系统」状态应实时跟随；
 4. Desktop 选择强度后退出应用重启，选择保持；
 5. 代码高亮（`--shiki-*`）在聊天气泡、diff、工具输出三处生效；终端底色 / 字色跟随；
 6. 全站视觉走查（聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中 / 状态色）与首帧闪动记录（已知缺口，0.3.0 再评估）。
@@ -151,12 +153,13 @@ dsh-everforest/
 
 - **浅色表面提亮**：light 三档的 `bg-layer-1/2/3`、代码块 / overlay 等承载正文的表面按 `mix(bg0, bgN, 0.25)` 向 `bg0` 提亮，并用对比度守卫微调，以满足正文 ≥ 4.5:1（上游 light·soft 原始映射为 4.17–4.38）。视觉上 light 更接近 DSH 原生（light layer1/2/3 = `#fff`）与 Enchanted 的平铺风格；dark 保留设计原值。详见 `docs/reference/contrast.md` §6。
 - **语义色保持上游低对比度**：`state-warn/success/error` 等沿用 Enchanted/官方色（light warn 在 bg0 上约 1.9–2.2:1），与 DSH 原生语义色同级（native amber-500 on `#fff` ≈ 2.15），属图标 / 语义色用途，报告而非强改。
+- **inline code 芯片是「表面」不是「前景色」**：DSH 把 `--dsw-alias-markdown-inline-code` 用作 inline code 的 `background-color`（文字继承 `label-primary`），并不是 Enchanted 的 `--code-inline` 前景蓝。旧映射取 `fg.blue` 会渲染成饱和蓝块 + 深色字（light 1.65:1、dark 1.29:1），既显眼又难读；现改为 Everforest `bg_blue` 芯片底（light 淡薄荷 / dark 灰蓝），并纳入文本承载表面硬门槛，6 档 `label-primary` 对比度 ≥ 4.50:1。
 - **不覆盖**：字体 / 圆角 / 阴影 / `--dsw-focus-ring-*` / `--dsw-menu-backdrop-filter` / 终端 ANSI 16 色 / brand mark 与文件图标 artwork / macOS darwin 渐变 / boot 首帧色（清单见 `src/tokens.js` 顶部与 `TOKEN_COVERAGE.uncovered`）。
 - **强度偏好按 origin 保存**：Desktop 窗口 origin 固定（`dsh-app://app`）可跨重启；用浏览器打开 Host URL 时端口每次随机，localStorage 不跨重启（设置页文案已说明）。
 
 ## 路线图
 
-- [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页 + 本地持久化 + 本机安装验证（自动化项全绿，真机目检项见「验证」）
+- [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页（含「跟随系统 / 深色 / 浅色」外观控制）+ 本地持久化 + 本机安装验证（自动化项全绿，真机目检项见「验证」）
 - [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图、npm 发布
 - [ ] **0.3.0** —（可选）Host 侧偏好持久化（跨浏览器一致）、消除首帧 loading 闪动（评估首帧注入在 Electron 窗口是否可用）、系统配色跟随细节
 

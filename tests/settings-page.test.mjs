@@ -55,7 +55,7 @@ function createMockReact(options = {}) {
 /** Observable store double with the same contract as the client entry's store. */
 function createMockStore(options = {}) {
   const listeners = new Set()
-  const calls = { select: [], reset: 0 }
+  const calls = { select: [], reset: 0, preference: [] }
   let snapshot = {
     state: { light: options.light ?? 'hard', dark: options.dark ?? 'soft' },
     theme: {
@@ -81,6 +81,14 @@ function createMockStore(options = {}) {
     reset() {
       calls.reset += 1
       snapshot = { state: { light: 'hard', dark: 'soft' }, theme: snapshot.theme }
+      notify()
+    },
+    setPreference(preference) {
+      calls.preference.push(preference)
+      const colorScheme = preference === 'system'
+        ? snapshot.theme.active.colorScheme
+        : preference
+      snapshot = { state: snapshot.state, theme: { preference, active: { colorScheme } } }
       notify()
     },
     setAppearance(preference, colorScheme) {
@@ -165,6 +173,12 @@ const isCard = (node) => Boolean(
   && typeof node.props['data-scheme'] === 'string'
   && typeof node.props['data-strength'] === 'string',
 )
+const isAppearanceOption = (node) => Boolean(
+  node
+  && node.type === 'button'
+  && node.props
+  && typeof node.props['data-preference'] === 'string',
+)
 const byClass = (name) => (node) => Boolean(
   node
   && node.props
@@ -217,6 +231,10 @@ test('SETTINGS_STYLES uses only design tokens for interface colors', () => {
     '.everforest-card[aria-pressed=\'true\']',
     '.everforest-card:focus-visible',
     '.everforest-swatch',
+    '.everforest-appearance-options',
+    '.everforest-appearance-option[aria-pressed=\'true\']',
+    '.everforest-appearance-option:focus-visible',
+    '.everforest-appearance-note',
     '.everforest-reset',
   ]) {
     assert.ok(SETTINGS_STYLES.includes(marker), `stylesheet is missing ${marker}`)
@@ -241,6 +259,13 @@ test('locale dictionaries are complete and mirrored', () => {
   const required = [
     'nav.title',
     'intro',
+    'appearance.title',
+    'appearance.label',
+    'appearance.system',
+    'appearance.dark',
+    'appearance.light',
+    'appearance.systemActive',
+    'appearance.fixed',
     'group.dark',
     'group.light',
     'strength.hard',
@@ -277,6 +302,8 @@ test('locale dictionaries are complete and mirrored', () => {
   // Chinese copy is actually Simplified Chinese where it matters.
   assert.match(ZH['group.dark'], /深色/)
   assert.match(ZH['group.light'], /浅色/)
+  assert.match(ZH['appearance.system'], /跟随系统/)
+  assert.match(ZH['appearance.systemActive'], /当前生效/)
   assert.match(ZH['hint.scheme'], /全局外观偏好/)
   assert.match(ZH['hint.storage'], /浏览器/)
   assert.match(ZH['reset'], /恢复默认/)
@@ -294,7 +321,7 @@ test('locale JSON metadata exists for the plugin manager', () => {
   }
 })
 
-test('page renders two groups with three cards each, dark first', () => {
+test('page renders the appearance control, then two groups with three cards each', () => {
   const { tree } = renderPage()
   const cards = findAll(tree, isCard)
   assert.equal(cards.length, 6)
@@ -310,14 +337,19 @@ test('page renders two groups with three cards each, dark first', () => {
     ],
   )
 
-  const groups = findAll(tree, (node) => node.type === 'section')
-  assert.equal(groups.length, 2)
-  assert.equal(textContent(findOne(groups[0], byClass('everforest-group-title'))), 'Dark')
-  assert.equal(textContent(findOne(groups[1], byClass('everforest-group-title'))), 'Light')
-  assert.ok(groups[0].props['aria-labelledby'])
-  assert.ok(groups[1].props['aria-labelledby'])
+  const sections = findAll(tree, (node) => node.type === 'section')
+  assert.equal(sections.length, 3)
+  assert.equal(textContent(findOne(sections[0], byClass('everforest-group-title'))), 'Appearance')
+  assert.equal(textContent(findOne(sections[1], byClass('everforest-group-title'))), 'Dark')
+  assert.equal(textContent(findOne(sections[2], byClass('everforest-group-title'))), 'Light')
+  for (const section of sections) assert.ok(section.props['aria-labelledby'])
 
-  const cardGroups = findAll(tree, (node) => node.props && node.props.role === 'group')
+  const cardGroups = findAll(tree, (node) => (
+    node.props
+    && node.props.role === 'group'
+    && typeof node.props.className === 'string'
+    && node.props.className.split(/\s+/).includes('everforest-cards')
+  ))
   assert.equal(cardGroups.length, 2)
   assert.equal(cardGroups[0].props['aria-label'], 'Dark palettes')
   assert.equal(cardGroups[1].props['aria-label'], 'Light palettes')
@@ -437,6 +469,76 @@ test('current row reflects a fixed Appearance preference', () => {
   assert.match(textContent(findOne(tree, byClass('everforest-current-meta'))), /Light/)
 })
 
+test('appearance control offers system, dark and light and marks the preference', () => {
+  const { tree } = renderPage({ store: createMockStore({ preference: 'system', colorScheme: 'light' }) })
+  const options = findAll(tree, isAppearanceOption)
+  assert.deepEqual(
+    options.map((option) => option.props['data-preference']),
+    ['system', 'dark', 'light'],
+  )
+  assert.deepEqual(options.map(textContent), ['Follow system', 'Dark', 'Light'])
+  assert.deepEqual(
+    options.filter((option) => option.props['aria-pressed'] === 'true').map((option) => option.props['data-preference']),
+    ['system'],
+  )
+  const group = findOne(tree, (node) => (
+    node.props && node.props.role === 'group' && node.props['aria-label'] === 'Appearance preference'
+  ))
+  assert.ok(group)
+  for (const option of options) {
+    assert.equal(option.props.type, 'button')
+    assert.equal(typeof option.props.onClick, 'function')
+  }
+  assert.equal(
+    textContent(findOne(tree, byClass('everforest-appearance-note'))),
+    'Following the system appearance; the active side is Light.',
+  )
+})
+
+test('clicking an appearance option calls store.setPreference and re-renders', () => {
+  const store = createMockStore({ preference: 'dark', colorScheme: 'dark' })
+  const { tree } = renderPage({ store })
+  const options = findAll(tree, isAppearanceOption)
+  assert.deepEqual(
+    options.filter((option) => option.props['aria-pressed'] === 'true').map((option) => option.props['data-preference']),
+    ['dark'],
+  )
+  assert.equal(
+    textContent(findOne(tree, byClass('everforest-appearance-note'))),
+    'Appearance is fixed to Dark; it no longer follows the system.',
+  )
+
+  const system = options.find((option) => option.props['data-preference'] === 'system')
+  system.props.onClick()
+  const light = options.find((option) => option.props['data-preference'] === 'light')
+  light.props.onClick()
+  assert.deepEqual(store.calls.preference, ['system', 'light'])
+
+  const { tree: updated } = renderPage({ store })
+  const pressed = findAll(updated, isAppearanceOption)
+    .filter((option) => option.props['aria-pressed'] === 'true')
+    .map((option) => option.props['data-preference'])
+  assert.deepEqual(pressed, ['light'])
+  assert.match(
+    textContent(findOne(updated, byClass('everforest-appearance-note'))),
+    /fixed to Light/,
+  )
+})
+
+test('appearance note tracks the resolved side while following the system', () => {
+  const { tree } = renderPage({ store: createMockStore({ preference: 'system', colorScheme: 'dark' }) })
+  assert.equal(
+    textContent(findOne(tree, byClass('everforest-appearance-note'))),
+    'Following the system appearance; the active side is Dark.',
+  )
+  // Fixed preferences win over the (stale) resolved scheme for the note.
+  const { tree: fixed } = renderPage({ store: createMockStore({ preference: 'light', colorScheme: 'dark' }) })
+  assert.equal(
+    textContent(findOne(fixed, byClass('everforest-appearance-note'))),
+    'Appearance is fixed to Light; it no longer follows the system.',
+  )
+})
+
 test('clicking a card calls store.select with its scheme and strength', () => {
   const store = createMockStore()
   const { tree } = renderPage({ store })
@@ -493,12 +595,20 @@ test('page explains the Appearance write and the per-browser storage scope', () 
 
 test('Simplified Chinese renders translated copy and labels', () => {
   const { tree } = renderPage({ t: translateZH })
-  const groups = findAll(tree, (node) => node.type === 'section')
-  assert.equal(textContent(findOne(groups[0], byClass('everforest-group-title'))), '深色')
-  assert.equal(textContent(findOne(groups[1], byClass('everforest-group-title'))), '浅色')
+  const sections = findAll(tree, (node) => node.type === 'section')
+  assert.equal(sections.length, 3)
+  assert.equal(textContent(findOne(sections[0], byClass('everforest-group-title'))), '外观')
+  assert.equal(textContent(findOne(sections[1], byClass('everforest-group-title'))), '深色')
+  assert.equal(textContent(findOne(sections[2], byClass('everforest-group-title'))), '浅色')
 
   const cards = findAll(tree, isCard)
   assert.equal(cards[0].props['aria-label'], '深色 Hard 配色')
+  const appearanceOptions = findAll(tree, isAppearanceOption)
+  assert.deepEqual(appearanceOptions.map(textContent), ['跟随系统', '深色', '浅色'])
+  assert.match(
+    textContent(findOne(tree, byClass('everforest-appearance-note'))),
+    /正在跟随系统外观，当前生效的是浅色。/,
+  )
   assert.equal(
     textContent(findOne(tree, byClass('everforest-current-main'))),
     '当前：深色 Soft · 浅色 Hard',
@@ -514,7 +624,7 @@ test('Simplified Chinese renders translated copy and labels', () => {
 test('all interactive controls are native buttons', () => {
   const { tree } = renderPage()
   const buttons = findAll(tree, (node) => node.type === 'button')
-  assert.equal(buttons.length, 7) // six cards + reset
+  assert.equal(buttons.length, 10) // six cards + three appearance options + reset
   for (const button of buttons) {
     assert.equal(button.props.type, 'button')
     assert.equal(typeof button.props.onClick, 'function')
@@ -545,6 +655,8 @@ test('renders safely without a store and without optional props', () => {
     textContent(findOne(tree, byClass('everforest-current-main'))),
     'Current: Dark Soft · Light Hard',
   )
+  // The no-op fallback store keeps the appearance control clickable.
+  for (const option of findAll(tree, isAppearanceOption)) option.props.onClick()
   // Standard slot owner props are ignored by the page.
   const tree2 = Component({ t: translateEN, store: createMockStore(), close: () => {}, extra: 42 })
   assert.equal(findAll(tree2, isCard).length, 6)
@@ -566,6 +678,12 @@ test('hostile store snapshots degrade to the default pairing', () => {
   assert.match(
     textContent(findOne(tree, byClass('everforest-current-meta'))),
     /following system/,
+  )
+  assert.deepEqual(
+    findAll(tree, isAppearanceOption)
+      .filter((option) => option.props['aria-pressed'] === 'true')
+      .map((option) => option.props['data-preference']),
+    ['system'],
   )
 })
 

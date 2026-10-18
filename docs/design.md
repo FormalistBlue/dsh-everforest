@@ -13,9 +13,9 @@
 
 **非目标（0.x）**
 
-- 不替换 DSH 的 Appearance 开关（light / dark / system 仍由 DSH 决定）。
+- 不替换 DSH 的 Appearance 开关（light / dark / system 仍由 DSH 决定）；设置页只提供等价的快捷控制（见 §6），写入同一份全局偏好。
 - 不接管终端 ANSI 16 色、brand mark、macOS 专用渐变、首帧 loading 页。
-- 不写 DSH 设置文档里的**强度偏好**（第三方主题 id 不参与持久化）；强度先用 localStorage，0.3.0 再评估 Host 侧。**Appearance 偏好例外**：点色卡会通过 `ctx.theme.setTheme` 写入（见 §2，已决策）。
+- 不写 DSH 设置文档里的**强度偏好**（第三方主题 id 不参与持久化）；强度先用 localStorage，0.3.0 再评估 Host 侧。**Appearance 偏好例外**：点色卡或设置页外观控制会通过 `ctx.theme.setTheme` 写入（见 §2 / §6，已决策）。
 - 不做 Enchanted 的逐级标题彩色（h1–h6 各一色）：DSH 没有逐级标题颜色 token，实现它需要改写组件选择器，违背「只走 token」的原则。
 
 ## 2. 总体架构
@@ -31,6 +31,7 @@
 │   └─ ctx.slots.inject('settings.section', () => ctx.slots.register({ id: 'everforest', … })) │
 │                                                                                     │
 │  EverforestSection                                                                  │
+│   ├─ 外观控制 3 按钮：跟随系统 / 深色 / 浅色 → store.setPreference → setTheme      │
 │   ├─ 深色组 3 张卡 / 浅色组 3 张卡                                                   │
 │   └─ onClick: writeState → 替换同 source 覆盖层 → ctx.theme.setTheme(scheme)（已决策）│
 └─────────────────────────────────────────────────────────────────────────────────────┘
@@ -48,7 +49,7 @@
 - **覆盖层必须由插件自己的 effect 持有**：`overrideTokens` 返回的 disposer 不会随插件 fiber 自动调用（层存在 root 级 `ThemeRuntime` 里），所以必须 `ctx.effect(() => ctx.theme.overrideTokens(...))` 或把返回的 disposer 挂进 effect；否则插件停用后会残留到页面重载。`ctx.locale.register` 同理需要 `ctx.effect`；`ctx.slots.register` / `ctx.slots.inject` 由 slot service 代挂调用者 fiber，可省略。
 - 选强度不重建插件，只替换同一 source 的覆盖层（`overrideTokens` 语义：同 source 整体替换并重新置顶，旧 disposer 变为 no-op）；替换后发 `theme/change`，presenter 同步重新应用。
 - 深浅色切换不需要插件做任何事：覆盖层里每个 token 同时带 `light` 与 `dark`，presenter 按当前 `active.colorScheme` 取值。
-- 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色——设置页文案必须说明（已决策，2026-10-18）。
+- 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
 
 ## 3. 数据模型
 
@@ -103,10 +104,16 @@ tokensFor(state) → {
 > - 统计口径：403 个 `--dsw-*` 是 **ui-theme 单包 8 张 sheet 的唯一名合计**（不是四个包）；颜色类 77 static + 107 alias + 11 specific = 195 ✔；107 alias = 101 design-platform + 2 settings-card + 4 onboarding；dark 侧 alias 重定义为 **101**（旧文档写 105 有误）；「11 个 `--shiki-token-*`」实为 **9 个 token 变量 + `--shiki-foreground` + `--shiki-background`**。
 > - light 侧 112 条 alias/specific 声明（101 alias + 11 specific）：74 条直接 `var(--dsw-static-*)` + 5 条 color-mix（内含 static）可跟随；**28 条字面量 + 5 条 alias 间引用**需要显式处理。
 > - **static 色阶不能「按明度顺序一一映射」**：DSH 的 blue 12 步、neutral-bluish 19 步，Everforest 同色相只有 3–5 档。实现时先写映射公式（分段线性插值 + 明度端点锚定，必要时 `color-mix`），再用对比度检查验证，不能逐条手抄。
-> - **必须显式覆盖的新增项**（旧文档未提）：`border-inverted*`、`label-primary-foreground` / `brand-text`（品牌实底上的前景）、`button-primary-hover` / `-dimmed`、`markdown-inline-code`（默认引用中性 static，只改 static 会变中性）、4 个带 alpha 的 static（`green-500-a08/a12`、`red-400-a12`、`red-600-a08`）、`menu-surface-fill` / `menu-group-header-fill` / `button-tool-bar-*`、遮罩族、`linear-gradient-think*`（Windows 可见）、onboarding 7 个 token、`tooltip-key-bg`。
+> - **必须显式覆盖的新增项**（旧文档未提）：`border-inverted*`、`label-primary-foreground` / `brand-text`（品牌实底上的前景）、`button-primary-hover` / `-dimmed`、`markdown-inline-code`（默认引用中性 static，只改 static 会变中性；DSH 实际用作背景，映射见下文修正）、4 个带 alpha 的 static（`green-500-a08/a12`、`red-400-a12`、`red-600-a08`）、`menu-surface-fill` / `menu-group-header-fill` / `button-tool-bar-*`、遮罩族、`linear-gradient-think*`（Windows 可见）、onboarding 7 个 token、`tooltip-key-bg`。
 > - **文档选中色保留 40% 透明语义**：`--dsw-alias-bg-document-selection` 给 `color-mix(in srgb, bg_visual 40%, transparent)`，不要直接给实色（否则文档预览选区会盖住底图）。
 > - **shiki 必须显式**：`shiki.css` 在 `:root` 声明 light 值，且 `--shiki-background` / `--shiki-foreground` 在 `:root` 引用的是 body 级 alias（级联上属 guaranteed-invalid），不能靠 alias 继承。
 > - **明确不覆盖**：字体 / 圆角 / 阴影 / `--dsw-focus-ring-color` / `--dsw-focus-ring-width` / `--dsw-menu-backdrop-filter` / 终端 ANSI 16 色 / brand mark 与文件图标 artwork / macOS darwin 渐变 / boot 首帧色。未覆盖的 alias 保持 DSH 原值，并在 `src/tokens.js` 顶部登记清单。
+
+> **2026-10-18 视觉走查修正（inline code 芯片）**（证据：`dsh-web-frontend/dist/assets/index-*.css`：`.markdown :not(pre) > code { background-color: var(--dsw-alias-markdown-inline-code); border: .5px solid var(--dsw-alias-border-l1) }`；native light = `static-neutral-50`、dark = `static-neutral-800`，两侧都是**背景**中性色）：
+>
+> - 旧方案把该 token 映射成 `p.fg.blue`，误把 Enchanted 的前景变量 `--code-inline`（蓝色**文字**）当成了 DSH 的背景语义。实际渲染是「饱和蓝色块 + 继承的 `label-primary` 深色字」：`label-primary` 对该底的对比度 light 仅 **1.65:1**、dark **1.29:1**，既抢眼又难读（浅色主题下最明显）。
+> - 修正：映射为 Everforest 的 `bg_blue` 芯片表面（`inlineCodeSurface`，取调色板里「蓝色背景」角色：light 淡薄荷、dark 灰蓝），文案仍继承 `label-primary`；并把该 token 加入 `scripts/check-contrast.mjs` 的文本承载表面硬门槛，6 档 ≥ 4.5:1。
+> - 结果：light-hard 芯片 `#ECF5ED`（5.01:1）、light-soft `#E6E8DA`（4.50:1）、dark-hard `#384B55`（5.39:1）、dark-soft `#3F5764`（4.51:1）；芯片比 `bg0` 略深（light）/ 略浅（dark），只是一个安静的代码底，不再是前景强调色。
 
 ### 第 1 层：派生映射（覆盖 195 个颜色 token）
 
@@ -151,6 +158,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `specific-sidebar-fill` | `bg0` | Enchanted 的平铺（不靠明度分层） |
 | `specific-bubble` / `bubble-highlight` | `bg1` / `bg2` | DSH 专有，按最近层级取 |
 | `markdown-code-block` | `bg_dim` | Enchanted 代码底 |
+| `markdown-inline-code` | `bg_blue`（芯片表面） | DSH 用作 inline code 的**背景**（文字继承 `label-primary`）；Enchanted `--code-inline` 是前景色，不可复用 |
 | `label-primary/secondary/tertiary` | `fg` / `grey1` / `grey2` | — |
 | `border-l1..l4` | `bg5` 的 45/60/75/90% alpha | Enchanted 边框 = `bg5` |
 | `brand-primary`（主按钮、选中） | `header-aqua` | Enchanted `interactive-accent` |
@@ -206,7 +214,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `constant` | `purple` | `--code-value` |
 | `link` | `header-blue` | 链接色 |
 
-两套 scheme 各一份值。**11 个全部显式覆盖**（9 个 `--shiki-token-*` + `--shiki-background` + `--shiki-foreground`）：`shiki.css` 在 `:root` 声明 light 值，且 foreground/background 在 `:root` 引用 body 级 alias（级联上 guaranteed-invalid），不能依赖 alias 继承。`--dsw-alias-markdown-inline-code` 需显式用 `blue`（Enchanted `--code-inline`；默认引用中性 static，不显式会变中性）。
+两套 scheme 各一份值。**11 个全部显式覆盖**（9 个 `--shiki-token-*` + `--shiki-background` + `--shiki-foreground`）：`shiki.css` 在 `:root` 声明 light 值，且 foreground/background 在 `:root` 引用 body 级 alias（级联上 guaranteed-invalid），不能依赖 alias 继承。`--dsw-alias-markdown-inline-code`（不属 shiki 层）也必须显式：DSH 把它用作 inline code 的 `background-color`，映射为 `bg_blue` 芯片表面并受对比度守卫（见上文「视觉走查修正」），不沿用 Enchanted 的 `--code-inline` 前景蓝。
 
 ### 焦点环与派生变量
 
@@ -257,6 +265,12 @@ export function apply(ctx) {
     // 已决策：点另一深浅色卡立即预览；会持久写 DSH 全局 Appearance 偏好（system → 固定）
     if (ctx.theme.getTheme().active.colorScheme !== scheme) ctx.theme.setTheme(scheme)
   }
+
+  function setPreference(preference) {
+    // 设置页外观控制：只接受 system / light / dark；写 DSH 同一份全局偏好
+    if (!['system', 'light', 'dark'].includes(preference)) return
+    ctx.theme.setTheme(preference)
+  }
 }
 ```
 
@@ -269,12 +283,13 @@ export function apply(ctx) {
 
 - **插槽**：`settings.section`（list），在 `ctx.slots.inject(...)` 回调内注册 `{ name: 'settings.section', id: 'everforest', order: 25, label: thunk, locale: NS, inject: () => ({ t }) }`；owner props 提供 `close`（本页不使用）。`label` thunk 每次投影重读，locale 切换不必重注册；`locale` / `inject` 面与 `dshmarket` 的注册方式一致。
 - **布局**：
-  - 标题「Everforest」+ 说明（深浅色由 DSH 的「外观」决定；此处分别选择深色与浅色强度；点击另一深浅色组的色卡会切换 DSH 外观并写入全局偏好）。
+  - 标题「Everforest」+ 说明（深浅色由 DSH 的「外观」决定；可在此跟随系统或固定深浅色；再分别选择深色与浅色强度）。
+  - 外观控制：`跟随系统` / `深色` / `浅色` 三个按钮（`role="group"` + `aria-pressed`，选中态用 token）；下方说明当前实际状态（跟随系统时显示 OS 解析后的深浅色，固定时显示固定的是哪一侧）。
   - `深色` 分组：3 张卡（Hard / Medium / Soft，默认 Soft），每张含 5 段色带（`bg0`、`bg1`、`bg2`、`fg`、`header-aqua`）。
   - `浅色` 分组：同上（默认 Hard）。
-  - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（恢复为 Enchanted 默认配对）。
-- **交互**：点击卡片 → 立即保存并应用；若该卡属于另一个 scheme，同时调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。`setTheme` 会写 DSH 全局 Appearance 偏好（所有已认证浏览器共享，`system` 会被改成固定深浅色），页面说明文案必须写清楚。
-- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current`、`reset`、`hint.scheme`、`error.fallback`。
+  - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（只恢复 Enchanted 默认配对，不改外观偏好）。
+- **交互**：点击卡片 → 立即保存并应用；若该卡属于另一个 scheme，同时调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。外观控制的三个按钮调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享），页面说明文案写清楚「点色卡会固定外观，可用外观控制恢复跟随系统」。
+- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`appearance.title/label/system/dark/light/systemActive/fixed`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current.*`、`reset`、`hint.scheme`、`hint.storage`、`aria.*`。
 - **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。卡片外观参照 DSH 设置卡片（圆角、边框、hover、selected 用 token，不抄写死颜色）。
 - **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分。
 - **降级**：`ctx.get('slots'/'locale')` 立即不可用时用 `ctx.inject` 等待再挂载；等待也不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
@@ -347,7 +362,7 @@ export function apply(ctx) {
 | 覆盖生效 | Client `Theme.listTokens` 出现本插件注册的覆盖 token 名（内置 14 个推荐 token + 动态注册/覆盖 token 都会列出）；`document.body.style.getPropertyValue('--dsw-alias-bg-base')` 等于当前调色板；**不要用 body 的 `background-color` 计算值校验**（首帧 CSS 会覆盖它） |
 | 设置页 | `Slots.listSubTree` 根 `settings.section` 出现 `id: everforest, order: 25`；页面可见、切换即时生效、中英文案随 locale 切换 |
 | 持久化 | Desktop：选择 Hard → **退出应用并重新启动** → 仍是 Hard；清除 localStorage → 回到默认（深色 Soft / 浅色 Hard）。浏览器打开 Host URL 时不要求跨重启保持（端口随机），文案已说明 |
-| 深浅色 | 用 DSH Appearance 切换 light/dark/system，主题自动使用对应调色板；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此，页面文案已说明） |
+| 深浅色 | 用 DSH 自带 Appearance 或设置页外观控制切到 light/dark/system，主题自动使用对应调色板；`system` 下改 OS 深浅色应实时跟随；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复 |
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理） |
 | 首帧 | 冷启动记录 loading → 首帧是否可见 DSH 原生色（已知缺口，0.3.0 再评估）；`immediately` 不能减闪 |
 | 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；记录已知缺口 |

@@ -151,6 +151,25 @@ function codeSurface (p) {
   return readableSurface(p, upstream)
 }
 
+/**
+ * Inline-code chip background (`--dsw-alias-markdown-inline-code`).
+ *
+ * DSH uses this token as a *background*: the markdown stylesheet applies
+ * `background-color: var(--dsw-alias-markdown-inline-code)` to `:not(pre) > code`,
+ * so the chip text is the inherited `label-primary` ink. It is NOT Enchanted's
+ * `--code-inline`, which is a blue *foreground* colour. Mapping the token to
+ * `fg.blue` therefore produced a saturated blue block with dark text
+ * (1.65:1 in light, 1.29:1 in dark) — the visible "loud chip" defect.
+ *
+ * The Everforest analogue of a code tint is `bg_blue`, the palette's dedicated
+ * background for blue-coded content (pale mint in light, muted slate-blue in
+ * dark). The contrast guard keeps the inherited primary text at WCAG AA; the
+ * light/dark values differ per strength because `bgBlue` moves with the ramp.
+ */
+function inlineCodeSurface (p) {
+  return readableSurface(p, p.ramp.bgBlue)
+}
+
 /** Diff tint background (`bg_green` / `bg_red` / `bg_yellow`, contrast guarded). */
 function diffSurface (p, rampKey) {
   const upstream = p.scheme === 'light'
@@ -422,9 +441,10 @@ const ALIAS_TOKENS = {
   '--dsw-alias-markdown-code-block-banner': (p) => codeSurface(p),
   '--dsw-alias-markdown-code-segment-selected': (p) => surface(p, 1),
   '--dsw-alias-markdown-code-segment-unselected': (p) => codeSurface(p),
-  // Inline code: Enchanted --code-inline = fg blue; the upstream default follows a
-  // neutral static, so it must be explicit (docs/design.md §4 audit).
-  '--dsw-alias-markdown-inline-code': (p) => p.fg.blue,
+  // Inline code: a BACKGROUND token in DSH (`:not(pre) > code { background-color }`),
+  // not Enchanted's foreground `--code-inline`; map to the `bg_blue` chip surface
+  // so the inherited primary ink stays readable (docs/design.md §4 correction).
+  '--dsw-alias-markdown-inline-code': (p) => inlineCodeSurface(p),
   '--dsw-alias-markdown-placeholder': (p) => surface(p, 2),
   '--dsw-alias-markdown-tag': (p) => surface(p, 3),
 

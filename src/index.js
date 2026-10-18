@@ -7,7 +7,9 @@
  *    that stacks the six Everforest palettes over the built-in `--dsw-*` and
  *    `--shiki-*` token sheets; each entry carries both a light and a dark value
  *    so DSH's own Appearance switch (light / dark / system) keeps working;
- *  - the Settings page (`settings.section`) with the palette pickers;
+ *  - the Settings page (`settings.section`) with the palette pickers and the
+ *    Appearance control (`follow system` / `dark` / `light`, which writes the
+ *    same global preference as DSH's own Appearance switch);
  *  - a small observable store that the page subscribes to
  *    (`useSyncExternalStore`) and that persists the chosen strengths in
  *    `localStorage` (key `dsh-everforest/v1`).
@@ -134,11 +136,32 @@ export function apply(ctx) {
     notify()
   }
 
+  /**
+   * Write DSH's Appearance preference: `system` restores OS following, while
+   * `light` / `dark` fix a side. This is the same global, Host-backed setting
+   * DSH's own Appearance switch owns — the plugin does not store it separately.
+   * `theme/change` refreshes the page, and calling `notify` as well keeps the
+   * control responsive if a host does not emit on a no-op write.
+   *
+   * @param {string} preference - `system`, `light` or `dark`; anything else is ignored.
+   */
+  function setPreference(preference) {
+    if (preference !== 'system' && preference !== 'light' && preference !== 'dark') return
+    try {
+      ctx.theme.setTheme(preference)
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} could not write the Appearance preference`, error)
+      return
+    }
+    notify()
+  }
+
   const store = {
     getSnapshot,
     subscribe,
     select,
     reset,
+    setPreference,
   }
 
   // 3. Settings page, locale dictionaries and the page stylesheet. These need

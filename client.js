@@ -629,6 +629,25 @@ function codeSurface (p) {
   return readableSurface(p, upstream)
 }
 
+/**
+ * Inline-code chip background (`--dsw-alias-markdown-inline-code`).
+ *
+ * DSH uses this token as a *background*: the markdown stylesheet applies
+ * `background-color: var(--dsw-alias-markdown-inline-code)` to `:not(pre) > code`,
+ * so the chip text is the inherited `label-primary` ink. It is NOT Enchanted's
+ * `--code-inline`, which is a blue *foreground* colour. Mapping the token to
+ * `fg.blue` therefore produced a saturated blue block with dark text
+ * (1.65:1 in light, 1.29:1 in dark) — the visible "loud chip" defect.
+ *
+ * The Everforest analogue of a code tint is `bg_blue`, the palette's dedicated
+ * background for blue-coded content (pale mint in light, muted slate-blue in
+ * dark). The contrast guard keeps the inherited primary text at WCAG AA; the
+ * light/dark values differ per strength because `bgBlue` moves with the ramp.
+ */
+function inlineCodeSurface (p) {
+  return readableSurface(p, p.ramp.bgBlue)
+}
+
 /** Diff tint background (`bg_green` / `bg_red` / `bg_yellow`, contrast guarded). */
 function diffSurface (p, rampKey) {
   const upstream = p.scheme === 'light'
@@ -900,9 +919,10 @@ const ALIAS_TOKENS = {
   '--dsw-alias-markdown-code-block-banner': (p) => codeSurface(p),
   '--dsw-alias-markdown-code-segment-selected': (p) => surface(p, 1),
   '--dsw-alias-markdown-code-segment-unselected': (p) => codeSurface(p),
-  // Inline code: Enchanted --code-inline = fg blue; the upstream default follows a
-  // neutral static, so it must be explicit (docs/design.md §4 audit).
-  '--dsw-alias-markdown-inline-code': (p) => p.fg.blue,
+  // Inline code: a BACKGROUND token in DSH (`:not(pre) > code { background-color }`),
+  // not Enchanted's foreground `--code-inline`; map to the `bg_blue` chip surface
+  // so the inherited primary ink stays readable (docs/design.md §4 correction).
+  '--dsw-alias-markdown-inline-code': (p) => inlineCodeSurface(p),
   '--dsw-alias-markdown-placeholder': (p) => surface(p, 2),
   '--dsw-alias-markdown-tag': (p) => surface(p, 3),
 
@@ -1376,7 +1396,15 @@ const NS = 'settings.everforest'
 const EN = {
   'nav.title': 'Everforest',
 
-  'intro': 'DeepSeek Harness still decides whether the interface is light or dark. Pick a strength for each side below — your choice applies immediately.',
+  'intro': 'DeepSeek Harness decides whether the interface is light or dark. Follow the system or fix a side below, then pick a strength for each side — your choice applies immediately.',
+
+  'appearance.title': 'Appearance',
+  'appearance.label': 'Appearance preference',
+  'appearance.system': 'Follow system',
+  'appearance.dark': 'Dark',
+  'appearance.light': 'Light',
+  'appearance.systemActive': 'Following the system appearance; the active side is {scheme}.',
+  'appearance.fixed': 'Appearance is fixed to {scheme}; it no longer follows the system.',
 
   'group.dark': 'Dark',
   'group.light': 'Light',
@@ -1392,7 +1420,7 @@ const EN = {
 
   'reset': 'Restore defaults',
 
-  'hint.scheme': 'Picking a card in the other group also switches DeepSeek Harness Appearance and saves it as the global appearance preference shared by every signed-in browser, so “Follow system” becomes a fixed light or dark choice.',
+  'hint.scheme': 'Picking a card in the other group also switches DeepSeek Harness Appearance so you can preview it, and saves that as the global appearance preference shared by every signed-in browser. Choose “Follow system” above to restore automatic switching.',
   'hint.storage': 'Strength is saved per browser or app window: the Desktop app keeps it across restarts, while a browser tab only keeps it for its current address (the dev server picks a new port on each start).',
 
   'aria.card': '{scheme} {strength} palette',
@@ -1403,7 +1431,15 @@ const EN = {
 const ZH = {
   'nav.title': 'Everforest',
 
-  'intro': '界面用深色还是浅色仍由 DeepSeek Harness 的外观设置决定。请在下面分别为深色、浅色选择强度，选中后立即生效。',
+  'intro': '界面用深色还是浅色由 DeepSeek Harness 的外观决定。下面可以跟随系统，或固定为深色 / 浅色；再分别为这两种外观选择强度，选中后立即生效。',
+
+  'appearance.title': '外观',
+  'appearance.label': '外观偏好',
+  'appearance.system': '跟随系统',
+  'appearance.dark': '深色',
+  'appearance.light': '浅色',
+  'appearance.systemActive': '正在跟随系统外观，当前生效的是{scheme}。',
+  'appearance.fixed': '外观已固定为{scheme}，不再跟随系统。',
 
   'group.dark': '深色',
   'group.light': '浅色',
@@ -1419,7 +1455,7 @@ const ZH = {
 
   'reset': '恢复默认',
 
-  'hint.scheme': '点击另一深浅色组中的色卡时，会同时切换 DeepSeek Harness 的外观，并把结果保存为全局外观偏好（所有已登录浏览器共享），因此「跟随系统」会变成固定的浅色或深色。',
+  'hint.scheme': '点击另一深浅色组中的色卡会同时切换 DeepSeek Harness 外观以便立即预览，并把结果保存为全局外观偏好（所有已登录浏览器共享）；可用上面的「跟随系统」恢复自动跟随。',
   'hint.storage': '强度按浏览器 / 应用窗口保存：Desktop 窗口重启后仍然保留；用浏览器打开时只对当前地址生效（每次启动端口可能不同）。',
 
   'aria.card': '{scheme} {strength} 配色',
@@ -1440,12 +1476,14 @@ const __mod_5_settings_page_js = (() => {
  * the module loader) and in plain Node tests (where a tiny mock React is
  * enough). Nothing here requires a `@deepseek-ai/*` package.
  *
- * The page shows two groups of three strength cards — Dark (default Soft) and
- * Light (default Hard) — each card previewing the five signature colors of its
- * palette: bg0, bg1, bg2, fg and header-aqua. Selecting a card persists the
- * choice (through the injected store) and, when it belongs to the other color
- * scheme, also switches DSH Appearance; both facts are spelled out in the hint
- * copy.
+ * The page shows an Appearance control — follow the system, or fix light/dark —
+ * followed by two groups of three strength cards (Dark, default Soft; Light,
+ * default Hard). Each card previews the five signature colors of its palette:
+ * bg0, bg1, bg2, fg and header-aqua. Selecting a card persists the choice
+ * (through the injected store) and, when it belongs to the other color scheme,
+ * also switches DSH Appearance; the Appearance control switches it back to
+ * `system` (or a fixed side) without touching the palette strengths, and the
+ * hint copy spells both facts out.
  *
  * Styling uses only `--dsw-*` design tokens for interface colors. The palette
  * colors in the preview stripes are Everforest data, supplied inline by the
@@ -1501,6 +1539,47 @@ const SETTINGS_STYLES = `
   font-weight: 600;
   line-height: 20px;
 }
+.everforest-appearance-options {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-2);
+}
+.everforest-appearance-option {
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-sm);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+}
+.everforest-appearance-option:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.everforest-appearance-option[aria-pressed='true'] {
+  border-color: var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+}
+.everforest-appearance-option:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+.everforest-appearance-note {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
 .everforest-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1509,6 +1588,15 @@ const SETTINGS_STYLES = `
 @media (max-width: 520px) {
   .everforest-cards {
     grid-template-columns: 1fr;
+  }
+  .everforest-appearance-options {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .everforest-appearance-option {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 .everforest-card {
@@ -1646,6 +1734,9 @@ const SETTINGS_STYLES = `
 /** Color schemes in display order (dark group first, then light). */
 const GROUP_SCHEMES = ['dark', 'light']
 
+/** Appearance preferences in display order (mirrors DSH's own three-way switch). */
+const APPEARANCE_OPTIONS = ['system', 'dark', 'light']
+
 /** Fallback strength order, used when the palette module is not yet readable. */
 const FALLBACK_STRENGTHS = ['hard', 'medium', 'soft']
 
@@ -1661,6 +1752,7 @@ const EMPTY_STORE = {
   subscribe: () => () => {},
   select: () => {},
   reset: () => {},
+  setPreference: () => {},
 }
 
 /**
@@ -1864,6 +1956,52 @@ function createSettingsComponent(dependencies) {
       ])
     }
 
+    /** One appearance-preference option: native button with `aria-pressed`. */
+    function renderAppearanceOption(preference) {
+      const selected = theme.preference === preference
+      return h('button', {
+        key: preference,
+        type: 'button',
+        className: selected
+          ? 'everforest-appearance-option everforest-appearance-option-selected'
+          : 'everforest-appearance-option',
+        'aria-pressed': selected ? 'true' : 'false',
+        'data-preference': preference,
+        onClick: () => {
+          if (typeof store.setPreference === 'function') store.setPreference(preference)
+        },
+      }, t('appearance.' + preference))
+    }
+
+    /**
+     * Appearance control: follow the OS (`system`, DSH resolves the active
+     * scheme) or fix light/dark. The note explains which one is in effect; the
+     * actual scheme follows the OS while `system` is selected.
+     */
+    function renderAppearance() {
+      const headingId = 'everforest-appearance-title'
+      const schemeLabel = theme.preference === 'system'
+        ? t('group.' + theme.colorScheme)
+        : t('group.' + theme.preference)
+      const note = theme.preference === 'system'
+        ? t('appearance.systemActive', { scheme: schemeLabel })
+        : t('appearance.fixed', { scheme: schemeLabel })
+      return h('section', {
+        key: 'appearance',
+        className: 'everforest-group everforest-appearance',
+        'aria-labelledby': headingId,
+      }, [
+        h('h3', { key: 'heading', id: headingId, className: 'everforest-group-title' }, t('appearance.title')),
+        h('div', {
+          key: 'options',
+          className: 'everforest-appearance-options',
+          role: 'group',
+          'aria-label': t('appearance.label'),
+        }, APPEARANCE_OPTIONS.map((preference) => renderAppearanceOption(preference))),
+        h('p', { key: 'note', className: 'everforest-appearance-note' }, note),
+      ])
+    }
+
     /** One scheme group: heading + three strength cards. */
     function renderGroup(scheme) {
       const headingId = 'everforest-group-' + scheme
@@ -1923,6 +2061,7 @@ function createSettingsComponent(dependencies) {
         h('h2', { key: 'title', className: 'everforest-title' }, t('nav.title')),
         h('p', { key: 'intro', className: 'everforest-intro' }, t('intro')),
       ]),
+      renderAppearance(),
       GROUP_SCHEMES.map((scheme) => renderGroup(scheme)),
       renderCurrent(),
       renderHints(),
@@ -1952,7 +2091,9 @@ const __mod_6_index_js = (() => {
  *    that stacks the six Everforest palettes over the built-in `--dsw-*` and
  *    `--shiki-*` token sheets; each entry carries both a light and a dark value
  *    so DSH's own Appearance switch (light / dark / system) keeps working;
- *  - the Settings page (`settings.section`) with the palette pickers;
+ *  - the Settings page (`settings.section`) with the palette pickers and the
+ *    Appearance control (`follow system` / `dark` / `light`, which writes the
+ *    same global preference as DSH's own Appearance switch);
  *  - a small observable store that the page subscribes to
  *    (`useSyncExternalStore`) and that persists the chosen strengths in
  *    `localStorage` (key `dsh-everforest/v1`).
@@ -2074,11 +2215,32 @@ function apply(ctx) {
     notify()
   }
 
+  /**
+   * Write DSH's Appearance preference: `system` restores OS following, while
+   * `light` / `dark` fix a side. This is the same global, Host-backed setting
+   * DSH's own Appearance switch owns — the plugin does not store it separately.
+   * `theme/change` refreshes the page, and calling `notify` as well keeps the
+   * control responsive if a host does not emit on a no-op write.
+   *
+   * @param {string} preference - `system`, `light` or `dark`; anything else is ignored.
+   */
+  function setPreference(preference) {
+    if (preference !== 'system' && preference !== 'light' && preference !== 'dark') return
+    try {
+      ctx.theme.setTheme(preference)
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} could not write the Appearance preference`, error)
+      return
+    }
+    notify()
+  }
+
   const store = {
     getSnapshot,
     subscribe,
     select,
     reset,
+    setPreference,
   }
 
   // 3. Settings page, locale dictionaries and the page stylesheet. These need
