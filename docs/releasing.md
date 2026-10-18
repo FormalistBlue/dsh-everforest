@@ -163,6 +163,72 @@ DSH 侧（本机 profile = `desktop`）：
 | DSH 提示不兼容 | `engines.dsh` 与运行时版本不匹配（本机 0.2.1-rc.2） |
 | 发布后本地仍装旧版 | 插件管理器安装会锁定版本；升级用 `plugin_manager` update/重装，替换已运行的包需重启 |
 
-## 8. DSH 生态上架（可选，非 npm 步骤）
+## 8. DSH 生态上架：awesome-dsh-plugin 目录（dshmarket.com 的数据源）
 
-npm 发布只解决“可安装”。要在 **DSH Market / Awesome DSH Plugin / dshbase 目录**里被搜到，需要按各目录的 PR/登记流程单独提交（通常读取 npm 包元数据与 `dsh` 清单，或维护一个 registry JSON）。这是 0.2.0 的独立事项，不影响 `plugin_manager` 按名安装。
+npm 发布只解决“可安装”。[dshmarket.com](https://dshmarket.com/)、[awesome-dsh-plugin.com](https://awesome-dsh-plugin.com/)、dsh-market 插件市场的 **Themes Tab**，以及 dsh 0.2.1+ 的 **Plugins → Discover** 索引，读的都是同一个策展目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)。**上架 = 向该仓库提一个只新增一个 YAML 文件的 PR**；`dsh-market` 仓库只收市场 App 代码，不收插件条目（见其 README 的 “Submit your plugin”）。
+
+### 8.1 一次 PR 覆盖的入口
+
+- `data/plugins/<owner>__<repo>.yml` → 自动生成两个 README（**禁止手改**）→ 站点构建 → `plugins.json`；
+- 站点：[awesome-dsh-plugin.com](https://awesome-dsh-plugin.com/) 与 [dshmarket.com](https://dshmarket.com/)；
+- npm 包 `dsh-plugin-catalog`（每日 CI 发布）：dsh 0.2.1+ Discover 索引 / `plugin_market` 工具；
+- dsh-market App：`category: theme` 的条目自动进入 **Themes Tab**（一键安装 / 切换 / 卸载）。
+
+### 8.2 条目文件（2026-10-18 起草，PR 时原样提交）
+
+路径 `data/plugins/FormalistBlue__dsh-everforest.yml`（文件名 = owner__repo）：
+
+```yaml
+url: https://github.com/FormalistBlue/dsh-everforest
+name: FormalistBlue/dsh-everforest
+category: theme
+description:
+  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, with a Settings page to pick one and a follow-system appearance option.'
+  zh: 为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效，并在设置页选择色板与跟随系统外观。
+```
+
+字段白名单只有 `url` / `name` / `category` / `description`（可选 `tarball`）；多写 `npm:` / `author:` / `screenshots:` 会被校验直接拒。`description.en` 必须、单行、以句号结尾、**必须与代码相符**（评审会数描述里的数字与 API 名），`zh` 可选。描述里含 `: ` 时必须加引号。
+
+### 8.3 现状与前置条件
+
+| 条件 | 状态 |
+|---|---|
+| `package.json#dsh.bundle` + 根 `cordis.patch.yml`（只声明 `dsh.client` 是第一大被拒原因） | 已有 |
+| 仓库公开、LICENSE | MIT，public |
+| 仓库创建满 1 天（CI 自动检查） | 创建于 `2026-10-18 07:07 UTC` → **最早 2026-10-19 15:07（HK）提 PR** |
+| GitHub topic `dsh-plugin` | **需在仓库 Settings 添加**（当前 topics 为空） |
+| `screenshots.json` | 已加（仓库根，见 §8.4） |
+| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；当前 `dsh-everforest@0.1.2` 满足，**不要**在 yml 里写包名 |
+
+### 8.4 截图（仓库根 `screenshots.json`）
+
+市场优先读插件仓库根的 `screenshots.json`：1–8 张，路径相对该文件、不能跳出插件目录，或 GitHub 托管的 https 绝对地址（第三方图床被拒）；仓库没有声明时才回退到 README 里的图片。当前 6 张：
+
+```json
+[
+  ".github/assets/everforest-dark-soft.png",
+  ".github/assets/everforest-light-hard.png",
+  ".github/assets/everforest-dark-hard.png",
+  ".github/assets/everforest-dark-medium.png",
+  ".github/assets/everforest-light-medium.png",
+  ".github/assets/everforest-light-soft.png"
+]
+```
+
+换图推本仓库即可，下一轮构建生效，不用回目录仓库改。`screenshots.json` 不进 npm `files` 白名单（市场从仓库读，不随包安装）。
+
+### 8.5 提交步骤
+
+1. PR 前：给仓库加 `dsh-plugin` topic；`git status` 干净；`node --test` 与 `npm run check` 全绿（sandbox 下 `node --test` 会因 `spawn EPERM` 失败，需在普通终端跑）。
+2. fork awesome-dsh-plugin → 只新增 `data/plugins/FormalistBlue__dsh-everforest.yml` → 开 PR。一个 PR 最多 3 条、别动别人的条目、别手改两个 README。
+3. CI 顺序检查：条目数 ≤3 → 仓库 HEAD 的 `package.json#dsh.bundle` → 仓库年龄 ≥1 天 → `awesome-lint` + README 重生成。
+4. 合并后站点自动重建；`dsh-plugin-catalog` 每日发 npm；市场 App 下次打开即拉到最新目录（通常 1 天内出现）。
+5. 以后更新条目只改这一个 yml。
+
+### 8.6 常见打回 / 注意
+
+- 描述夸大（数字、命令名、API 名会被逐条核对）是“本来合格却被拒”的首要原因——只写能力；
+- 缺 `dsh.bundle`、仓库年龄不足、缺 `dsh-plugin` topic、占位/空壳仓库；
+- 收录不等于安全审查；
+- 刚发 npm 版本 24 小时内，pnpm 的 `minimumReleaseAge` 会让市场静默装到上一个成熟版本——上架前先发最终版并过一个冷静期；
+- `engines.dsh`（当前 `>=0.2.1-rc.2 <0.3.0-0`）决定市场卡片的“宿主要求”与兼容过滤：低于它的用户可能被隐藏，放宽前需在旧宿主验证 token 覆盖。
