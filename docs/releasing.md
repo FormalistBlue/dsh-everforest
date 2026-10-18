@@ -181,7 +181,7 @@ npm 发布只解决“可安装”。[dshmarket.com](https://dshmarket.com/)、[
 - npm 包 `dsh-plugin-catalog`（每日 CI 发布）：dsh 0.2.1+ Discover 索引 / `plugin_market` 工具；
 - dsh-market App：`category: theme` 的条目自动进入 **Themes Tab**（一键安装 / 切换 / 卸载）。
 
-### 8.2 条目文件（2026-10-18 起草，PR 时原样提交）
+### 8.2 条目文件（2026-10-18 起草，2026-10-19 补「首帧」；PR 时原样提交）
 
 路径 `data/plugins/FormalistBlue__dsh-everforest.yml`（文件名 = owner__repo）：
 
@@ -190,8 +190,8 @@ url: https://github.com/FormalistBlue/dsh-everforest
 name: FormalistBlue/dsh-everforest
 category: theme
 description:
-  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, with a Settings page to pick one and a follow-system appearance option.'
-  zh: 为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效，并在设置页选择色板与跟随系统外观。
+  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, and the Host half paints the boot palette so the loading screen and first frame are already Everforest; a Settings page picks the scheme and can follow the system appearance.'
+  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效；Host 半部在 Client 加载前注入 boot 调色板，loading 页与首帧即为 Everforest；设置页可选择色板与跟随系统外观。'
 ```
 
 字段白名单只有 `url` / `name` / `category` / `description`（可选 `tarball`）；多写 `npm:` / `author:` / `screenshots:` 会被校验直接拒。`description.en` 必须、单行、以句号结尾、**必须与代码相符**（评审会数描述里的数字与 API 名），`zh` 可选。描述里含 `: ` 时必须加引号。
