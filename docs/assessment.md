@@ -163,4 +163,4 @@
 - 文档选中色要保留 40% 透明语义（`color-mix`），不能直接给实色；
 - light 选中色 `#DED8DB` 上游只用于 light · hard，其余两档是本项目外推（已在 palette.md 标注）。
 
-**环境**：本会话 sandbox 的 pwsh 曾因 Windows ACL 受限令牌 DLL 初始化失败（`0xC0000142`）完全不可用；切换 Full access 后恢复。本机 node 24.21.0 / pnpm 11.28.5 位于 Desktop 运行时目录（见 README「开发」）；`plugin_manager` 的读操作可正常调用。
+**环境**：本会话 sandbox 的 pwsh 曾因 Windows ACL 受限令牌 DLL 初始化失败（`0xC0000142`）完全不可用；切换 Full access 后恢复。本机 node 24.21.0 / pnpm 11.28.5 位于 Desktop 运行时目录（`dsh-runtimes/dsh-primary-runtime/dependencies`）；`plugin_manager` 的读操作可正常调用。

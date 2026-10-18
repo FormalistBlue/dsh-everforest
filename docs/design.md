@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：**已实现（v0.1.0，2026-10-18）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md)、[`reference/contrast.md`](reference/contrast.md) 与 README「验证」
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：**已实现（v0.1.0，2026-10-18）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -388,7 +388,7 @@ export function apply(ctx) {
 | 0.2.0 | 对比度与全页走查、shiki、i18n、图标、README 截图、npm 发布 | 走查无阻断问题；npm 包可安装并生效；中英文案与图标经检查 |
 | 0.3.0（可选） | Host 侧持久化（`configForms` 路线）、首帧注入消除闪动 | 跨浏览器一致；无明显闪动（Electron 窗口也要覆盖） |
 
-> **0.1.0 验收证据**：构建 / 单测 / 集成 / 对比度 / 安装 / 停用清理为自动化项，证据见 README「验证」；持久化跨重启、深浅色与 system 切换、首帧记录、全站视觉走查仍为人工目检项（交付时如实标注）。
+> **0.1.0 验收证据**：构建 / 单测 / 集成 / 对比度 / 安装 / 停用清理为自动化项，证据见 [`reference/contrast.md`](reference/contrast.md)、[`reference/token-inventory.md`](reference/token-inventory.md) 与测试套件；持久化跨重启、深浅色与 system 切换、首帧记录、全站视觉走查仍为人工目检项（交付时如实标注）。
 
 ## 11. 开放问题
 
