@@ -1,6 +1,6 @@
 {
   "name": "dsh-everforest",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Everforest color themes (Dark/Light × Hard/Medium/Soft) for DeepSeek Harness Web/Desktop.",
   "type": "module",
   "main": "index.js",
@@ -43,6 +43,10 @@
   "files": [
     "index.js",
     "client.js",
+    "src/palette.js",
+    "src/color.js",
+    "src/tokens.js",
+    "src/state.js",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",

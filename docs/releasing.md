@@ -104,10 +104,14 @@ npm trust github dsh-everforest `
 
 `files` 白名单必须覆盖运行时文件：
 
-- `index.js`（Host 半部）、`client.js`（Browser 半部构建产物）
+- `index.js`（Host 半部：bundle 行 + 首帧调色板注入）
+- `client.js`（Browser 半部构建产物）
+- `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js`（Host 半部运行时 import；缺一个 Host 半部会加载失败，首帧注入与插件行一起消失）
 - `cordis.patch.yml`（bundle patch）
 - `locale/*.json`（插件管理页标题/描述，`meta.title` / `meta.description`）
 - `icon.svg`、`README.md`、`LICENSE`、`THIRD_PARTY_NOTICES.md`
+
+> 客户端入口是 `src/client-entry.js`，**不要改回 `src/index.js`**：npm 11 的 packlist 在根 `main` 为 `index.js` 且 `files` 含嵌套文件时会把嵌套的 `src/index.js` 误打进 tarball（2026-10-19 实测）；改名后 `npm pack` 与白名单一致。
 
 检查：
 
@@ -141,7 +145,8 @@ DSH 侧（本机 profile = `desktop`）：
 2. 期望：`application: applied`；插件列表出现标题/描述/图标（来自 `locale/*.json` 与 `icon.svg`）；
 3. `cordis_inspect_query`（Client `Theme.listTokens`）出现覆盖 token；`Slots.listSubTree` 根 `settings.section` 出现 `id: everforest`；
 4. Settings → Everforest 可见，切换即时生效；退出应用重启后强度保持；
-5. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色。
+5. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色；
+6. 首帧：Web 刷新 / 新开标签时 loading 页即为当前配色；Desktop 完全退出后重启，原生色最多 1 帧（loading 动效的灰 spinner / 边框仍原生）。**Host 半部（`index.js`）改动必须重启 Host 进程**——首帧 row 在 Host ready 时收集，单纯刷新页面或只换 `client.js` 都不会更新它。
 
 ## 6. 撤销与回滚
 

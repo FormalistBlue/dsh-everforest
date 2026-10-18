@@ -1,14 +1,15 @@
 # 可行性评估与方案取舍
 
 > 日期：2026-10-18 · 评估对象：DSH **0.2.1-rc.2**（Desktop，Windows）· 结论：**可行，采用路线 A**（见下）。
+> 2026-10-19 更新：首帧 Host boot 注入已实现于 0.2.0（待发布；见 §3 / §5 / §9 / §12）；Host 侧强度持久化暂缓；shiki / diff 口径修正。
 
 ## 1. 结论
 
 做一个 Everforest 主题插件是可行的，而且成本比最初 README 设想的「host-only + 注入 `<style>`」更低：
 
 - **官方扩展点已经存在**：Client 的 `ctx.theme.overrideTokens(source, tokens)` 接受任意 CSS 变量名 → `{ light, dark }` 的映射，正好覆盖「6 套调色板 + 随深浅色切换」的需求。
-- **不需要改 DSH 组件 CSS，也不需要构建工具链**：正文是一份普通 JS 的 Client 半部；Host 半部可以留空。
-- **覆盖率高**：UI 主样式由 token 驱动，覆盖 195 个颜色 token 即可整站改色，另有 11 个 `--shiki-*` 接管代码高亮。已知硬编码例外：终端空态 SVG（`#17191d` / `#fff`）、Host 首帧/loading 页字面底色（`#fff` / `#151517`）、macOS darwin 渐变、品牌与文件类型图标 artwork、主题样式表自身的字面 token 值（可被覆盖）。
+- **不需要改 DSH 组件 CSS，也不需要构建工具链**：正文是一份普通 JS 的 Client 半部；Host 半部只承载 bundle 行，并在 0.2.0 增加一条首帧注入 row（见 §3 / §5）。
+- **覆盖率高**：UI 主样式由 token 驱动，覆盖 195 个颜色 token 即可整站改色，另有 11 个 `--shiki-*` 接管代码块高亮。已知硬编码例外：终端空态 SVG（`#17191d` / `#fff`）、macOS darwin 渐变、品牌与文件类型图标 artwork、主题样式表自身的字面 token 值（可被覆盖）。**首帧 / loading 页**在 0.2.0 已由 Host 半部经 `webserver/index-inject` 注入调色板覆盖（loading 动效的灰 spinner / 边框仍原生）。
 - **配色数据已有权威来源**：官方 `palette.md` 提供 6 套背景色阶；**主参考选定 Everforest Enchanted**（Obsidian 端口）——它的背景值严格等于官方 dark-soft / light-hard，并给出 `header-*` 自定义色与完整的 UI 语义映射。因此默认配对采用「深色 soft / 浅色 hard」，与 Enchanted 观感一致，其余四档强度作为可选。
 - **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变、逐级标题彩色（DSH 无对应 token）。都不影响主体观感。
 
@@ -39,7 +40,10 @@
 | `setTheme('light'/'dark')` 会持久写 Host Appearance 偏好 | `isThemePreference(id)` → `ctx.configForms.get('ui-theme').set(...)` → Host settings 文档（`$DSH_HOME/cordis.patch.yml`）；所有已认证浏览器共享，`system` 会被改成固定深浅色 |
 | 注册第三方主题（`register`）**不能**持久化 | 设置 schema 仅 `light \| dark \| system`；第三方主题 id 不进 schema、不出现在 Appearance 色卡 |
 | locale 内置 id 是 **`zh` / `en`**（不是 `zh-CN`） | `LOCALE_IDS = ['zh','en']`；`zh-CN` 只是 active=zh 时映射到 `<html lang>`；注册 `'zh-CN'` 会被 runtime 接受但永不命中查找链（静默回退英文） |
-| 代码高亮是独立变量，可覆盖 | `ui-theme` 的 `shiki.css`：`:root{--shiki-token-constant:#1c7ed6; …}` + `body[data-ds-dark-theme]{…}`；`--shiki-foreground/background` 在 `:root` 引用 body 级 alias（级联上 guaranteed-invalid），必须显式给值 |
+| 代码高亮是独立变量，可覆盖 | `ui-theme` 的 `shiki.css`：`:root{--shiki-token-constant:#1c7ed6; …}` + `body[data-ds-dark-theme]{…}`；`--shiki-foreground/background` 在 `:root` 引用 body 级 alias（级联上 guaranteed-invalid），必须显式给值。前端用 shiki 的 **css-variables** 主题（`variablePrefix: '--shiki-'`），`CodeBlock` 写 `className="shiki css-variables"` + 内联 `var(--shiki-background)` / `var(--shiki-foreground)`，token span 内联色来自 `var(--shiki-token-*)`；`--shiki-background` 在代码块卡片上会被 `--dsl-code-block-background`（默认 = `--dsw-alias-markdown-code-block`）的 `!important` 覆盖，两者都映射到同一 `codeSurface`，视觉一致 |
+| Boot 注入是结构化契约，第三方 Host 半部可用 | `webserver/index-inject` 的 `IndexInjection` rows（`global` / `script` / `script-src` / `script-preload` / `style` / `html`，script/html 带 `placement: head \| body`）；`WebServer.collectIndexInjections()` 每次 emit、`renderIndex()` 先渲染 rows 再跑 `tapIndex`。Web 由 `dsh-host-frontend-static` 调用 `renderIndex`；Desktop 由 `dsh-desktop-host` 在 ready 时取 rows，经 `DESKTOP_IPC.boot` 交页面侧 boot 内核在插件 roster 前应用 |
+| ui-theme 的 boot row 固定在前，且已解析外观 | Host 半部用 `{ prepend: true }` 监听；head style 写 `:root{color-scheme}` + `body{background-color:#fff/#151517;--dsh-boot-bg}`，body script 写 `data-ds-theme-source` / `data-ds-dark-theme`；boot 页 CSS `background:var(--dsw-alias-bg-base,var(--dsh-boot-bg,Canvas))`、文字 `var(--dsw-alias-label-*,fallback)` |
+| 系统跟随的客户端链路 | `ThemeRuntime` 持有 `prefers-color-scheme` 监听，仅 `preference === 'system'` 时 publish；`ThemePresenter.apply()` 重设 `color-scheme`、`data-ds-theme-source`、body dark 属性与全部内联 token；Electron preload 把 `data-ds-theme-source` 同步到 `nativeTheme.themeSource`，Windows caption 探针读 `--dsw-specific-sidebar-fill` / `--dsw-alias-label-primary` 后回传 `windowsAppearance` |
 | 设置页插槽可用，且三方插件已在用 | `Slots.listSubTree` 根 `settings.section` 的 occupants 含 `dsh-market`、`cost-meter`；注册项 `{ id, order, label }`，owner props `{ close }` |
 | 设置页导航项图标不可定制 | `settings.section` 注册项只有 `id` / `order` / `label`，没有 icon 字段；第三方页面在设置导航显示 DSH 默认齿轮（`dshmarket` 用 DOM 改写自行换图标） |
 | 主题包由 Client 半部按包名加载 | `@deepseek-ai/dsh-client-modules`：`dsh.client.platform: 'web'` + `exports["./client"]`；入口格式唯一 `window.__ModuleLoader__.load({ id, factory(require) })`，id 必须等于包名；`dsh.client.inject` 只影响 bundle 到达顺序，不是服务注入 |
@@ -54,7 +58,7 @@
 | B. Host-only + `webServer.tapIndex` 注入 `<style>` | 能做（token 样式表可被同优先级后置规则覆盖），但要自己写两套 `body` 规则、与内联变量博弈、卸载不干净、拿不到 `theme/change` | ❌ 放弃 |
 | C. `register()` 注册主题 + Appearance 集成 | 设计上就不支持三方主题持久化，还要和内置 Appearance 行抢状态 | ❌ 放弃 |
 
-补充：Host 半部仍保留（空 `apply`），因为 bundle 需要一个插件行来承载 `package.json` 的 `dsh.client` 声明与 Plugin Manager 中的显示信息（标题 / 描述 / 图标 / 启停）。
+补充：Host 半部保留，因为 bundle 需要一个插件行来承载 `package.json` 的 `dsh.client` 声明与 Plugin Manager 中的显示信息（标题 / 描述 / 图标 / 启停）；0.2.0 起它还是首帧调色板的注入入口（`webserver/index-inject`，见 §3 / §5）。
 
 ## 5. 决策记录
 
@@ -66,11 +70,14 @@
 | 色卡交互（2026-10-18） | 点另一深浅色组的色卡时**同时调用 `ctx.theme.setTheme(scheme)`** 立即预览 | 会把用户 Appearance 偏好实打实写进 Host 设置（所有已认证浏览器共享，`system` → 固定深浅色）；设置页文案必须说明 |
 | 偏好持久化 | **localStorage**（key 带版本号），设置页读写 | 逐 origin 生效：Desktop 窗口 origin 固定 `dsh-app://app`，跨重启保持；浏览器打开 Host URL 时端口每次随机、不跨重启；与 DSH「Host 偏好跨浏览器共享」不同，需在文档与设置页文案中说明 |
 | 兼容范围（2026-10-18） | `engines.dsh = ">=0.2.1-rc.2 <0.3.0-0"` | DSH 安装前与装载 profile 时都会强制；排除 0.3 及其预发布，避免 token 改名后半残 |
-| 首帧闪动 | 0.1.0 接受 loading/首帧为 DSH 原生色，0.3.0 再评估消除 | 首帧底色来自 Host boot 注入的字面 CSS；`dsh.client.immediately` 在本版本无观察作用，不能依赖 |
+| 首帧闪动（2026-10-18） | 0.1.0 接受 loading/首帧为 DSH 原生色，0.3.0 再评估消除 | 首帧底色来自 Host boot 注入的字面 CSS；`dsh.client.immediately` 只用于 prefetch，不能依赖 |
+| 首帧注入（2026-10-19） | **Host 半部监听 `webserver/index-inject` 追加 body script row**，在 Client 加载前写 boot 调色板；Web 首帧即 Everforest，Desktop 接受最多 1 帧原生色 | 6 个 boot token 与 `tokensFor()` 同值；写 body 内联变量（不用 `!important`），presenter 首次 apply 覆盖；loading 动效的 spinner / 边框仍原生 |
+| Host 侧强度偏好（2026-10-19） | **暂缓，先不做** | 继续用 localStorage；`configForms` 路线留档（第三方条目是否被 serve 需 spike、异步读取、跨浏览器事件），将来做时 localStorage 降级为同步缓存 |
+| shiki / diff 口径（2026-10-19） | 修正：shiki 只覆盖**代码块**三处（聊天气泡 / 工具输出 / 文件预览）；diff 走 `file-diff` / `code-diff` token | 文档与验收清单同步；不再按「diff 有语法高亮」验收 |
 | 发布目标 | **npm 发布** | 需 display 元数据（`meta.title` / `meta.description` + 图标）、`engines.dsh`、`files`/`exports` 白名单、LICENSE + THIRD_PARTY_NOTICES、README 截图 |
 | 包名 | `dsh-everforest`（2026-10-18 查询 npm registry 未占用，发布前复核） | — |
 
-> 关于持久化（2026-10-18 审计修正）：DSH 的「设置文档」按插件 Config 条目服务。已安装 Client bundle 是否能通过 `ctx.configForms.get(<自己的 Host entry id>)` 读写自己的 Config 尚未实测（`configForms` 对 ui-theme 等官方包可用，第三方无先例）；即使可行，Host 读取是异步的，主题会晚于首帧生效（可能闪动）。因此视觉偏好先用**同步的 localStorage** 落地；Appearance 偏好本身可以通过 `setTheme` 写入（见 §5 色卡交互）。Host 侧持久化列入 0.3.0 并先做可行性 spike。
+> 关于持久化（2026-10-19 复核与决策）：DSH 的设置/表单链路已确认存在——Host `settings.describe()` 只投影**带 `.volatile()` 字段的活跃 profile 条目**，客户端由 `dsh-client-ui-settings` 提供 `ctx.configForms.get(entryId)`（`value/base/user/revision/writable` + `set/unset/mutate`），写入经 settings 服务落 profile 的 `cordis.patch.yml` 并在所有已认证浏览器间广播。但：本插件 Host 条目的 Config 当前 `status: absent`（运行时 inspect），第三方条目是否会被 serve 仍无先例，且 Host 读取是异步的（会让主题晚于首帧，首帧现在由 boot 注入覆盖）。**2026-10-19 决定暂缓**：localStorage 继续作为唯一持久化；将来若做，先做半天 `configForms` spike，确认可行后把 localStorage 降级为同步缓存并用旧 key 播种 Host。Appearance 偏好本身仍通过 `setTheme` 写入（见 §5 色卡交互）。
 
 ## 6. 覆盖矩阵
 
@@ -84,10 +91,10 @@
 | 侧栏 / 气泡 / 输入框 / selector / settings 卡片 | `--dsw-specific-*`（侧栏 = `bg0` → `bg1` 80% 混合 + 对比度守卫，保留列边界；其余 Enchanted 平铺/层级风格）、`settings-card-*`（alias 引用，自动跟随） | ✅ |
 | 菜单 / 浮层材质 | `--dsw-menu-surface-fill`、`--dsw-alias-menu-group-header-fill`、`--dsw-menu-backdrop-filter`（非颜色，保持默认）；`--dsw-specific-menu` 是 alias 引用自动跟随 | ✅（字面量，需显式） |
 | 滚动条 | `--dsw-alias-scrollbar-*` 实际引用 `--dsw-static-neutral-200/300`（light）与 `700/600`（dark），随 static 映射自动跟随 | ✅ |
-| diff（代码差异） | `--dsw-alias-file-diff-*`（字面 rgb）/ `code-diff-*`（static 引用，自动） | ✅ |
+| diff（代码差异） | `--dsw-alias-file-diff-*`（字面 rgb）/ `code-diff-*`（static 引用，自动）；diff 是逐行底色 + marker，**不做语法高亮** | ✅ |
 | 文档预览 | `--dsw-alias-bg-document-preview` / `label-document-preview`（alias 引用，自动） | ✅ 自动 |
-| 代码块语法高亮 | 9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`（共 11 个，全部显式） | ✅ |
-| 首帧 / loading 页 | Host boot 注入的字面 CSS（light `#fff` / dark `#151517`），早于插件生效 | ⚠️ 不覆盖（已知缺口，0.3.0 评估） |
+| 代码块语法高亮 | 9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`（共 11 个，全部显式）；作用于聊天气泡 / 工具输出 / 右侧文件预览三处 `CodeBlock` | ✅ |
+| 首帧 / loading 页 | Host 半部经 `webserver/index-inject` 追加 body script，在 Client 加载前把 boot 调色板写成 body 内联 token（读 ui-theme 已解析 scheme + localStorage 强度）；Web 首帧即 Everforest，Desktop 最多 1 帧原生色；loading spinner / 边框仍原生 | ✅ 0.2.0 覆盖（残余见括号） |
 | 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 不覆盖（列入非目标） |
 | 终端 | 底色 / 字色 / 光标跟随 token；ANSI 16 色为 xterm 内置默认盘（DSH 只传 bg/fg/cursor，且 `minimumContrastRatio: 4.5` 会自行校正）；OSC 4/10/11 不受主题控制 | ⚠️ 部分 |
 | brand mark / 文件类型图标 / 图片 | 固定 artwork（含终端空态 SVG 字面色） | ⚠️ 不覆盖 |
@@ -100,10 +107,11 @@
 | 内部 token 名随 DSH 升级改名 | 部分区域退回原生蓝灰 | `engines.dsh` 限版本（安装前 / 装载时都强制）；启动自检（读关键 token 的 computed 值判断是否存在）；缺 token 不报错、只退化 |
 | 对比度回归 | 文字 / 按钮可读性下降 | 建立对比度检查表（正文、二级、边框、brand 白字、diff、状态色），逐页走查；主按钮前景用 `bg0` 而非白色 |
 | 覆盖面「半官方」 | 可能被未来 DSH 版本收紧 | 只用 `ctx.theme` 公开服务 + 文档化 token 优先，内部 token 集中在 `src/tokens.js` 单文件便于替换 |
-| 持久化只在单 origin | 换浏览器 / 用浏览器打开 Host URL 后回到默认强度 | 设置页说明「按浏览器 / 窗口保存」；Desktop 窗口 origin 固定可持久；0.3.0 评估 Host 侧偏好 |
+| 持久化只在单 origin | 换浏览器 / 用浏览器打开 Host URL 后回到默认强度 | 设置页说明「按浏览器 / 窗口保存」；Desktop 窗口 origin 固定可持久；Host 侧偏好**暂缓（2026-10-19）**，路线与 spike 条件见 §5 注 |
 | 设置页插槽属内部契约 | DSH 改版可能调整 `settings.section` | 与 `dshmarket`/`cost-meter` 相同的用法；注册失败时降级为「无设置页、默认配对（深色 Soft / 浅色 Hard）」，不影响主题生效 |
 | 覆盖层残留 | 插件停用后颜色不还原 | disposer 必须挂 `ctx.effect`（已写入 design §5）；验收项「停用后 body 内联变量消失」 |
-| 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 首帧来自 Host boot 字面 CSS，插件无法提前；`immediately` 本版本无作用；0.3.0 评估首帧注入（Electron `dsh-app://` 窗口是否可覆盖待实测） |
+| 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 0.2.0 已由 Host boot 注入覆盖：Web 首帧即 Everforest；Desktop 窗口在 load 后才 show、rows 由页面侧在 IPC 后应用，接受最多 1 帧原生色；loading 动效的灰 spinner / 边框仍原生 |
+| boot 注入残留 | 插件停用 / Client 半部加载失败时，页面保留启动调色板 | row 只写 presenter 也会写的 body 内联 token（Client 正常时首次 apply 必覆盖）；停用后 row 在 Host 重启 / 下次 index 渲染消失；Client 失败时保留到本页结束（可接受，README/design 已标注） |
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
 | 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | 已知限制；0.x 不做 DOM 改写（`dshmarket` 的做法），后续看 DSH 是否加 `icon` 字段 |
@@ -115,8 +123,8 @@
 | 阶段 | 内容 | 估算 |
 |---|---|---|
 | 0.1.0 | 包骨架 / 构建脚本 / 6 套调色板 / token 映射表 / 覆盖层应用 / 设置页 / 持久化 / 本地安装验证 | **2–2.5 天** |
-| 0.2.0 | 全页面对比度走查与修正 / shiki 调色 / 中英文案 / 图标 / README 截图 / npm 发布 / 兼容范围实测 | **1.5–2 天** |
-| 0.3.0（可选） | Host 侧偏好持久化、首屏注入、系统跟随细节 | 0.5–1 天 |
+| 0.2.0 | 全页面对比度走查与修正 / shiki 调色与口径修正 / 中英文案 / 图标 / README 截图 / **首帧 boot 注入** / 系统跟随收尾 / npm 发布 / 兼容范围实测 | **2.5–3 天**（首帧注入约 1 天，含测试与双端实测） |
+| 0.3.0（暂缓） | Host 侧偏好持久化（先做 `configForms` spike） | 2026-10-19 决定先不做 |
 
 ## 9. 实现前待验证清单（2026-10-18 审计后状态）
 
@@ -126,12 +134,13 @@
 | 2 | localStorage 在 Desktop / 浏览器的可用性 | **源码已证**：Desktop Electron 主窗口 origin 固定 `dsh-app://app`（标准安全协议 + 默认持久 session），跨重启应保持；浏览器打开 Host URL 时端口每次随机（`--port 0`），不跨重启。剩真机「选强度 → 退出 → 重启 → 仍在」确认 |
 | 3 | `overrideTokens` 的 source 是否被钉为包名 | **假设不成立**：已安装 bundle 走普通 cordis ctx，`source` 由插件自己传（无强制、无校验）；façade 钉名只发生在模型动态 Cordis 包。同 source 替换 / 旧 disposer no-op / 校验规则源码已证；剩真机确认停用后内联变量消失 |
 | 4 | `engines.dsh` 的安装 / 激活判定 | **已解决**：安装前（plugin-manager）与装载 profile 时（app-boot，`includePrerelease: true`）都强制；`>=0.2.1-rc.2 <0.3.0-0` 在本机通过。不兼容时安装被拒 / 已安装 bundle 被跳过并打印警告 |
-| 5 | `--shiki-*` 是否在聊天气泡、diff、工具输出三处共同生效 | 待真机目检 |
-| 6 | 默认配对与 Enchanted 一致（dark soft `bg0 #333C43` / light hard `bg0 #FFFBEF`） | 文档数据自洽；**不要用 body `background-color` 计算值校验**（首帧 CSS 字面色覆盖），改核对 body 内联 `--dsw-alias-bg-base` |
+| 5 | `--shiki-*` 生效表面 | **口径已修正（2026-10-19）**：shiki 只作用于**代码块**三处（聊天气泡 / 工具输出 / 右侧文件预览的 `CodeBlock`）；diff 不做语法高亮，走 `file-diff` / `code-diff` token。注入路径源码已证（前端 shiki css-variables 主题 + 内联 `var(--shiki-*)`）；剩真机逐处目检 |
+| 6 | 默认配对与 Enchanted 一致（dark soft `bg0 #333C43` / light hard `bg0 #FFFBEF`） | 文档数据自洽；核对 body 内联 `--dsw-alias-bg-base`（或 Client 生效后的 computed `background-color`）。**不要用首帧阶段的 `body{background-color}` 字面值**——首帧由 Host boot row 决定，`--shiki-background` 之类被 `--dsl-code-block-background` 覆盖的 token 同理要按有效 token 校验 |
 | 7 | 6 档强度 × 关键前景色的对比度检查记录 | 实现期工作项（`node` 脚本算 WCAG 对比度） |
-| 8 | 首帧闪动观察 | 待真机记录（已知缺口） |
+| 8 | 首帧闪动 | **已实现并自动测试（0.2.0）**：Host boot row 与 Client token 同值由 `tests/host-boot.test.mjs` 覆盖；Web 首帧截图、Desktop 冷启动录屏（原生色 ≤1 帧）仍待真机目检 |
 | 9 | 覆盖 token 是否出现在 `Theme.listTokens` | **源码已证**（`exportInspectTokens` 并入 override 层 token 名）；待真机确认，作为安装后自检手段 |
-| 10 | `client.js` 改动后的生效路径 | 待真机确认：Plugins 页停用→启用（Host 重新快照 bundle）或重启 Host；单纯刷新页面预计不会换 bundle 字节 |
+| 10 | `client.js` 改动后的生效路径 | 待真机确认：Plugins 页停用→启用（Host 重新快照 bundle）或重启 Host；单纯刷新页面预计不会换 bundle 字节。**Host 半部（`index.js`）改动需要重启 Host 进程**才生效（首帧 row 在 Host ready 时读取） |
+| 11 | Host boot row 的 JSON / HTML 安全与顺序 | **已由测试覆盖**：row 是纯 JSON、无 `</script`、脚本幂等、无 `!important`；顺序依赖 ui-theme 的 `{ prepend: true }`（源码已证） |
 
 ## 10. 参考
 
@@ -158,9 +167,34 @@
 - Desktop 的 WebView origin 不是 `file://`，而是固定的 `dsh-app://app`；Host HTTP 端口每次启动随机；
 - `engines.dsh` 在本版本**会**被强制（与安装包内 `dsh-package-manifest` README 的旧说法相反）；
 - token 统计口径：403 是 ui-theme 单包唯一名；dark alias 为 101（非 105）；shiki 为 9 + 2；79/33 的分类需按 74+5 / 28+5 表述；
-- 「除 mask 黑白外无硬编码」不成立：终端空态 SVG、首帧 CSS、darwin 渐变、artwork 等为例外；
+- 「除 mask 黑白外无硬编码」不成立：终端空态 SVG、首帧 CSS、darwin 渐变、artwork 等为例外（其中首帧 CSS 已于 0.2.0 由 Host boot 注入覆盖）；
 - `static` 色阶不能「按明度一一对应」，需要插值 / 混合公式；
 - 文档选中色要保留 40% 透明语义（`color-mix`），不能直接给实色；
 - light 选中色 `#DED8DB` 上游只用于 light · hard，其余两档是本项目外推（已在 palette.md 标注）。
 
 **环境**：本会话 sandbox 的 pwsh 曾因 Windows ACL 受限令牌 DLL 初始化失败（`0xC0000142`）完全不可用；切换 Full access 后恢复。本机 node 24.21.0 / pnpm 11.28.5 位于 Desktop 运行时目录（`dsh-runtimes/dsh-primary-runtime/dependencies`）；`plugin_manager` 的读操作可正常调用。
+
+## 12. 2026-10-19 首帧注入 / 口径修正 / 0.2.0 收尾
+
+**决策（用户确认）**
+
+- shiki / diff 口径修正接受：shiki 只覆盖代码块三处，diff 走 diff token（无语法高亮）。
+- Desktop 首帧接受「最多 1 帧原生色」，不追求绝对 0 帧。
+- Host 侧强度偏好持久化**先不做**（暂缓）。
+- 点另一深浅色组色卡即固定全局外观的 UX 保留。
+
+**已实现**
+
+- Host 半部 `index.js`：监听 `webserver/index-inject`，追加一条 `{ kind: 'script', placement: 'body', text }`；`createBootScript()` 从 `tokensFor()` 生成 6 个变体的值表，脚本读 ui-theme 已解析的 scheme + localStorage 强度，写 6 个 boot token 的 body 内联变量。
+- `package.json`：版本 0.2.0；`files` 增加 Host 半部运行时 import 的 `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js`。
+- 测试：`tests/host-boot.test.mjs`（row 形状、JSON/HTML 安全、6×6 与 Client token 同值、默认/损坏存储回退、固定深浅色 + 相反 OS、ui-theme 缺失回退、storage 抛错、幂等）；集成测试新增「Host 半部 import ↔ `files` 覆盖」核对。
+- 文档：本文件 §1/§3/§5/§6/§7/§8/§9/§11 更新；[design.md](design.md) §1/§2/§4/§5（新增「首帧注入」）/§7/§8/§9/§10/§11 更新 + §12 实现记录；README 中英与 `src/tokens.js` 顶部注释同步。
+
+**证据补正**
+
+- `dsh.client.immediately` 在本版本前端只用于 **prefetch**（`manifest.plugins.filter(p => p.immediately)`），不是「无作用」，也不是减闪手段。
+- Electron 首帧注入走 `DESKTOP_IPC.boot` → 页面侧 boot 内核应用，**不需要 `tapIndex`**；`tapIndex` 只是 raw HTML escape hatch。
+- boot 页实际消费 `var(--dsw-alias-bg-base, …)` / `var(--dsw-alias-label-*, …)`，所以 boot 脚本写 body 内联变量即可覆盖 loading 页底色与文字；spinner / 边框是 `.boot` 局部字面变量，不覆盖。
+- Windows 原生标题栏由 preload 探针在 body 属性/style 变化后回传 `windowsAppearance`；系统深浅色翻转会重跑，不是盲区（启动首帧兜底灰 → 插件生效后换色，属同类 1 帧级过渡）。
+
+**残余（人工项）**：Web 首帧截图、Desktop 冷启动录屏（≤1 帧）、三处代码块与 diff 目检、系统跟随全链路走查（OS 切换 / DSH Appearance / 插件按钮 / Windows 标题栏）、全站视觉走查与 README 真机截图。另：Desktop 欢迎 / 登录窗口是 shell 独立文档，只跟随 light/dark，不走 `index-inject`（可接受边界）。

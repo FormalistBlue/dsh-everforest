@@ -29,7 +29,10 @@
 //     and the pointer-modality code sets `--dsw-focus-ring-color: transparent`
 //     inline; overriding it would break that.
 //   - `--dsw-menu-backdrop-filter` / `--dsw-mask-blur`: backdrop filters, not colours
-//   - terminal ANSI 16 colours, brand/file-icon artwork, darwin gradients, boot first paint
+//   - terminal ANSI 16 colours, brand/file-icon artwork, darwin gradients
+//     (the pre-Client boot paint is no longer a gap: the Host half injects the
+//     palette through `webserver/index-inject` before this layer loads; see
+//     docs/design.md §5 "首帧注入" / §12)
 //   - `--dsh-*` geometry/font variables (scrollbar width, font sizes, font families)
 //
 // ---------------------------------------------------------------------------

@@ -49,7 +49,7 @@ Open **Add plugin → Install a third-party plugin** in the DSH plugin page and 
 
 - Palette data comes from sainnhe's Everforest (six background ramps) and Everforest Enchanted (default pairing, header colours, UI semantics); see [docs/reference/palette.md](docs/reference/palette.md).
 - In the light variants, text-bearing surfaces are lifted 25% toward `bg0` and passed through a contrast guard (body text ≥ 4.5:1); the sidebar keeps a visible boundary against the content card.
-- Not covered: terminal ANSI 16 colours, brand / file-icon artwork, per-level heading colours, first-paint loading screen. See [docs/design.md](docs/design.md) and [docs/reference/contrast.md](docs/reference/contrast.md).
+- Not covered: terminal ANSI 16 colours, brand / file-icon artwork, per-level heading colours; the loading animation's grey spinner / border stays native. **First paint is covered**: the Host half injects the palette before the Client loads, so the Web loading screen / first frame is already Everforest and Desktop cold start is at most one native frame. See [docs/design.md](docs/design.md) and [docs/reference/contrast.md](docs/reference/contrast.md).
 
 ## License
 

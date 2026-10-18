@@ -37,7 +37,7 @@ const SOURCES = [
   'state.js',
   'locale.js',
   'settings-page.js',
-  'index.js',
+  'client-entry.js',
 ]
 
 const args = new Set(process.argv.slice(2))

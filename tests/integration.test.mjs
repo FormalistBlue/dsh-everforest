@@ -217,10 +217,42 @@ test('bundle patch inserts exactly one Everforest row', () => {
   assert.equal((patch.match(/- insert:/g) ?? []).length, 1)
 })
 
-test('host half stays empty and exports apply', async () => {
+test('host half contributes the first-paint boot row', async () => {
   const host = await import('../index.js')
   assert.equal(typeof host.apply, 'function')
-  assert.equal(host.apply.length, 0)
+  assert.equal(host.apply.length, 1, 'apply() receives the Host context')
+  assert.ok(Array.isArray(host.BOOT_TOKENS) || ArrayBuffer.isView(host.BOOT_TOKENS))
+  assert.ok(host.BOOT_TOKENS.length > 0)
+  assert.equal(typeof host.createBootScript, 'function')
+})
+
+test('the published file list covers every runtime import of the Host and Client halves', async () => {
+  const manifest = readJson('package.json')
+
+  // The Host half and the src modules it imports run straight from the package
+  // directory (they are not bundled), so `files` must ship each of them.
+  const seen = new Set()
+  const queue = ['index.js']
+  while (queue.length > 0) {
+    const relative = queue.shift()
+    if (seen.has(relative)) continue
+    seen.add(relative)
+    const source = read(relative)
+    for (const match of source.matchAll(/from\s+['"]\.\/([^'"]+)['"]/g)) {
+      queue.push(match[1].startsWith('src/') ? match[1] : `src/${match[1]}`)
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['index.js', 'src/color.js', 'src/palette.js', 'src/state.js', 'src/tokens.js'])
+  for (const relative of seen) {
+    assert.ok(manifest.files.includes(relative), `files whitelist must include ${relative}`)
+  }
+  assert.ok(manifest.files.includes('client.js'))
+})
+
+test('host half imports no Harness Host package', () => {
+  const source = read('index.js')
+  assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, 'index.js imports a Harness package')
+  assert.doesNotMatch(source, /require\(['"]@deepseek-ai\//, 'index.js requires a Harness package')
 })
 
 test('plugin display metadata exists in both locales', () => {
@@ -260,7 +292,7 @@ test('bundle registers under the package id with the Client entry shape', () => 
 })
 
 test('src half imports no Harness Client package', () => {
-  for (const relative of ['palette.js', 'color.js', 'tokens.js', 'state.js', 'locale.js', 'settings-page.js', 'index.js']) {
+  for (const relative of ['palette.js', 'color.js', 'tokens.js', 'state.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
     const source = read(`src/${relative}`)
     assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, `${relative} imports a Harness package`)
     assert.doesNotMatch(source, /require\(['"]@deepseek-ai\//, `${relative} requires a Harness package`)
@@ -331,6 +363,14 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.equal(store.getSnapshot().state.dark, 'hard')
   assert.equal(recorded.tokenLayers.length, 3)
   assert.deepEqual(recorded.setThemeCalls, ['light', 'dark'])
+
+  // ...but picking another strength in the already-active scheme must leave the
+  // Appearance preference alone (system following survives a strength change).
+  const callsBefore = recorded.setThemeCalls.length
+  store.select('dark', 'medium')
+  assert.equal(store.getSnapshot().state.dark, 'medium')
+  assert.equal(recorded.setThemeCalls.length, callsBefore, 'same-scheme strength change rewrote Appearance')
+  assert.equal(store.getSnapshot().theme.preference, 'dark')
 
   // Reset restores the Enchanted default pairing without touching Appearance.
   store.reset()

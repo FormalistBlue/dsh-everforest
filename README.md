@@ -48,7 +48,7 @@
 
 - 配色数据取自 sainnhe 的 Everforest（6 套背景色阶）与 Everforest Enchanted（默认配对、header 色、UI 语义），见 [docs/reference/palette.md](docs/reference/palette.md)。
 - 浅色档的正文表面向 `bg0` 提亮 25% 并做对比度守卫（正文 ≥ 4.5:1）；侧栏与内容卡保留可辨边界。
-- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色、首帧 loading 页。详见 [docs/design.md](docs/design.md) 与 [docs/reference/contrast.md](docs/reference/contrast.md)。
+- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色；loading 动效的灰色 spinner / 边框仍是 DSH 原生。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色，Web 的 loading 页 / 首帧即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](docs/design.md) 与 [docs/reference/contrast.md](docs/reference/contrast.md)。
 
 ## License
 
