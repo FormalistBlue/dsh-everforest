@@ -136,6 +136,7 @@ dsh-everforest/
 | 停用清理 | 真机验证：`plugin_manager.set_bundle(dsh-everforest, enabled=false)` → `settings.section` 的 everforest occupant 消失、`Theme.listTokens` 从 212 个覆盖 token 回到内置 14 条（覆盖层已撤销）；重新 enable 后两项均恢复，全程 HMR 生效、无需重启 |
 | npm 发布 | 2026-10-18 发布 `dsh-everforest@0.1.0`（dist-tag `latest`）；`npm view` 的 version / dist-tags / shasum（`77459d90…`）与本地打包一致；空缓存 `npm install dsh-everforest@0.1.0` 成功且包含 10 个运行时文件。Provenance 尚未生成（本次为本地 Web-OTP 发布，后续走 Trusted Publishing） |
 | npm 发布（0.1.1 / CI） | 2026-10-18 推送 tag `v0.1.1` → GitHub Actions run `39134686583` 成功；registry `latest=0.1.1`、shasum `c88740ea…`；`dist.attestations.provenance` 为 SLSA v1，`_npmUser` 为 GitHub Actions（trustedPublisher id `177c86cc…`）；空缓存 `npm install dsh-everforest@0.1.1` 成功，tarball README 已刷新 |
+| npm 发布（0.1.2 / CI） | 2026-10-18 推送 tag `v0.1.2` → GitHub Actions run `39138160540` 成功（`Publish with provenance` 输出 `+ dsh-everforest@0.1.2`，provenance 写入 sigstore transparency log）；registry `latest=0.1.2`、shasum `aebc8d78…`（与本地 `npm pack --dry-run` 的 shasum 一致）、`dist.attestations.provenance` 为 SLSA v1、`_npmUser` 为 GitHub Actions；tar 清单 10 个运行时文件、`gitHead` = 发布提交 |
 | Trusted Publishing | 2026-10-18 通过 `npm trust github` 配置 GitHub Actions（repo `FormalistBlue/dsh-everforest`、workflow `publish.yml`、permissions = publish + stage publish、id `177c86cc…`）；`npm trust list` 复核通过；0.1.1 / 0.1.2 均由 CI 发布 |
 
 仍需人工目检（无浏览器控制能力，自动项无法替代）：
@@ -166,7 +167,7 @@ dsh-everforest/
 
 - [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页（含「跟随系统 / 深色 / 浅色」外观控制）+ inline code 芯片修正 + 本地持久化 + 本机安装验证 + npm 首发（2026-10-18，本地发布）
 - [x] **0.1.1** — 补丁发布：通过 tag → GitHub Actions + Trusted Publishing 验证 CI 发布链路（无 2FA、带 provenance），刷新 npm 页面 README
-- [x] **0.1.2** — 侧栏 / 内容卡边界修正：`--dsw-specific-sidebar-fill` 不再平铺 `bg0`，改为 `bg0` → `bg1` 80% 混合 + 对比度守卫；新增「侧栏边界 ≥ 1.02:1」「侧栏正文 ≥ 4.5:1」硬门槛
+- [x] **0.1.2** — 侧栏 / 内容卡边界修正：`--dsw-specific-sidebar-fill` 不再平铺 `bg0`，改为 `bg0` → `bg1` 80% 混合 + 对比度守卫；新增「侧栏边界 ≥ 1.02:1」「侧栏正文 ≥ 4.5:1」硬门槛；已由 tag `v0.1.2` → CI 发布（provenance）
 - [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图
 - [ ] **0.3.0** —（可选）Host 侧偏好持久化（跨浏览器一致）、消除首帧 loading 闪动（评估首帧注入在 Electron 窗口是否可用）、系统配色跟随细节
 
