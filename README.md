@@ -134,6 +134,7 @@ dsh-everforest/
 | 启用 / 外观控制上线 | 本轮 `plugin_manager.set_bundle(dsh-everforest, enabled=true)` → `application: applied`；`settings.section` occupant 与 `Theme.listTokens` 的 212 个覆盖 token 均恢复；新页面控件（外观控制 + 6 张色卡）的实际渲染与点击效果仍属人工目检项 |
 | 停用清理 | 真机验证：`plugin_manager.set_bundle(dsh-everforest, enabled=false)` → `settings.section` 的 everforest occupant 消失、`Theme.listTokens` 从 212 个覆盖 token 回到内置 14 条（覆盖层已撤销）；重新 enable 后两项均恢复，全程 HMR 生效、无需重启 |
 | npm 发布 | 2026-10-18 发布 `dsh-everforest@0.1.0`（dist-tag `latest`）；`npm view` 的 version / dist-tags / shasum（`77459d90…`）与本地打包一致；空缓存 `npm install dsh-everforest@0.1.0` 成功且包含 10 个运行时文件。Provenance 尚未生成（本次为本地 Web-OTP 发布，后续走 Trusted Publishing） |
+| npm 发布（0.1.1 / CI） | 2026-10-18 推送 tag `v0.1.1` → GitHub Actions run `39134686583` 成功；registry `latest=0.1.1`、shasum `c88740ea…`；`dist.attestations.provenance` 为 SLSA v1，`_npmUser` 为 GitHub Actions（trustedPublisher id `177c86cc…`）；空缓存 `npm install dsh-everforest@0.1.1` 成功，tarball README 已刷新 |
 | Trusted Publishing | 2026-10-18 通过 `npm trust github` 配置 GitHub Actions（repo `FormalistBlue/dsh-everforest`、workflow `publish.yml`、permissions = publish + stage publish、id `177c86cc…`）；`npm trust list` 复核通过。tag → CI 首发（0.1.1）尚未执行 |
 
 仍需人工目检（无浏览器控制能力，自动项无法替代）：

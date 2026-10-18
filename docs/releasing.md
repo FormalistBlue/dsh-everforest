@@ -9,10 +9,11 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 | 版本 | 日期 | 方式 | dist-tag | shasum | provenance |
 |---|---|---|---|---|---|
 | 0.1.0 | 2026-10-18 | 本地 `npm publish` + Web-OTP（账号 `shandawang`） | `latest` | `77459d903532a9618f04ba562bbea5aa6c12399d` | 无（本地发布） |
+| 0.1.1 | 2026-10-18 | GitHub Actions + Trusted Publishing（tag `v0.1.1`，run `39134686583`） | `latest` | `c88740ea3be8f19e888bba9f4370dbb2d98e7af8` | 有（SLSA v1） |
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
-- 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.1.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。
-- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。后续版本按 §3 的 tag 流程由 CI 发布，不再需要 2FA。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`；首个 CI 发布从 0.1.1 开始。
+- 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.1.1 --registry=https://registry.npmjs.org --cache <fresh-dir>`。
+- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
 
 ## 0. 发布前必须确认
 
@@ -130,6 +131,8 @@ npm 侧：
 & "$node\npm.cmd" view dsh-everforest dist-tags
 & "$node\npm.cmd" view dsh-everforest dist.attestations   # 走 trusted publishing 时应有 provenance
 ```
+
+> 刚发布后 `npm view` 可能短时命中 CDN 旧缓存（仍显示上一版）。用 `https://registry.npmjs.org/dsh-everforest/<version>` 或 packument 的 `?write=true` 直接复核；0.1.1 发布时就遇到过约 1 分钟的缓存滞后。
 
 DSH 侧（本机 profile = `desktop`）：
 
