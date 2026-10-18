@@ -2,7 +2,7 @@
 
 [Everforest](https://github.com/sainnhe/everforest) 配色主题插件，用于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 Web / Desktop 界面。
 
-> 状态：**0.1.0 已实现、本机验证并发布到 npm**（2026-10-18）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`（页面含「跟随系统 / 深色 / 浅色」外观控制与 6 张色卡），`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 已发布 [`dsh-everforest@0.1.0`](https://www.npmjs.com/package/dsh-everforest)（`latest`，本次为本地 OTP 发布、无 provenance；后续经 Trusted Publishing 由 CI 发布），发布记录见 [`docs/releasing.md`](docs/releasing.md)。
+> 状态：**0.1.0 已实现、本机验证并发布到 npm**（2026-10-18）。自动化验证：构建 / 单测 / 集成测试 / 对比度门槛全绿，`plugin_manager` 安装返回 `application: applied`，Client `settings.section` 出现 `id: everforest, order: 25`（页面含「跟随系统 / 深色 / 浅色」外观控制与 6 张色卡），`Theme.listTokens` 出现全部 212 个覆盖 token。**视觉走查与部分真机项仍需目检**（见「验证」）。npm 已发布 [`dsh-everforest@0.1.0`](https://www.npmjs.com/package/dsh-everforest)（`latest`，本地 OTP 发布、无 provenance）；**Trusted Publishing 已配置**（GitHub Actions / `publish.yml`），后续版本由 tag 触发 CI 发布，零 2FA 且带 provenance。发布记录见 [`docs/releasing.md`](docs/releasing.md)。
 
 ## 功能
 
@@ -134,6 +134,7 @@ dsh-everforest/
 | 启用 / 外观控制上线 | 本轮 `plugin_manager.set_bundle(dsh-everforest, enabled=true)` → `application: applied`；`settings.section` occupant 与 `Theme.listTokens` 的 212 个覆盖 token 均恢复；新页面控件（外观控制 + 6 张色卡）的实际渲染与点击效果仍属人工目检项 |
 | 停用清理 | 真机验证：`plugin_manager.set_bundle(dsh-everforest, enabled=false)` → `settings.section` 的 everforest occupant 消失、`Theme.listTokens` 从 212 个覆盖 token 回到内置 14 条（覆盖层已撤销）；重新 enable 后两项均恢复，全程 HMR 生效、无需重启 |
 | npm 发布 | 2026-10-18 发布 `dsh-everforest@0.1.0`（dist-tag `latest`）；`npm view` 的 version / dist-tags / shasum（`77459d90…`）与本地打包一致；空缓存 `npm install dsh-everforest@0.1.0` 成功且包含 10 个运行时文件。Provenance 尚未生成（本次为本地 Web-OTP 发布，后续走 Trusted Publishing） |
+| Trusted Publishing | 2026-10-18 通过 `npm trust github` 配置 GitHub Actions（repo `FormalistBlue/dsh-everforest`、workflow `publish.yml`、permissions = publish + stage publish、id `177c86cc…`）；`npm trust list` 复核通过。tag → CI 首发（0.1.1）尚未执行 |
 
 仍需人工目检（无浏览器控制能力，自动项无法替代）：
 
@@ -161,7 +162,7 @@ dsh-everforest/
 ## 路线图
 
 - [x] **0.1.0** — 可安装骨架 + 6 套调色板 + token 覆盖 + 设置页（含「跟随系统 / 深色 / 浅色」外观控制）+ inline code 芯片修正 + 本地持久化 + 本机安装验证 + npm 发布（2026-10-18）
-- [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图、配置 Trusted Publishing 后的 CI 发布验证
+- [ ] **0.2.0** — 真机目检与视觉回归修正、shiki 三处生效确认、README 截图、用 0.1.1 tag 验证 CI 发布（provenance）
 - [ ] **0.3.0** —（可选）Host 侧偏好持久化（跨浏览器一致）、消除首帧 loading 闪动（评估首帧注入在 Electron 窗口是否可用）、系统配色跟随细节
 
 ## 参考

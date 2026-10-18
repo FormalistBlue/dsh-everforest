@@ -12,18 +12,18 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
 - 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.1.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。
-- **Trusted Publishing 尚未配置**：配置前不要 push `v0.1.0` tag——tag 会触发 CI 再次发布 0.1.0 并得到 `EPUBLISHCONFLICT`。先完成 §3，再按 §3 的 tag 流程发布后续版本（0.1.1+）。
+- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。后续版本按 §3 的 tag 流程由 CI 发布，不再需要 2FA。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`；首个 CI 发布从 0.1.1 开始。
 
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。
-- 包名仍可用：`npm view dsh-everforest version` 应返回 404。包名 **发布后不能改名**，且必须与 Client 模块 id 一致（`window.__ModuleLoader__.load({ id: 'dsh-everforest', … })`），所以先定死。
+- 包名：**首次发布前**确认 `npm view dsh-everforest version` 返回 404（本仓库 0.1.0 已占用，后续版本跳过此项）。包名 **发布后不能改名**，且必须与 Client 模块 id 一致（`window.__ModuleLoader__.load({ id: 'dsh-everforest', … })`），所以先定死。
 - `package.json` 存在且字段完整（见 §4），`client.js` 已构建并入库。
 - 本机没有全局 node/npm，可用以下任一 Node（都自带 npm）：
   - fnm 安装的 Node：`C:\Users\formalistBlue\AppData\Roaming\fnm\node-versions\v24.17.0\installation`（node v24.17.0 / npm 11.13.0）；
   - DSH Desktop 自带运行时：`C:\Users\formalistBlue\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe`（该发行版**不含 npm**，只能跑脚本，不能 publish；publish 用上一项的 npm 或 `pnpm`）。
 
-## 1. 首次发布：两条路线
+## 1. 首次发布：两条路线（0.1.0 已完成，保留供新包参考）
 
 npm 的 **Trusted Publishing（OIDC）要求包在 registry 上已经存在**，所以新包第一次发布必须先走 token/OTP，之后才能交给 CI。
 
@@ -65,20 +65,36 @@ pnpm dlx setup-trusted-publishing --access public
 - **交互式**：`npm login` 后用 OTP 发布（上面路线 A）。
 - **CI 用 token**：npmjs.com → Access Tokens → 生成 **Granular Access Token**（限定 `dsh-everforest`、读写、勾选 bypass 2FA 的自动化用途），在 GitHub 仓库 Secrets 里存为 `NPM_TOKEN`，workflow 里用 `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`。token 不要提交进仓库，也不要写进 `.npmrc`。
 
-## 3. 配置 Trusted Publishing（一次配置，后续免 token）
+## 3. 配置 Trusted Publishing（已完成，后续免 token / 免 2FA）
 
 前提：包已在 npm 上存在（首次发布完成后）且 GitHub 仓库**公开**（私有仓库请继续用 token）。
 
-1. 打开 `https://www.npmjs.com/package/dsh-everforest/access` → **Trusted publishers** → **Add a publisher**；
-2. 选择 **GitHub Actions**，填写：
-   - Organization or user：`FormalistBlue`
-   - Repository：`dsh-everforest`
-   - Workflow filename：`publish.yml`（**只写文件名**，不是 `.github/workflows/publish.yml`）
-   - Environment：留空（本仓库未用 environment 保护）
-3. 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；
-4. 之后发布：改版本 → 提交 → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance。
+**当前已配置（2026-10-18）**，可用 `npm trust list dsh-everforest` 复核：
 
-npm 11.15+ 也提供 `npm trust` CLI（本机 npm 11.13 没有），可在配置完成后用 `npm trust list` 检查；以 [npm 文档](https://docs.npmjs.com/trusted-publishers) 为准。
+```text
+type: github
+id: 177c86cc-8d54-450d-b06f-d38d6b18bde3
+file: publish.yml
+repository: FormalistBlue/dsh-everforest
+permissions: publish, stage publish
+```
+
+配置方式（CLI，需 npm >= 11.15；本机用 npm 12.2.0 的 `npm trust` 完成）：
+
+```powershell
+npm trust github dsh-everforest `
+  --file publish.yml `
+  --repository FormalistBlue/dsh-everforest `
+  --allow-publish `
+  --registry=https://registry.npmjs.org
+```
+
+- 旧版 npm（<= 11.14.x）的 `npm trust` 不发送 permissions 字段，registry 会返回无 body 的 `400 Bad Request`；npm 11.15+ 要求显式 `--allow-publish`（允许正式发布）或 `--allow-stage-publish`（允许 staged 发布）。
+- 网页等价路径：`https://www.npmjs.com/package/dsh-everforest/access` → Trusted publishers → Add a publisher（GitHub Actions；Workflow filename 只写 `publish.yml`；Environment 留空）。
+- 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；
+- 之后发布：改版本 → 提交 → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance。
+
+以 [npm Trusted publishing 文档](https://docs.npmjs.com/trusted-publishers) 为准。
 
 ## 4. 发布前检查清单（本仓库专属）
 
@@ -134,6 +150,8 @@ DSH 侧（本机 profile = `desktop`）：
 | 现象 | 原因 / 处理 |
 |---|---|
 | `E404` 首次配置 trusted publisher 找不到包 | 新包必须先发布一次（路线 A 或 B），之后才能配置 |
+| `npm trust github` 返回无 body 的 `400 Bad Request` | npm <= 11.14.x 不发送 trusted-publishing permissions 字段；升级到 npm >= 11.15（本机用 12.2.0）并加 `--allow-publish`（或 `--allow-stage-publish`） |
+| `404 PUT` / `is not in this registry` | trusted publisher 的 owner/repo/workflow 文件名与运行时 OIDC claims 不一致；workflow 只写 basename |
 | `404 PUT` / `is not in this registry` | trusted publisher 的 owner/repo/workflow 文件名与运行时 OIDC claims 不一致；workflow 只写 basename |
 | `OTP required` | 账号开了 2FA 但没用 OIDC 或 automation token；本地交互发布需要 OTP |
 | 包名冲突 | 发布前 `npm view dsh-everforest version`；发布后不能改名，只能新包名 + 同步改 `dsh.client` id |
