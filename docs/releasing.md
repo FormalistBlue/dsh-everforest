@@ -95,8 +95,8 @@ npm trust github dsh-everforest `
 
 - 旧版 npm（<= 11.14.x）的 `npm trust` 不发送 permissions 字段，registry 会返回无 body 的 `400 Bad Request`；npm 11.15+ 要求显式 `--allow-publish`（允许正式发布）或 `--allow-stage-publish`（允许 staged 发布）。
 - 网页等价路径：`https://www.npmjs.com/package/dsh-everforest/access` → Trusted publishers → Add a publisher（GitHub Actions；Workflow filename 只写 `publish.yml`；Environment 留空）。
-- 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；
-- 之后发布：改版本 → 提交 → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance。
+- 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；发布前会先跑 `node --test` 与 `npm run check`（与 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 相同），任一失败即中止；`workflow_dispatch` 手动发布只允许在 `v<version>` 标签对应的提交上运行（`fetch-depth: 0` + `git tag --points-at HEAD` 校验）；
+- 之后发布：改版本 → 提交 → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance；发布成功后还会按 tag 自动创建 GitHub Release（`gh release create --generate-notes`，预发布版本自动加 `--prerelease`，已存在的 Release 会跳过）。
 
 以 [npm Trusted publishing 文档](https://docs.npmjs.com/trusted-publishers) 为准。
 
@@ -140,6 +140,11 @@ npm 侧：
 ```
 
 > 刚发布后 `npm view` 可能短时命中 CDN 旧缓存（仍显示上一版）。用 `https://registry.npmjs.org/dsh-everforest/<version>` 或 packument 的 `?write=true` 直接复核；0.1.1 发布时就遇到过约 1 分钟的缓存滞后。
+
+GitHub / CI 侧：
+
+- `verify` workflow 在 `main` 的最近推送与 PR 上应全绿（6 格矩阵：Ubuntu / Windows × Node 20 / 22 / 24）；
+- Releases 页应出现 `v<version>`，notes 由 CI 生成（`--generate-notes`）。若 `Create GitHub Release` 一步失败，npm 包其实已经发布成功，本地补一条 `gh release create v<version> --verify-tag --generate-notes` 即可，不用重跑发布。
 
 DSH 侧（本机 profile = `desktop`）：
 
