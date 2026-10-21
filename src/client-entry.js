@@ -27,7 +27,7 @@
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
-import { readState, writeState } from './state.js'
+import { readState, STORAGE_KEY, writeState } from './state.js'
 import { EN, NS, ZH } from './locale.js'
 import { SETTINGS_STYLES, createSettingsComponent } from './settings-page.js'
 
@@ -107,6 +107,29 @@ export function apply(ctx) {
     return () => off?.()
   }, 'everforest: theme snapshot refresh')
 
+  // Keep every same-origin window on the same strengths. `localStorage` is
+  // shared per origin, but each window holds its own copy in memory and the
+  // browser only announces writes through `storage` events — which are never
+  // delivered to the writing document. Without this listener a second window
+  // keeps a stale copy, and the next card click there writes the stale value
+  // back over the other window's choice (a silent lost update). The event also
+  // fires with `key === null` when another window calls `clear()`.
+  ctx.effect(() => {
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return undefined
+    const onStorage = (event) => {
+      if (event.key !== STORAGE_KEY && event.key !== null) return
+      const next = readState()
+      if (next.light === state.light && next.dark === state.dark) return
+      state = next
+      applyLayer()
+      notify()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => {
+      if (typeof window.removeEventListener === 'function') window.removeEventListener('storage', onStorage)
+    }
+  }, 'everforest: cross-window sync')
+
   // 2. Settings page stores the user's per-scheme strength choice. Writes are
   // synchronous localStorage writes so the choice survives a restart; when
   // storage is unavailable the choice still applies for this session.
@@ -170,44 +193,58 @@ export function apply(ctx) {
   // and the returned proxy stays bound to this plugin's context so registrations
   // are disposed on unload). If a profile activates the UI services later, the
   // `ctx.inject` fallback waits for them instead of losing the page silently.
+  //
+  // The page is prepared once (dictionaries / stylesheet / component) and then
+  // registered. `settingsUiMounted` is set only after registration returns: a
+  // synchronous failure must leave it false, otherwise the `ctx.inject`
+  // fallback below is skipped and this session never gets the page.
   let settingsUiMounted = false
+  let settingsUiPrepared = false
+  let settingsUiSection = null
   const setupSettingsUi = () => {
     if (settingsUiMounted) return
     const locale = ctx.get('locale')
     const slots = ctx.get('slots')
     if (!locale || !slots) return
-    settingsUiMounted = true
 
-    ctx.effect(() => locale.register(NS, { zh: ZH, en: EN }), 'everforest: dictionaries')
-    const t = locale.bind(NS)
+    if (!settingsUiPrepared) {
+      ctx.effect(() => locale.register(NS, { zh: ZH, en: EN }), 'everforest: dictionaries')
+      const t = locale.bind(NS)
 
-    // A plain `<style data-plugin>` element: the model-authored `styles.insert`
-    // helper does not exist for installed bundles. Removing it in the cleanup
-    // keeps unload clean.
-    ctx.effect(() => {
-      if (typeof document === 'undefined' || !document.head) return undefined
-      const tag = document.createElement('style')
-      tag.dataset.plugin = PACKAGE_ID
-      tag.dataset.pluginCss = PACKAGE_ID
-      tag.textContent = SETTINGS_STYLES
-      document.head.appendChild(tag)
-      return () => tag.remove()
-    }, 'everforest: settings styles')
+      // A plain `<style data-plugin>` element: the model-authored `styles.insert`
+      // helper does not exist for installed bundles. Removing it in the cleanup
+      // keeps unload clean.
+      ctx.effect(() => {
+        if (typeof document === 'undefined' || !document.head) return undefined
+        const tag = document.createElement('style')
+        tag.dataset.plugin = PACKAGE_ID
+        tag.dataset.pluginCss = PACKAGE_ID
+        tag.textContent = SETTINGS_STYLES
+        document.head.appendChild(tag)
+        return () => tag.remove()
+      }, 'everforest: settings styles')
 
-    const Section = createSettingsComponent({
-      React,
-      h,
-      palette: { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS },
-    })
-    const options = {
-      name: 'settings.section',
-      id: 'everforest',
-      order: 25,
-      label: () => t('nav.title'),
-      locale: NS,
-      inject: () => ({ t, store }),
+      const Section = createSettingsComponent({
+        React,
+        h,
+        palette: { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS },
+      })
+      const options = {
+        name: 'settings.section',
+        id: 'everforest',
+        order: 25,
+        label: () => t('nav.title'),
+        locale: NS,
+        inject: () => ({ t, store }),
+      }
+      settingsUiSection = { options, Section }
+      settingsUiPrepared = true
     }
-    slots.inject('settings.section', () => slots.register(options, Section))
+
+    // Registration is the last fallible step: only a success here counts as
+    // mounted, so a throw keeps the retry path open.
+    slots.inject('settings.section', () => slots.register(settingsUiSection.options, settingsUiSection.Section))
+    settingsUiMounted = true
   }
 
   try {

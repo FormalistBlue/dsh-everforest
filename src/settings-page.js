@@ -562,6 +562,9 @@ export function createSettingsComponent(dependencies) {
       return h('div', {
         key: 'current',
         className: 'everforest-current',
+        // A plain <div> cannot be named by `aria-label`; the group role makes
+        // the label land in the accessibility tree as the row's group name.
+        role: 'group',
         'aria-label': t('current.label'),
       }, [
         h('div', { key: 'text', className: 'everforest-current-text' }, [

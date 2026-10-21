@@ -353,6 +353,15 @@ test('page renders the appearance control, then two groups with three cards each
   assert.equal(cardGroups.length, 2)
   assert.equal(cardGroups[0].props['aria-label'], 'Dark palettes')
   assert.equal(cardGroups[1].props['aria-label'], 'Light palettes')
+
+  // `aria-label` only reaches the accessibility tree on elements whose role
+  // supports naming; a bare <div> with just a label is silently ignored.
+  const labelled = findAll(tree, (node) => node.props && typeof node.props['aria-label'] === 'string')
+  assert.ok(labelled.length > 0)
+  for (const node of labelled) {
+    const role = node.props.role ?? (node.type === 'button' ? 'button' : undefined)
+    assert.ok(role, `${node.type}.${node.props.className ?? ''}: aria-label without a naming role`)
+  }
 })
 
 test('default pairing selects dark soft and light hard via aria-pressed', () => {
@@ -446,6 +455,7 @@ test('current row shows the pairing, active appearance, and system note', () => 
   const { tree } = renderPage({ store: createMockStore({ colorScheme: 'light', preference: 'system' }) })
   const current = findOne(tree, byClass('everforest-current'))
   assert.ok(current)
+  assert.equal(current.props.role, 'group', 'aria-label needs a naming role to be exposed')
   assert.equal(current.props['aria-label'], 'Current choice')
   assert.equal(
     textContent(findOne(current, byClass('everforest-current-main'))),

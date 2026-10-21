@@ -15,6 +15,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
+import { STORAGE_KEY, STATE_VERSION } from '../src/state.js'
+import { tokensFor } from '../src/tokens.js'
+
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const PACKAGE_ID = 'dsh-everforest'
 const read = (relative) => readFileSync(join(ROOT, relative), 'utf8')
@@ -54,6 +57,7 @@ function createHarness({ deferUiServices = false } = {}) {
     themeListeners: [],
     slotRegistrations: [],
     localeRegistrations: [],
+    localeDisposals: [],
     effects: [],
     setThemeCalls: [],
     injectCalls: [],
@@ -87,7 +91,9 @@ function createHarness({ deferUiServices = false } = {}) {
   const locale = {
     register: (ns, dictionaries) => {
       recorded.localeRegistrations.push({ ns, dictionaries })
-      return () => {}
+      return () => {
+        recorded.localeDisposals.push(ns)
+      }
     },
     bind: () => (key) => key,
   }
@@ -154,14 +160,56 @@ function createHarness({ deferUiServices = false } = {}) {
 }
 
 /**
+ * In-memory `Storage` double for the bundle's `readState()`/`writeState()`.
+ * @param {Record<string, string>} [entries]
+ */
+function createMemoryStorage(entries = {}) {
+  const values = new Map(Object.entries(entries))
+  return {
+    get length() {
+      return values.size
+    },
+    key: (index) => [...values.keys()][index] ?? null,
+    getItem: (key) => (values.has(key) ? values.get(key) : null),
+    setItem: (key, value) => {
+      values.set(key, String(value))
+    },
+    removeItem: (key) => {
+      values.delete(key)
+    },
+    clear: () => {
+      values.clear()
+    },
+  }
+}
+
+/**
  * Evaluate the built bundle exactly the way the Client module loader does.
  * `body` / `getComputedStyle` / `console` let a test drive the deferred token
  * self-check; by default `document.body` is undefined, which makes runSelfCheck a
- * no-op for the lifecycle tests.
+ * no-op for the lifecycle tests. `storage` seeds the window's localStorage, and
+ * the returned `window` stub can dispatch the DOM events the plugin listens to.
  */
-function loadBundle({ body, getComputedStyle, console: consoleStub } = {}) {
+function loadBundle({ body, getComputedStyle, console: consoleStub, storage } = {}) {
   let definition = null
   const styleTags = []
+  const listeners = new Map()
+  const windowStub = {
+    __ModuleLoader__: { load: (value) => { definition = value } },
+    addEventListener: (type, listener) => {
+      const set = listeners.get(type) ?? new Set()
+      listeners.set(type, set)
+      set.add(listener)
+    },
+    removeEventListener: (type, listener) => {
+      listeners.get(type)?.delete(listener)
+    },
+    dispatchEvent: (event) => {
+      for (const listener of [...(listeners.get(event.type) ?? [])]) listener(event)
+      return true
+    },
+    listenerCount: (type) => listeners.get(type)?.size ?? 0,
+  }
   const document = {
     head: {
       appendChild: (tag) => {
@@ -176,7 +224,7 @@ function loadBundle({ body, getComputedStyle, console: consoleStub } = {}) {
     body,
   }
   const sandbox = {
-    window: { __ModuleLoader__: { load: (value) => { definition = value } } },
+    window: windowStub,
     // The bundle only needs timers for its deferred token self-check.
     setTimeout,
     clearTimeout,
@@ -184,6 +232,7 @@ function loadBundle({ body, getComputedStyle, console: consoleStub } = {}) {
     document,
     ...(getComputedStyle ? { getComputedStyle } : {}),
     ...(consoleStub ? { console: consoleStub } : {}),
+    ...(storage ? { localStorage: storage } : {}),
   }
   vm.runInNewContext(read('client.js'), sandbox, { filename: 'client.js' })
   assert.ok(definition, 'client.js did not call window.__ModuleLoader__.load()')
@@ -191,7 +240,7 @@ function loadBundle({ body, getComputedStyle, console: consoleStub } = {}) {
     assert.equal(request, 'react')
     return mockReact
   })
-  return { definition, module, styleTags }
+  return { definition, module, styleTags, window: windowStub }
 }
 
 test('manifest declares the dsh bundle and client half correctly', () => {
@@ -307,7 +356,7 @@ test('src half imports no Harness Client package', () => {
 })
 
 test('apply() mounts the token layer, settings page, and locale, and cleans up', async () => {
-  const { module, styleTags } = loadBundle()
+  const { module, styleTags, window } = loadBundle()
   const harness = createHarness()
   const originalRequire = globalThis.require
   globalThis.require = () => mockReact
@@ -317,6 +366,9 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     globalThis.require = originalRequire
   }
   const { recorded } = harness
+
+  // The cross-window sync listener is registered when the module mounts.
+  assert.equal(window.listenerCount('storage'), 1, 'the storage listener was not registered')
 
   // Token layer: one layer, both schemes, default palette.
   assert.equal(recorded.tokenLayers.length, 1)
@@ -399,6 +451,8 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const disposedSources = recorded.tokenLayerDisposers.map((entry) => entry.source)
   assert.ok(disposedSources.includes(PACKAGE_ID), 'token layer was not disposed on unload')
   assert.equal(styleTags.length, 0, 'settings stylesheet was not removed on unload')
+  assert.deepEqual(recorded.localeDisposals, ['settings.everforest'], 'locale dictionaries were not released on unload')
+  assert.equal(window.listenerCount('storage'), 0, 'cross-window storage listener survived unload')
 })
 
 test('settings UI mounts when slots/locale arrive after apply()', async () => {
@@ -438,6 +492,111 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
     'token layer was not disposed on unload',
   )
   assert.equal(styleTags.length, 0, 'delayed settings stylesheet was not removed on unload')
+})
+
+test('strength changes made by another window reach this one through the storage event', () => {
+  const payload = (light, dark) => JSON.stringify({ version: STATE_VERSION, light, dark })
+  const storage = createMemoryStorage({ [STORAGE_KEY]: payload('hard', 'soft') })
+  const { module, window } = loadBundle({ storage })
+  const harness = createHarness()
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    module.apply(harness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  const { recorded } = harness
+  const store = recorded.slotRegistrations[0].options.inject().store
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
+  assert.equal(recorded.tokenLayers.length, 1)
+
+  // Another window persists a different pairing. The browser delivers `storage`
+  // to this document; the plugin must re-read the state, rebuild the token
+  // layer and refresh the Settings page.
+  storage.setItem(STORAGE_KEY, payload('soft', 'medium'))
+  window.dispatchEvent({ type: 'storage', key: STORAGE_KEY })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium' })
+  assert.equal(recorded.tokenLayers.length, 2, 'the token layer was not rebuilt')
+  const expected = tokensFor({ light: 'soft', dark: 'medium' })
+  assert.equal(
+    recorded.tokenLayers[1].tokens['--dsw-alias-bg-base'].light,
+    expected['--dsw-alias-bg-base'].light,
+    'the rebuilt layer does not match the other window choice',
+  )
+
+  // Unrelated keys and an unchanged payload are ignored.
+  window.dispatchEvent({ type: 'storage', key: 'some-other-plugin/v1' })
+  window.dispatchEvent({ type: 'storage', key: STORAGE_KEY })
+  assert.equal(recorded.tokenLayers.length, 2, 'a no-op event rebuilt the layer')
+
+  // `clear()` in another window arrives with `key: null` and restores the defaults.
+  storage.clear()
+  window.dispatchEvent({ type: 'storage', key: null })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
+  assert.equal(recorded.tokenLayers.length, 3)
+
+  // Unload removes the listener: later writes must not touch the layer.
+  harness.disposeAll()
+  assert.equal(window.listenerCount('storage'), 0, 'storage listener survived unload')
+  storage.setItem(STORAGE_KEY, payload('hard', 'hard'))
+  window.dispatchEvent({ type: 'storage', key: STORAGE_KEY })
+  assert.equal(recorded.tokenLayers.length, 3, 'a disposed plugin still rebuilt the layer')
+})
+
+test('a failed Settings page setup is retried through the inject fallback', () => {
+  const warnings = []
+  const { module, styleTags } = loadBundle({ console: { warn: (...args) => warnings.push(args.join(' ')) } })
+  const harness = createHarness()
+  const originalRegister = harness.ctx.locale.register
+  let attempts = 0
+  harness.ctx.locale.register = (...args) => {
+    attempts += 1
+    if (attempts === 1) throw new Error('transient locale failure')
+    return originalRegister(...args)
+  }
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    assert.doesNotThrow(() => module.apply(harness.ctx), 'a Settings failure must not escape apply()')
+  } finally {
+    globalThis.require = originalRequire
+  }
+  const { recorded } = harness
+
+  // The first setup threw before the services gate; the flag must stay false so
+  // the immediate `ctx.inject` fallback retries instead of leaving no page.
+  assert.equal(attempts, 2, 'the inject fallback did not retry the Settings setup')
+  assert.equal(recorded.localeRegistrations.length, 1, 'the retry registered the dictionaries twice')
+  assert.equal(recorded.slotRegistrations.length, 1)
+  assert.equal(recorded.slotRegistrations[0].options.id, 'everforest')
+  assert.equal(styleTags.length, 1)
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /settings UI setup failed/)
+
+  harness.disposeAll()
+  assert.equal(styleTags.length, 0, 'stylesheet leaked after a retried setup')
+  assert.deepEqual(recorded.localeDisposals, ['settings.everforest'])
+})
+
+test('setPreference tolerates a Host that cannot write the Appearance preference', () => {
+  const warnings = []
+  const { module } = loadBundle({ console: { warn: (...args) => warnings.push(args.join(' ')) } })
+  const harness = createHarness()
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    module.apply(harness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  const store = harness.recorded.slotRegistrations[0].options.inject().store
+  harness.ctx.theme.setTheme = () => {
+    throw new Error('the Host refused the write')
+  }
+  assert.doesNotThrow(() => store.setPreference('light'), 'a failed Appearance write escaped the store')
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /could not write the Appearance preference/)
 })
 
 test('startup self-check only warns when an inherited probe is missing', async () => {
