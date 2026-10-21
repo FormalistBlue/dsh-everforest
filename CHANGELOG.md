@@ -21,6 +21,13 @@
 - **自动 GitHub Release**：tag 推送（且发布成功后）用 `--generate-notes` 创建 Release，预发布版本自动
   `--prerelease`；已存在的 Release 会跳过（幂等）。
 - **CHANGELOG.md**：回填 0.1.0 → 0.2.0 的发布记录。
+- **跨窗口强度同步**：`client-entry.js` 监听 `storage` 事件，同一地址的其他标签页 / 窗口写入强度后，
+  本窗口重读状态、重建 token 覆盖层并刷新设置页；`clear()` 按默认配对处理。此前多窗口各持旧值，
+  后操作的一方会把对方选择写回（丢失更新）。
+- **loading spinner / 边框着色**：boot token 6→8，新增 `--dsw-alias-border-l2`（spinner 环）与
+  `--dsw-alias-brand-primary`（进度弧）；Web loading 页首帧即完整 Everforest。装包
+  `dsh-web-frontend@0.2.1-rc.2` 的 CSS 里两者以 alias token 为主值、局部字面量只是 fallback，
+  旧文档「局部字面变量、不可覆盖」的结论已作废并同步修正（README / design / assessment / releasing）。
 
 ### Fixed
 
@@ -28,9 +35,33 @@
   `html[data-input-modality=pointer] body :focus-visible` 上声明它，`getComputedStyle(document.body)`
   永远取到空值，导致每次启动都误报「token 可能被改名」。其余 5 个探针保持；新增 computed-style stub
   测试，锁定「探针可解析时不告警、缺失时才告警、focus ring 不再是探针」。
+- **设置页注册失败后不再永久缺失**：`settingsUiMounted` 只在 `slots.register` 成功后置位，
+  `settingsUiPrepared` 保证重试不重复注册字典 / 样式表；此前注册抛异常会把 flag 留在 true，
+  `ctx.inject` 兜底被跳过，整段会话都没有设置页。
+- **「当前选择」行的无障碍命名**：行容器补 `role="group"`，`aria-label` 才会进入无障碍树
+  （裸 `<div>` 的 `aria-label` 会被忽略）；测试新增「所有 `aria-label` 必须有命名 role」的通用断言。
+- **构建器静默丢导出**：`build.mjs` 拒绝一条语句多绑定的 `export const a = 1, b = 2`
+  （原实现只把 `a` 导出到模块表，`b` 静默消失），并导出 `parseModule` 供负向测试；CLI 行为不变。
+- **light·soft 聊天气泡变成白色**（用户走查「聊天气泡框变成白色的了」）：2026-10-19 的修复把
+  light·soft 气泡翻到「抬起」方向，用近白冷调（`#ffffff` + 4% `header-aqua`)——在暖奶油画布上像一块
+  白卡片。现改为白 → `fg.green` 13% 的淡鼠尾草纸 `#f0f3de`（文字 4.94:1），对画布明度差 1.06:1，
+  以绿 vs 暖奶油的色相差异承担区分，气泡边界门槛对该档放宽到 1.05（其余亮色档 1.10 不变）。
+- **diff 行底色看不清（深色）/ 看不出（浅色）**（用户走查：深色「浅绿色背景配白色的文字」；浅色
+  「绿色背景太不明显」→ 二次走查「light·soft 还是偏浅」）：`FileDiff` 的 added/deleted 行底由
+  `--dsw-alias-file-diff-*-bg` 绘制、代码文字继承 `label-primary`。深色档原直接取 `bg_green` `#48574e`
+  （dark·soft），近白文字仅 4.52:1，行号 gutter 又向亮端提亮到 `#797e6e`（2.09:1）；浅色档原
+  `bg0` → `bg_green` 混 45%，与代码画布只有 1.001–1.007:1，added/deleted 行与普通代码没有区别。
+  现在：dark 行底向 `bg0` 收 40%（`#404d4a`，文字 5.23:1）、gutter 深色改向暗退（行号 3.97–6.30:1）；
+  light 行底把 `bg0` 向绿 / 红墨色压到 4.5 门槛（hard / medium 与代码画布 1.15 / 1.10 明度差，文字仍
+  4.56+），light·soft 因代码画布本身卡在 4.5:1，单独允许行底文字降到 4.1:1（`#e5e0b6` / `#f4d8c4`，
+  与画布 1.09 / 1.10 明度差，2026-10-21 用户确认的可见性取舍）。新增 diff 行底文本硬门槛（light·soft
+  4.1 例外）与「marker on gutter」报告项，报告见 `docs/reference/contrast.md` §2e / §4 / §6.3。
 
 ### Changed
 
+- **文档口径**：README 中英、`design.md`、`assessment.md`、`releasing.md` 更新首帧 / spinner 覆盖面，
+  并记录「恢复默认只重置强度、不改 DSH 全局外观偏好」（用户确认 2026-10-21）；`design.md` §12 新增
+  2026-10-21 P1 打磨记录。
 - **npm 页面链接**：`README.md` / `README.en.md` 中的 `docs/...`、`LICENSE`、`THIRD_PARTY_NOTICES.md`
   改用 GitHub 绝对 URL。`docs/` 不在 `files` 白名单内，npm 页面上的相对链接此前全部 404。
 - **`prepack` 表述纠正**：`prepack` 实际是 `build.mjs -C`（只校验产物是否最新，不重新生成）。

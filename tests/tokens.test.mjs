@@ -250,7 +250,8 @@ test('chat bubble separates from bg-base while keeping primary text readable', (
   // #FDFAEE on the #FFFBEF canvas (1.02:1): light bubbles blended into the
   // background (2026-10-19 visual report). Light now uses a sage tint of
   // header-aqua, except light·soft where the 4.5:1 ink cap forbids darkening, so
-  // the bubble flips to the raised near-white direction instead.
+  // the bubble flips to a raised pale-sage paper (2026-10-21: the earlier
+  // near-white card read as "the bubble turned white").
   for (const scheme of ['light', 'dark']) {
     for (const strength of STRENGTHS) {
       const overlay = tokensFor({ light: strength, dark: strength })
@@ -259,7 +260,10 @@ test('chat bubble separates from bg-base while keeping primary text readable', (
       assert.ok(isLegalColor(bubble), `${scheme}-${strength}: bubble must be a colour`)
       assert.notEqual(bubble, base)
       const boundary = contrastRatio(bubble, base)
-      assert.ok(boundary >= 1.1, `${scheme}-${strength}: bubble/bg-base boundary = ${boundary.toFixed(3)} < 1.10`)
+      // light·soft trades some luminance step for a pale-sage hue (the canvas is
+      // already at the 4.66:1 ink limit); its gate is 1.05 (user-approved 2026-10-21).
+      const boundaryMin = scheme === 'light' && strength === 'soft' ? 1.05 : 1.1
+      assert.ok(boundary >= boundaryMin, `${scheme}-${strength}: bubble/bg-base boundary = ${boundary.toFixed(3)} < ${boundaryMin}`)
       const textRatio = contrastRatio(overlay['--dsw-alias-label-primary'][scheme], bubble)
       assert.ok(textRatio >= 4.5, `${scheme}-${strength}: label-primary on the bubble = ${textRatio.toFixed(2)} < 4.5`)
 
@@ -304,6 +308,44 @@ test('diff uses bg_green / bg_red surfaces with green / red markers', () => {
   assert.ok(overlay['--dsw-alias-file-diff-deleted-bg'].light.length === 7)
   assert.equal(overlay['--dsw-alias-code-diff-added'].light, alpha(FOREGROUNDS.light.green, 0.1))
   assert.equal(overlay['--dsw-alias-code-diff-deleted'].light, alpha(FOREGROUNDS.light.red, 0.1))
+})
+
+test('diff stripes keep label-primary readable and gutters step away from the stripe', () => {
+  // 2026-10-21 visual report: in dark·soft the added-line stripe was a light
+  // green band under near-white ink (4.52:1) and the line-number gutter was
+  // lifted *lighter* than the stripe (green numbers at 2.1:1).
+  for (const strength of STRENGTHS) {
+    const overlay = tokensFor({ light: strength, dark: strength })
+    for (const scheme of ['light', 'dark']) {
+      for (const kind of ['added', 'deleted']) {
+        const stripe = overlay[`--dsw-alias-file-diff-${kind}-bg`][scheme]
+        const label = overlay['--dsw-alias-label-primary'][scheme]
+        const ratio = contrastRatio(label, stripe)
+        // light·soft allows a 4.1:1 stripe so it stays visible against its
+        // already-4.5:1 code canvas (user-approved trade-off, 2026-10-21).
+        const minimum = scheme === 'light' && strength === 'soft' ? 4.1 : 4.5
+        assert.ok(ratio >= minimum, `${scheme}-${strength} ${kind} stripe carries label-primary at ${ratio.toFixed(2)}`)
+        // The stripe is a tint of the ramp colour, not the raw ramp colour.
+        const ramp = RAMPS[scheme][strength]
+        assert.notEqual(stripe, kind === 'added' ? ramp.bgGreen : ramp.bgRed, `${scheme}-${strength} ${kind} stripe must stay a tint`)
+        // Light stripes must be distinguishable from the code canvas.
+        if (scheme === 'light') {
+          const canvas = overlay['--dsw-alias-markdown-code-block'].light
+          const visibility = contrastRatio(stripe, canvas)
+          assert.ok(
+            visibility >= 1.08,
+            `light-${strength} ${kind} stripe is invisible against the code canvas (${visibility.toFixed(2)}:1)`
+          )
+        }
+        // Gutter direction matches native DSH: lighter in light, darker in dark.
+        const gutter = overlay[`--dsw-alias-file-diff-${kind}-gutter`][scheme]
+        const stripeLuminance = relativeLuminance(stripe)
+        const gutterLuminance = relativeLuminance(gutter)
+        if (scheme === 'light') assert.ok(gutterLuminance > stripeLuminance, `light ${kind} gutter must be lighter than the stripe`)
+        else assert.ok(gutterLuminance < stripeLuminance, `dark ${kind} gutter must be darker than the stripe`)
+      }
+    }
+  }
 })
 
 test('uncovered tokens stay unoverridden, and only inherited tokens are self-check probes', () => {

@@ -2,6 +2,7 @@
 
 > 日期：2026-10-18 · 评估对象：DSH **0.2.1-rc.2**（Desktop，Windows）· 结论：**可行，采用路线 A**（见下）。
 > 2026-10-19 更新：首帧 Host boot 注入已实现于 0.2.0（待发布；见 §3 / §5 / §9 / §12）；Host 侧强度持久化暂缓；shiki / diff 口径修正。
+> 2026-10-21 更新：0.2.1 的 P1 打磨落地（loading spinner boot token、跨窗口同步、设置页失败重试、无障碍、构建守卫），见 §5 / §11 与 [design.md](design.md) §12。
 
 ## 1. 结论
 
@@ -9,7 +10,7 @@
 
 - **官方扩展点已经存在**：Client 的 `ctx.theme.overrideTokens(source, tokens)` 接受任意 CSS 变量名 → `{ light, dark }` 的映射，正好覆盖「6 套调色板 + 随深浅色切换」的需求。
 - **不需要改 DSH 组件 CSS，也不需要构建工具链**：正文是一份普通 JS 的 Client 半部；Host 半部只承载 bundle 行，并在 0.2.0 增加一条首帧注入 row（见 §3 / §5）。
-- **覆盖率高**：UI 主样式由 token 驱动，覆盖 195 个颜色 token 即可整站改色，另有 11 个 `--shiki-*` 接管代码块高亮。已知硬编码例外：终端空态 SVG（`#17191d` / `#fff`）、macOS darwin 渐变、品牌与文件类型图标 artwork、主题样式表自身的字面 token 值（可被覆盖）。**首帧 / loading 页**在 0.2.0 已由 Host 半部经 `webserver/index-inject` 注入调色板覆盖（loading 动效的灰 spinner / 边框仍原生）。
+- **覆盖率高**：UI 主样式由 token 驱动，覆盖 195 个颜色 token 即可整站改色，另有 11 个 `--shiki-*` 接管代码块高亮。已知硬编码例外：终端空态 SVG（`#17191d` / `#fff`）、macOS darwin 渐变、品牌与文件类型图标 artwork、主题样式表自身的字面 token 值（可被覆盖）。**首帧 / loading 页**在 0.2.0 已由 Host 半部经 `webserver/index-inject` 注入调色板覆盖；2026-10-21 起 loading spinner 环与进度弧也走 boot token（见 §5）。
 - **配色数据已有权威来源**：官方 `palette.md` 提供 6 套背景色阶；**主参考选定 Everforest Enchanted**（Obsidian 端口）——它的背景值严格等于官方 dark-soft / light-hard，并给出 `header-*` 自定义色与完整的 UI 语义映射。因此默认配对采用「深色 soft / 浅色 hard」，与 Enchanted 观感一致，其余四档强度作为可选。
 - **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变、逐级标题彩色（DSH 无对应 token）。都不影响主体观感。
 
@@ -69,9 +70,11 @@
 | 配置入口 | **直接做设置页**（`settings.section`），不依赖 Appearance 改造 | 需要自建状态存储与组件；强度偏好不能写进 DSH 设置文档（见下） |
 | 色卡交互（2026-10-18） | 点另一深浅色组的色卡时**同时调用 `ctx.theme.setTheme(scheme)`** 立即预览 | 会把用户 Appearance 偏好实打实写进 Host 设置（所有已认证浏览器共享，`system` → 固定深浅色）；设置页文案必须说明 |
 | 偏好持久化 | **localStorage**（key 带版本号），设置页读写 | 逐 origin 生效：Desktop 窗口 origin 固定 `dsh-app://app`，跨重启保持；浏览器打开 Host URL 时端口每次随机、不跨重启；与 DSH「Host 偏好跨浏览器共享」不同，需在文档与设置页文案中说明 |
+| 跨窗口同步（2026-10-21） | 监听 `storage` 事件：同 origin 其他窗口写入后重读状态、重建覆盖层并刷新设置页 | 修复「多标签页各持旧值、后操作者把对方选择写回」的丢失更新；若将来做 Host 持久化，可由宿主广播替代 |
+| 恢复默认范围（2026-10-21） | 只重置深浅强度，不改 DSH 全局外观偏好 | 用户确认；Appearance 是 DSH 的全局 Host 偏好，插件页的「恢复默认」不应代改 |
 | 兼容范围（2026-10-18） | `engines.dsh = ">=0.2.1-rc.2 <0.3.0-0"` | DSH 安装前与装载 profile 时都会强制；排除 0.3 及其预发布，避免 token 改名后半残 |
 | 首帧闪动（2026-10-18） | 0.1.0 接受 loading/首帧为 DSH 原生色，0.3.0 再评估消除 | 首帧底色来自 Host boot 注入的字面 CSS；`dsh.client.immediately` 只用于 prefetch，不能依赖 |
-| 首帧注入（2026-10-19） | **Host 半部监听 `webserver/index-inject` 追加 body script row**，在 Client 加载前写 boot 调色板；Web 首帧即 Everforest，Desktop 接受最多 1 帧原生色 | 6 个 boot token 与 `tokensFor()` 同值；写 body 内联变量（不用 `!important`），presenter 首次 apply 覆盖；loading 动效的 spinner / 边框仍原生 |
+| 首帧注入（2026-10-19） | **Host 半部监听 `webserver/index-inject` 追加 body script row**，在 Client 加载前写 boot 调色板；Web 首帧即 Everforest，Desktop 接受最多 1 帧原生色 | 8 个 boot token 与 `tokensFor()` 同值（2026-10-21 起含 spinner 环 / 进度弧）；写 body 内联变量（不用 `!important`），presenter 首次 apply 覆盖 |
 | Host 侧强度偏好（2026-10-19） | **暂缓，先不做** | 继续用 localStorage；`configForms` 路线留档（第三方条目是否被 serve 需 spike、异步读取、跨浏览器事件），将来做时 localStorage 降级为同步缓存 |
 | shiki / diff 口径（2026-10-19） | 修正：shiki 只覆盖**代码块**三处（聊天气泡 / 工具输出 / 文件预览）；diff 走 `file-diff` / `code-diff` token | 文档与验收清单同步；不再按「diff 有语法高亮」验收 |
 | 发布目标 | **npm 发布** | 需 display 元数据（`meta.title` / `meta.description` + 图标）、`engines.dsh`、`files`/`exports` 白名单、LICENSE + THIRD_PARTY_NOTICES、README 截图 |
@@ -94,7 +97,7 @@
 | diff（代码差异） | `--dsw-alias-file-diff-*`（字面 rgb）/ `code-diff-*`（static 引用，自动）；diff 是逐行底色 + marker，**不做语法高亮** | ✅ |
 | 文档预览 | `--dsw-alias-bg-document-preview` / `label-document-preview`（alias 引用，自动） | ✅ 自动 |
 | 代码块语法高亮 | 9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`（共 11 个，全部显式）；作用于聊天气泡 / 工具输出 / 右侧文件预览三处 `CodeBlock` | ✅ |
-| 首帧 / loading 页 | Host 半部经 `webserver/index-inject` 追加 body script，在 Client 加载前把 boot 调色板写成 body 内联 token（读 ui-theme 已解析 scheme + localStorage 强度）；Web 首帧即 Everforest，Desktop 最多 1 帧原生色；loading spinner / 边框仍原生 | ✅ 0.2.0 覆盖（残余见括号） |
+| 首帧 / loading 页 | Host 半部经 `webserver/index-inject` 追加 body script，在 Client 加载前把 boot 调色板写成 body 内联 token（读 ui-theme 已解析 scheme + localStorage 强度）；Web 首帧即 Everforest，Desktop 最多 1 帧原生色；loading spinner / 边框已由 boot token 覆盖（2026-10-21） | ✅ 0.2.0 覆盖（spinner/边框 0.2.1 补齐） |
 | 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 不覆盖（列入非目标） |
 | 终端 | 底色 / 字色 / 光标跟随 token；ANSI 16 色为 xterm 内置默认盘（DSH 只传 bg/fg/cursor，且 `minimumContrastRatio: 4.5` 会自行校正）；OSC 4/10/11 不受主题控制 | ⚠️ 部分 |
 | brand mark / 文件类型图标 / 图片 | 固定 artwork（含终端空态 SVG 字面色） | ⚠️ 不覆盖 |
@@ -110,7 +113,7 @@
 | 持久化只在单 origin | 换浏览器 / 用浏览器打开 Host URL 后回到默认强度 | 设置页说明「按浏览器 / 窗口保存」；Desktop 窗口 origin 固定可持久；Host 侧偏好**暂缓（2026-10-19）**，路线与 spike 条件见 §5 注 |
 | 设置页插槽属内部契约 | DSH 改版可能调整 `settings.section` | 与 `dshmarket`/`cost-meter` 相同的用法；注册失败时降级为「无设置页、默认配对（深色 Soft / 浅色 Hard）」，不影响主题生效 |
 | 覆盖层残留 | 插件停用后颜色不还原 | disposer 必须挂 `ctx.effect`（已写入 design §5）；验收项「停用后 body 内联变量消失」 |
-| 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 0.2.0 已由 Host boot 注入覆盖：Web 首帧即 Everforest；Desktop 窗口在 load 后才 show、rows 由页面侧在 IPC 后应用，接受最多 1 帧原生色；loading 动效的灰 spinner / 边框仍原生 |
+| 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 0.2.0 已由 Host boot 注入覆盖：Web 首帧即 Everforest；Desktop 窗口在 load 后才 show、rows 由页面侧在 IPC 后应用，接受最多 1 帧原生色；loading 动效的 spinner / 边框自 0.2.1 起也随 boot token 着色 |
 | boot 注入残留 | 插件停用 / Client 半部加载失败时，页面保留启动调色板 | row 只写 presenter 也会写的 body 内联 token（Client 正常时首次 apply 必覆盖）；停用后 row 在 Host 重启 / 下次 index 渲染消失；Client 失败时保留到本页结束（可接受，README/design 已标注） |
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
@@ -185,7 +188,7 @@
 
 **已实现**
 
-- Host 半部 `index.js`：监听 `webserver/index-inject`，追加一条 `{ kind: 'script', placement: 'body', text }`；`createBootScript()` 从 `tokensFor()` 生成 6 个变体的值表，脚本读 ui-theme 已解析的 scheme + localStorage 强度，写 6 个 boot token 的 body 内联变量。
+- Host 半部 `index.js`：监听 `webserver/index-inject`，追加一条 `{ kind: 'script', placement: 'body', text }`；`createBootScript()` 从 `tokensFor()` 生成 6 个变体的值表，脚本读 ui-theme 已解析的 scheme + localStorage 强度，写 8 个 boot token 的 body 内联变量（2026-10-21 起含 spinner 环与进度弧）。
 - `package.json`：版本 0.2.0；`files` 增加 Host 半部运行时 import 的 `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js`。
 - 测试：`tests/host-boot.test.mjs`（row 形状、JSON/HTML 安全、6×6 与 Client token 同值、默认/损坏存储回退、固定深浅色 + 相反 OS、ui-theme 缺失回退、storage 抛错、幂等）；集成测试新增「Host 半部 import ↔ `files` 覆盖」核对。
 - 2026-10-19 追加视觉修正：浅色聊天气泡与画布融为一体（旧映射 1.02:1）→ sage tint / light·soft 近白抬起卡片，新增「气泡 vs bg-base ≥ 1.10:1」硬门槛与单测（见 [design.md](design.md) §12 / [`reference/contrast.md`](reference/contrast.md) §2d）。
@@ -195,7 +198,7 @@
 
 - `dsh.client.immediately` 在本版本前端只用于 **prefetch**（`manifest.plugins.filter(p => p.immediately)`），不是「无作用」，也不是减闪手段。
 - Electron 首帧注入走 `DESKTOP_IPC.boot` → 页面侧 boot 内核应用，**不需要 `tapIndex`**；`tapIndex` 只是 raw HTML escape hatch。
-- boot 页实际消费 `var(--dsw-alias-bg-base, …)` / `var(--dsw-alias-label-*, …)`，所以 boot 脚本写 body 内联变量即可覆盖 loading 页底色与文字；spinner / 边框是 `.boot` 局部字面变量，不覆盖。
+- boot 页实际消费 `var(--dsw-alias-bg-base, …)` / `var(--dsw-alias-label-*, …)`，所以 boot 脚本写 body 内联变量即可覆盖 loading 页底色与文字；spinner 环 / 进度弧同样以 alias token 为主值、局部字面量只是 fallback，因此 2026-10-21 把 `--dsw-alias-border-l2` / `--dsw-alias-brand-primary` 加入 boot token 即覆盖（旧文档「局部字面变量、不可覆盖」的结论已作废）。
 - Windows 原生标题栏由 preload 探针在 body 属性/style 变化后回传 `windowsAppearance`；系统深浅色翻转会重跑，不是盲区（启动首帧兜底灰 → 插件生效后换色，属同类 1 帧级过渡）。
 
 **残余（人工项）**：Web 首帧截图、Desktop 冷启动录屏（≤1 帧）、三处代码块与 diff 目检、系统跟随全链路走查（OS 切换 / DSH Appearance / 插件按钮 / Windows 标题栏）、全站视觉走查与 README 真机截图。另：Desktop 欢迎 / 登录窗口是 shell 独立文档，只跟随 light/dark，不走 `index-inject`（可接受边界）。

@@ -37,6 +37,8 @@
 - 打开 **Settings → Everforest**：顶部是「跟随系统 / 深色 / 浅色」外观控制，下面是 6 张色卡（深色 / 浅色各 3 档强度）。
 - 选中即时生效并保存；默认深色 Soft / 浅色 Hard。
 - 点另一深浅色组的色卡会同时切换 DSH 外观（写入全局外观偏好）；「跟随系统」可恢复自动跟随。
+- 同一地址打开多个标签页时，强度选择会实时同步。
+- 「恢复默认」只重置深浅强度，不改写 DSH 的全局外观偏好。
 - 中英文文案随 DSH 语言切换。
 
 ## 兼容性
@@ -49,7 +51,7 @@
 
 - 配色数据取自 sainnhe 的 Everforest（6 套背景色阶）与 Everforest Enchanted（默认配对、header 色、UI 语义），见 [docs/reference/palette.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/palette.md)。
 - 浅色档的正文表面向 `bg0` 提亮 25% 并做对比度守卫（正文 ≥ 4.5:1）；侧栏与内容卡保留可辨边界。
-- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色；loading 动效的灰色 spinner / 边框仍是 DSH 原生。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色，Web 的 loading 页 / 首帧即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) 与 [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md)。
+- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色，Web 的 loading 页 / 首帧（含 loading 动效的 spinner 环与进度弧）即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) 与 [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md)。
 
 ## License
 

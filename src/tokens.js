@@ -190,8 +190,13 @@ function sidebarSurface (p) {
 /** How far the tinted light chat bubble is mixed from bg0 toward header-aqua. */
 const BUBBLE_TINT_MIX = 0.16
 
-/** How strongly the raised (light·soft) bubble is tinted from white toward header-aqua. */
-const BUBBLE_WHITE_TINT = 0.04
+/**
+ * How far the raised (light·soft) bubble moves from white toward the scheme's
+ * green ink. A plain (or barely aqua-tinted) white read as "the chat bubble turned
+ * white" on the warm light·soft canvas (2026-10-21 user report), so the raised
+ * branch is a pale sage paper instead.
+ */
+const BUBBLE_RAISED_MIX = 0.13
 
 /**
  * Chat user-message bubble (`--dsw-specific-bubble`).
@@ -207,11 +212,12 @@ const BUBBLE_WHITE_TINT = 0.04
  * bubble carries primary text, so the 4.5:1 gate applies on top: in light·hard
  * and light·medium the tint can darken to ~1.17 / 1.14:1 from bg0 while
  * keeping the ink at 4.6:1. In light·soft `bg0` is already 4.66:1 from the ink,
- * so a darker tint would fail the gate; there the bubble flips direction and
- * becomes a slightly cool near-white raised card instead — same 4.5 gate, a
- * larger luminance step (≈1.15:1) instead of a hue-only cue. The branch picks
- * whichever direction separates further from the canvas, so palette changes
- * cannot silently collapse it back onto the background.
+ * so a darker tint would fail the gate; there the bubble flips to the raised
+ * direction — a pale sage paper (white pulled toward the scheme green) rather
+ * than the previous stark near-white. It keeps the ink at ~4.9:1; the canvas
+ * boundary is ~1.06:1 instead of 1.15:1, which is an accepted trade-off: the
+ * green-vs-warm-cream hue difference carries the separation the luminance step
+ * no longer does (the bubble gate is relaxed to 1.05 for light·soft).
  *
  * Dark keeps the existing `bg1` step (1.14–1.16:1 from bg0, ink ≥5.7:1).
  * @param {{ scheme: string, strength: string, ramp: object, fg: object }} p
@@ -220,7 +226,7 @@ const BUBBLE_WHITE_TINT = 0.04
 function bubbleSurface (p) {
   if (p.scheme === 'dark') return surface(p, 1)
   const tinted = readableToward(p, mix(p.ramp.bg0, p.fg.headerAqua, BUBBLE_TINT_MIX), '#ffffff')
-  const raised = mix('#ffffff', p.fg.headerAqua, BUBBLE_WHITE_TINT)
+  const raised = mix('#ffffff', p.fg.green, BUBBLE_RAISED_MIX)
   return contrastRatio(p.ramp.bg0, tinted) >= contrastRatio(p.ramp.bg0, raised) ? tinted : raised
 }
 
@@ -251,12 +257,65 @@ function inlineCodeSurface (p) {
   return readableSurface(p, p.ramp.bgBlue)
 }
 
-/** Diff tint background (`bg_green` / `bg_red` / `bg_yellow`, contrast guarded). */
-function diffSurface (p, rampKey) {
-  const upstream = p.scheme === 'light'
-    ? mix(p.ramp.bg0, p.ramp[rampKey], 0.45)
-    : p.ramp[rampKey]
-  return readableSurface(p, upstream)
+/**
+ * Dark scheme diff tint: how far those ramp colours move back toward the canvas.
+ *
+ * DSH's `FileDiff` paints added/deleted lines with the plain ramp colour and
+ * inherits `label-primary` for the code text. In dark·soft that stripe is a fairly
+ * light green under the near-white ink (4.52:1) — and the line-number gutter was
+ * lifted toward the ink on top of it (`#797e6e`, numbers at 2.1:1), which reads as
+ * "light green background with white text" (2026-10-21 visual report). Pulling the
+ * tint toward `bg0` keeps the stripe recognisable while making both text families
+ * clearly readable.
+ */
+const DARK_DIFF_MIX = 0.4
+
+/**
+ * Light scheme diff tint: `bg0` pulled toward the scheme's green / red ink until
+ * the label-primary target is met, so the stripe is as visible as the text
+ * requirement allows. The previous `bg0` → `bg_green` blend landed within
+ * ~1.01:1 of the code canvas (light·hard / light·soft), i.e. the added and
+ * deleted lines were indistinguishable from the surrounding code (2026-10-21
+ * visual report: "浅色模式的绿色背景太不明显了").
+ *
+ * light·soft is the exception: its code canvas already sits exactly on the
+ * 4.5:1 label gate, so a 4.5:1 stripe is indistinguishable from the canvas. The
+ * stripe is allowed 4.1:1 there to stay visible (user-approved 2026-10-21: "浅色
+ * soft 还是偏浅"); the code text still measures ≥4.1:1 and every other variant
+ * keeps the full 4.5:1.
+ */
+const LIGHT_DIFF_TARGET = 4.5
+const LIGHT_SOFT_DIFF_TARGET = 4.1
+
+function lightDiffSurface (p, ink) {
+  const target = p.strength === 'soft' ? LIGHT_SOFT_DIFF_TARGET : LIGHT_DIFF_TARGET
+  let candidate = mix(p.ramp.bg0, ink, 0.02)
+  for (let weight = 0.04; weight <= 1.0001; weight += 0.02) {
+    const next = mix(p.ramp.bg0, ink, weight)
+    if (contrastRatio(p.fg.fg, next) < target) break
+    candidate = next
+  }
+  return candidate
+}
+
+/** Diff tint background; `rampKey` picks the dark-scheme ramp, `ink` the light tint. */
+function diffSurface (p, rampKey, ink) {
+  // The light band already stops at its own label target (4.5, or 4.1 in
+  // light·soft); running it through `readableSurface` again would pull it back
+  // to the 4.5 guard and erase the light·soft exception.
+  if (p.scheme === 'light') return lightDiffSurface(p, ink)
+  return readableSurface(p, mix(p.ramp[rampKey], p.ramp.bg0, DARK_DIFF_MIX))
+}
+
+/**
+ * Diff line-number gutter: one step away from the line tint in the direction the
+ * scheme uses for depth — lighter in light, darker in dark. Native DSH does the
+ * same (light `#edf7ed` on `#e6f4e7`; dark `#132016` on `#1f3124`); lifting the
+ * dark gutter toward the scheme ink made it *lighter* than the stripe and pushed
+ * the green line numbers down to ~2.1:1.
+ */
+function diffGutter (p, surface) {
+  return p.scheme === 'light' ? lift(p, surface, 0.35) : deepen(p, surface, 0.35)
 }
 
 /** Border colour: Enchanted semantics = `bg5` + alpha (docs/design.md §4). */
@@ -483,11 +542,11 @@ const ALIAS_TOKENS = {
   // Diff (Everforest: bg_green / bg_red surfaces, green / red markers) --------
   '--dsw-alias-code-diff-added': (p) => alpha(p.fg.green, 0.1),
   '--dsw-alias-code-diff-deleted': (p) => alpha(p.fg.red, 0.1),
-  '--dsw-alias-file-diff-added-bg': (p) => diffSurface(p, 'bgGreen'),
-  '--dsw-alias-file-diff-added-gutter': (p) => lift(p, diffSurface(p, 'bgGreen'), 0.35),
+  '--dsw-alias-file-diff-added-bg': (p) => diffSurface(p, 'bgGreen', p.fg.green),
+  '--dsw-alias-file-diff-added-gutter': (p) => diffGutter(p, diffSurface(p, 'bgGreen', p.fg.green)),
   '--dsw-alias-file-diff-added-marker': (p) => p.fg.green,
-  '--dsw-alias-file-diff-deleted-bg': (p) => diffSurface(p, 'bgRed'),
-  '--dsw-alias-file-diff-deleted-gutter': (p) => lift(p, diffSurface(p, 'bgRed'), 0.35),
+  '--dsw-alias-file-diff-deleted-bg': (p) => diffSurface(p, 'bgRed', p.fg.red),
+  '--dsw-alias-file-diff-deleted-gutter': (p) => diffGutter(p, diffSurface(p, 'bgRed', p.fg.red)),
   '--dsw-alias-file-diff-deleted-marker': (p) => p.fg.red,
 
   // Interactive feedback (subtle translucent overlays, as upstream) -----------

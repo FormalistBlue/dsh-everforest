@@ -17,7 +17,8 @@
 4. 品牌实底前景（`label-primary-foreground` = `bg0` on `header-aqua`）≥ 2.5:1（上游 aqua 能力上限，见 `palette.md` §5）；
 5. `--dsw-alias-label-primary-inverted` 的真实配对（DSH 把它用作对比墨色）：对 `label-primary`（侧栏 build 徽标 + brand wordmark 的反色镂空）与 `button-contrast-fill`（附件删除按钮）≥ 4.5:1；
 6. 侧栏表面 `--dsw-specific-sidebar-fill` 与内容底 `--dsw-alias-bg-base` 的边界对比度 ≥ 1.02:1（6 档）：DSH 用前者画侧栏列 / Windows 标题栏 / 内容卡背后的 frame，用后者画内容卡（16px 左上圆角），同色时边界消失（见 §2c）；
-7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（6 档），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；
+7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（light·soft 为 1.05:1 的可见性取舍，见 §2d），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；
+8. FileDiff 的 added / deleted 行底色（`--dsw-alias-file-diff-*-bg`）上的 `label-primary` 代码文本 ≥ 4.5:1（light·soft 为 4.1:1 的可见性取舍，见 §2e）；DSH 用这两个 token 画行底色、文字继承 `label-primary`（2026-10-21 走查：「浅绿色背景配白色文字」与「浅色绿色背景太不明显」，见 §6.3）；
 
 报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。
 
@@ -58,18 +59,29 @@ DSH 的 Windows 外壳把标题栏条、侧栏列以及内容卡背后的 frame 
 
 ## 2d. 聊天气泡边界（硬门槛）
 
-DSH 用 `--dsw-specific-bubble` 画用户消息气泡（`MessageItem.module.css`：`.bubble { background: var(--dsw-specific-bubble) }`），文字继承 `label-primary`。旧映射取 `surface(p, 1)`，light 下得到 `#FDFAEE` 对画布 `#FFFBEF` 只有 1.02:1，与背景融为一体（2026-10-19 走查）。现在改为 sage tint（`bg0` → `header-aqua` 16%）并经**向白**守卫；light·soft 因 `bg0` 已只有 4.66:1 文本余量、无法再压暗，改用近白冷调「抬起卡片」方向，取两方向中与画布分离更大者（见 §6.8）。本门槛确保它不会退回画布：
+DSH 用 `--dsw-specific-bubble` 画用户消息气泡（`MessageItem.module.css`：`.bubble { background: var(--dsw-specific-bubble) }`），文字继承 `label-primary`。旧映射取 `surface(p, 1)`，light 下得到 `#FDFAEE` 对画布 `#FFFBEF` 只有 1.02:1，与背景融为一体（2026-10-19 走查）。现在 hard / medium 为 sage tint（`bg0` → `header-aqua` 16%）并经**向白**守卫；light·soft 因 `bg0` 已只有 4.66:1 文本余量、无法再用深色 tint，走「抬起卡片」方向——2026-10-21 用户走查指出近白卡片「变成白色了」，因此抬起方向改为白 → `fg.green` 13% 的**淡鼠尾草纸**（`#f0f3de`，文字 4.94:1）；它牺牲了部分明度差（对画布 1.06:1，阈值降到 1.05），由绿 vs 暖奶油的色相差异承担可辨识性。本门槛确保它不会退回画布：
 
 | 变体 | bubble | bg-base | 边界对比度 | 阈值 | 结果 |
 |---|---|---|---:|---:|---|
 | light-hard | `#e4ecdc` | `#FFFBEF` | 1.17 | 1.1 | ✅ |
 | light-medium | `#e4ead6` | `#FDF6E3` | 1.14 | 1.1 | ✅ |
-| light-soft | `#f8fbfa` | `#F3EAD3` | 1.15 | 1.1 | ✅ |
+| light-soft | `#f0f3de` | `#F3EAD3` | 1.06 | 1.05 | ✅ |
 | dark-hard | `#2E383C` | `#272E33` | 1.15 | 1.1 | ✅ |
 | dark-medium | `#343F44` | `#2D353B` | 1.15 | 1.1 | ✅ |
 | dark-soft | `#3A464C` | `#333C43` | 1.16 | 1.1 | ✅ |
 
-对照：native light 气泡 `static-deepseek-50 #edf3fe` on `#fff` ≈ 1.08；本实现 light 1.14–1.17（light·soft 用近白方向 1.15），dark 1.15–1.16，均 ≥ native 观感。气泡文本对比度见 §3 的 `--dsw-specific-bubble` 行。
+对照：native light 气泡 `static-deepseek-50 #edf3fe` on `#fff` ≈ 1.08；本实现 light·hard / medium 为 1.17 / 1.14，light·soft 为 1.06（低于 native 的明度差，由绿 vs 暖奶油的色相差异承担，阈值相应降到 1.05），dark 1.15–1.16。气泡文本对比度见 §3 的 `--dsw-specific-bubble` 行。
+
+## 2e. FileDiff 行底文本（硬门槛）
+
+DSH `FileDiff` 用 `--dsw-alias-file-diff-added/deleted-bg` 画行底、代码文字继承 `label-primary`，所以两者同属文本承载表面。默认门槛 4.5:1；**light·soft 例外**：该档代码画布本身已卡在 4.5:1，4.5:1 的行底与画布几乎同色（用户走查「浅色档绿色背景看不出」），因此允许行底文字降到 4.1:1 换取可辨识的绿 / 红条（2026-10-21 用户确认取舍，见 §6.3）。
+
+| token | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft |
+|---|---:|---:|---:|---:|---:|---:|
+| `--dsw-alias-file-diff-added-bg` | 4.57 ✅ | 4.56 ✅ | 4.17 ✅ | 6.55 ✅ | 5.89 ✅ | 5.23 ✅ |
+| `--dsw-alias-file-diff-deleted-bg` | 4.61 ✅ | 4.54 ✅ | 4.11 ✅ | 6.99 ✅ | 6.34 ✅ | 5.74 ✅ |
+
+light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1.10 / 1.09，deleted 1.14 / 1.11 / 1.10：浅色档现在能看出绿 / 红条；dark 行底向画布收 40% 后文字 ≥5.23:1。
 
 ## 3. 文本承载表面（label-primary 对比度）
 
@@ -102,7 +114,7 @@ DSH 用 `--dsw-specific-bubble` 画用户消息气泡（`MessageItem.module.css`
 | `--dsw-alias-menu-group-header-fill` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.30 ✅ | 5.65 ✅ | 5.07 ✅ |
 | `--dsw-menu-surface-fill` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.30 ✅ | 5.65 ✅ | 5.07 ✅ |
 | `--dsw-specific-menu` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.30 ✅ | 5.65 ✅ | 5.07 ✅ |
-| `--dsw-specific-bubble` | 4.61 ✅ | 4.53 ✅ | 5.37 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
+| `--dsw-specific-bubble` | 4.61 ✅ | 4.53 ✅ | 4.94 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
 | `--dsw-specific-bubble-highlight` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.20 ✅ | 5.57 ✅ | 4.99 ✅ |
 | `--dsw-specific-input-major` | 5.34 ✅ | 5.12 ✅ | 4.61 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
 | `--dsw-specific-login-input` | 5.34 ✅ | 5.12 ✅ | 4.61 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
@@ -128,8 +140,10 @@ DSH 用 `--dsw-specific-bubble` 画用户消息气泡（`MessageItem.module.css`
 | state-error | `--dsw-alias-state-error-primary` | `--dsw-alias-bg-base` | 3.17 | 3.04 | 2.73 | 5.02 | 4.55 | 4.10 |
 | state-business | `--dsw-alias-state-business-primary` | `--dsw-alias-bg-base` | 3.26 | 3.13 | 2.82 | 6.34 | 5.74 | 5.17 |
 | state-warn-label | `--dsw-alias-state-warn-label` | `--dsw-alias-bg-base` | 3.02 | 2.90 | 2.61 | 7.77 | 7.04 | 6.34 |
-| diff-added-marker | `--dsw-alias-file-diff-added-marker` | `--dsw-alias-file-diff-added-bg` | 2.71 | 2.62 | 2.35 | 4.78 | 4.25 | 3.82 |
-| diff-deleted-marker | `--dsw-alias-file-diff-deleted-marker` | `--dsw-alias-file-diff-deleted-bg` | 2.98 | 2.86 | 2.64 | 3.86 | 3.53 | 3.19 |
+| diff-added-marker | `--dsw-alias-file-diff-added-marker` | `--dsw-alias-file-diff-added-bg` | 2.38 | 2.37 | 2.17 | 5.53 | 4.97 | 4.41 |
+| diff-deleted-marker | `--dsw-alias-file-diff-deleted-marker` | `--dsw-alias-file-diff-deleted-bg` | 2.70 | 2.66 | 2.41 | 4.31 | 3.91 | 3.54 |
+| diff-added-number | `--dsw-alias-file-diff-added-marker` | `--dsw-alias-file-diff-added-gutter` | 2.53 | 2.48 | 2.26 | 6.30 | 5.69 | 5.11 |
+| diff-deleted-number | `--dsw-alias-file-diff-deleted-marker` | `--dsw-alias-file-diff-deleted-gutter` | 2.85 | 2.79 | 2.52 | 4.83 | 4.36 | 3.97 |
 | toast-label (inverted) | `--dsw-alias-toast-label` | `--dsw-alias-toast-bg` | 5.40 | 5.18 | 4.66 | 9.39 | 8.62 | 7.83 |
 | primary-foreground (brand) | `--dsw-alias-label-primary-foreground` | `--dsw-alias-brand-primary` | 3.13 | 3.00 | 2.70 | 4.26 | 3.86 | 3.48 |
 
@@ -168,7 +182,10 @@ DSH 用 `--dsw-specific-bubble` 画用户消息气泡（`MessageItem.module.css`
 
 ### 6.3 diff 底色
 
-- `file-diff-added/deleted-bg` 在 light 下由 `bg_green` / `bg_red` 向 `bg0` 混合 45%（并经过 `readableSurface` 保证代码文本 ≥4.5），dark 保持 `bg_green` / `bg_red` 原值；gutter 在底色基础上向亮端 `lift` 35%。
+- `file-diff-added/deleted-bg` 在 light 下把 `bg0` 向 `fg.green` / `fg.red` 压到「`label-primary` 仍 ≥4.5」的极限（2026-10-21 走查：旧实现 `bg0` → `bg_green` 混 45%，行底与代码画布只有 1.001–1.007:1，浅色档根本看不出 added / deleted 行）。现在 light·hard / medium 的绿 / 红条对代码画布分别有 1.15 / 1.10 与 1.14 / 1.11:1 的明度差。light·soft 的代码画布本身已卡在 4.5:1 文本门槛上，4.5:1 的行底与画布仍然同色；该档允许行底文字降到 4.1:1（`#e5e0b6` / `#f4d8c4`），对画布明度差 1.09 / 1.10，与 medium 观感同级——2026-10-21 用户确认的可见性取舍。
+- dark 下 `file-diff-*-bg` 向 `bg0` 混合 40%——DSH 直接用 ramp 色画行底，dark·soft 的 `bg_green` = `#48574e` 是明显偏亮的绿色带，近白的 `label-primary` 只有 4.52:1（同上走查「浅绿色背景配白色文字」），向画布收 40% 后为 `#404d4a`、文字 5.23:1，仍是可辨识的绿色条；
+- gutter 在底色基础上沿 scheme 的纵深方向退一步：light 向 `bg0` 提亮 35%，dark 向 `bgDim` 压暗 35%（与 native 同向：light `#edf7ed` on `#e6f4e7`、dark `#132016` on `#1f3124`）。旧实现两个 scheme 都向亮端 `lift`，dark 下行号 gutter 反而比行底更亮（`#797e6e`），绿色行号只有 2.09:1；现在 dark 行号 ≥3.97:1、绿色条与 gutter 的层次也与 native 一致。
+- 行号 / marker 属小号文本，按既有口径保留为报告项（§4）：light 下 marker on gutter 为 2.38–3.04（native light 为 2.6，同属 muted 取舍），dark 为 3.97–6.30。
 
 ### 6.4 toast / tooltip / 反色前景
 
@@ -190,11 +207,11 @@ DSH 用 `--dsw-specific-bubble` 画用户消息气泡（`MessageItem.module.css`
 - **做法**：侧栏取 `mix(bg0, bg1, 80%)` 并经 `readableSurface` 守卫（light 更深、dark 更浅，方向与 native 侧栏 `#f9fafb`/`#fff`、`#1b1b1c`/`#151517` 一致）。light·soft 的正文 4.5:1 上限把步长压到 `#eee7ce`（边界 1.03），其余档 1.05–1.12；native 为 1.045 / 1.060，观感同级。数值见 §2c。
 - **连带影响**：`--dsw-specific-sidebar-fill` 同时是 DSH 桌面端 Windows 原生标题栏（DWM caption）的取色来源（`preload-app.cjs` 探针），标题栏会随侧栏一起变色，与自绘标题栏条保持一致；`settings-general` 的设置导航（`sidebar-nav-item-*`）位于内容区 `bg-base` 上，不受影响。
 
-### 6.8 聊天气泡（2026-10-19 走查修正）
+### 6.8 聊天气泡（2026-10-19 / 2026-10-21 走查修正）
 
-- **问题**：用户消息气泡 `--dsw-specific-bubble` 旧映射取 `surface(p, 1)`；light 下 `mix(bg0, bg1, 0.25)` = `#FDFAEE`，与画布 `#FFFBEF` 仅 1.02:1，用户报告「聊天气泡和背景融为一体，区分不出来」。DSH native light 气泡并不是中性色阶，而是 `static-deepseek-50` 的淡蓝色 tint（on `#fff` ≈ 1.08），靠色相 + 轻微明度区分。
-- **做法**：light 下取 `bg0` → `header-aqua` 16% 的 sage tint，经 `readableToward(..., #ffffff)`（**向白**而非向暖色画布）守卫到 4.5:1。light·hard / medium 的 tint 能保持 ~1.17 / 1.14:1 边界、气泡文字 4.6 / 4.5:1；light·soft 的 `bg0` 已是 4.66:1 文本余量，任何再压暗都会跌破 4.5，因此改用近白冷调「抬起卡片」（`#ffffff` + 4% `header-aqua`），边界反而达到 ~1.15:1。两个方向由代码按实际边界对比度自动择大，避免以后 palette 微调又把气泡粘回背景。dark 保持 `bg1`（边界 1.14–1.16，文字 ≥5.7:1）。
-- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，6 档）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。
+- **问题**：用户消息气泡 `--dsw-specific-bubble` 旧映射取 `surface(p, 1)`；light 下 `mix(bg0, bg1, 0.25)` = `#FDFAEE`，与画布 `#FFFBEF` 仅 1.02:1，用户报告「聊天气泡和背景融为一体，区分不出来」。DSH native light 气泡并不是中性色阶，而是 `static-deepseek-50` 的淡蓝色 tint（on `#fff` ≈ 1.08），靠色相 + 轻微明度区分。2026-10-21 二次走查：light·soft 的近白「抬起卡片」被用户描述为「聊天气泡框变成白色的了」，与暖色画布不像一家人。
+- **做法**：light 下取 `bg0` → `header-aqua` 16% 的 sage tint，经 `readableToward(..., #ffffff)`（**向白**而非向暖色画布）守卫到 4.5:1。light·hard / medium 的 tint 能保持 ~1.17 / 1.14:1 边界、气泡文字 4.6 / 4.5:1；light·soft 的 `bg0` 已是 4.66:1 文本余量，任何再压暗都会跌破 4.5，所以走抬起方向，但不再用近白冷调：改为白 → `fg.green` 13% 的淡鼠尾草纸（`#f0f3de`，文字 4.94:1，对画布 1.06:1）。它用绿 vs 暖奶油的色相差异代替已不可得的明度差，气泡边界门槛对该档放宽到 1.05。dark 保持 `bg1`（边界 1.14–1.16，文字 ≥5.7:1）。
+- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，light·soft 1.05:1）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。
 - **影响 token**：仅 `--dsw-specific-bubble`；其余表面与文字色不变。
 
 ## 7. 复现
