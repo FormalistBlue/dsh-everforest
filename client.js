@@ -1240,10 +1240,18 @@ const TOKEN_COVERAGE = Object.freeze({
  * renames or drops them the token stylesheet changed under us and the overlay may
  * be stale. Covered tokens are useless for this probe — their computed value is
  * never empty because the overlay sets them inline on `document.body`.
+ *
+ * `--dsw-focus-ring-color` is deliberately NOT probed even though it stays
+ * uncovered: DSH declares it only on
+ * `html[data-input-modality=pointer] body :focus-visible` (the pointer-modality
+ * layer also sets it to `transparent` to hide the ring), never on `:root`, and
+ * custom properties only inherit into `body` from an ancestor declaration.
+ * `getComputedStyle(document.body).getPropertyValue('--dsw-focus-ring-color')`
+ * is therefore always empty, so probing it warned on every startup even on a
+ * healthy DSH build (false "this DSH version may have renamed them").
  * @type {string[]}
  */
 const SELF_CHECK_TOKENS = Object.freeze([
-  '--dsw-focus-ring-color',
   '--dsw-focus-ring-width',
   '--dsw-menu-backdrop-filter',
   '--dsw-shadow-lv1',

@@ -306,7 +306,7 @@ test('diff uses bg_green / bg_red surfaces with green / red markers', () => {
   assert.equal(overlay['--dsw-alias-code-diff-deleted'].light, alpha(FOREGROUNDS.light.red, 0.1))
 })
 
-test('focus ring / font / shadow tokens stay uncovered and are self-check probes', () => {
+test('uncovered tokens stay unoverridden, and only inherited tokens are self-check probes', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   for (const name of [
     '--dsw-focus-ring-color',
@@ -318,12 +318,17 @@ test('focus ring / font / shadow tokens stay uncovered and are self-check probes
     assert.ok(!(name in overlay), `${name} must not be overridden`)
     assert.ok(TOKEN_COVERAGE.uncovered.includes(name), `${name} must be listed as uncovered`)
   }
-  assert.ok(SELF_CHECK_TOKENS.length >= 5 && SELF_CHECK_TOKENS.length <= 8)
+  assert.ok(SELF_CHECK_TOKENS.length >= 4 && SELF_CHECK_TOKENS.length <= 8)
   for (const name of SELF_CHECK_TOKENS) {
     assert.match(name, /^--dsw-/)
     assert.ok(!(name in overlay), `${name} must be uncovered (computed value probe)`)
     assert.ok(TOKEN_COVERAGE.uncovered.includes(name), name)
   }
+  // `--dsw-focus-ring-color` is uncovered but must NOT be probed: DSH only
+  // declares it on `html[data-input-modality=pointer] body :focus-visible`, so
+  // `getComputedStyle(document.body)` never resolves it and every healthy
+  // startup would log a false "DSH may have renamed tokens" warning.
+  assert.ok(!SELF_CHECK_TOKENS.includes('--dsw-focus-ring-color'))
 })
 
 test('primary label passes WCAG AA on base and light layers for all six variants', () => {

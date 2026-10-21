@@ -153,8 +153,13 @@ function createHarness({ deferUiServices = false } = {}) {
   }
 }
 
-/** Evaluate the built bundle exactly the way the Client module loader does. */
-function loadBundle() {
+/**
+ * Evaluate the built bundle exactly the way the Client module loader does.
+ * `body` / `getComputedStyle` / `console` let a test drive the deferred token
+ * self-check; by default `document.body` is undefined, which makes runSelfCheck a
+ * no-op for the lifecycle tests.
+ */
+function loadBundle({ body, getComputedStyle, console: consoleStub } = {}) {
   let definition = null
   const styleTags = []
   const document = {
@@ -168,7 +173,7 @@ function loadBundle() {
       },
     },
     createElement: () => ({ dataset: {}, textContent: '' }),
-    body: undefined,
+    body,
   }
   const sandbox = {
     window: { __ModuleLoader__: { load: (value) => { definition = value } } },
@@ -177,6 +182,8 @@ function loadBundle() {
     clearTimeout,
     // Enough of the DOM for the plugin's `<style data-plugin>` lifecycle.
     document,
+    ...(getComputedStyle ? { getComputedStyle } : {}),
+    ...(consoleStub ? { console: consoleStub } : {}),
   }
   vm.runInNewContext(read('client.js'), sandbox, { filename: 'client.js' })
   assert.ok(definition, 'client.js did not call window.__ModuleLoader__.load()')
@@ -431,6 +438,78 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
     'token layer was not disposed on unload',
   )
   assert.equal(styleTags.length, 0, 'delayed settings stylesheet was not removed on unload')
+})
+
+test('startup self-check only warns when an inherited probe is missing', async () => {
+  const { SELF_CHECK_TOKENS } = await import('../src/tokens.js')
+
+  // Emulate a healthy DSH 0.2.1-rc.2 body: every probe resolves by inheritance.
+  // `--dsw-focus-ring-color` is absent on purpose — real DSH only sets it on
+  // `html[data-input-modality=pointer] body :focus-visible`, and it must not be
+  // probed (that would warn on every startup).
+  const warnings = []
+  const resolved = new Set(SELF_CHECK_TOKENS)
+  const healthyHarness = createHarness()
+  const { module: healthyModule } = loadBundle({
+    body: { nodeName: 'BODY' },
+    getComputedStyle: () => ({
+      getPropertyValue: (name) => (resolved.has(name) ? ' 2px ' : ''),
+    }),
+    console: { warn: (...args) => warnings.push(args.join(' ')) },
+  })
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    healthyModule.apply(healthyHarness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.deepEqual(warnings, [], `healthy tokens produced a warning: ${warnings.join(' | ')}`)
+  assert.ok(!SELF_CHECK_TOKENS.includes('--dsw-focus-ring-color'), 'the focus ring must not be probed')
+  healthyHarness.disposeAll()
+
+  // A renamed/dropped probe warns exactly once and names the missing token.
+  const renamed = SELF_CHECK_TOKENS[SELF_CHECK_TOKENS.length - 1]
+  const partial = new Set(SELF_CHECK_TOKENS.filter((name) => name !== renamed))
+  const missingWarnings = []
+  const brokenHarness = createHarness()
+  const { module: brokenModule } = loadBundle({
+    body: { nodeName: 'BODY' },
+    getComputedStyle: () => ({
+      getPropertyValue: (name) => (partial.has(name) ? ' 1px ' : ''),
+    }),
+    console: { warn: (...args) => missingWarnings.push(args.join(' ')) },
+  })
+  try {
+    globalThis.require = () => mockReact
+    brokenModule.apply(brokenHarness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(missingWarnings.length, 1, missingWarnings.join(' | '))
+  assert.match(missingWarnings[0], /DSH theme token/)
+  assert.ok(missingWarnings[0].includes(renamed), `warning does not name ${renamed}`)
+  brokenHarness.disposeAll()
+
+  // No document.body (server-side/unit context): the check must stay silent.
+  const noDomWarnings = []
+  const noDomHarness = createHarness()
+  const { module: noDomModule } = loadBundle({
+    body: undefined,
+    getComputedStyle: () => ({ getPropertyValue: () => '' }),
+    console: { warn: (...args) => noDomWarnings.push(args.join(' ')) },
+  })
+  try {
+    globalThis.require = () => mockReact
+    noDomModule.apply(noDomHarness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.deepEqual(noDomWarnings, [])
+  noDomHarness.disposeAll()
 })
 
 test('token map covers the whole DSH color inventory', async () => {
