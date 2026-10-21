@@ -1,0 +1,51 @@
+# Verify the generated artifacts and the test suite on every push and PR.
+#
+# dsh-everforest has no runtime or dev dependencies: nothing is installed here,
+# and both checks run straight from the committed sources. The matrix covers the
+# Node versions allowed by `engines.node` (>=20) on Windows as well as Linux —
+# Windows is the platform where line endings and path handling used to break the
+# generated-artifact checks (see .gitattributes and docs/releasing.md).
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22, 24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+
+      # Test suite: palette EOL/generation, token coverage, the fake Client
+      # harness, host boot script parity, settings page and state.
+      - name: Test
+        run: node --test
+
+      # palette --check / build --check / check-contrast --check: the committed
+      # client.js and src/palette.js must match a fresh build, and every colour
+      # pair must still clear the contrast gates.
+      - name: Checks
+        run: npm run check

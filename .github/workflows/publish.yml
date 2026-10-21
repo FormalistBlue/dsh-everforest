@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # required to create the GitHub Release for the tag
   id-token: write # required for npm trusted publishing (OIDC)
 
 concurrency:
@@ -33,8 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # fetch-depth: 0 so `git tag --points-at HEAD` works for workflow_dispatch
+      # (a manual run must be on the exact release commit, not just any branch tip).
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js with npmjs.org registry
         uses: actions/setup-node@v5
@@ -43,16 +47,28 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # The package has no runtime dependencies, so there is no install step.
-      # `prepack` (package.json) rebuilds client.js from src/ before packing.
-      - name: Resolve release version and dist-tag
+      # `prepack` (package.json) only *verifies* that the committed client.js is
+      # byte-for-byte what src/ builds (build.mjs -C); it never regenerates the
+      # artifact. The verify step below runs the same checks as ci.yml.
+      - name: Verify release version and dist-tag
         id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./package.json').version")
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-            if [ "$TAG_VERSION" != "$VERSION" ]; then
-              echo "::error::tag (v${TAG_VERSION}) does not match package.json version (${VERSION})"
+          if [ "$REF_TYPE" = "tag" ]; then
+            if [ "$REF_NAME" != "v${VERSION}" ]; then
+              echo "::error::tag (${REF_NAME}) does not match package.json version (v${VERSION})"
+              exit 1
+            fi
+          else
+            # workflow_dispatch: only ever publish a commit that already carries
+            # the matching release tag; never publish an arbitrary branch tip.
+            if ! git tag --points-at HEAD | grep -Fxq "v${VERSION}"; then
+              echo "::error::HEAD ($(git rev-parse --short HEAD)) is not tagged v${VERSION}; manual publishes must run on the release tag"
+              git tag --points-at HEAD | sed 's/^/  tag on HEAD: /' || true
               exit 1
             fi
           fi
@@ -65,6 +81,12 @@ jobs:
           echo "npm_tag=${NPM_TAG}" >> "$GITHUB_OUTPUT"
           node --version
           npm --version
+
+      - name: Test
+        run: node --test
+
+      - name: Checks
+        run: npm run check
 
       - name: Inspect package contents
         run: npm pack --dry-run
@@ -80,3 +102,28 @@ jobs:
           echo "package: dsh-everforest@${{ steps.version.outputs.version }} (dist-tag: ${{ steps.version.outputs.npm_tag }})"
           npm view dsh-everforest version --prefer-online
           npm view dsh-everforest dist-tags --json --prefer-online
+
+      # Tag pushes also get a GitHub Release, so the npm page and the repository
+      # both carry release notes instead of only a bare tag (0.1.0–0.2.0 had no
+      # Releases at all). Idempotent: a manual dispatch after a tag push skips.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release ${TAG} already exists; nothing to create"
+            exit 0
+          fi
+          PRERELEASE=""
+          if [ "${VERSION#*-}" != "$VERSION" ]; then
+            PRERELEASE="--prerelease"
+          fi
+          gh release create "$TAG" \
+            --title "dsh-everforest ${TAG}" \
+            --verify-tag \
+            --generate-notes \
+            $PRERELEASE
+
