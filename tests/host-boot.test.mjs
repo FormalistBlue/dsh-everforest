@@ -199,3 +199,18 @@ test('every boot token is also a Client-layer token and every value is a CSS val
     assert.doesNotMatch(value, /var\(--/, 'boot values must be resolved colours, not token references')
   }
 })
+
+test('the boot subset covers the loading spinner ring and progress arc', () => {
+  // Installed dsh-web-frontend 0.2.1-rc.2 paints the boot spinner as
+  //   ring: border: 2px solid var(--dsw-alias-border-l2, …)
+  //   arc:  conic-gradient(var(--dsw-alias-brand-primary, …) …)
+  // The fallbacks are literals, so these two alias tokens are what carry the
+  // first-paint spinner colour; they must stay in the boot subset.
+  const required = ['--dsw-alias-border-l2', '--dsw-alias-brand-primary']
+  const written = runBootScript({ source: 'dark', dark: true })
+  for (const name of required) {
+    assert.ok(BOOT_TOKENS.includes(name), `${name} is not a boot token`)
+    assert.equal(typeof written.get(name), 'string')
+    assert.ok(written.get(name).trim() !== '', `${name} painted empty`)
+  }
+})

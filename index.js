@@ -45,8 +45,10 @@ import { tokensFor } from './src/tokens.js'
  * emitted by `tokensFor()`, which is what lets ThemePresenter replace them on
  * its first apply. The subset is what the boot page and the first window paint
  * consume: canvas, three label levels, the code-block canvas the boot page does
- * not use but a first React frame could, and the sidebar fill that also seeds
- * the Windows native caption probe.
+ * not use but a first React frame could, the sidebar fill that also seeds the
+ * Windows native caption probe, and the loading spinner's two colours — the
+ * ring (`border-l2`) and the progress arc (`brand-primary`), which the spinner
+ * CSS resolves through `var(--dsw-alias-*, …)` with no local override.
  * @type {string[]}
  */
 export const BOOT_TOKENS = Object.freeze([
@@ -55,7 +57,9 @@ export const BOOT_TOKENS = Object.freeze([
   '--dsw-alias-label-secondary',
   '--dsw-alias-label-tertiary',
   '--dsw-alias-markdown-code-block',
-  '--dsw-specific-sidebar-fill'
+  '--dsw-specific-sidebar-fill',
+  '--dsw-alias-border-l2',
+  '--dsw-alias-brand-primary'
 ])
 
 /** Schemes, in token-layer order. */

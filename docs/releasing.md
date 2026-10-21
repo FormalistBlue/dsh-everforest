@@ -153,7 +153,7 @@ DSH 侧（本机 profile = `desktop`）：
 3. `cordis_inspect_query`（Client `Theme.listTokens`）出现覆盖 token；`Slots.listSubTree` 根 `settings.section` 出现 `id: everforest`；
 4. Settings → Everforest 可见，切换即时生效；退出应用重启后强度保持；
 5. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色；
-6. 首帧：Web 刷新 / 新开标签时 loading 页即为当前配色；Desktop 完全退出后重启，原生色最多 1 帧（loading 动效的灰 spinner / 边框仍原生）。**Host 半部（`index.js`）改动必须重启 Host 进程**——首帧 row 在 Host ready 时收集，单纯刷新页面或只换 `client.js` 都不会更新它。
+6. 首帧：Web 刷新 / 新开标签时 loading 页（含 spinner 环与进度弧）即为当前配色；Desktop 完全退出后重启，原生色最多 1 帧。**Host 半部（`index.js`）改动必须重启 Host 进程**——首帧 row 在 Host ready 时收集，单纯刷新页面或只换 `client.js` 都不会更新它。
 
 ## 6. 撤销与回滚
 
