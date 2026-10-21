@@ -14,6 +14,9 @@
   <a href="https://www.npmjs.com/package/dsh-everforest"><img src="https://img.shields.io/npm/v/dsh-everforest" alt="npm version"></a>
   <a href="https://github.com/FormalistBlue/dsh-everforest/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/dsh-everforest" alt="license"></a>
   <a href="https://github.com/FormalistBlue/dsh-everforest/actions/workflows/ci.yml"><img src="https://github.com/FormalistBlue/dsh-everforest/actions/workflows/ci.yml/badge.svg" alt="verify"></a>
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH%20Web-Plugin-a7c080?labelColor=333C43" alt="DSH Web plugin"></a>
+  <a href="https://github.com/FormalistBlue/dsh-everforest/blob/main/README.md#%E5%85%BC%E5%AE%B9%E6%80%A7"><img src="https://img.shields.io/badge/DSH-0.2.1--rc.2-7fbbb3?labelColor=333C43" alt="DSH 0.2.1-rc.2"></a>
+  <a href="https://everforest.vercel.app/ports"><img src="https://img.shields.io/badge/Everforest-Ports-e69875?labelColor=333C43" alt="Everforest Ports"></a>
 </p>
 
 <p align="center">提供深色 / 浅色 × 硬 / 中 / 软共 6 档配色，默认对齐 <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>（深色 Soft / 浅色 Hard）。</p>
