@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
+import { BuildError, parseModule } from '../scripts/build.mjs'
 import { STORAGE_KEY, STATE_VERSION } from '../src/state.js'
 import { tokensFor } from '../src/tokens.js'
 
@@ -597,6 +598,19 @@ test('setPreference tolerates a Host that cannot write the Appearance preference
   assert.doesNotThrow(() => store.setPreference('light'), 'a failed Appearance write escaped the store')
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /could not write the Appearance preference/)
+})
+
+test('build.mjs rejects a multi-declarator export instead of dropping the extra name', () => {
+  // Commas inside initializers are legal and must keep working.
+  assert.deepEqual(parseModule('single.js', 'export const a = f(1, 2)', 0).exportedNames, ['a'])
+  assert.deepEqual(parseModule('array.js', "export const a = ['x', 'y']", 0).exportedNames, ['a'])
+  assert.deepEqual(parseModule('string.js', "export const a = 'x,y'", 0).exportedNames, ['a'])
+
+  // `export const a = 1, b = 2` would bundle only `a`; it must fail loudly.
+  assert.throws(
+    () => parseModule('multi.js', 'export const a = 1, b = 2', 0),
+    (error) => error instanceof BuildError && /one export per declaration/.test(error.message),
+  )
 })
 
 test('startup self-check only warns when an inherited probe is missing', async () => {

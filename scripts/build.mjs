@@ -13,7 +13,10 @@
  * never collide across files, exactly like real modules), destructures each
  * module's imports from the earlier module object, and returns the entry
  * module's exports from the factory. Anything outside that tiny subset of
- * module syntax fails the build instead of being silently mis-bundled.
+ * module syntax fails the build instead of being silently mis-bundled. In
+ * particular a multi-declarator `export const a = 1, b = 2` is rejected: the
+ * module table can carry only one name per declaration, so bundling it would
+ * silently drop `b` from the module's exports.
  *
  * Usage:
  *   node scripts/build.mjs            write client.js
@@ -23,7 +26,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const OUT = join(ROOT, 'client.js')
@@ -44,9 +47,50 @@ const args = new Set(process.argv.slice(2))
 const checkOnly = args.has('--check') || args.has('-C')
 const quiet = args.has('--quiet') || args.has('-q')
 
-function fail(message) {
-  console.error(`build: ${message}`)
-  process.exit(1)
+/** A bundling rule violation; the CLI turns it into `build: <message>` + exit 1. */
+export class BuildError extends Error {}
+
+export function fail(message) {
+  throw new BuildError(message)
+}
+
+/**
+ * True when the rest of an `export const/let` line declares another binding.
+ *
+ * Only the part after the first name is scanned. Parentheses / brackets /
+ * braces and strings are skipped, so commas inside initializers
+ * (`f(a, b)`, `['x', 'y']`, `'a,b'`) do not count; a top-level comma means the
+ * statement has a second declarator that the one-name bundle export would drop.
+ *
+ * @param {string} rest - the statement text after the exported name.
+ * @returns {boolean}
+ */
+function hasSecondDeclarator(rest) {
+  let depth = 0
+  let quote = null
+  for (let index = 0; index < rest.length; index += 1) {
+    const char = rest[index]
+    if (quote !== null) {
+      if (char === '\\') index += 1
+      else if (char === quote) quote = null
+      continue
+    }
+    if (char === "'" || char === '"' || char === '`') {
+      quote = char
+      continue
+    }
+    if (char === '(' || char === '[' || char === '{') {
+      depth += 1
+      continue
+    }
+    if (char === ')' || char === ']' || char === '}') {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
+    if (char === '/' && rest[index + 1] === '/') return false
+    if (depth === 0 && char === ',') return true
+  }
+  return false
 }
 
 function readVersion() {
@@ -66,8 +110,9 @@ const EXPORT_DECL = /^export\s+(const|let|class|function|async\s+function)\s+([A
  * @param {string} name - file name under src/, used in diagnostics.
  * @param {string} source - module text.
  * @param {number} order - index of this module in SOURCES.
+ * @returns {{ importedModules: Array<{dependency: string, names: string[]}>, exportedNames: string[], body: string }}
  */
-function parseModule(name, source, order) {
+export function parseModule(name, source, order) {
   const lines = source.split('\n')
   const body = []
   const importedModules = []
@@ -117,6 +162,12 @@ function parseModule(name, source, order) {
     }
     const declaration = line.match(EXPORT_DECL)
     if (declaration) {
+      // `export const a = 1, b = 2` is legal JS, but the module table below can
+      // only return one name per declaration — the extra binding would vanish
+      // from the bundle's exports. Reject it instead of silently dropping it.
+      if ((declaration[1] === 'const' || declaration[1] === 'let') && hasSecondDeclarator(line.slice(declaration[0].length))) {
+        fail(`${where}: one export per declaration; split "export ${declaration[1]} ${declaration[2]} = …, …" into separate exports`)
+      }
       exportedNames.push(declaration[2])
       body.push(line.replace(/^export\s+/, ''))
       continue
@@ -143,7 +194,8 @@ function moduleVariable(order, name) {
   return `__mod_${order}_${name.replace(/[^A-Za-z0-9_$]/g, '_')}`
 }
 
-function build() {
+/** Build (or with `--check`, verify) `client.js`. */
+export function build() {
   const modules = SOURCES.map((name, order) => ({
     name,
     order,
@@ -201,4 +253,19 @@ function build() {
   }
 }
 
-build()
+function main() {
+  try {
+    build()
+  } catch (error) {
+    if (error instanceof BuildError) {
+      console.error(`build: ${error.message}`)
+      process.exit(1)
+    }
+    throw error
+  }
+}
+
+// Run only when invoked as a script (`node scripts/build.mjs`, `npm run build`,
+// or the tests spawning it). Importing the module for its parser must not build
+// or exit.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()
