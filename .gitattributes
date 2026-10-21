@@ -1,0 +1,17 @@
+# Normalize every text file to LF in the repository *and* in the working tree.
+# Git for Windows installs with core.autocrlf=true by default; without this file
+# a fresh clone checks out CRLF, and both `node scripts/build.mjs --check`
+# (byte-for-byte artifact comparison) and the LF assertion in
+# tests/palette.test.mjs fail on Windows before any change is made.
+* text=auto eol=lf
+
+# Binary assets: never convert, never diff as text.
+*.png binary
+*.jpg binary
+*.woff2 binary
+
+# Generated artifacts: collapse them in GitHub's diff UI to reduce PR noise.
+client.js              linguist-generated=true
+src/palette.js         linguist-generated=true
+docs/reference/*.md    linguist-generated=true
+docs/reference/*.json  linguist-generated=true
