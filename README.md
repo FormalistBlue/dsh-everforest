@@ -12,7 +12,8 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/dsh-everforest"><img src="https://img.shields.io/npm/v/dsh-everforest" alt="npm version"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/dsh-everforest" alt="license"></a>
+  <a href="https://github.com/FormalistBlue/dsh-everforest/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/dsh-everforest" alt="license"></a>
+  <a href="https://github.com/FormalistBlue/dsh-everforest/actions/workflows/ci.yml"><img src="https://github.com/FormalistBlue/dsh-everforest/actions/workflows/ci.yml/badge.svg" alt="verify"></a>
 </p>
 
 <p align="center">提供深色 / 浅色 × 硬 / 中 / 软共 6 档配色，默认对齐 <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>（深色 Soft / 浅色 Hard）。</p>
@@ -42,14 +43,14 @@
 
 - 目标 DSH **0.2.1-rc.2**；`engines.dsh` 为 `>=0.2.1-rc.2 <0.3.0-0`。
 - 仅通过 `--dsw-*` / `--shiki-*` token 覆盖配色，不改组件样式；DSH 升级若 token 改名，缺失项退回原生配色（不会白屏）。
-- 完整 token 清单见 [docs/reference/token-inventory.md](docs/reference/token-inventory.md)。
+- 完整 token 清单见 [docs/reference/token-inventory.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/token-inventory.md)。
 
 ## 说明
 
-- 配色数据取自 sainnhe 的 Everforest（6 套背景色阶）与 Everforest Enchanted（默认配对、header 色、UI 语义），见 [docs/reference/palette.md](docs/reference/palette.md)。
+- 配色数据取自 sainnhe 的 Everforest（6 套背景色阶）与 Everforest Enchanted（默认配对、header 色、UI 语义），见 [docs/reference/palette.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/palette.md)。
 - 浅色档的正文表面向 `bg0` 提亮 25% 并做对比度守卫（正文 ≥ 4.5:1）；侧栏与内容卡保留可辨边界。
-- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色；loading 动效的灰色 spinner / 边框仍是 DSH 原生。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色，Web 的 loading 页 / 首帧即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](docs/design.md) 与 [docs/reference/contrast.md](docs/reference/contrast.md)。
+- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色；loading 动效的灰色 spinner / 边框仍是 DSH 原生。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色，Web 的 loading 页 / 首帧即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) 与 [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md)。
 
 ## License
 
-MIT（本插件）。配色数据来自 [Everforest](https://github.com/sainnhe/everforest)（Copyright (c) 2019 sainnhe）与 [Everforest Enchanted](https://github.com/FireIsGood/obsidian-everforest-enchanted)（Copyright (c) 2023 FireIsGood），二者均为 MIT，署名见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+MIT（本插件）。配色数据来自 [Everforest](https://github.com/sainnhe/everforest)（Copyright (c) 2019 sainnhe）与 [Everforest Enchanted](https://github.com/FireIsGood/obsidian-everforest-enchanted)（Copyright (c) 2023 FireIsGood），二者均为 MIT，署名见 [THIRD_PARTY_NOTICES.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/THIRD_PARTY_NOTICES.md)。

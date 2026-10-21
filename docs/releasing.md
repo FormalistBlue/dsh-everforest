@@ -40,7 +40,7 @@ $node = 'C:\Users\formalistBlue\AppData\Roaming\fnm\node-versions\v24.17.0\insta
 & "$node\npm.cmd" login            # 浏览器完成登录，之后 publish 会要 OTP
 & "$node\npm.cmd" whoami
 
-# 构建 + 检查包内容（prepack 会自动重跑 build，若 package.json 配了该脚本）
+# 构建 + 检查包内容（prepack 只做 `build.mjs -C` 新鲜度校验，不会重新生成产物）
 & "$node\npm.cmd" run build
 & "$node\npm.cmd" pack --dry-run    # 核对打印出的文件清单（见 §4）
 
