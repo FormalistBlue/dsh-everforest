@@ -3,9 +3,9 @@
 `dsh-everforest` 的所有重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)：补丁版本只做配色修正、工程与文档修复，不改变 token/API 契约。
 
-## [Unreleased]
+## [0.2.1] - 2026-10-21
 
-计划作为 **0.2.1** 补丁发布（不改变对外契约）。
+补丁版本，不改变对外契约。
 
 ### Added
 
@@ -133,7 +133,8 @@
 - **文档**：`docs/design.md`（方案）、`docs/reference/palette.md`（色阶）、`docs/reference/token-inventory.md`
   （206 token 清单）、`docs/releasing.md`（发布与上架 runbook）、`THIRD_PARTY_NOTICES.md`。
 
-[Unreleased]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/FormalistBlue/dsh-everforest/releases/tag/v0.1.1
