@@ -175,6 +175,8 @@ DSH 侧（本机 profile = `desktop`）：
 7. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色；profile patch 里的 `everforest` 行 `config` 会随卸载/停用保留（下次启用继续用）。
 8. 首帧：Web 刷新 / 新开标签时 loading 页（含 spinner 环与进度弧）即为当前配色（本浏览器缓存优先、Host 值兜底，见 `design.md` §5）；Desktop 完全退出后重启，原生色最多 1 帧。**Host 半部（`index.js`）改动必须重启 Host 进程**——Web 每次 index 渲染都会重新收集首帧 row（运行中改强度对新打开的页面即时生效），Desktop 则只在 Host ready 时采集一次、之后窗口重载沿用冻结副本（靠 localStorage 缓存兜底）；单纯刷新页面不会重载 `index.js`，只换 `client.js` 也不会更新它。
 
+> **2026-10-22 真机目检**：0.3.0 已按本节清单由用户确认通过（导航与设置页、跨浏览器共享 / 重启保持、0.2.1 迁移播种、首帧、停用清理与「升级需重启 Host」）；未逐项留存截图，细节以本节为准。
+
 ## 6. 撤销与回滚
 
 - npm 24 小时内可 `npm unpublish dsh-everforest@版本`（**不能重发同版本号**，要改版本重发）；超过 24 小时用 `npm deprecate dsh-everforest@版本 "message"` 标记。

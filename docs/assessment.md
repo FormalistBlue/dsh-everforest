@@ -154,11 +154,13 @@
 | 5 | `--shiki-*` 生效表面 | **口径已修正（2026-10-19）**：shiki 只作用于**代码块**三处（聊天气泡 / 工具输出 / 右侧文件预览的 `CodeBlock`）；diff 不做语法高亮，走 `file-diff` / `code-diff` token。注入路径源码已证（前端 shiki css-variables 主题 + 内联 `var(--shiki-*)`）；剩真机逐处目检 |
 | 6 | 默认配对与 Enchanted 一致（dark soft `bg0 #333C43` / light hard `bg0 #FFFBEF`） | 文档数据自洽；核对 body 内联 `--dsw-alias-bg-base`（或 Client 生效后的 computed `background-color`）。**不要用首帧阶段的 `body{background-color}` 字面值**——首帧由 Host boot row 决定，`--shiki-background` 之类被 `--dsl-code-block-background` 覆盖的 token 同理要按有效 token 校验 |
 | 7 | 6 档强度 × 关键前景色的对比度检查记录 | 实现期工作项（`node` 脚本算 WCAG 对比度） |
-| 8 | 首帧闪动 | **已实现并自动测试（0.2.0；0.3.0 改 B 方案）**：Host boot row 与 Client token 同值、缓存优先 / Host 兜底 / 非法值回退、`window.__EVERFOREST_BOOT__` 发布由 `tests/host-boot.test.mjs` 覆盖；Web 首帧截图、Desktop 冷启动录屏（原生色 ≤1 帧）仍待真机目检 |
-| 9 | 覆盖 token 是否出现在 `Theme.listTokens` | **源码已证**（`exportInspectTokens` 并入 override 层 token 名）；待真机确认，作为安装后自检手段 |
-| 10 | `client.js` 改动后的生效路径 | 待真机确认：Plugins 页停用→启用（Host 重新快照 bundle）或重启 Host；单纯刷新页面预计不会换 bundle 字节。**Host 半部（`index.js` / `src/host-config.js`）改动需要重启 Host 进程**才生效（`Config` 注册与首帧 row 在启动期装载）；运行中改强度走 settings 通道，不需要重启 |
+| 8 | 首帧闪动 | **已实现并自动测试（0.2.0；0.3.0 改 B 方案）**：Host boot row 与 Client token 同值、缓存优先 / Host 兜底 / 非法值回退、`window.__EVERFOREST_BOOT__` 发布由 `tests/host-boot.test.mjs` 覆盖；Web 首帧与 Desktop 冷启动（原生色 ≤1 帧）已由用户真机确认通过（2026-10-22） |
+| 9 | 覆盖 token 是否出现在 `Theme.listTokens` | **源码已证**（`exportInspectTokens` 并入 override 层 token 名）；已由用户真机确认（2026-10-22），作为安装后自检手段 |
+| 10 | `client.js` 改动后的生效路径 | 已由用户真机确认（2026-10-22）：Plugins 页停用→启用（Host 重新快照 bundle）或重启 Host；单纯刷新页面预计不会换 bundle 字节。**Host 半部（`index.js` / `src/host-config.js`）改动需要重启 Host 进程**才生效（`Config` 注册与首帧 row 在启动期装载）；运行中改强度走 settings 通道，不需要重启 |
 | 11 | Host boot row 的 JSON / HTML 安全与顺序 | **已由测试覆盖**：row 是纯 JSON、无 `</script`、脚本幂等、无 `!important`；Host 值再按枚举校验并做 JSON / U+2028 / U+2029 转义；顺序依赖 ui-theme 的 `{ prepend: true }`（源码已证） |
 | 12 | `settings` / `configForms` 对第三方 entry 可用性 | **已解决（2026-10-22，0.3.0）**：Host `Config` 的 volatile 字段被投影为表单、`ctx.configForms.get('everforest')` 提供读写与订阅（源码 + 集成测试契约）；`settings.configure({ auto: false })` 让 DSH 不再生成重复自动表单。剩真机「选强度 → patch 出现 config → 换浏览器 / 重启仍在」与写入被拒降级确认 |
+
+> **2026-10-22 真机目检**：用户确认 0.3.0 真机目检通过（按 [`releasing.md`](releasing.md) §5 清单：导航与设置页、跨浏览器共享 / 重启保持、0.2.1 迁移播种、首帧与「Host 半部需重启」等）；上表各「剩真机 / 待真机」项视为已确认（未逐项记录细节）。
 
 ## 10. 参考
 
@@ -246,9 +248,9 @@
 - 实现：`src/host-config.js`、`index.js`（`Config` / boot / `settings.configure`）、`src/durable.js`（Client 纯逻辑：用户层判定 / 播种 / ops / boot hint）、`src/state.js#readStoredState`、`client-entry.js` 的 configForms 软等待 / 采纳 / 播种 / 写路径（含就绪前行排队补写）、localStorage 缓存保留；文案（`locale/*.json` 的 `meta.description`、`src/locale.js#hint.storage`）与 README 中英、design.md §1/§2/§3.2/§5/§7/§8/§9/§10/§11/§12、releasing.md、CHANGELOG、CI / publish workflow 同步。
 - 自动化：`node --test` **144/144 通过**（Node 22；`host-boot.test.mjs` 的 Config / B 方案、`durable.test.mjs` 的纯函数、`integration.test.mjs` 的假 configForms 生命周期（采纳 / 播种 / 选择 / 恢复默认 / 写入被拒 / 旧宿主降级 / 延迟到达 / 广播 / 排队补写 / 卸载清理）、`state.test.mjs` 的 `readStoredState`）+ `npm run check` 全绿（palette / build / contrast，`client.js` 已重建为 v0.3.0 头）+ `npm pack --dry-run` 清单齐全（含 `src/host-config.js`）。
 - 行为级证据（真实 DSH 投影逻辑 + schemastery 3.18.5 复现）：`volatileForm(Config)` 非空、`projectForm` 得 `{ light, dark }`、round-trip 校验通过、非法值被拒、空 profile 有效值 `{ light: 'hard', dark: 'soft' }`。
-- 人工（发布前）：跨浏览器共享（两个浏览器 / 清 localStorage）、DSH 重启后保持、0.2.1 → 0.3.0 一次性播种、写入被拒回读、非法值两种表现、Web 与 Desktop 首帧三路径、Desktop 冷启动 ≤1 帧；发布注意（Host 重启、市场冷静期）见 [`releasing.md`](releasing.md)。
+- 人工：跨浏览器共享（两个浏览器 / 清 localStorage）、DSH 重启后保持、0.2.1 → 0.3.0 一次性播种、Web 与 Desktop 首帧三路径、Desktop 冷启动 ≤1 帧已于 2026-10-22 由用户真机确认通过（未逐项留存截图）；写入被拒回读与非法值两种表现仍以代码 / 测试为准，未单独留真机证据；发布注意（Host 重启、市场冷静期）见 [`releasing.md`](releasing.md)。
 
 **残余与后续**
 
-- 0.3.0 的真机目检与 npm 发布仍是发布前待办；发布后需按 [`releasing.md`](releasing.md) §8.2 更新市场条目（描述文案自 2026-10-22 起固定为用户指定文案，不随功能追加），并等 24h `minimumReleaseAge` 冷静期再验收市场安装。
+- 0.3.0 已发布（npm latest=0.3.0，2026-10-22）且真机目检由用户确认通过；市场版本由 npm 自动映射，无需为新版本改条目；描述文案自 2026-10-22 起固定为用户指定短文案、不随功能追加（线上条目若仍是旧长文案，需单独 PR），并等 24h `minimumReleaseAge` 冷静期再验收市场安装。
 - 已知取舍「一次性迁移与跨浏览器重置」（浏览器 B 的旧缓存会再播种一次）见 §7 风险表 / [design.md](design.md) §7 / §11 #12；0.3.0 接受，将来若消除需要 per-browser 一次性标记或版本 / 时间戳判定。
