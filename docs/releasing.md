@@ -208,7 +208,7 @@ npm 发布只解决“可安装”。[dshmarket.com](https://dshmarket.com/)、[
 - npm 包 `dsh-plugin-catalog`（每日 CI 发布）：dsh 0.2.1+ Discover 索引 / `plugin_market` 工具；
 - dsh-market App：`category: theme` 的条目自动进入 **Themes Tab**（一键安装 / 切换 / 卸载）。
 
-### 8.2 条目文件（2026-10-18 起草，2026-10-19 补「首帧」，2026-10-22 补「Host 配置持久化」；PR 时原样提交）
+### 8.2 条目文件（2026-10-18 起草；2026-10-22 起描述文案由用户固定，此后不随功能更新）
 
 路径 `data/plugins/FormalistBlue__dsh-everforest.yml`（文件名 = owner__repo）：
 
@@ -217,9 +217,13 @@ url: https://github.com/FormalistBlue/dsh-everforest
 name: FormalistBlue/dsh-everforest
 category: theme
 description:
-  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, with the Host half painting the boot palette so the Web loading screen and first frame are already Everforest; a Settings page picks the scheme, follows the system appearance, and stores the choice in the current profile Host configuration so every browser on that profile shares it.'
-  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效；Host 半部在 Client 加载前注入 boot 调色板，Web 的 loading 页与首帧即为 Everforest；设置页可选择色板、跟随系统外观，强度保存在当前 profile 的 Host 配置中，同一 profile 的所有浏览器共享。'
+  en: 'Everforest color themes for DeepSeek Harness Web/Desktop: six schemes (dark and light, each in hard, medium and soft).'
+  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色。深色 / 浅色各硬 / 中 / 软共 6 套。'
 ```
+
+> **描述文案已冻结（2026-10-22 用户指定）**：市场条目一律使用上面这段文案；除非用户明确要求修改，否则插件
+> 功能迭代（Host 持久化、accent 等）之后**不要**更新或追加描述内容，也不要顺手把它改回长版。英文槽位是中文
+> 文案的同义直译。改动代码/README 时不需要同步这段文案。
 
 字段白名单只有 `url` / `name` / `category` / `description`（可选 `tarball`）；多写 `npm:` / `author:` / `screenshots:` 会被校验直接拒。`description.en` 必须、单行、以句号结尾、**必须与代码相符**（评审会数描述里的数字与 API 名），`zh` 可选。描述里含 `: ` 时必须加引号。
 
