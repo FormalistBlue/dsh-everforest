@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨，见 §12）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化，见 §7 / §12）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -8,15 +8,15 @@
 
 1. 6 套 Everforest 调色板：`dark-hard` / `dark-medium` / `dark-soft` / `light-hard` / `light-medium` / `light-soft`；**默认配对对齐 Everforest Enchanted**（深色 soft、浅色 hard）。
 2. 全站改色：背景、文字、边框、品牌、状态、侧栏、菜单/浮层、diff、代码高亮。
-3. 设置页可选强度，切换即时生效、重载后保持。
+3. 设置页可选强度，切换即时生效；强度保存在**当前 profile 的 Host 配置**，同一 profile 的所有浏览器共享、重启后保持（见 §7）。
 4. 可用 npm 安装。DSH 版本不匹配时给出可读结果：安装前被插件管理器拒绝（`engines.dsh`，可读错误）；已安装后升级 DSH 导致不兼容时，该 bundle 在装载 profile 时被跳过并在启动诊断里打印警告（不会白屏）。
-5. 冷启动首帧使用当前配色：Host 半部经 `webserver/index-inject` 在 Client 加载前写入 boot 调色板（loading 页底色、文字、spinner 环与进度弧）。Web 首帧即为 Everforest；Desktop 窗口在 load 后才显示、注入行由页面侧异步应用，最多残留 1 帧原生色（2026-10-19 决策接受）。
+5. 冷启动首帧使用当前配色：Host 半部经 `webserver/index-inject` 在 Client 加载前写入 boot 调色板（loading 页底色、文字、spinner 环与进度弧）。强度按 **B 方案**解析：本浏览器缓存优先 → Host 配置兜底 → 默认最后；解析结果经 `window.__EVERFOREST_BOOT__` 交给 Client 首帧。Web 首帧即为 Everforest；Desktop 窗口在 load 后才显示、注入行由页面侧异步应用，最多残留 1 帧原生色（2026-10-19 决策接受）。
 
 **非目标（0.x）**
 
 - 不替换 DSH 的 Appearance 开关（light / dark / system 仍由 DSH 决定）；设置页只提供等价的快捷控制（见 §6），写入同一份全局偏好。
 - 不接管终端 ANSI 16 色、brand mark、macOS 专用渐变。
-- 不写 DSH 设置文档里的**强度偏好**：2026-10-19 决定 Host 侧持久化**暂缓**（localStorage 继续是唯一持久化；`configForms` 路线与 spike 条件见 assessment §11）。**Appearance 偏好例外**：点色卡或设置页外观控制会通过 `ctx.theme.setTheme` 写入（见 §2 / §6，已决策）。
+- ~~不写 DSH 设置文档里的强度偏好~~ **已于 0.3.0 落地（2026-10-22）**：强度偏好改走官方 settings / `configForms` 通道写入当前 profile 的 `cordis.patch.yml`（见 §7），不再是「localStorage 唯一持久化」。**Appearance 偏好**仍归 DSH：点色卡或设置页外观控制会通过 `ctx.theme.setTheme` 写入（见 §2 / §6，已决策），本插件不接管其存储格式与 UI。
 - 不做 Enchanted 的逐级标题彩色（h1–h6 各一色）：DSH 没有逐级标题颜色 token，实现它需要改写组件选择器，违背「只走 token」的原则。
 
 ## 2. 总体架构
@@ -25,39 +25,56 @@
 ┌────────────────────────── Browser（Client 半部 client.js）──────────────────────────┐
 │                                                                                     │
 │  apply(ctx)                                                                         │
-│   ├─ export const inject = ['theme']（slots / locale 用 ctx.get 读取，缺失时 ctx.inject 等待） │
-│   ├─ readState() ── localStorage('dsh-everforest/v1') ──► { light, dark }            │
+│   ├─ export const inject = ['theme']（configForms / slots / locale 用 ctx.inject 软等待）│
+│   ├─ 首帧状态 = window.__EVERFOREST_BOOT__（Host boot 脚本发布；缓存→Host→默认）     │
 │   ├─ ctx.effect(() => ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state)))        │
+│   ├─ ctx.inject(['configForms'], formsCtx => formsCtx.configForms.get('everforest')) │
+│   │    ├─ 订阅快照：就绪后以 Host 文档为准，与内存不同 → adopt（重建覆盖层 /          │
+│   │    │   刷新设置页 / 把 Host 值写回 localStorage 缓存）；其他浏览器写入即广播      │
+│   │    ├─ 迁移：本地缓存是真选择 + Host 无用户层 → 一次性 mutate 播种                │
+│   │    └─ 表单就绪前的用户选择先排队（queuedWrite），绑定后补写                     │
 │   ├─ ctx.effect(() => ctx.locale.register(NS, { zh, en }))（en/zh 是内置 locale id）  │
-│   └─ ctx.slots.inject('settings.section', () => ctx.slots.register({ id: 'everforest', … })) │
+│   └─ ctx.slots.inject('settings.section', () => ctx.slots.register({ id: 'everforest', … }))│
 │                                                                                     │
 │  EverforestSection                                                                  │
-│   ├─ 外观控制 3 按钮：跟随系统 / 深色 / 浅色 → store.setPreference → setTheme      │
+│   ├─ 外观控制 3 按钮：跟随系统 / 深色 / 浅色 → store.setPreference → setTheme        │
 │   ├─ 深色组 3 张卡 / 浅色组 3 张卡                                                   │
-│   └─ onClick: writeState → 替换同 source 覆盖层 → ctx.theme.setTheme(scheme)（已决策）│
+│   └─ onClick: select → 更新内存 + 写缓存 + configForms.mutate 写 Host → 替换覆盖层   │
+│       → ctx.theme.setTheme(scheme)（已决策）                                         │
 └─────────────────────────────────────────────────────────────────────────────────────┘
                                         │
                      DSH ThemeRuntime + ui-layout ThemePresenter
                      （body 内联变量；theme/change 广播；卸载自动还原）
                                         │
-┌────────────────────────── Host（index.js）──────────────────────────────────────────┐
-│  apply(ctx)                                                                         │
-│   ├─ 承载 bundle 行与 Plugin Manager 显示信息（无 Host 服务依赖）                    │
+┌────────────────────── Host（index.js + src/host-config.js）─────────────────────────┐
+│  export { Config }                                                                  │
+│   = Schema.object({ light: union(STRENGTHS).default(…).volatile(),                  │
+│                     dark:  同上 })                                                  │
+│   → settings 服务投影为以 profile entry id `everforest` 为键的 configForms 表单      │
+│   → 写入落当前 profile 的 cordis.patch.yml，同一 profile 的所有浏览器共享            │
+│                                                                                     │
+│  apply(ctx, config)                                                                 │
+│   ├─ settings.configure({ auto: false })（可选）：声明本插件自己渲染设置页，         │
+│   │   DSH 不再生成重复的自动表单；settings 服务缺失时静默跳过                        │
 │   └─ ctx.on('webserver/index-inject', table => table.push({                          │
-│        kind: 'script', placement: 'body', text: bootScript() }))                    │
-│       // 首帧调色板：读 ui-theme 已解析的 scheme + localStorage 强度，               │
-│       // 在 Client 加载前写 body 内联 token（见 §5「首帧注入」）                     │
+│        kind: 'script', placement: 'body', text: createBootScript(hostState(config))  │
+│      }))                                                                             │
+│       // 首帧 B：脚本执行时先读 localStorage 缓存，缺失/非法时逐字段回退到 emit 时    │
+│       // 嵌入的 Host 值，再回退默认；结果写 window.__EVERFOREST_BOOT__，并给 body    │
+│       // 写 boot 调色板内联变量（见 §5「首帧注入」）                                  │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-> 首帧注入是 Host 半部唯一的运行时职责。ui-theme 也监听同一事件并 `prepend` 自己的 boot rows（`:root{color-scheme}` + body `background-color:#fff/#151517` + `data-ds-theme-source` / `data-ds-dark-theme`），所以本插件的 row 一定排在它之后，脚本里能读到已解析的 scheme。
+> Host 半部不直接读写表单：它只声明 `Config` schema（settings 服务据此投影表单），并在每次 `webserver/index-inject` emit 时用 `hostState(config)` 把 volatile 引用读成当前值、嵌入首帧脚本作为 Host 兜底值。ui-theme 也监听同一事件并 `prepend` 自己的 boot rows（`:root{color-scheme}` + body `background-color:#fff/#151517` + `data-ds-theme-source` / `data-ds-dark-theme`），所以本插件的 row 一定排在它之后，脚本里能读到已解析的 scheme。
 
 生命周期要点：
 
 - **覆盖层必须由插件自己的 effect 持有**：`overrideTokens` 返回的 disposer 不会随插件 fiber 自动调用（层存在 root 级 `ThemeRuntime` 里），所以必须 `ctx.effect(() => ctx.theme.overrideTokens(...))` 或把返回的 disposer 挂进 effect；否则插件停用后会残留到页面重载。`ctx.locale.register` 同理需要 `ctx.effect`；`ctx.slots.register` / `ctx.slots.inject` 由 slot service 代挂调用者 fiber，可省略。
 - 选强度不重建插件，只替换同一 source 的覆盖层（`overrideTokens` 语义：同 source 整体替换并重新置顶，旧 disposer 变为 no-op）；替换后发 `theme/change`，presenter 同步重新应用。
 - 深浅色切换不需要插件做任何事：覆盖层里每个 token 同时带 `light` 与 `dark`，presenter 按当前 `active.colorScheme` 取值。
-- 首帧（Client 加载前）：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
+- **强度真源是 Host 文档**（0.3.0）：Client 不直接写 `cordis.patch.yml`，只调用配置表单的写操作（选择 = 一次 `mutate` 里 set 两个字段，恢复默认 = 一次 `mutate` 里 unset 两个字段）；settings 服务负责落盘并在同一 profile 的所有浏览器间广播。表单通过**软注入** `ctx.inject(['configForms'], …)` 等待（不写进模块级 `inject`，否则旧宿主会把整个 Client 插件挂起）；Client 拿到 Host 快照后以它收敛内存与首帧缓存，本机缓存只在首帧与旧宿主降级时被读取（§7）。
+- **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 的 native settings provider 恒报告 `writable: true`，实际不可达。
+- **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
 
 ## 3. 数据模型
@@ -82,16 +99,37 @@
 
 ### 3.2 用户状态
 
+**真源 = 当前 profile 的 Host 配置**（0.3.0 起）。当前 active profile 的 `cordis.patch.yml` 里，本插件行带 `config`：
+
+```yaml
+- id: everforest            # = ENTRY_ID（src/host-config.js 与 src/durable.js），也是 configForms 的键
+  name: dsh-everforest
+  config:
+    light: hard
+    dark: soft
+```
+
 ```js
-/** 持久化结构（localStorage: 'dsh-everforest/v1'） */
+// Host 半部 src/host-config.js
+export const Config = Schema.object({
+  light: Schema.union(STRENGTHS).default(DEFAULT_STATE.light).volatile(),
+  dark:  Schema.union(STRENGTHS).default(DEFAULT_STATE.dark).volatile(),
+})
+```
+
+- **`Config`** 由 DSH settings 服务扫描活跃 profile 条目后投影成表单，表单键 = entry id（`everforest`）；`.volatile()` 让 Loader 把新值写进运行中的引用而不重挂插件。非法值在校验期被拒：**冷启动 / 重挂**时 entry 不激活（无主题）；**运行中**的 volatile-only 更新失败被 Loader 捕获、保留旧值（entry 保持 ACTIVE，见 §7）。
+- **Client** 通过 `ctx.inject(['configForms'], …)` 软等待服务，再 `formsCtx.configForms.get('everforest')` 读（`status` / `value` / `base` / `user` / `revision` / `writable` + `subscribe`）与写（`mutate(ops)`）；entry id 必须与 `cordis.patch.yml` 的 `id` 一致（Client 的 `src/durable.js` 与 Host 的 `src/host-config.js` 各持一份常量，测试把两者与 patch 行一起钉住）。Client 侧纯逻辑（`hasUserLayer` / `shouldSeed` / `stateFromHost` / `statesEqual` / `stateToSetOps` / `stateToUnsetOps` / `bootHintState`）集中在 `src/durable.js`，随 `build.mjs` 打进 `client.js`（不进 `files`）。
+- **首帧缓存（不是真源）**：`localStorage['dsh-everforest/v1']`，内容是 `{ version: 1, light, dark }`，与 0.2.x 数据格式一致；只用于首帧和旧宿主降级，不再删除。
+- **解析顺序**：首帧 = 缓存 → Host 值 → 默认；运行期 = Host 文档为权威。读取失败 / 缓存非法 / 版本不认识 → 逐字段回退，最终回退默认配对 `{ light: 'hard', dark: 'soft' }`，不抛错。
+
+```js
+/** 首帧缓存 / 旧宿主降级结构（localStorage: 'dsh-everforest/v1'） */
 {
   version: 1,
   light: 'hard' | 'medium' | 'soft',   // 默认 'hard'（对齐 Enchanted 的 Light 主题）
   dark:  'hard' | 'medium' | 'soft'    // 默认 'soft'（对齐 Enchanted 的 Dark 主题）
 }
 ```
-
-读取失败、字段非法、版本不认识 → 回退默认并尝试重写，不抛错。
 
 ### 3.3 覆盖层
 
@@ -239,74 +277,112 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 
 `--dsw-focus-ring-color` 走 `--dsw-alias-state-business-primary`（DSH 默认蓝），所以映射 `state-business-*` 即自动换色；**不要覆盖 `--dsw-focus-ring-color` 本身**（pointer 模态靠它置 transparent 来消隐焦点环），也不要覆盖 `--dsw-focus-ring-width`。
 
-## 5. 应用流程（伪代码）
+## 5. 应用流程（伪代码，0.3.0 口径）
 
 ```js
-export const inject = ['theme']   // 模块导出的 cordis 注入；slots / locale 用 ctx.get 可选读取，缺失时用 ctx.inject 等待
+export const inject = ['theme']   // 模块导出只写硬依赖；configForms 用 ctx.inject 软等待，slots / locale 用 ctx.get + ctx.inject 兜底
 
 const PACKAGE_ID = 'dsh-everforest'
-const NS = 'settings.everforest'
+const ENTRY_ID = 'everforest'     // = cordis.patch.yml 的 id，也是 configForms 的键
 
 export function apply(ctx) {
-  let state = readState()
-  let layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state))
+  // 0) 首帧状态：先读 Host boot 脚本发布的 B 方案结果（缓存→Host→默认）；
+  //    没有 boot 行（旧宿主 / 非 index 页面）时退回 localStorage 缓存 / 默认配对。
+  let state = bootHintState(window.__EVERFOREST_BOOT__) ?? readState()
 
-  // overrideTokens 的 disposer 不会自动挂 fiber，必须自己注册清理
-  ctx.effect(() => () => { layerDispose?.(); layerDispose = null }, 'everforest: token layer cleanup')
+  // 1) token 覆盖层 + 词典 + 跨 origin 兜底同步（同 0.2.1 的效果）
+  ctx.effect(() => {
+    applyLayer()
+    return () => { layerDispose?.(); layerDispose = null }
+  }, 'everforest: token layer')
+  ctx.effect(() => locale.register(NS, { zh, en }), 'everforest: dictionaries')
+  ctx.effect(() => subscribeStorageSync(onStorage), 'everforest: cross-window sync')
 
-  // slots/locale 是可选服务：先在 apply 时立即读取（正常路径），
-  // 拿不到再用 ctx.inject 等待它们出现后再挂载（两者都没有才跳过设置页）
-  let settingsUiMounted = false
-  const setupSettingsUi = () => {
-    const locale = ctx.get('locale')
-    const slots = ctx.get('slots')
-    if (!locale || !slots || settingsUiMounted) return
-    settingsUiMounted = true
-    ctx.effect(() => locale.register(NS, { zh: zhDict, en: enDict }), 'everforest: dictionaries')
-    const t = locale.bind(NS)
-    slots.inject('settings.section', () => slots.register({
-      name: 'settings.section', id: 'everforest', order: 25,
-      label: () => t('nav.title'), locale: NS, inject: () => ({ t, store }),
-    }, EverforestSection))
+  // 2) Host 真源（0.3.0）：configForms 软等待。模块级 inject 只写 'theme'——
+  //    旧宿主没有该服务时，写进数组会让整个 Client 插件永久挂起。
+  let form = null
+  let seedCompleted = false
+  let queuedWrite = null
+  ctx.inject(['configForms'], (formsCtx) => {
+    form = formsCtx.configForms.get(ENTRY_ID)
+    const off = form.subscribe(syncFromHost)
+    syncFromHost()
+    return () => { off?.(); form = null }
+  })
+
+  function syncFromHost() {
+    const snapshot = form.getSnapshot()          // { status, value, base, user, revision, writable }
+    if (snapshot.status !== 'ready') return      // idle / loading / unavailable（旧宿主）→ 保持 localStorage
+    if (queuedWrite !== null) return flushQueuedWrite(snapshot)
+    if (hasUserLayer(snapshot.user)) {           // Host 有用户选择 → 以它为权威
+      seedCompleted = true
+      return adoptHostPair(stateFromHost(snapshot.value))
+    }
+    if (!seedCompleted && shouldSeed(snapshot.user, readStoredState())) {
+      seedCompleted = true                       // 0.2.1 迁移：真缓存 + 无 Host 用户层 → 一次性播种
+      return writeToHost(stateToSetOps(state), '迁移失败时保留本地缓存', snapshot.revision)
+    }
+    seedCompleted = true
+    adoptHostPair(stateFromHost(snapshot.value)) // 无用户层且缓存无真选择 → 采纳 Host 默认配对
   }
-  setupSettingsUi()
-  if (!settingsUiMounted && typeof ctx.inject === 'function') ctx.inject(['slots', 'locale'], setupSettingsUi)
 
-  function applyLayer() {
-    // 同 source 调用 = 整体替换并重新置顶；旧 disposer 自动变 no-op
-    layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state))
+  function persistChoice() {
+    const snapshot = form?.getSnapshot()
+    if (!snapshot || snapshot.status !== 'ready') { queuedWrite = 'set'; return } // 就绪前的选择先排队
+    if (snapshot.writable === false) return      // 防御：native settings provider 恒为 true
+    writeToHost(stateToSetOps(state), '写入未被接受时以 Host 为准')
   }
 
+  function persistReset() {
+    const snapshot = form?.getSnapshot()
+    if (!snapshot || snapshot.status !== 'ready') { queuedWrite = 'unset'; return }
+    if (snapshot.writable === false || !hasUserLayer(snapshot.user)) return
+    writeToHost(stateToUnsetOps(state), '写入未被接受时以 Host 为准')
+  }
+
+  // 3) 设置页
   function select(scheme, strength) {
     state = { ...state, [scheme]: strength }
-    writeState(state)
-    applyLayer()
+    writeState(state)                            // 首帧缓存同步写（Host 慢或被拒也不丢本次选择）
+    applyLayer(); notify()
+    persistChoice()                              // 一次 mutate 原子写两个字段
     // 已决策：点另一深浅色卡立即预览；会持久写 DSH 全局 Appearance 偏好（system → 固定）
     if (ctx.theme.getTheme().active.colorScheme !== scheme) ctx.theme.setTheme(scheme)
   }
 
-  function setPreference(preference) {
-    // 设置页外观控制：只接受 system / light / dark；写 DSH 同一份全局偏好
-    if (!['system', 'light', 'dark'].includes(preference)) return
-    ctx.theme.setTheme(preference)
+  function reset() {
+    const next = { ...DEFAULT_STATE }
+    const changed = !statesEqual(next, state)
+    state = next; writeState(state)
+    if (changed) applyLayer()
+    notify()
+    persistReset()                               // 一次 mutate 里 unset 两个字段（清 user 层）
+  }
+
+  function writeToHost(ops, message, expectedRevision) {
+    Promise.resolve(form.mutate(ops, expectedRevision))
+      .then((accepted) => { if (!accepted) { warnRefusedOnce(); syncFromHost() } })
+      .catch((error) => console.warn(message, error))
   }
 }
 ```
 
 - 覆盖层在 client 半部物化时同步建立，不等待网络；Client 加载前的 loading 页 / 首帧由 Host 半部的 `index-inject` row 着色（见下「首帧注入」）。
+- **首帧与运行期分界**：首帧用 `window.__EVERFOREST_BOOT__`（Host 脚本解析好的 B 方案结果），Client 挂载后不再把缓存当权威；`configForms` 快照就绪后以 Host 文档为准，内存 / 覆盖层 / 设置页 / 缓存一起收敛。正常路径下三者一致，唯一可见变化是「本浏览器缓存已过期」时首帧先画缓存、随后一次切到 Host 值（之后收敛，不反复）。
 - 页面内「当前」指示从 `ctx.theme.getTheme()` + 本地 `state` 推导（`active.colorScheme` 是 system 解析后的实际深浅色；`preference === 'system'` 时不要把它当成用户选择）；`theme/change` 只用于刷新指示（字号/字体变化也会触发，监听者必须幂等），不重建覆盖层。
-- `slots` / `locale` 缺失时只降级设置页/文案，主题仍生效（`theme` 是唯一硬依赖）。实现为「`ctx.get` 立即挂载 + `ctx.inject(['slots','locale'])` 延迟等待」的混合策略：正常 profile 走立即路径（真机 registrant = `dsh-everforest`）；服务晚到则挂载回调补上；两者都不可用才跳过设置页并 console.warn。
-- 所有注册走 `ctx.effect` / slot 的注入回调，插件停用时回到原生主题。
+- `configForms` / `slots` / `locale` 缺失时只降级持久化方式或设置页，主题仍生效（`theme` 是唯一硬依赖）。**三者都用 `ctx.inject` 软等待**：`configForms` 单独一个软注入（旧宿主不提供也不能挂起插件）；`slots` / `locale` 用「`ctx.get` 立即挂载 + `ctx.inject(['slots','locale'])` 延迟等待」的混合策略，两者都不可用才跳过设置页并 console.warn。表单就绪前的用户选择进 `queuedWrite` 队列，绑定后补写一次（用户手速快于 Host 时不会静默丢失）。
+- 所有注册走 `ctx.effect` / slot 的注入回调，插件停用时回到原生主题；`form` 的订阅随 effect 释放。
 
-### 首帧注入（Host 半部，v0.2.0）
+### 首帧注入（Host 半部，v0.2.0；0.3.0 改为 B 方案）
 
-- **入口**：Host 半部 `apply(ctx)` 监听 `webserver/index-inject`，向表格追加一条 `{ kind: 'script', placement: 'body', text }`。同一张 rows 表有两个消费端：Web 由 `dsh-host-frontend-static` 在每次 index 渲染时调用 `webServer.renderIndex()` 写进 HTML；Desktop 由 `dsh-desktop-host` 在 Host ready 时 `collectIndexInjections()`，经 IPC（`DESKTOP_IPC.boot`）交给主进程、再由页面侧 boot 内核在加载插件 roster 之前应用。`webServer.tapIndex` 只是 raw HTML escape hatch，不是这条路径。
+- **入口**：Host 半部 `apply(ctx, config)` 监听 `webserver/index-inject`，向表格追加一条 `{ kind: 'script', placement: 'body', text }`。同一张 rows 表有两个消费端：Web 由 `dsh-host-frontend-static` 在每次 index 渲染时调用 `webServer.renderIndex()` 写进 HTML；Desktop 由 `dsh-desktop-host` 在 Host ready 时 `collectIndexInjections()`，经 IPC（`DESKTOP_IPC.boot`）交给主进程、再由页面侧 boot 内核在加载插件 roster 之前应用。`webServer.tapIndex` 只是 raw HTML escape hatch，不是这条路径。
 - **顺序**：ui-theme 用 `{ prepend: true }` 注册自己的 listener，所以它的 style/script rows 永远在前；本插件的 row 排在其后，脚本里能读到 `data-ds-theme-source`（已解析偏好）与 `data-ds-dark-theme`（实际 scheme）。
-- **读什么**：scheme 取自 ui-theme 的 boot 属性（**不要**用裸 `prefers-color-scheme`，否则「固定浅色 + OS 深色」首帧会错）；强度读本浏览器 `localStorage['dsh-everforest/v1']`，校验 `version` 与两个 strength，失败回退默认配对。
+- **读什么**：scheme 取自 ui-theme 的 boot 属性（**不要**用裸 `prefers-color-scheme`，否则「固定浅色 + OS 深色」首帧会错；ui-theme 缺失时才退回 `matchMedia`）。强度按 **B 方案**在脚本执行时解析：先读本浏览器 `localStorage['dsh-everforest/v1']`，校验 `version` 与两个 strength，逐字段覆盖；缓存缺失 / 版本不符 / 字段非法时逐字段回退到 **emit 时嵌入的 Host 值**（`hostState(config)` 从 volatile 引用 `.get()` 读出并再校验一次），再回退默认配对。解析结果写入 `window.__EVERFOREST_BOOT__ = { version, light, dark }`，供 Client 首帧沿用。
+- **为什么缓存优先**：Desktop 的 boot payload 在 Host ready 时只采集一次、之后不刷新；缓存由选择操作同步写入，永远至少与它一样新。Host 值兜底覆盖「新浏览器 / 清过缓存 / Web 每次随机端口」这些没有缓存的场景。
 - **写什么**：`BOOT_TOKENS` = `--dsw-alias-bg-base`、`--dsw-alias-label-primary/secondary/tertiary`、`--dsw-alias-markdown-code-block`、`--dsw-specific-sidebar-fill`、`--dsw-alias-border-l2`、`--dsw-alias-brand-primary`（共 8 个；后两个是 boot 页 spinner 的环与进度弧，见 §12 2026-10-21 记录）。全部是 `tokensFor()` 也会输出的 token，所以 presenter 首次 apply 会用同名的 body 内联变量覆盖它们；**不要**用 `<style>` + `!important`（那会压过 presenter 的内联值，把配色冻在启动态）。
-- **值从哪来**：Host 半部 import `src/tokens.js` / `src/palette.js` / `src/state.js`（普通 ESM、零依赖），在启动时用 `tokensFor()` 生成 6 个变体的值表，再拼成脚本文本；`package.json#files` 必须包含这些 `src` 运行时模块（见 §8）。测试 `tests/host-boot.test.mjs` 断言脚本写入值与 Client token 层逐项相等，防止两边漂移。
-- **安全/健壮**：row 是纯 JSON 字符串（要过 IPC 与 HTML 文本），脚本文本里不能出现 `</script`；脚本包 try/catch（storage 被禁、`document.body` 不存在都不报错）；脚本文本不含用户输入。
-- **残余**：Desktop 上窗口在 `loadURL` resolve 后才 `show()`，rows 由页面侧在 IPC 之后应用 → 理论上最多 1 帧原生色（2026-10-19 决策接受，需冷启动录屏实测）；loading 动效的 spinner / 边框已由 boot token 覆盖（2026-10-21，见 §12）；插件停用后 row 要等 Host 重启 / 下次 index 渲染才消失（运行中的本页会保留最后一次注入的底色）。
+- **值从哪来**：Host 半部 import `src/tokens.js` / `src/palette.js` / `src/state.js` / `src/host-config.js`（普通 ESM；`@deepseek-ai/schemastery` 由 DSH 运行时解析），启动时用 `tokensFor()` 生成 6 个变体的值表，再拼成脚本文本；Web 每次 index 渲染重新 emit（Host 值实时），Desktop 只采集一次。`package.json#files` 必须包含这些 `src` 运行时模块（见 §8）。测试 `tests/host-boot.test.mjs` 断言脚本写入值与 Client token 层逐项相等、B 方案各分支与 `__EVERFOREST_BOOT__` 发布行为，防止两边漂移。
+- **安全/健壮**：row 是纯 JSON 字符串（要过 IPC 与 HTML 文本），脚本文本里不能出现 `</script`；Host 值先按 `STRENGTHS` 枚举再校验一次，嵌入走 JSON + `<` / U+2028 / U+2029 转义；脚本包 try/catch（storage 被禁、`document.body` 不存在都不报错）。
+- **残余**：Desktop 上窗口在 `loadURL` resolve 后才 `show()`，rows 由页面侧在 IPC 之后应用 → 理论上最多 1 帧原生色（2026-10-19 决策接受，需冷启动录屏实测）；loading 动效的 spinner / 边框已由 boot token 覆盖（2026-10-21，见 §12）；插件停用后 row 要等 Host 重启 / 下次 index 渲染才消失（运行中的本页会保留最后一次注入的底色）；本浏览器缓存过期时首帧可能短暂显示旧值（随后一次切到 Host 值，见 §7）。
 
 ## 6. 设置页
 
@@ -317,40 +393,53 @@ export function apply(ctx) {
   - `深色` 分组：3 张卡（Hard / Medium / Soft，默认 Soft），每张含 5 段色带（`bg0`、`bg1`、`bg2`、`fg`、`header-aqua`）。
   - `浅色` 分组：同上（默认 Hard）。
   - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（**只恢复 Enchanted 默认配对，不改外观偏好**，2026-10-21 用户确认保持）。该行是 `role="group"` + `aria-label` 的有名分组。
-- **交互**：点击卡片 → 立即保存并应用；若该卡属于另一个 scheme，同时调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。外观控制的三个按钮调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享），页面说明文案写清楚「点色卡会固定外观，可用外观控制恢复跟随系统」。
+- **交互**：点击卡片 → 立即应用；写入顺序是「内存 + 首帧缓存 → `configForms.mutate`（一次原子写两个字段，落 profile patch）」，若该卡属于另一个 scheme，再调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。写入被拒 / revision 冲突时由 settings 服务回读，Client 以 Host 值为准（设置页不弹错、不静默丢掉用户选择）；「恢复默认」先回默认配对并写缓存，再 `unset` Host 的两个字段（清掉 user 层，回到 base 默认）。外观控制的三个按钮调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享），页面说明文案写清楚「点色卡会固定外观，可用外观控制恢复跟随系统」。
 - **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`appearance.title/label/system/dark/light/systemActive/fixed`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current.*`、`reset`、`hint.scheme`、`hint.storage`、`aria.*`。
 - **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。卡片外观参照 DSH 设置卡片（圆角、边框、hover、selected 用 token，不抄写死颜色）。
 - **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分；`aria-label` 只挂在有命名 role 的元素上（当前行 `role="group"`，裸 `<div>` 的 `aria-label` 不进无障碍树）。
 - **降级**：`ctx.get('slots'/'locale')` 立即不可用时用 `ctx.inject` 等待再挂载；等待也不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
-- **已知限制**：`settings.section` 没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标（要换图标只能像 `dshmarket` 那样用 DOM 标记 + MutationObserver 改写，0.x 不做）。
+- **已知限制**：① `settings.section` 没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标（要换图标只能像 `dshmarket` 那样用 DOM 标记 + MutationObserver 改写，0.x 不做）；② DSH 不会在 Plugins 页给本插件再生成一份自动表单——Host 半部用 `settings.configure({ auto: false })` 声明设置页由本插件自己渲染，所以强度只能在本页修改（插件详情页没有可编辑的强度卡片）。
 
-## 7. 持久化
+## 7. 持久化（0.3.0：Host 侧持久化）
+
+强度偏好的真源是**当前 profile 的 Host 配置**；`localStorage` 降级为「首帧缓存 + 旧宿主兜底」。Appearance（light / dark / system）仍归 DSH 自己的全局偏好，不在本节范围。
 
 | 项 | 方案 |
 |---|---|
-| 存储 | `localStorage['dsh-everforest/v1']`（JSON） |
-| 读 | `apply` 时同步读；解析/校验失败回退 **DeepSeek 默认配对 `{ light:'hard', dark:'soft' }`**（与 §3.2 一致） |
-| 写 | 只在用户选择时写；写入失败（隐私模式/配额）静默降级为会话内生效 |
-| 范围 | 逐 origin 生效。**Desktop（Electron 窗口）origin 固定为 `dsh-app://app`（标准、安全协议），跨重启保持**；用浏览器打开 Host URL 时端口每次启动随机，localStorage 不跨重启（不同 origin 之间也不共享）。设置页文案说明「按浏览器 / 窗口保存」。 |
-| 跨窗口 | 监听 `storage` 事件（2026-10-21）：同 origin 其他窗口写入后重读状态、重建覆盖层并刷新设置页，避免旧内存值把对方选择写回；`key === null`（`clear()`）按默认配对处理；卸载时移除监听。 |
-| 迁移 | **暂缓（2026-10-19 决定：Host 侧强度偏好先不做）**。路线留档：`ctx.configForms.get('<本插件 Host entry id>')`（源码已确认 DSH 的 settings / configForms 契约存在；第三方条目是否被 serve 需半天 spike），写入落 profile 的 `cordis.patch.yml`、异步读取会让主题晚于首帧（首帧现由 Host boot 注入覆盖，但迁移仍要实测）。将来若做：localStorage 降级为同步缓存，用旧 key 播种 Host，并处理 revision 冲突与不可写。 |
+| 真源 | 当前 active profile 的 `~/.dsh/profiles/<profile>/cordis.patch.yml` 中本插件行的 `config`（`light` / `dark`）；由 DSH settings 服务写入并在同一 profile 的所有已认证浏览器间广播。 |
+| 声明 | Host 半部 `src/host-config.js` 导出 `Config = Schema.object({ light, dark })`，两个叶子字段 `union(STRENGTHS).default(...).volatile()`；settings 服务只把挂 `.volatile()` 的活跃 profile 条目投影成表单。入口 id 常量在两处各持一份——Host 的 `src/host-config.js` 与 Client 的 `src/durable.js`（bundle 不能 import Host 模块）——都必须等于 patch 行的 `id`（configForms 按 entry id 寻址；改名会静默退化为 localStorage-only，测试把三者钉住）。 |
+| Client 读 | `ctx.inject(['configForms'], …)` 软等待服务（服务缺失 = 旧宿主，永不挂起插件），再 `formsCtx.configForms.get('everforest')` → `{ status, value, base, user, revision, writable }` + `subscribe(listener)`；就绪（`status: 'ready'`）后以 Host 值为权威：与内存不同则 adopt（重建覆盖层、刷新设置页、把 Host 值写回 localStorage 缓存）。`unavailable`（旧宿主 / 条目未被 serve）时保持 localStorage 行为；快照变化（其他浏览器写入的广播）走同一 adopt 路径。 |
+| Client 写 | 选择色卡：一次 `mutate([{ op: 'set', path: ['light'], value }, { op: 'set', path: ['dark'], value }])` 原子写两个字段（用户写不带 `expectedRevision`，以 settings 服务的最新 revision 为准）；恢复默认：一次 `mutate` 里 `unset` 两个字段。表单就绪前的选择排队（`queuedWrite`）后补写；`mutate` 被拒（`response.ok` 为 false / revision 冲突）时服务回读，Client adopt 远端值并 warn 一次（不把未被接受的值留在本地）。`writable: false` 的守卫只是防御——0.2.1-rc.2 的 native settings provider 恒为 `true`，实际不可达。 |
+| 首帧 | B 方案（§5「首帧注入」）：boot 脚本读 `localStorage['dsh-everforest/v1']` 缓存，缺失 / 版本不符 / 字段非法时逐字段回退 emit 时嵌入的 Host 值，再回退默认；解析结果发布到 `window.__EVERFOREST_BOOT__`，Client 首帧直接沿用。Web 每次 index 渲染重算，Desktop 在 Host ready 时采集一次。已知取舍：本浏览器缓存过期（另一浏览器改过而它没收到广播）时首次打开先画缓存旧值、随后一次 adopt Host 值，之后收敛。 |
+| 缓存 | `localStorage` 保留为「首帧缓存 + 旧宿主兜底」，key / JSON 结构不变，不再删除；每次选择 / adopt 后同步写（adopt 即使值相同也写，保证新浏览器下一次 reload 有首帧缓存）。同一 origin 的 `storage` 事件同步保留（Host 广播覆盖不到时的兜底）。 |
+| 迁移 | 0.2.1 → 0.3.0：启动时若（a）Host 文档**无用户层**（`user` 非空才算有；空对象 `{}` 也是无）且（b）`readStoredState()` 读到的是**真实选择**（存在且非默认配对）→ 把缓存值一次性播种到 Host（一次 `mutate` set 两个字段，带观察到的 `revision` 作栅栏）。播种后本地保留该值；Host 已有用户层时以 Host 为准，不覆盖。 |
+| 迁移 / 重置取舍 | **已知取舍**：浏览器 A「恢复默认」清掉 Host override 后，若另一个从未升级/打开的浏览器 B 仍持有 0.2.1 的非默认 localStorage 缓存，B 下次加载会把这个旧值当作待迁移值**重新播种回 Host 一次**；之后 B 的缓存与 Host 收敛，不会反复。0.3.0 接受该取舍（一次性迁移只以「Host 无用户层」为条件，无法区分「从未选择」与「刚被重置」）。 |
+| 旧宿主降级 | 没有 settings 服务 / schemastery 无 `volatile()`（< 3.18.3）/ `configForms` 软注入永不送达 / 表单 `status: 'unavailable'` → 无表单，Client 继续用 localStorage（0.2.1 行为），主题与设置页不受影响，也不会因为等待服务而挂起插件。**只换 npm 包不重启 DSH** 即属于这一类：选择仍生效、只是暂不写 Host；重启后首启会播种。 |
+| 写入被拒 | home patch / `--patch` 覆盖等场景以 `mutate` 的 `response.ok === false` 表现：settings 服务回读后返回 `false` → Client adopt 远端值并 warn 一次，设置页不弹错（未被接受的值不会留在本地）。代码里的 `writable: false` 守卫只是防御；native settings provider 恒为 `true`，不要把 writable 当成可达主路径。 |
+| 范围 | 按 profile 隔离：同一 profile 的所有浏览器 / 窗口共享；不同 profile 各存各的。 |
+| 非法值 | 手改 patch 的 `config.light` / `dark` 为枚举外值，分两种情况：**冷启动 / 重挂**时 `Config` 校验失败 → entry 不激活（无主题），改回合法值或删除 `config` 后重启恢复；**运行中**的 volatile-only 变更由 Loader 的 `_commitVolatile` 捕获解析错误 → Host 记 warning、保留旧引用、entry 保持 **ACTIVE**（主题不丢），改回合法值即可热恢复，不必重启。 |
+| 升级 / 回滚 | Host 半部（Config 注册、boot 脚本）在 Host 启动时装载，改动需**重启 DSH**（刷新页面不会重载 `index.js`）；0.3.0 之后运行中改强度走 settings 通道，不需要重启。只换包不重启 DSH → 新 Client 退回 localStorage-only（旧宿主降级），重启后首启补播种。0.2.1 ↔ 0.3.0 回滚同样需重启；0.3.0 写入的 `config` 对 0.2.1 无害（0.2.1 没有 `Config` 导出、`apply` 也不读第二个参数），必要时可手动删除。 |
+
+> 为什么这样取舍：`localStorage` 是同步的、per-origin 的（Web 端口每次随机、换浏览器就丢）；DSH 的 settings 文档本来就是跨浏览器共享的 profile 级真源，但它异步、可被 home patch 覆盖、且换 Host 半部要重启。组合成「Host 真源 + 本地首帧缓存 + 失败降级」后，正常路径得到跨浏览器一致与重启保持，首帧又不等待网络；代价是首帧与 Host 可能短暂不一致（缓存过期的那一次，见 §5「残余」）。
 
 ## 8. 清单与构建
 
 ```jsonc
-// package.json（草案；2026-10-19 首帧注入后更新）
+// package.json（草案；2026-10-22 0.3.0 Host 侧持久化后更新）
 {
   "name": "dsh-everforest",
-  "version": "0.2.0",
-  "description": "Everforest color themes (6 palettes) for DeepSeek Harness Web/Desktop.",
+  "version": "0.3.0",
+  "description": "Everforest color themes (Dark/Light × Hard/Medium/Soft) for DeepSeek Harness Web/Desktop.",
   "type": "module",
+  "main": "index.js",
+  "icon": "icon.svg",
   "license": "MIT",
   "author": "FormalistBlue",
+  "publishConfig": { "access": "public" },
   "repository": { "type": "git", "url": "git+https://github.com/FormalistBlue/dsh-everforest.git" },
   "homepage": "https://github.com/FormalistBlue/dsh-everforest#readme",
   "bugs": { "url": "https://github.com/FormalistBlue/dsh-everforest/issues" },
   "keywords": ["deepseek", "harness", "dsh", "dsh-plugin", "theme", "everforest"],
-  "icon": "icon.svg",
   "engines": { "node": ">=20", "dsh": ">=0.2.1-rc.2 <0.3.0-0" },
   "exports": {
     ".": "./index.js",
@@ -361,7 +450,7 @@ export function apply(ctx) {
   },
   "files": [
     "index.js", "client.js",
-    "src/palette.js", "src/color.js", "src/tokens.js", "src/state.js",
+    "src/palette.js", "src/color.js", "src/tokens.js", "src/state.js", "src/host-config.js",
     "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"
   ],
   "dsh": {
@@ -371,6 +460,9 @@ export function apply(ctx) {
       "platform": "web",
       "inject": ["@deepseek-ai/dsh-client-ui-theme", "@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-settings"]
     }
+  },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
   }
 }
 ```
@@ -378,17 +470,18 @@ export function apply(ctx) {
 ```yaml
 # cordis.patch.yml
 - insert:
-    - id: everforest
+    - id: everforest        # = ENTRY_ID（host-config.js / durable.js），也是 Client configForms 的键
       name: dsh-everforest
 ```
 
-- **无运行时依赖、无 peerDependencies**；`dsh.client.inject` 只影响**浏览器 bundle 的到达顺序**，不是服务注入——真正的服务门是模块导出 `export const inject = ['theme']`。`<pkg>/client` 与裸包名归一化到同一模块。
-- **Host 半部不打包**：`index.js` 直接从包目录 import `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js`（普通 ESM、零依赖），所以这四个文件必须进 `files`；`scripts/build.mjs` 只产出 `client.js`。`tests/integration.test.mjs` 会遍历 Host 半部的相对 import，核对 `files` 覆盖它们。
+- **运行时零依赖、无 peerDependencies**：Host 半部 `import '@deepseek-ai/schemastery'` 由 DSH 进程从自身安装解析（写进 `dependencies` 会装出第二份实例）；仓库只声明一个 devDependency 供测试 / CI 从 `node_modules` import，测试前执行 `npm install --no-package-lock --ignore-scripts --no-audit --no-fund`。`dsh.client.inject` 只影响**浏览器 bundle 的到达顺序**，不是服务注入——真正的服务门是模块导出 `export const inject = ['theme']`。`<pkg>/client` 与裸包名归一化到同一模块。
+- **Host 半部不打包**：`index.js` 直接从包目录 import `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js` / `src/host-config.js`（普通 ESM；唯一的 bare import 由 DSH 运行时解析），所以这五个文件必须进 `files`；`scripts/build.mjs` 只产出 `client.js`。`tests/integration.test.mjs` 会遍历 Host 半部的相对 import，核对 `files` 覆盖它们。Client 侧新增的 `src/durable.js`（configForms 纯逻辑）被 `client.js` 打包，不需要进 `files`。
+- **entry id 是双半部契约**：`cordis.patch.yml` 的 `id: everforest` 必须等于 Host（`src/host-config.js`）与 Client（`src/durable.js`）各自持有的 `ENTRY_ID`——settings 服务按 entry id 投影表单，Client 也按它 `get`；测试把三者钉在一起。Host 半部还调用 `settings.configure({ auto: false })`（可选接线）声明设置页由 Client 渲染，避免 DSH 再生成一份重复表单。
 - `dsh.client.immediately`：本版本只用于 **prefetch** bundle（前端 `manifest.plugins.filter(p => p.immediately)` 预取），不改变 apply 时机，减不了首帧；`platform: 'web'` 是必需字段，package 必须导出 `./client`。
 - `scripts/build.mjs`：零依赖 Node，把 `src/*.js` 合成 `client.js` 并包成
   `window.__ModuleLoader__.load({ id: 'dsh-everforest', factory(require) { … } })`（id 必须等于包名）；产物提交入库，安装/运行不执行构建脚本（`prepack` 只在发布前**校验**产物是否最新，即 `build.mjs -C`，不会重新生成；改动 `src/` 后必须本地 `npm run build` 并提交 `client.js`）。
 - **客户端入口文件名是 `src/client-entry.js`，不要改回 `src/index.js`**：npm 11 的 packlist 在根 `main` 为 `index.js` 且 `files` 含嵌套文件时，会把嵌套的 `src/index.js` 误打进 tarball（2026-10-19 实测；改名后 `npm pack` 只含白名单）。
-- `tests/host-boot.test.mjs` 用 `node:vm` 执行 boot 脚本文本，断言它与 Client token 层同值、scheme 解析与回退分支正确；不依赖真机即可守住首帧不漂移。
+- `tests/host-boot.test.mjs` 用 `node:vm` 执行 boot 脚本文本，断言它与 Client token 层同值、scheme 解析与回退分支、B 方案（缓存优先 / Host 兜底 / 非法值回退）与 `window.__EVERFOREST_BOOT__` 发布正确；`tests/durable.test.mjs` 覆盖 Client 持久化胶水的纯函数（用户层判定、播种条件、set / unset 操作、归一化、boot hint），`tests/integration.test.mjs` 用假 configForms 覆盖生命周期。不依赖真机即可守住首帧与迁移不漂移。
 - 调色板提取脚本（开发期可重复）：按 [`reference/palette.md`](reference/palette.md) 的表格生成 `src/palette.js`（6 套背景色阶 + 两套前景/强调/header 色；light `bg_visual` 使用注记的生效值 `#DED8DB`）。
 
 ## 9. 验证计划
@@ -397,13 +490,16 @@ export function apply(ctx) {
 |---|---|
 | 安装 | `plugin_manager.install_bundle` 返回 `application: applied`；Plugin Manager 显示标题/描述/图标 |
 | 覆盖生效 | Client `Theme.listTokens` 出现本插件注册的覆盖 token 名（内置 14 个推荐 token + 动态注册/覆盖 token 都会列出）；`document.body.style.getPropertyValue('--dsw-alias-bg-base')` 等于当前调色板；**不要用首帧阶段 body 的字面背景色校验**（首帧由 Host boot row 写内联 token，Client 生效后 presenter 覆盖同名变量） |
-| 设置页 | `Slots.listSubTree` 根 `settings.section` 出现 `id: everforest, order: 25`；页面可见、切换即时生效、中英文案随 locale 切换 |
-| 持久化 | Desktop：选择 Hard → **退出应用并重新启动** → 仍是 Hard；清除 localStorage → 回到默认（深色 Soft / 浅色 Hard）。浏览器打开 Host URL 时不要求跨重启保持（端口随机），文案已说明 |
+| 设置页 | `Slots.listSubTree` 根 `settings.section` 出现 `id: everforest, order: 25`；页面可见、切换即时生效、中英文案随 locale 切换；Plugins 页**不应**出现重复的自动强度表单（`settings.configure({ auto: false })`） |
+| 持久化 | 选择 Hard → patch 的 `everforest` 行出现 `config.light: hard`；**换一个浏览器 / 清掉 localStorage 打开同一 profile** → 仍是 Hard；**重启 DSH（或重启 Host）** → 仍是 Hard；「恢复默认」后 `config` 字段被清掉、回到深色 Soft / 浅色 Hard。localStorage 清空不再影响强度（只影响首帧缓存） |
+| 迁移 | 从 0.2.1 升级：旧 localStorage 留非默认强度、Host 无用户层 → 首次启动后 Host 出现该值（一次播种），之后清 localStorage 仍在；Host 已有用户层时以 Host 为准、不会被本地缓存覆盖 |
+| Host 写入失败 | home patch / `--patch` 覆盖等场景 → `mutate` 返回 `false`（`response.ok=false`），Client 以回读的 Host 值为准并 warn 一次，设置页不弹错、主题正常；旧宿主 / 无表单时退回 localStorage（按 origin） |
+| 非法配置 | 分两种情况验证：①**运行中**把 patch 的 `config.light` 改成 `nope` → Host 记 warning、entry 保持 ACTIVE、旧配色不丢，改回合法值热恢复（不必重启）；②**冷启动**时 patch 已是非法值 → entry 不激活（无主题、启动诊断可见），改回合法值 / 删除 `config` 后重启恢复 |
 | 深浅色 | 用 DSH 自带 Appearance 或设置页外观控制切到 light/dark/system，主题自动使用对应调色板；`system` 下改 OS 深浅色应实时跟随（聊天区、设置页「当前」行、Windows 标题栏都要变）；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复；点同侧色卡不得改偏好 |
 | 代码高亮 | 三处代码块（聊天气泡 fenced code / 工具输出 / 右侧文件预览）的 token 色与块底正确；diff 的 add/del 底色与 marker 来自 `--dsw-alias-file-diff-*` / `code-diff-*`（diff 没有语法高亮，**不要**按 shiki 验收） |
 | 聊天气泡 | 浅色（hard / medium）为 sage tint、light·soft 为淡鼠尾草纸抬起卡片，与画布边界 ≥ 1.10:1（light·soft 1.05:1，见 `reference/contrast.md` §2d）；深色保持 `bg1`；气泡内文字 4.5:1（2026-10-19 / 2026-10-21 修正，见 §12） |
-| 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失 |
-| 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧，spinner 环与进度弧同色系）；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的 spinner / 边框随 boot token 一起着色（2026-10-21） |
+| 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失；patch 里的 `config` 保留，重新启用后继续生效 |
+| 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧，spinner 环与进度弧同色系）；强度分别验证「有缓存」「无缓存但 Host 有值」「两者都缺」三条路径与 `window.__EVERFOREST_BOOT__` 的值；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的 spinner / 边框随 boot token 一起着色（2026-10-21） |
 | 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；记录已知缺口 |
 | 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效；包名 `dsh-everforest` 仍可用 |
 
@@ -417,7 +513,9 @@ export function apply(ctx) {
 |---|---|---|
 | 0.1.0 | 6 套调色板、覆盖层、设置页、持久化、本机可安装 | 上表前 7 项通过（安装 / 覆盖 / 设置页 / 持久化 / 深浅色 / 停用 / 首帧记录） |
 | 0.2.0 | 对比度与全页走查、shiki / diff 口径与目检、i18n、图标、README 截图、**首帧 Host boot 注入**、系统跟随收尾、npm 发布 | 走查无阻断问题；Web 首帧即 Everforest，Desktop 冷启动原生色 ≤ 1 帧；npm 包可安装并生效；中英文案与图标经检查 |
-| 0.3.0（暂缓） | Host 侧持久化（`configForms` 路线，先做半天 spike） | 跨浏览器一致；2026-10-19 决定先不做，条件见 §7 与 §11 #9 |
+| 0.3.0 | **Host 侧持久化（`configForms`）**、首帧 B 方案（缓存优先 / Host 兜底）、0.2.1 旧值一次性播种、localStorage 降级为缓存 + 旧宿主兜底、文案 / CI / 发布元数据同步 | 跨浏览器共享与重启保持落 profile patch；旧值迁移；写入被拒 / 旧宿主降级；其余人工目检见 §9 |
+
+> **0.3.0 验收证据**：`node --test` 143/143 通过（Node 22；含 `host-boot.test.mjs` 的 Config 与 B 方案、`durable.test.mjs` 的纯函数、`integration.test.mjs` 的假 configForms 生命周期），`npm run check` 全绿（palette / build / contrast，`client.js` 已重建为 v0.3.0），`npm pack --dry-run` 清单齐全（含 `src/host-config.js`）；跨浏览器共享（两个浏览器 / 清 localStorage）、Desktop 与 Web 首帧、升级迁移与「Host 半部需重启」仍为人工目检项，发布前按 [`releasing.md`](releasing.md) §5 完成。
 
 > **0.2.0 验收证据**：构建 / 单测（含 `tests/host-boot.test.mjs` 的首帧调色板一致性断言）/ 集成 / 对比度 / 安装 / 停用清理为自动化项；首帧目检（Web 首帧截图、Desktop 冷启动录屏）、三处代码块与 diff、全站视觉走查、系统跟随仍为人工目检项。
 
@@ -433,10 +531,12 @@ export function apply(ctx) {
 6. ~~冷启动首帧（loading 页 / 首帧底色是 Host 字面 CSS）是否接受；若要消除，需要评估首帧注入在 Electron `dsh-app://` 窗口是否可用~~ **已解决（2026-10-19）**：官方 `webserver/index-inject` 结构化 rows 同时服务 Web（`renderIndex`）与 Desktop（Host ready 时 `collectIndexInjections()` → `DESKTOP_IPC.boot` → 页面侧 boot 内核在插件 roster 前应用），与 `tapIndex` 无关；Host 半部追加一条 body script row 即可。Desktop 上窗口在 load 后才 show、rows 在页面侧 IPC 后应用，因此接受「最多 1 帧原生色」；loading 动效的灰 spinner / 边框在 2026-10-21 由 boot token 6→8 覆盖（见 §5 / §12）。
 7. 是否值得为设置导航项做自定义图标（`settings.section` 无 icon 字段；`dshmarket` 用 DOM 改写实现，0.x 先沿用默认齿轮）。
 8. `--dsw-token` 自检策略：启动时读取若干关键 token 的 computed 值判断是否缺失/改名；缺失时降级（保留原生值）并 console.warn，是否要暴露到设置页「诊断」区。
-9. Host 侧强度持久化何时重启：先做 `configForms` spike——确认第三方 Host entry 是否会出现在 `settings.describe()` / `ctx.configForms.get(entryId)`、写入是否落 profile `cordis.patch.yml`、跨浏览器事件是否实时；确认可行后再迁移（localStorage 降级为缓存）。
-10. 首帧注入的降级边界：插件停用 / Client 半部加载失败时 boot 调色板保留到本页结束；是否需要在设置页暴露「首帧注入是否生效」诊断（读取 index 里是否存在本插件 row）——0.x 不做。
+9. ~~Host 侧强度持久化何时重启~~ **已解决（2026-10-22，0.3.0）**：确认第三方 Host entry 导出的 `Config`（volatile 叶子字段）会被 settings 服务投影为 `ctx.configForms.get('<entry id>')` 表单，写入落当前 profile 的 `cordis.patch.yml` 并跨浏览器广播；localStorage 已降级为「首帧缓存 + 旧宿主兜底」，0.2.1 旧值一次性播种。遗留：旧宿主（无 settings / schemastery 无 `volatile()`）降级路径与多 profile 边界见 §7。
+10. 首帧注入的降级边界：插件停用 / Client 半部加载失败时 boot 调色板保留到本页结束；本机缓存与 Host 值都不可用时回退默认配对。是否需要在设置页暴露「首帧注入是否生效」诊断（读取 index 里是否存在本插件 row / `window.__EVERFOREST_BOOT__`）——0.x 不做。
+11. 缓存与 Host 短暂不一致（另一个浏览器刚改过、本窗口未收到广播）时，首帧先画缓存、随后一次切到 Host 值；是否需要给用户「已同步」提示或强制 `settings.describe` 重读——0.x 不做（用户无感，收敛后不再变化）。
+12. **一次性迁移与跨浏览器重置的取舍**：浏览器 A「恢复默认」清掉 Host override 后，若另一个从未升级打开的浏览器 B 仍持有 0.2.1 的非默认缓存，B 下次加载会把旧值当迁移**重新播种回 Host 一次**（之后 B 的缓存与 Host 收敛，不反复）。0.3.0 接受该取舍——一次性迁移只以「Host 无用户层」为条件，无法区分「从未选择」与「刚被重置」；将来若要消除，需要给播种加 per-browser 一次性标记或按版本 / 时间戳判定。
 
-## 12. 2026-10-19 首帧注入实现记录（v0.2.0）
+## 12. 实现记录（v0.2.0 首帧注入起）
 
 **决策（用户确认）**
 
@@ -444,7 +544,7 @@ export function apply(ctx) {
 |---|---|
 | shiki / diff 文档口径 | 接受修正：shiki 只覆盖**代码块**三处（聊天气泡 / 工具输出 / 文件预览）；diff 走 `--dsw-alias-file-diff-*` / `code-diff-*`，没有语法高亮 |
 | Desktop 首帧 | 接受「最多 1 帧原生色」，不追求绝对 0 帧 |
-| Host 侧偏好持久化 | **暂缓**，先不做（路线与 spike 条件见 §7 / §11 #9） |
+| Host 侧偏好持久化 | **暂缓**，先不做（路线与 spike 条件见 §7 / §11 #9）；2026-10-22 已由 0.3.0 落地，见 §12 末节 |
 | 点另一组色卡固定全局外观 | 保留现有 UX（`ctx.theme.setTheme(scheme)`），「跟随系统」按钮可恢复 |
 
 **机制证据**（DSH 0.2.1-rc.2，安装包源码；抽取副本仅用于只读分析）
@@ -508,4 +608,37 @@ export function apply(ctx) {
 - **门槛 / 报告**：diff 行底按文本承载表面硬门槛（默认 `label-primary` ≥ 4.5，light·soft 例外 4.1，见 `docs/reference/contrast.md` §2e）；marker on gutter 加入 §4 报告项；单测断言浅色各档行底与代码画布 ≥1.08:1。`--dsw-alias-code-diff-added/deleted`（聊天 diff 卡片底色）未动。
 - **验证**：`node --test`、`npm run check`；`docs/reference/contrast.md` 重新生成。真机验收：浅色 / 深色档各打开一次文件 diff（Review / 右侧文件预览），added 行为清晰的低饱和绿条、deleted 行为红条，代码文字与行号都清楚。
 
-**§12 整体残余与人工项**：Web 首帧截图、Desktop 冷启动录屏（≤1 帧）、三处代码块与 diff 目检、系统跟随全链路走查（OS 切换 / DSH Appearance / 插件按钮 / Windows 标题栏）、浅色气泡在 light·soft 下的目检，见 §9。Desktop 的欢迎 / 登录窗口是 shell 自己的文档（`dsh-app://shell/...`），只跟随 light/dark，不走 `index-inject`，0.x 不覆盖（可接受边界）。
+### 2026-10-22 0.3.0：Host 侧持久化（`configForms`）
+
+**决策**
+
+| 项 | 结论 |
+|---|---|
+| 强度真源 | 当前 profile 的 Host 配置（`cordis.patch.yml` 的 `everforest` 行 `config`）；同一 profile 所有浏览器共享 |
+| localStorage | 降级为「首帧缓存 + 旧宿主兜底」，key / 格式不变、不删除；换 origin / 换浏览器由 Host 兜底 |
+| 首帧 | **B 方案**：缓存优先 → Host 值兜底 → 默认；解析结果经 `window.__EVERFOREST_BOOT__` 交给 Client 首帧 |
+| 迁移 | 0.2.1 localStorage 有非默认强度 + Host 无用户层 → 启动时一次性播种到 Host；Host 已有用户层不覆盖。已知取舍：浏览器 A 恢复默认后，仍持有旧缓存的浏览器 B 下次加载会把它再播种回 Host 一次（之后收敛，不反复） |
+| DSH 重启 | Host 半部改动（含本版本升级）必须重启 DSH；运行中改强度经 settings 通道，不需重启。只换包不重启 → 新 Client 退回 localStorage-only（选择仍生效、暂不写 Host），重启后首启补播种 |
+| 写入被拒 | 以 `mutate` 的 `response.ok === false` 为准：回读后返回 `false` → adopt 远端值，warn 一次、不弹错；`writable: false` 守卫只是防御（native settings provider 恒为 true） |
+| 非法值 | 冷启动 / 重挂时 `Config` 校验失败 → entry 不激活（无主题）；运行中 volatile-only 变更解析失败 → `_commitVolatile` 捕获、Host warning、保留旧引用、entry 保持 ACTIVE，改回合法值热恢复 |
+| 设置页位置 | 仍只有本插件 `settings.section` 一页；`settings.configure({ auto: false })` 明确不生成 DSH 自动表单 |
+
+**机制证据**（DSH 0.2.1-rc.2 源码；抽取副本仅用于只读分析）
+
+- `dsh-settings` / loader：`Config` 中挂 `.volatile()` 的叶子字段会被投影进表单；「仅 config 变化」走 volatile-only 更新——把新值原地 commit 到运行中的引用，不重挂插件（`entry.ts` 的 `volatileOnly` / `commitVolatile` 路径）；该路径解析失败被捕获 → Host 记 warning、保留旧引用、entry 保持 ACTIVE（热恢复）。改 Host 半部代码（`index.js`）仍是启动期装载，必须重启；冷启动校验失败才会让 entry 不激活。
+- `dsh-client-ui-settings`：`ConfigForms.get(entryId)` 返回 `ConfigFormController`（`getSnapshot` / `subscribe` / `set` / `unset` / `mutate(ops, expectedRevision)`），快照含 `status` / `value` / `base` / `user` / `revision` / `writable`；写入被拒 / revision 冲突会回读（`recover`）并以 `false` 返回。`settings.configure({ auto: false }, ctx.fiber)` 声明该 entry 的自动表单由插件自己渲染。
+- 仓库 `src/host-config.js` 的能力守卫：schemastery 无 `volatile()`（< 3.18.3）时 schema 只是普通 union，服务不投影表单 → Client 降级 localStorage。
+
+**实现**
+
+- `src/host-config.js`：`ENTRY_ID` / `SCHEMES` / `Config` / `hostState(config)`（emit 时读 `.get()` 并按枚举再校验）；`index.js` 重新导出 `Config`、改为 `apply(ctx, config)`，boot 脚本把 Host 值作为兜底嵌入；`settings.configure({ auto: false })` 为可选接线（settings 服务缺失时静默跳过）。
+- Client：新增 `src/durable.js` 纯逻辑（`hasUserLayer` / `shouldSeed` / `stateFromHost` / `statesEqual` / `stateToSetOps` / `stateToUnsetOps` / `bootHintState`）；`src/state.js` 增加 `readStoredState()` 区分「有真实缓存选择」与「无 / 默认」；`client-entry.js` 用 `ctx.inject(['configForms'], …)` 软等待表单，订阅快照后 adopt / 播种 / 写，`mutate` 被拒（`response.ok=false`）warn 一次并回读（`writable` 守卫留作防御），表单就绪前的选择排队补写；首帧优先读 `window.__EVERFOREST_BOOT__`；跨 origin 的 `storage` 监听保留为兜底。
+- 文案：`locale/*/meta.description` 与 `src/locale.js#hint.storage` 改为 profile 级 Host 持久化口径（键集不变）；README / design / assessment / releasing / CHANGELOG 同步。
+- 构建 / 发布：`package.json` 0.3.0、`files` 增 `src/host-config.js`、devDependency（`@deepseek-ai/schemastery`）；CI / publish 在 Test 前 `npm install --no-package-lock --ignore-scripts --no-audit --no-fund`。
+
+**验证**
+
+- 自动化：`tests/host-boot.test.mjs`（Config 导出且 light/dark 均 volatile、默认 hard/soft、非法值被 schema 拒绝、`hostState()` 在 emit 时读取、`settings.configure` 失败不致命、B 方案各分支与 `__EVERFOREST_BOOT__` 发布）、`tests/durable.test.mjs`（用户层判定 / 播种条件 / set-unset ops / 归一化 / `bootHintState`）、`tests/integration.test.mjs`（假 configForms 生命周期：采纳 / 播种 / 选择 / 恢复默认 / 写入被拒 / 旧宿主降级 / 延迟到达 / 广播 / 排队补写 / 卸载清理 / manifest 与 Host import 守卫）、`tests/state.test.mjs`（`readStoredState`）；本机 Node 22 实测 `node --test` **143/143 通过**、`npm run check` 全绿（`client.js` 重建为 v0.3.0 头）、`npm pack --dry-run` 清单齐全（含 `src/host-config.js`）。
+- 人工（待发布前）：跨浏览器共享、清 localStorage、重启保持、0.2.1 → 0.3.0 迁移播种、写入被拒回读、非法值冷启动 / 运行中两种表现、首帧三路径、Desktop 冷启动 ≤1 帧；见 §9 与 [`assessment.md`](assessment.md) §13。
+
+**§12 整体残余与人工项**：Web 首帧截图、Desktop 冷启动录屏（≤1 帧）、三处代码块与 diff 目检、系统跟随全链路走查（OS 切换 / DSH Appearance / 插件按钮 / Windows 标题栏）、浅色气泡在 light·soft 下的目检；0.3.0 追加：跨浏览器 / 重启 / 迁移 / 写入被拒降级 / 首帧 B 三路径的真机目检。见 §9 与 [`assessment.md`](assessment.md) §13。Desktop 的欢迎 / 登录窗口是 shell 自己的文档（`dsh-app://shell/...`），只跟随 light/dark，不走 `index-inject`，0.x 不覆盖（可接受边界）。

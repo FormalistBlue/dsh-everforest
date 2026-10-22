@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Everforest",
-    "description": "Six Everforest color palettes for DeepSeek Harness (Dark and Light, each in Hard, Medium and Soft), with an in-app Settings page, live switching and per-browser persistence."
+    "description": "Six Everforest color palettes for DeepSeek Harness (Dark and Light, each in Hard, Medium and Soft), with an in-app Settings page, live switching and strengths saved in the current profile's Host configuration (shared by every browser on that profile)."
   }
 }

@@ -63,3 +63,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## DeepSeek Harness（宿主提供，不随本包分发）
+
+- 0.3.0 起 Host 半部通过 `import '@deepseek-ai/schemastery'` 使用 DeepSeek Harness 安装自带的 schema 库
+  （MIT License，Copyright (c) 2021-present Shigma）。该包由宿主在运行时解析，不进入本包 tarball，
+  本仓库也不 vendor 其代码；本包仅以 devDependency 形式钉住同一版本供 `node --test` 使用。
+- 插件使用的 cordis 上下文/服务接口同样来自宿主，不在本包内重新分发。

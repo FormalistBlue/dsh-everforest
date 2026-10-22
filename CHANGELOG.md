@@ -3,6 +3,103 @@
 `dsh-everforest` 的所有重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)：补丁版本只做配色修正、工程与文档修复，不改变 token/API 契约。
 
+## [0.3.0] - 2026-10-22
+
+次版本：强度偏好的**真源**从浏览器 `localStorage` 迁到当前 profile 的 Host 配置（官方 settings / `configForms` 通道），
+同一 profile 的所有浏览器共享；`localStorage` 降为首帧缓存与旧宿主兜底。Appearance（light / dark / system）仍归
+DSH 自己的全局偏好，本插件不另存。
+
+### Added
+
+- **Host 侧持久化（`configForms`）**：Host 半部新增 `src/host-config.js`，导出
+  `Config = Schema.object({ light, dark })`（`union(STRENGTHS)`、默认 `hard` / `soft`、两个叶子字段标记
+  `.volatile()`）；`index.js` 导出 `Config` 并改为 `apply(ctx, config)`。DSH settings 服务把 volatile 字段投影成
+  以 profile entry id（`everforest`）为键的表单；Client 用软注入 `ctx.inject(['configForms'], …)` 等待服务，
+  再通过 `ctx.configForms.get('everforest')` 读写，写入落当前 profile 的 `cordis.patch.yml`：
+
+  ```yaml
+  - id: everforest
+    name: dsh-everforest
+    config:
+      light: hard
+      dark: soft
+  ```
+
+  同一 profile 的所有已认证浏览器共享同一份强度，不再按 origin 各存一份。
+- **Client 侧持久化胶水**：新增 `src/durable.js`（`hasUserLayer` / `shouldSeed` / `stateFromHost` /
+  `statesEqual` / set-unset ops / `bootHintState` 纯函数）；`src/state.js` 增加 `readStoredState()` 区分
+  「有真实缓存选择」与「无 / 默认」；表单就绪前用户点的强度先排队（`queuedWrite`），服务到达后补写一次，
+  不会被首次 adopt 覆盖或静默丢弃。
+- **首帧 B 方案（缓存优先、Host 兜底）**：boot 注入脚本先读本浏览器 `localStorage['dsh-everforest/v1']` 缓存，
+  缓存缺失 / 版本不符 / 字段非法时逐字段回退到 emit 时嵌入的 Host 值，再回退默认配对；解析结果写入
+  `window.__EVERFOREST_BOOT__`，Client 首帧直接沿用，不再先画默认值。Web 每次 index 渲染重新生成脚本
+  （Host 值实时读取），Desktop 的 boot payload 在 Host ready 时采集一次（运行中改档后重载窗口靠缓存兜底）。
+- **0.2.1 旧值一次性播种**：`readStoredState()` 读到真实非默认强度、且 Host 文档尚无用户层时，Client 启动后把
+  缓存值一次性写入 Host（一次 `mutate` 写两个字段、带观察到的 revision）；此后清空 localStorage，强度仍来自 Host。
+- **`settings.configure({ auto: false })`**：声明本插件自己渲染设置页，DSH 不会在 Plugins 页再生成一份重复的
+  自动表单；这是可选接线，settings 服务缺失时静默跳过并保持 localStorage 降级。
+- **测试**：新增 `tests/durable.test.mjs`（`hasUserLayer` / 播种判定 / set-unset ops / 归一化 / `bootHintState`
+  的纯函数）；`tests/host-boot.test.mjs` 增 Config 导出且 light/dark 均 volatile、非法值拒绝、emit 时读取、
+  `settings.configure` 失败不致命、首帧 B 各分支与 `__EVERFOREST_BOOT__` 发布；`tests/integration.test.mjs`
+  增假 configForms 生命周期（就绪采纳、播种、选择、恢复默认、写入被拒、旧宿主降级、延迟到达、跨浏览器广播、
+  就绪前排队补写、卸载清理、manifest / Host import 守卫）；`tests/state.test.mjs` 增 `readStoredState`。
+
+### Changed
+
+- **持久化语义**：`localStorage` 从「唯一持久化」降为「首帧缓存 + 旧宿主兜底」，key 与数据格式不变（仍是
+  `dsh-everforest/v1`）；同一 origin 的 `storage` 事件同步保留，作为没有 Host 广播时的兜底。
+- **首帧强度来源**：从「只读 localStorage、缺失即默认」改为 B 方案（缓存 → Host → 默认）。
+- **依赖口径**：运行时仍是零依赖——Host 半部 `import '@deepseek-ai/schemastery'` 由 DSH 运行时从自身安装解析，
+  不随包安装；仓库改为声明一个 devDependency（`@deepseek-ai/schemastery`）供 `node --test` 使用，CI / publish
+  在测试前执行 `npm install --no-package-lock --ignore-scripts --no-audit --no-fund`。capability 集合不变。
+- **`cordis.patch.yml` 行成为契约**：entry id `everforest` 现在是 Client 定位 configForms 表单的键
+  （`ENTRY_ID`）——Host `src/host-config.js` 与 Client `src/durable.js` 各持一份常量（bundle 不能 import
+  schemastery 的 Host 模块），改名会静默退化为 localStorage-only；测试把 patch 行与两份常量一起钉住。
+- **文案**：`locale/en.json` / `locale/zh.json` 的 `meta.description`、`src/locale.js` 的 `hint.storage`
+  （EN / ZH，键集不变）改为 profile 级 Host 持久化、同 profile 浏览器共享、localStorage 仅首帧缓存、
+  Host 半部更新需重启 DSH。
+- **构建/发布**：`client.js` 因文案改动重新构建；`package.json` 版本 0.3.0、`files` 增加 `src/host-config.js`；
+  `.github/workflows/ci.yml` / `publish.yml` 在 Test 前安装 devDependency，并更新「无依赖、无安装步骤」的旧注释。
+- **文档**：README 中英、`design.md`（§1 / §2 / §3.2 / §5 / §7 / §8 / §9 / §10 / §11 与 §12 的 0.3.0 记录）、
+  `assessment.md`（新增 §13 落地记录）、`releasing.md` 同步 0.3.0 口径。
+
+### Fixed
+
+- **换浏览器 / 换端口丢强度**：0.2.1 的跨窗口同步只在同一 origin 内生效；用浏览器打开 Host URL（端口每次随机）
+  或换一个浏览器就是另一份值。现在强度以 Host 为真源，这些场景都读同一份。
+- **首帧在「Host 有值、本机无缓存」时回退默认**：旧 boot 脚本只读 localStorage，新浏览器 / 清缓存 / 新端口
+  的首帧会先画默认配对；B 方案改用 Host 值兜底。
+- **设置页旧文案与实现不符**：`hint.storage` 不再声称「按浏览器 / 窗口保存」（EN / ZH 同步）。
+
+### Known limitations
+
+- **Host 半部更新需重启 DSH**：升级到 0.3.0 后必须重启 DSH（只刷新页面不会重载 `index.js`）。**只换 npm 包
+  不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only——选择仍生效、只是暂不写 Host；重启
+  DSH 后第一次加载会把本地缓存一次性播种到 Host。之后修改 `config.light` / `config.dark` 由 settings 服务运行时
+  写入，不需要再重启。
+- **profile 级隔离**：强度按 profile 各存各的，不同 profile 之间不共享。
+- **写入被拒绝时回读 Host**：home patch / `--patch` 覆盖等场景以 `mutate` 的 `response.ok === false` 表现——
+  settings 服务回读后返回 `false`，Client adopt 远端值并 `console.warn` 一次，设置页不弹错（代码里的
+  `writable: false` 守卫只是防御，0.2.1-rc.2 的 native provider 恒报告可写）。旧宿主（没有 settings 服务，
+  或 schemastery 无 `volatile()`）下表单不出现，强度退回 localStorage（仍按 origin，旧行为）。
+- **手改配置非法值分两种情况**：运行中把 `cordis.patch.yml` 的 `config.light` / `dark` 改成枚举外的值，Loader
+  的 volatile-only 更新捕获解析错误 → Host 记 warning、保留旧引用、entry 保持 ACTIVE（主题不丢），改回合法值
+  即热恢复；只有冷启动 / 重挂时才 `Config` 校验失败、entry 不激活（无主题），改回合法值或删除 `config` 后重启
+  恢复。
+- **一次性迁移与跨浏览器重置的取舍**：浏览器 A「恢复默认」清掉 Host override 后，若另一个从未升级打开的浏览器
+  B 仍持有 0.2.1 的非默认 localStorage 缓存，B 下次加载会把这个旧值当作待迁移值**重新播种回 Host 一次**；之后
+  B 的缓存与 Host 收敛，不会反复。0.3.0 接受该取舍（一次性迁移只以「Host 无用户层」为条件，无法区分「从未
+  选择」与「刚被重置」）。
+- **没有插件详情页设置卡片**：强度只在本插件自己的 Settings → Everforest 页修改；本插件声明自行渲染设置页
+  （`settings.configure({ auto: false })`），DSH 不会生成第二份自动表单。
+- **首帧可能短暂显示过期缓存**：若本浏览器缓存落后于 Host（例如另一个浏览器刚改过、本窗口未收到广播），首帧
+  画缓存值，Client 拿到 Host 快照后立即 adopt 一次；随后缓存与 Host 收敛。
+
+> 0.3.0 自动化验收：`node --test` **143/143 通过**（Node 22）、`npm run check` 全绿（palette / build / contrast，
+> `client.js` 已重建为 v0.3.0 头）、`npm pack --dry-run` 清单齐全（含 `src/host-config.js`）。跨浏览器共享、
+> Web / Desktop 首帧与重启行为的真机目检，以及发布，仍待按
+> [`docs/releasing.md`](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/releasing.md) §5 完成。
+
 ## [0.2.1] - 2026-10-21
 
 补丁版本，不改变对外契约。
@@ -133,7 +230,8 @@
 - **文档**：`docs/design.md`（方案）、`docs/reference/palette.md`（色阶）、`docs/reference/token-inventory.md`
   （206 token 清单）、`docs/releasing.md`（发布与上架 runbook）、`THIRD_PARTY_NOTICES.md`。
 
-[Unreleased]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.1.1...v0.1.2

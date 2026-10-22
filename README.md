@@ -35,12 +35,15 @@
 
 在 DSH 的插件管理页打开 **Add plugin → Install a third-party plugin**，输入 `dsh-everforest` 安装；本地开发时也可以直接选择本仓库目录。或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标 `dsh-everforest`）。
 
+> **升级提示**：Host 半部（`index.js` / `src/host-config.js`）的改动需要**重启 DSH** 才生效，仅刷新页面不够；0.3.0 升级必须先重启一次。只更新 npm 包但没重启时，新 Client 会退回 localStorage-only（选择仍生效、只是暂不写 Host），重启 DSH 后第一次加载会把本地缓存一次性播种到 Host。重启之后在设置页切换强度由 DSH 的 settings 服务写入 Host 配置，并在同一 profile 的浏览器间实时广播，无需再重启。
+
 ## 使用
 
 - 打开 **Settings → Everforest**：顶部是「跟随系统 / 深色 / 浅色」外观控制，下面是 6 张色卡（深色 / 浅色各 3 档强度）。
-- 选中即时生效并保存；默认深色 Soft / 浅色 Hard。
+- 选中即时生效；默认深色 Soft / 浅色 Hard。
+- 强度保存在当前 profile 的 **Host 配置**（`cordis.patch.yml` 的 `everforest` 行），登录同一 profile 的所有浏览器 / 窗口共享；本浏览器的 localStorage 只作为首帧缓存和旧宿主兜底。
 - 点另一深浅色组的色卡会同时切换 DSH 外观（写入全局外观偏好）；「跟随系统」可恢复自动跟随。
-- 同一地址打开多个标签页时，强度选择会实时同步。
+- 同一 profile 下所有浏览器 / 窗口（含同一地址的多个标签页）的强度选择会实时同步。
 - 「恢复默认」只重置深浅强度，不改写 DSH 的全局外观偏好。
 - 中英文文案随 DSH 语言切换。
 
@@ -48,13 +51,20 @@
 
 - 目标 DSH **0.2.1-rc.2**；`engines.dsh` 为 `>=0.2.1-rc.2 <0.3.0-0`。
 - 仅通过 `--dsw-*` / `--shiki-*` token 覆盖配色，不改组件样式；DSH 升级若 token 改名，缺失项退回原生配色（不会白屏）。
+- 强度偏好走 DSH 官方的 settings / `configForms` 通道写入当前 profile 的 Host 配置（Host 半部的 `@deepseek-ai/schemastery` 由 DSH 运行时解析，不随包安装）；旧宿主上没有该通道时自动降级为浏览器 localStorage。
 - 完整 token 清单见 [docs/reference/token-inventory.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/token-inventory.md)。
 
 ## 说明
 
 - 配色数据取自 sainnhe 的 Everforest（6 套背景色阶）与 Everforest Enchanted（默认配对、header 色、UI 语义），见 [docs/reference/palette.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/palette.md)。
 - 浅色档的正文表面向 `bg0` 提亮 25% 并做对比度守卫（正文 ≥ 4.5:1）；侧栏与内容卡保留可辨边界。
-- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色，Web 的 loading 页 / 首帧（含 loading 动效的 spinner 环与进度弧）即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) 与 [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md)。
+- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色（本浏览器缓存优先，缺失 / 非法时用 Host 配置兜底），Web 的 loading 页 / 首帧（含 loading 动效的 spinner 环与进度弧）即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) 与 [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md)。
+
+## 开发
+
+- **运行时零依赖**：Host 半部 `import '@deepseek-ai/schemastery'` 由 DSH 运行时从自身安装解析，不随包安装。
+- 仓库只声明一个 devDependency（`@deepseek-ai/schemastery`）供 `node --test` 与 CI 使用；首次跑测试前先 `npm install`。
+- `npm test`（= `node --test`）、`npm run check`（palette / build / contrast 三项 `--check`）、`npm run build`（重建并提交 `client.js`）。
 
 ## License
 

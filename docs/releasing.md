@@ -18,6 +18,12 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 - **发布后 registry 有分层传播**（0.2.0 实测）：版本元数据先出现（`https://registry.npmjs.org/dsh-everforest/0.2.0` 200），npm 命令在约 2 分钟内仍可能对 tarball 返回 404；直接 `GET .../-/dsh-everforest-0.2.0.tgz` 成功后再用空缓存安装即可。workflow 里的 `npm view` 校验步骤同理可能仍显示上一版，以 run 日志里的 `+ dsh-everforest@x.y.z` 为准。
 - **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
 
+> **0.3.0 发布注意**（首个把强度偏好迁到 Host 配置的版本）
+>
+> - **升级后必须重启 DSH**：0.3.0 的 Host 半部新增 `Config`（`src/host-config.js`）并改写首帧 boot 脚本，这些在 Host 启动时装载；只刷新页面不会重载 `index.js`。重启后设置页的强度写入才落当前 profile 的 `cordis.patch.yml`。发布说明与市场条目要写清这一点（0.3.0 首次启动之后，运行时改强度不需要再重启）。
+> - **迁移窗口**：0.2.1 用户升级后首次启动时，若 localStorage 有非默认强度且 Host 无用户层，会一次性播种到 Host；验收时先把旧版本留着测一次，确认重启后 Host 值已是用户此前的选择。
+> - **市场冷静期**：npm 发布后 24 小时内 pnpm 的 `minimumReleaseAge` 会让市场静默装到上一个成熟版本（§8.6）；市场侧验收 / 上架条目更新要等冷静期过，别把「市场仍装 0.2.1」当成发布失败。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。
@@ -39,6 +45,10 @@ npm 的 **Trusted Publishing（OIDC）要求包在 registry 上已经存在**，
 $node = 'C:\Users\formalistBlue\AppData\Roaming\fnm\node-versions\v24.17.0\installation'
 & "$node\npm.cmd" login            # 浏览器完成登录，之后 publish 会要 OTP
 & "$node\npm.cmd" whoami
+
+# 测试用 devDependency（运行时零依赖；Host 的 @deepseek-ai/schemastery 由 DSH 自带，
+# 只有 node --test 需要从 node_modules 解析它）。不写 lockfile，也不跑依赖的安装脚本。
+& "$node\npm.cmd" install --no-package-lock --ignore-scripts --no-audit --no-fund
 
 # 构建 + 检查包内容（prepack 只做 `build.mjs -C` 新鲜度校验，不会重新生成产物）
 & "$node\npm.cmd" run build
@@ -95,7 +105,7 @@ npm trust github dsh-everforest `
 
 - 旧版 npm（<= 11.14.x）的 `npm trust` 不发送 permissions 字段，registry 会返回无 body 的 `400 Bad Request`；npm 11.15+ 要求显式 `--allow-publish`（允许正式发布）或 `--allow-stage-publish`（允许 staged 发布）。
 - 网页等价路径：`https://www.npmjs.com/package/dsh-everforest/access` → Trusted publishers → Add a publisher（GitHub Actions；Workflow filename 只写 `publish.yml`；Environment 留空）。
-- 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；发布前会先跑 `node --test` 与 `npm run check`（与 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 相同），任一失败即中止；`workflow_dispatch` 手动发布只允许在 `v<version>` 标签对应的提交上运行（`fetch-depth: 0` + `git tag --points-at HEAD` 校验）；
+- 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；发布前会先安装 devDependency（`npm install --no-package-lock --ignore-scripts --no-audit --no-fund`，只有 `@deepseek-ai/schemastery`，运行时零依赖）再跑 `node --test` 与 `npm run check`（与 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 相同），任一失败即中止；`workflow_dispatch` 手动发布只允许在 `v<version>` 标签对应的提交上运行（`fetch-depth: 0` + `git tag --points-at HEAD` 校验）；
 - 之后发布：改版本 → 提交 → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance；发布成功后还会按 tag 自动创建 GitHub Release（`gh release create --generate-notes`，预发布版本自动加 `--prerelease`，已存在的 Release 会跳过）。
 
 以 [npm Trusted publishing 文档](https://docs.npmjs.com/trusted-publishers) 为准。
@@ -106,12 +116,17 @@ npm trust github dsh-everforest `
 
 `files` 白名单必须覆盖运行时文件：
 
-- `index.js`（Host 半部：bundle 行 + 首帧调色板注入）
+- `index.js`（Host 半部：bundle 行 + `Config` 注册 + 首帧调色板注入）
 - `client.js`（Browser 半部构建产物）
-- `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js`（Host 半部运行时 import；缺一个 Host 半部会加载失败，首帧注入与插件行一起消失）
-- `cordis.patch.yml`（bundle patch）
+- `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js` / `src/host-config.js`（Host 半部运行时
+  import；缺一个 Host 半部会加载失败，首帧注入与插件行一起消失）
+- `cordis.patch.yml`（bundle patch；entry id `everforest` 同时是 Client `ctx.configForms.get('everforest')` 的键）
 - `locale/*.json`（插件管理页标题/描述，`meta.title` / `meta.description`）
 - `icon.svg`、`README.md`、`LICENSE`、`THIRD_PARTY_NOTICES.md`
+
+> `@deepseek-ai/schemastery` 只写在 `devDependencies`：Host 半部在 DSH 进程里 import 时由宿主从自己的安装解析，
+> 若写进 `dependencies` 会装出第二份实例；它进不了 tarball（`files` 白名单不含 `node_modules`），测试前用
+> `npm install --no-package-lock --ignore-scripts --no-audit --no-fund` 安装即可。
 
 > 客户端入口是 `src/client-entry.js`，**不要改回 `src/index.js`**：npm 11 的 packlist 在根 `main` 为 `index.js` 且 `files` 含嵌套文件时会把嵌套的 `src/index.js` 误打进 tarball（2026-10-19 实测）；改名后 `npm pack` 与白名单一致。
 
@@ -148,17 +163,22 @@ GitHub / CI 侧：
 
 DSH 侧（本机 profile = `desktop`）：
 
-1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@0.2.0`）；
+1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@0.3.0`）；
 2. 期望：`application: applied`；插件列表出现标题/描述/图标（来自 `locale/*.json` 与 `icon.svg`）；
 3. `cordis_inspect_query`（Client `Theme.listTokens`）出现覆盖 token；`Slots.listSubTree` 根 `settings.section` 出现 `id: everforest`；
-4. Settings → Everforest 可见，切换即时生效；退出应用重启后强度保持；
-5. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色；
-6. 首帧：Web 刷新 / 新开标签时 loading 页（含 spinner 环与进度弧）即为当前配色；Desktop 完全退出后重启，原生色最多 1 帧。**Host 半部（`index.js`）改动必须重启 Host 进程**——首帧 row 在 Host ready 时收集，单纯刷新页面或只换 `client.js` 都不会更新它。
+4. Settings → Everforest 可见，切换即时生效。**0.3.0 起强度写进当前 profile 的 `cordis.patch.yml`（`everforest` 行的 `config.light` / `config.dark`），同一 profile 换浏览器 / 重启 DSH 后仍在**；清掉本浏览器 localStorage 也不影响强度（localStorage 只是首帧缓存）。
+5. **升级 / 回滚后必须重启 DSH**：Host 半部（`index.js` / `src/host-config.js`）在 Host 启动时装载，刷新页面不会重载。只更新 npm 包但没重启时，新 Client 会退回 localStorage-only（选择仍生效、只是暂不写 Host），重启 DSH 后第一次加载会把本地缓存一次性播种到 Host。0.2.1 → 0.3.0 的首次启动会自动把旧 localStorage 的非默认强度一次性播种到 Host（前提是 Host 尚无用户配置），升级验收请用旧版本留下非默认强度后重启确认。
+6. **写入被拒时回读 Host**：home patch / `--patch` 覆盖等场景以 `mutate` 返回 `false`（`response.ok=false`）表现——settings 服务回读，Client 以 Host 值为准并 warn 一次，设置页不弹错；旧宿主（无 settings 服务 / schemastery 无 `volatile()`）下表单不出现，强度退回 localStorage（按 origin），设置页不报错。正常 profile 不应出现该降级。
+7. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色；profile patch 里的 `everforest` 行 `config` 会随卸载/停用保留（下次启用继续用）。
+8. 首帧：Web 刷新 / 新开标签时 loading 页（含 spinner 环与进度弧）即为当前配色（本浏览器缓存优先、Host 值兜底，见 `design.md` §5）；Desktop 完全退出后重启，原生色最多 1 帧。**Host 半部（`index.js`）改动必须重启 Host 进程**——首帧 row 在 Host ready 时收集，单纯刷新页面或只换 `client.js` 都不会更新它。
 
 ## 6. 撤销与回滚
 
 - npm 24 小时内可 `npm unpublish dsh-everforest@版本`（**不能重发同版本号**，要改版本重发）；超过 24 小时用 `npm deprecate dsh-everforest@版本 "message"` 标记。
 - 发布内容错误优先“发新补丁版本 + deprecate 旧版本”，不要依赖 unpublish。
+- 回滚到 Host 半部不同的版本（0.2.1 ↔ 0.3.0）**同样需要重启 DSH** 才生效；0.3.0 写入 profile patch 的
+  `config` 对 0.2.1 无害（0.2.1 没有 `Config` 导出、`apply` 不读第二个参数），但会被忽略、强度退回 localStorage；
+  需要时可手动删除该行 `config`。
 - CI 失败时先看 npm 的错误码：`EPUBLISHCONFLICT`（版本已存在）、`404 PUT`（trusted publisher 配置与 workflow/仓库不匹配）、`OTP required`（账号 2FA 但未用 OIDC/automation token）。
 
 ## 7. 常见坑
@@ -174,6 +194,8 @@ DSH 侧（本机 profile = `desktop`）：
 | 安装后主题不生效 | tarball 里缺 `client.js`、`exports["./client"]` 错误，或 `dsh.client.platform` 不是 `web` |
 | DSH 提示不兼容 | `engines.dsh` 与运行时版本不匹配（本机 0.2.1-rc.2） |
 | 发布后本地仍装旧版 | 插件管理器安装会锁定版本；升级用 `plugin_manager` update/重装，替换已运行的包需重启 |
+| 升级后强度只在当前浏览器生效、patch 里没有 `config` | 只更新了 npm 包但没重启 DSH：Host 半部仍是旧版，新 Client 退回 localStorage-only；重启 DSH 后首启会把本地缓存一次性播种到 Host |
+| 手改 profile patch 成非法强度 | 运行中：volatile-only 更新解析失败被捕获 → Host warning、entry 保持 ACTIVE（旧配色不丢），改回合法值热恢复；冷启动 / 重挂：entry 不激活（无主题），改回合法值或删除 `config` 后重启恢复 |
 
 ## 8. DSH 生态上架：awesome-dsh-plugin 目录（dshmarket.com 的数据源）
 
@@ -186,7 +208,7 @@ npm 发布只解决“可安装”。[dshmarket.com](https://dshmarket.com/)、[
 - npm 包 `dsh-plugin-catalog`（每日 CI 发布）：dsh 0.2.1+ Discover 索引 / `plugin_market` 工具；
 - dsh-market App：`category: theme` 的条目自动进入 **Themes Tab**（一键安装 / 切换 / 卸载）。
 
-### 8.2 条目文件（2026-10-18 起草，2026-10-19 补「首帧」；PR 时原样提交）
+### 8.2 条目文件（2026-10-18 起草，2026-10-19 补「首帧」，2026-10-22 补「Host 配置持久化」；PR 时原样提交）
 
 路径 `data/plugins/FormalistBlue__dsh-everforest.yml`（文件名 = owner__repo）：
 
@@ -195,8 +217,8 @@ url: https://github.com/FormalistBlue/dsh-everforest
 name: FormalistBlue/dsh-everforest
 category: theme
 description:
-  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, with the Host half painting the boot palette so the Web loading screen and first frame are already Everforest; a Settings page picks the scheme and can follow the system appearance.'
-  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效；Host 半部在 Client 加载前注入 boot 调色板，Web 的 loading 页与首帧即为 Everforest；设置页可选择色板与跟随系统外观。'
+  en: 'Everforest palettes for the DeepSeek Harness Web/Desktop UI: six schemes (dark and light, each in hard, medium or soft) applied as token-level overrides, with the Host half painting the boot palette so the Web loading screen and first frame are already Everforest; a Settings page picks the scheme, follows the system appearance, and stores the choice in the current profile Host configuration so every browser on that profile shares it.'
+  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色：深色 / 浅色各硬 / 中 / 软共 6 套，以 token 覆盖层生效；Host 半部在 Client 加载前注入 boot 调色板，Web 的 loading 页与首帧即为 Everforest；设置页可选择色板、跟随系统外观，强度保存在当前 profile 的 Host 配置中，同一 profile 的所有浏览器共享。'
 ```
 
 字段白名单只有 `url` / `name` / `category` / `description`（可选 `tarball`）；多写 `npm:` / `author:` / `screenshots:` 会被校验直接拒。`description.en` 必须、单行、以句号结尾、**必须与代码相符**（评审会数描述里的数字与 API 名），`zh` 可选。描述里含 `: ` 时必须加引号。
@@ -210,7 +232,7 @@ description:
 | 仓库创建满 1 天（CI 自动检查） | 创建于 `2026-10-18 07:07 UTC` → **最早 2026-10-19 15:07（HK）提 PR** |
 | GitHub topic `dsh-plugin` | **需在仓库 Settings 添加**（当前 topics 为空） |
 | `screenshots.json` | 已加（仓库根，见 §8.4） |
-| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；当前 `dsh-everforest@0.2.0` 满足，**不要**在 yml 里写包名 |
+| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；`dsh-everforest@0.3.0` 发布后即满足，**不要**在 yml 里写包名 |
 
 ### 8.4 截图（仓库根 `screenshots.json`）
 
@@ -231,7 +253,7 @@ description:
 
 ### 8.5 提交步骤
 
-1. PR 前：给仓库加 `dsh-plugin` topic；`git status` 干净；`node --test` 与 `npm run check` 全绿（sandbox 下 `node --test` 会因 `spawn EPERM` 失败，需在普通终端跑）。
+1. PR 前：给仓库加 `dsh-plugin` topic；`git status` 干净；先 `npm install --no-package-lock --ignore-scripts --no-audit --no-fund`，再跑 `node --test` 与 `npm run check` 全绿（sandbox 下 `node --test` 会因 `spawn EPERM` 失败，需在普通终端跑）。
 2. 提交：fork 与分支已在 2026-10-18 预置——`FormalistBlue/awesome-dsh-plugin` 的分支 `add-dsh-everforest` 已包含该条目文件（相对上游 `main` 只新增 1 个文件）。仓库满 1 天后打开 <https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/compare/main...FormalistBlue:add-dsh-everforest?expand=1> 点 **Create pull request**（标题 `Add FormalistBlue/dsh-everforest`）。需要重做时：fork → 只新增 `data/plugins/FormalistBlue__dsh-everforest.yml` → 开 PR。一个 PR 最多 3 条、别动别人的条目、别手改两个 README。
 3. CI 顺序检查：条目数 ≤3 → 仓库 HEAD 的 `package.json#dsh.bundle` → 仓库年龄 ≥1 天 → `awesome-lint` + README 重生成。
 4. 合并后站点自动重建；`dsh-plugin-catalog` 每日发 npm；市场 App 下次打开即拉到最新目录（通常 1 天内出现）。
