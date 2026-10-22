@@ -84,6 +84,7 @@
 | **首帧 B 方案（2026-10-22）** | boot 脚本「缓存优先 → Host 值兜底 → 默认」，解析结果写 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用 | 解决新浏览器 / 清缓存 / Web 随机端口首帧画默认值的问题；Desktop 的 boot payload 只采集一次，缓存比它新 |
 | **0.2.1 旧值迁移（2026-10-22）** | Host 无用户层 + 本地缓存非默认 → 启动时一次性播种到 Host；Host 已有用户层不覆盖 | 升级不丢旧选择；清 localStorage 后仍以 Host 为准 |
 | **设置页声明（2026-10-22）** | `settings.configure({ auto: false })` 声明自动表单由本插件渲染 | DSH 不会在 Plugins 页生成重复的强度表单；强度只能在本插件 Settings → Everforest 修改 |
+| **设置入口与导航图标（2026-10-22）** | 保留独立设置页，**不做** Appearance / General 快捷入口（`settings.general.item` 官方槽可用，但行内拿不到跳转设置分区的官方 API，只能做成重复控件）；导航图标**标为待做**，等 DSH 官方给 `settings.section` 加 `icon` 字段，0.x 不做 DOM 改写 | 用户确认；导航项沿用默认齿轮，功能不受影响；后续若上游加字段再补图标 |
 | shiki / diff 口径（2026-10-19） | 修正：shiki 只覆盖**代码块**三处（聊天气泡 / 工具输出 / 文件预览）；diff 走 `file-diff` / `code-diff` token | 文档与验收清单同步；不再按「diff 有语法高亮」验收 |
 | 发布目标 | **npm 发布** | 需 display 元数据（`meta.title` / `meta.description` + 图标）、`engines.dsh`、`files`/`exports` 白名单、LICENSE + THIRD_PARTY_NOTICES、README 截图 |
 | 包名 | `dsh-everforest`（2026-10-18 查询 npm registry 未占用，发布前复核） | — |
@@ -130,7 +131,7 @@
 | boot 注入残留 | 插件停用 / Client 半部加载失败时，页面保留启动调色板 | row 只写 presenter 也会写的 body 内联 token（Client 正常时首次 apply 必覆盖）；停用后 row 在 Host 重启 / 下次 index 渲染消失；Client 失败时保留到本页结束（可接受，README/design 已标注） |
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
-| 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | 已知限制；0.x 不做 DOM 改写（`dshmarket` 的做法），后续看 DSH 是否加 `icon` 字段 |
+| 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | **待做**（2026-10-22 用户拍板：等 DSH 官方给 `settings.section` 加 `icon` 字段）；0.x 不做 DOM 改写（`dshmarket` 的做法） |
 | Enchanted 的平铺背景 | DSH 部分表面依赖明度差，平铺后可能层次不清（**已发生**：Windows 下侧栏 / 标题栏 / 内容卡同色，列边界消失） | 已按 `design.md` 开放问题 5 落地修正：保持 `bg0` 主底，侧栏单独取 `bg0` → `bg1` 80% 混合 + 对比度守卫，并新增「侧栏边界 ≥ 1.02:1」硬门槛；其余层级仍用 `bg1`/`bg2` |
 | `header-*` 色不随强度变化 | 硬/软档的背景亮度差较大时，Enchanted 的常量 header 色对比度可能不足 | 6 档逐页对比度检查；不达标则按背景亮度小幅修正并回写 `reference/palette.md` |
 
