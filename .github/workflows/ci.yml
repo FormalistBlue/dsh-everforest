@@ -1,10 +1,13 @@
 # Verify the generated artifacts and the test suite on every push and PR.
 #
-# dsh-everforest has no runtime or dev dependencies: nothing is installed here,
-# and both checks run straight from the committed sources. The matrix covers the
-# Node versions allowed by `engines.node` (>=20) on Windows as well as Linux —
-# Windows is the platform where line endings and path handling used to break the
-# generated-artifact checks (see .gitattributes and docs/releasing.md).
+# The package has no runtime dependencies: DSH provides `@deepseek-ai/schemastery`
+# when it loads the Host half, so nothing is installed at run time. The test
+# suite does import that module directly (the Host Config schema), so the repo
+# carries it as a devDependency and this workflow installs it before `node
+# --test`. The matrix covers the Node versions allowed by `engines.node` (>=20)
+# on Windows as well as Linux — Windows is the platform where line endings and
+# path handling used to break the generated-artifact checks (see .gitattributes
+# and docs/releasing.md).
 name: verify
 
 on:
@@ -39,8 +42,16 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
+      # devDependency only (`@deepseek-ai/schemastery`): the Host half imports it
+      # through the DSH runtime, but the tests import it from node_modules.
+      # --no-package-lock keeps the repository lockfile-free; the install runs no
+      # scripts of its own, so the job stays inert apart from fetching the module.
+      - name: Install test dependencies
+        run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
+
       # Test suite: palette EOL/generation, token coverage, the fake Client
-      # harness, host boot script parity, settings page and state.
+      # harness, host boot script parity, Host config schema, settings page and
+      # state.
       - name: Test
         run: node --test
 

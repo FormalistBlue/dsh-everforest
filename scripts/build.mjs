@@ -38,6 +38,7 @@ const SOURCES = [
   'color.js',
   'tokens.js',
   'state.js',
+  'durable.js',
   'locale.js',
   'settings-page.js',
   'client-entry.js',

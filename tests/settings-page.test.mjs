@@ -591,7 +591,7 @@ test('restore-defaults button calls store.reset and shows the default pairing', 
   assert.deepEqual(pressed, ['dark-soft', 'light-hard'])
 })
 
-test('page explains the Appearance write and the per-browser storage scope', () => {
+test('page explains the Appearance write and the Host configuration scope', () => {
   const { tree } = renderPage()
   const hints = findAll(tree, byClass('everforest-hint'))
   assert.equal(hints.length, 2)
@@ -599,8 +599,10 @@ test('page explains the Appearance write and the per-browser storage scope', () 
   assert.match(text, /Appearance/)
   assert.match(text, /Follow system/)
   assert.match(text, /global appearance preference/)
-  assert.match(text, /browser or app window/)
-  assert.match(text, /restart/)
+  assert.match(text, /Host configuration of the current profile/)
+  assert.match(text, /every browser on that profile/)
+  assert.match(text, /first-frame cache/)
+  assert.match(text, /Restart/)
 })
 
 test('Simplified Chinese renders translated copy and labels', () => {
@@ -628,7 +630,8 @@ test('Simplified Chinese renders translated copy and labels', () => {
   assert.match(textContent(findOne(tree, byClass('everforest-intro'))), /外观/)
   const hintText = findAll(tree, byClass('everforest-hint')).map(textContent).join('\n')
   assert.match(hintText, /全局外观偏好/)
-  assert.match(hintText, /浏览器 \/ 应用窗口/)
+  assert.match(hintText, /同一 profile 的所有浏览器共享/)
+  assert.match(hintText, /首帧缓存/)
 })
 
 test('all interactive controls are native buttons', () => {

@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
 import { BuildError, parseModule } from '../scripts/build.mjs'
+import { DEFAULT_STATE } from '../src/palette.js'
 import { STORAGE_KEY, STATE_VERSION } from '../src/state.js'
 import { tokensFor } from '../src/tokens.js'
 
@@ -45,13 +46,94 @@ const mockReact = {
 }
 
 /**
- * Fake Client context: records theme.overrideTokens layers, slot registrations,
- * and effect disposers so the test can exercise plugin unload. With
- * `deferUiServices`, `ctx.get('slots'/'locale')` returns undefined and
- * `ctx.inject` stores the callback, simulating a profile whose UI services
- * activate after this plugin.
+ * Fake `ctx.configForms.get('everforest')` controller mirroring
+ * `dsh-client-ui-settings`' `ConfigFormController` contract:
+ * `{ status, value, base, user, revision, writable }` snapshots, a subscribe
+ * notification on every change, and atomic `mutate(ops, expectedRevision)`
+ * writes that return whether the Host accepted them.
+ *
+ * `refuse: true` simulates a rejected write (revision conflict / locked
+ * profile): the mutation is recorded but the snapshot does not move, exactly
+ * like the real controller after it re-reads the document.
+ *
+ * @param {object} [options]
+ * @param {'loading' | 'ready' | 'unavailable'} [options.status]
+ * @param {{ light?: string, dark?: string }} [options.value] - effective section.
+ * @param {{ light?: string, dark?: string }} [options.user] - profile override.
+ * @param {number} [options.revision]
+ * @param {boolean} [options.writable]
+ * @param {boolean} [options.refuse] - every mutate() returns false.
  */
-function createHarness({ deferUiServices = false } = {}) {
+function createConfigForm(options = {}) {
+  const shipped = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
+  const formState = {
+    status: options.status ?? 'loading',
+    value: options.value === undefined ? undefined : { ...shipped, ...options.value },
+    base: { ...shipped, ...(options.base ?? {}) },
+    user: { ...(options.user ?? {}) },
+    revision: options.revision ?? 1,
+    writable: options.writable ?? true,
+  }
+  const listeners = new Set()
+  const record = { mutations: [], subscribeCount: 0, listenerCount: () => listeners.size }
+  const notify = () => {
+    for (const listener of [...listeners]) listener()
+  }
+  return {
+    record,
+    state: formState,
+    getSnapshot: () => ({ ...formState }),
+    subscribe: (listener) => {
+      record.subscribeCount += 1
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    mutate: async (ops, expectedRevision) => {
+      record.mutations.push({ ops: JSON.parse(JSON.stringify(ops)), expectedRevision })
+      if (formState.writable === false) return false
+      if (options.refuse) return false
+      for (const op of ops) {
+        const field = op.path[0]
+        if (op.op === 'set') {
+          formState.value = { ...formState.value, [field]: op.value }
+          formState.user = { ...formState.user, [field]: op.value }
+        } else {
+          const user = { ...formState.user }
+          delete user[field]
+          formState.user = user
+          formState.value = { ...formState.value, [field]: formState.base[field] }
+        }
+      }
+      formState.revision += 1
+      notify()
+      return true
+    },
+    /** Simulate a change made by another browser (host broadcast). */
+    emit: (next) => {
+      Object.assign(formState, next)
+      notify()
+    },
+  }
+}
+
+/**
+ * Fake Client context: records theme.overrideTokens layers, slot registrations,
+ * effect disposers, and the optional-service `ctx.inject` callbacks so the test
+ * can exercise plugin unload. With `deferUiServices`, `ctx.get('slots'/'locale')`
+ * returns undefined and the callback is stored, simulating a profile whose UI
+ * services activate after this plugin. `configForms` is an independent service:
+ * `configForms: false` omits it (pre-0.3.0 host), `deferConfigForms: true`
+ * delivers it later (settings plugin activates after this one).
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.deferUiServices]
+ * @param {boolean} [options.configForms] - provide the `configForms` service.
+ * @param {boolean} [options.deferConfigForms] - deliver the service only after
+ *   `receiveConfigForms()`.
+ * @param {ReturnType<typeof createConfigForm>} [options.form] - the form the
+ *   service returns; defaults to a still-loading form.
+ */
+function createHarness({ deferUiServices = false, configForms = true, deferConfigForms = false, form = null } = {}) {
   const recorded = {
     tokenLayers: [],
     tokenLayerDisposers: [],
@@ -60,10 +142,12 @@ function createHarness({ deferUiServices = false } = {}) {
     localeRegistrations: [],
     localeDisposals: [],
     effects: [],
+    injectDisposers: [],
     setThemeCalls: [],
     injectCalls: [],
   }
   let servicesReady = !deferUiServices
+  let configFormsReady = configForms && !deferConfigForms
   const themeSnapshot = {
     preference: 'system',
     fontSizes: { text: 14, code: 11, terminal: 13 },
@@ -109,10 +193,25 @@ function createHarness({ deferUiServices = false } = {}) {
       return () => {}
     },
   }
+  const formController = configForms ? (form ?? createConfigForm()) : null
+  const configFormsService = configForms
+    ? {
+        get: (entryId) => {
+          assert.equal(entryId, 'everforest', 'the form must be addressed by the profile entry id')
+          return formController
+        },
+      }
+    : undefined
+  const serviceAvailable = (service) => {
+    if (service === 'slots' || service === 'locale') return servicesReady
+    if (service === 'configForms') return configFormsReady
+    return Boolean(ctx[service])
+  }
   const ctx = {
     theme,
     slots,
     locale,
+    ...(configFormsService ? { configForms: configFormsService } : {}),
     effect: (callback, label) => {
       const disposer = callback()
       recorded.effects.push({ label, disposer })
@@ -127,14 +226,21 @@ function createHarness({ deferUiServices = false } = {}) {
       }
     },
     // The real Cordis context calls the callback once every named service is
-    // available; the harness either provides them synchronously or defers the
-    // callback to `releaseUiServices()`.
+    // available; the harness delivers synchronously when it can, otherwise on
+    // `releaseUiServices()` / `receiveConfigForms()`. Each callback is
+    // delivered at most once, and its returned disposer is kept for unload.
     inject: (services, callback) => {
-      recorded.injectCalls.push({ services, callback })
-      if (servicesReady) {
-        for (const service of services) assert.ok(ctx[service], `missing injected service ${service}`)
-        callback(ctx)
+      const entry = { services: [...services], callback, delivered: false }
+      recorded.injectCalls.push(entry)
+      const deliver = () => {
+        if (entry.delivered) return
+        if (!entry.services.every(serviceAvailable)) return
+        entry.delivered = true
+        const disposer = callback(ctx)
+        if (typeof disposer === 'function') recorded.injectDisposers.push(disposer)
       }
+      entry.deliver = deliver
+      deliver()
     },
     get: (name) => {
       if (!servicesReady) return undefined
@@ -146,16 +252,19 @@ function createHarness({ deferUiServices = false } = {}) {
   return {
     ctx,
     recorded,
+    form: formController,
     themeSnapshot,
     releaseUiServices: () => {
       servicesReady = true
-      for (const { services, callback } of recorded.injectCalls) {
-        for (const service of services) assert.ok(ctx[service], `missing injected service ${service}`)
-        callback(ctx)
-      }
+      for (const { deliver } of recorded.injectCalls) deliver()
+    },
+    receiveConfigForms: () => {
+      configFormsReady = true
+      for (const { deliver } of recorded.injectCalls) deliver()
     },
     disposeAll: () => {
       for (const { disposer } of [...recorded.effects].reverse()) disposer?.()
+      for (const disposer of [...recorded.injectDisposers].reverse()) disposer?.()
     },
   }
 }
@@ -191,7 +300,7 @@ function createMemoryStorage(entries = {}) {
  * no-op for the lifecycle tests. `storage` seeds the window's localStorage, and
  * the returned `window` stub can dispatch the DOM events the plugin listens to.
  */
-function loadBundle({ body, getComputedStyle, console: consoleStub, storage } = {}) {
+function loadBundle({ body, getComputedStyle, console: consoleStub, storage, bootHint } = {}) {
   let definition = null
   const styleTags = []
   const listeners = new Map()
@@ -235,6 +344,7 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage } = 
     ...(consoleStub ? { console: consoleStub } : {}),
     ...(storage ? { localStorage: storage } : {}),
   }
+  if (bootHint !== undefined) windowStub.__EVERFOREST_BOOT__ = bootHint
   vm.runInNewContext(read('client.js'), sandbox, { filename: 'client.js' })
   assert.ok(definition, 'client.js did not call window.__ModuleLoader__.load()')
   const module = definition.factory((request) => {
@@ -242,6 +352,34 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage } = 
     return mockReact
   })
   return { definition, module, styleTags, window: windowStub }
+}
+
+/** Let queued Host-write promises settle (the client never blocks apply). */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+/**
+ * Mount the bundle against a fresh harness and drain the initial async work.
+ * @param {object} [options]
+ * @param {object} [options.harnessOptions] - `createHarness` options.
+ * @param {object} [options.loadOptions] - `loadBundle` options.
+ */
+async function mount(options = {}) {
+  const harness = createHarness(options.harnessOptions ?? {})
+  const loaded = loadBundle(options.loadOptions ?? {})
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    loaded.module.apply(harness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  await flush()
+  return { ...loaded, harness }
+}
+
+/** The Settings store the page receives. */
+function storeOf(harness) {
+  return harness.recorded.slotRegistrations[0].options.inject().store
 }
 
 test('manifest declares the dsh bundle and client half correctly', () => {
@@ -274,13 +412,19 @@ test('bundle patch inserts exactly one Everforest row', () => {
   assert.equal((patch.match(/- insert:/g) ?? []).length, 1)
 })
 
-test('host half contributes the first-paint boot row', async () => {
+test('host half contributes the first-paint boot row and the durable Config', async () => {
   const host = await import('../index.js')
   assert.equal(typeof host.apply, 'function')
-  assert.equal(host.apply.length, 1, 'apply() receives the Host context')
+  assert.equal(host.apply.length, 2, 'apply() receives the Host context and the parsed config')
   assert.ok(Array.isArray(host.BOOT_TOKENS) || ArrayBuffer.isView(host.BOOT_TOKENS))
   assert.ok(host.BOOT_TOKENS.length > 0)
   assert.equal(typeof host.createBootScript, 'function')
+  // The settings service projects `Config` by the profile entry id; the Loader
+  // validates the profile patch against the same schema. (A schemastery schema
+  // is a callable object, so `typeof` is 'function'.)
+  assert.equal(typeof host.Config, 'function')
+  assert.equal(typeof host.Config.toJSON, 'function')
+  assert.equal(host.ENTRY_ID, 'everforest')
 })
 
 test('the published file list covers every runtime import of the Host and Client halves', async () => {
@@ -299,17 +443,34 @@ test('the published file list covers every runtime import of the Host and Client
       queue.push(match[1].startsWith('src/') ? match[1] : `src/${match[1]}`)
     }
   }
-  assert.deepEqual([...seen].sort(), ['index.js', 'src/color.js', 'src/palette.js', 'src/state.js', 'src/tokens.js'])
+  assert.deepEqual([...seen].sort(), ['index.js', 'src/color.js', 'src/host-config.js', 'src/palette.js', 'src/state.js', 'src/tokens.js'])
   for (const relative of seen) {
     assert.ok(manifest.files.includes(relative), `files whitelist must include ${relative}`)
   }
   assert.ok(manifest.files.includes('client.js'))
 })
 
-test('host half imports no Harness Host package', () => {
+test('host half imports only the Host-provided schemastery package', () => {
   const source = read('index.js')
-  assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, 'index.js imports a Harness package')
+  assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, 'index.js must go through src/host-config.js for schemastery')
   assert.doesNotMatch(source, /require\(['"]@deepseek-ai\//, 'index.js requires a Harness package')
+
+  // The one bare import is schemastery, resolved by the DSH Host at runtime
+  // from its own installation (never installed a second time by this package).
+  const hostConfig = read('src/host-config.js')
+  const bareImports = [...hostConfig.matchAll(/from\s+['"](@[^'"]+)['"]/g)].map((match) => match[1])
+  assert.deepEqual(bareImports, ['@deepseek-ai/schemastery'])
+  assert.doesNotMatch(hostConfig, /require\(/)
+})
+
+test('ENTRY_ID is one contract across the patch row, the Host Config and the Client', async () => {
+  const patch = read('cordis.patch.yml')
+  const patchId = patch.match(/- insert:\s*\n\s*- id: ([A-Za-z0-9_-]+)/)?.[1]
+  assert.equal(patchId, 'everforest', 'the bundle patch must keep its insert id')
+  const durable = await import('../src/durable.js')
+  const hostConfig = await import('../src/host-config.js')
+  assert.equal(hostConfig.ENTRY_ID, patchId)
+  assert.equal(durable.ENTRY_ID, patchId)
 })
 
 test('plugin display metadata exists in both locales', () => {
@@ -349,7 +510,7 @@ test('bundle registers under the package id with the Client entry shape', () => 
 })
 
 test('src half imports no Harness Client package', () => {
-  for (const relative of ['palette.js', 'color.js', 'tokens.js', 'state.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
+  for (const relative of ['palette.js', 'color.js', 'tokens.js', 'state.js', 'durable.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
     const source = read(`src/${relative}`)
     assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, `${relative} imports a Harness package`)
     assert.doesNotMatch(source, /require\(['"]@deepseek-ai\//, `${relative} requires a Harness package`)
@@ -469,12 +630,17 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   const { recorded } = harness
 
   // The theme layer is unconditional; the Settings page waits for its services.
+  // The durable form is waited for as its own optional service, independent of
+  // slots/locale (a pre-0.3.0 host simply never delivers that one).
   assert.equal(recorded.tokenLayers.length, 1)
   assert.equal(recorded.slotRegistrations.length, 0)
   assert.equal(recorded.localeRegistrations.length, 0)
   assert.equal(styleTags.length, 0)
-  assert.equal(recorded.injectCalls.length, 1)
-  assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['slots', 'locale'])
+  assert.equal(recorded.injectCalls.length, 2)
+  assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
+  assert.equal(recorded.injectCalls[0].delivered, true)
+  assert.deepEqual(Array.from(recorded.injectCalls[1].services), ['slots', 'locale'])
+  assert.equal(recorded.injectCalls[1].delivered, false)
 
   harness.releaseUiServices()
   assert.equal(recorded.slotRegistrations.length, 1)
@@ -543,6 +709,259 @@ test('strength changes made by another window reach this one through the storage
   storage.setItem(STORAGE_KEY, payload('hard', 'hard'))
   window.dispatchEvent({ type: 'storage', key: STORAGE_KEY })
   assert.equal(recorded.tokenLayers.length, 3, 'a disposed plugin still rebuilt the layer')
+})
+
+// ---------------------------------------------------------------------------
+// Host-backed durability (0.3.0): configForms binding, adoption, migration.
+// The fake form mirrors the real controller: versioned snapshots, atomic
+// mutate ops, and a refusal that leaves the document unchanged.
+// ---------------------------------------------------------------------------
+
+test('a Host-stored choice is adopted on load and cached for the first frame', async () => {
+  const storage = createMemoryStorage()
+  const form = createConfigForm({
+    status: 'ready',
+    value: { light: 'medium', dark: 'hard' },
+    user: { light: 'medium', dark: 'hard' },
+  })
+  const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
+  const store = storeOf(harness)
+
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'hard' })
+  assert.equal(harness.recorded.tokenLayers.length, 2, 'the adopted pair must rebuild the token layer')
+  const cached = JSON.parse(storage.getItem(STORAGE_KEY))
+  assert.deepEqual({ light: cached.light, dark: cached.dark }, { light: 'medium', dark: 'hard' })
+  assert.equal(form.record.subscribeCount, 1, 'the form must be observed for remote changes')
+})
+
+test('a Host value equal to the cache does not rebuild the token layer', async () => {
+  const storage = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'medium', dark: 'hard' }),
+  })
+  const form = createConfigForm({
+    status: 'ready',
+    value: { light: 'medium', dark: 'hard' },
+    user: { light: 'medium', dark: 'hard' },
+  })
+  const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
+  assert.deepEqual({ ...storeOf(harness).getSnapshot().state }, { light: 'medium', dark: 'hard' })
+  assert.equal(harness.recorded.tokenLayers.length, 1, 'an equal adopt must not re-stack the layer')
+})
+
+test('a pre-0.3.0 cache choice is seeded into the Host once', async () => {
+  const storage = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'medium' }),
+  })
+  const form = createConfigForm({ status: 'ready', value: {}, user: {}, revision: 7 })
+  const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
+  const store = storeOf(harness)
+
+  assert.equal(form.record.mutations.length, 1, 'the migration must write exactly once')
+  assert.deepEqual(form.record.mutations[0].ops, [
+    { op: 'set', path: ['light'], value: 'soft' },
+    { op: 'set', path: ['dark'], value: 'medium' },
+  ])
+  assert.equal(form.record.mutations[0].expectedRevision, 7, 'the seed must fence on the observed revision')
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium' }, 'the cached choice must survive seeding')
+  assert.deepEqual(form.state.user, { light: 'soft', dark: 'medium' }, 'the Host now carries the migrated choice')
+  assert.equal(harness.recorded.tokenLayers.length, 1, 'seeding must not repaint the initial cache pair')
+})
+
+test('no migration write happens without a real cached choice', async () => {
+  const absent = createMemoryStorage()
+  const shipped = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, ...DEFAULT_STATE }),
+  })
+  for (const storage of [absent, shipped]) {
+    const form = createConfigForm({ status: 'ready', value: {}, user: {} })
+    const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
+    assert.equal(form.record.mutations.length, 0)
+    assert.deepEqual({ ...storeOf(harness).getSnapshot().state }, { ...DEFAULT_STATE })
+  }
+})
+
+test('a card click writes the whole pair to the Host in one mutation', async () => {
+  const storage = createMemoryStorage()
+  const form = createConfigForm({ status: 'ready', value: {}, user: {}, revision: 4 })
+  const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
+  const store = storeOf(harness)
+
+  store.select('light', 'soft')
+  await flush()
+
+  assert.equal(form.record.mutations.length, 1, 'one user action must not fan out into two writes')
+  assert.deepEqual(form.record.mutations[0].ops, [
+    { op: 'set', path: ['light'], value: 'soft' },
+    { op: 'set', path: ['dark'], value: 'soft' },
+  ])
+  assert.equal(form.record.mutations[0].expectedRevision, undefined, 'a user write must not fence on an older revision')
+  assert.deepEqual(form.state.user, { light: 'soft', dark: 'soft' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'soft' })
+  const cached = JSON.parse(storage.getItem(STORAGE_KEY))
+  assert.deepEqual({ light: cached.light, dark: cached.dark }, { light: 'soft', dark: 'soft' })
+})
+
+test('restore-defaults clears the Host override with unset ops', async () => {
+  const form = createConfigForm({
+    status: 'ready',
+    value: { light: 'soft', dark: 'hard' },
+    user: { light: 'soft', dark: 'hard' },
+  })
+  const { harness } = await mount({ harnessOptions: { form } })
+  const store = storeOf(harness)
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'hard' })
+
+  store.reset()
+  await flush()
+
+  assert.equal(form.record.mutations.length, 1)
+  assert.deepEqual(form.record.mutations[0].ops, [
+    { op: 'unset', path: ['light'] },
+    { op: 'unset', path: ['dark'] },
+  ])
+  assert.deepEqual(form.state.user, {}, 'the override row must disappear')
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE })
+})
+
+test('a refused Host write falls back to the Host value and warns once', async () => {
+  const warnings = []
+  const form = createConfigForm({
+    status: 'ready',
+    value: { light: 'soft', dark: 'hard' },
+    user: { light: 'soft', dark: 'hard' },
+    refuse: true,
+  })
+  const { harness } = await mount({
+    harnessOptions: { form },
+    loadOptions: { console: { warn: (...args) => warnings.push(args.join(' ')) } },
+  })
+  const store = storeOf(harness)
+
+  store.select('light', 'medium')
+  await flush()
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'hard' }, 'the unaccepted value must not stick')
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /refused/)
+
+  // A second refusal must not spam the console.
+  store.select('light', 'hard')
+  await flush()
+  assert.equal(warnings.length, 1)
+})
+
+test('a pre-0.3.0 host without configForms keeps working from localStorage', async () => {
+  const storage = createMemoryStorage()
+  const { harness } = await mount({ harnessOptions: { configForms: false }, loadOptions: { storage } })
+  const store = storeOf(harness)
+
+  assert.doesNotThrow(() => store.select('dark', 'hard'))
+  await flush()
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: DEFAULT_STATE.light, dark: 'hard' })
+  assert.deepEqual(JSON.parse(storage.getItem(STORAGE_KEY)), {
+    version: STATE_VERSION,
+    light: DEFAULT_STATE.light,
+    dark: 'hard',
+  })
+})
+
+test('configForms arriving after apply() is adopted then', async () => {
+  const form = createConfigForm({
+    status: 'ready',
+    value: { light: 'medium', dark: 'hard' },
+    user: { light: 'medium', dark: 'hard' },
+  })
+  const { harness } = await mount({ harnessOptions: { form, deferConfigForms: true } })
+  const store = storeOf(harness)
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE })
+
+  harness.receiveConfigForms()
+  await flush()
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'hard' })
+})
+
+test('a choice made before configForms arrives is queued and written when it binds', async () => {
+  const form = createConfigForm({ status: 'ready', value: {}, user: {}, revision: 3 })
+  const { harness } = await mount({ harnessOptions: { form, deferConfigForms: true } })
+  const store = storeOf(harness)
+
+  store.select('light', 'soft')
+  await flush()
+  assert.equal(form.record.mutations.length, 0, 'nothing can be written while the form is unbound')
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: DEFAULT_STATE.dark })
+
+  harness.receiveConfigForms()
+  await flush()
+  assert.equal(form.record.mutations.length, 1, 'the queued choice must be written once')
+  assert.deepEqual(form.record.mutations[0].ops, [
+    { op: 'set', path: ['light'], value: 'soft' },
+    { op: 'set', path: ['dark'], value: DEFAULT_STATE.dark },
+  ])
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: DEFAULT_STATE.dark })
+})
+
+test('a choice made in another browser is adopted through the Host broadcast', async () => {
+  const form = createConfigForm({
+    status: 'ready',
+    value: { light: 'soft', dark: 'hard' },
+    user: { light: 'soft', dark: 'hard' },
+  })
+  const { harness } = await mount({ harnessOptions: { form } })
+  const store = storeOf(harness)
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'hard' })
+
+  form.emit({
+    user: { light: 'medium', dark: 'medium' },
+    value: { light: 'medium', dark: 'medium' },
+    revision: 2,
+  })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'medium' })
+  assert.equal(harness.recorded.tokenLayers.length, 3, 'the broadcast pair must repaint')
+})
+
+test('unload removes the Host form subscription', async () => {
+  const form = createConfigForm({ status: 'ready' })
+  const { harness } = await mount({ harnessOptions: { form } })
+  assert.equal(form.record.listenerCount(), 1)
+
+  harness.disposeAll()
+  assert.equal(form.record.listenerCount(), 0, 'the form subscription leaked on unload')
+  form.emit({
+    value: { light: 'soft', dark: 'hard' },
+    user: { light: 'soft', dark: 'hard' },
+  })
+  assert.equal(harness.recorded.tokenLayers.length, 1, 'a disposed plugin still reacted to the Host')
+})
+
+test('the Client starts from the Host boot hint when its cache is empty', async () => {
+  const bootHint = { version: STATE_VERSION, light: 'soft', dark: 'medium' }
+  const { module } = loadBundle({ bootHint })
+  const harness = createHarness({ configForms: false })
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    module.apply(harness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  const store = storeOf(harness)
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium' })
+  const expected = tokensFor({ light: 'soft', dark: 'medium' })
+  assert.equal(
+    harness.recorded.tokenLayers[0].tokens['--dsw-alias-bg-base'].light,
+    expected['--dsw-alias-bg-base'].light,
+    'the first token layer must use the hint pair instead of the default',
+  )
+
+  // A bogus hint (old Host bundle / other plugin's global) must be ignored.
+  const bogus = loadBundle({ bootHint: { version: 99, light: 'soft', dark: 'medium' } })
+  const bogusHarness = createHarness({ configForms: false })
+  globalThis.require = () => mockReact
+  try {
+    bogus.module.apply(bogusHarness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  assert.deepEqual({ ...storeOf(bogusHarness).getSnapshot().state }, { ...DEFAULT_STATE })
 })
 
 test('a failed Settings page setup is retried through the inject fallback', () => {

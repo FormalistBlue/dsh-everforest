@@ -1,9 +1,21 @@
 /**
- * Persisted user state for dsh-everforest.
+ * The localStorage cache of the user's strength choice for dsh-everforest.
  *
  * The user picks one strength (`hard` / `medium` / `soft`) per color scheme.
- * The choice lives in `localStorage` under a versioned key; the DSH Appearance
- * preference (light / dark / system) stays owned by DSH itself.
+ * Since 0.3.0 the **source of truth** is the Host settings document (the active
+ * profile's `cordis.patch.yml`, edited through the Client `ctx.configForms`
+ * service — see `src/durable.js` and `src/host-config.js`), shared by every
+ * browser of that profile. This module keeps the browser-local **cache** of
+ * the same pair under a versioned `localStorage` key:
+ *
+ *  - it is what the Host boot row reads for the first paint (the cache is
+ *    always at least as fresh as a Desktop boot payload, which is collected
+ *    once when the Host becomes ready);
+ *  - it is the one-shot migration source seeded into the Host document by
+ *    0.3.0 (`readStoredState` tells "a real choice exists" from "nothing yet");
+ *  - it is the whole persistence story on a pre-0.3.0 host that serves no
+ *    settings form (the Client learns that from `configForms` reporting
+ *    `unavailable`).
  *
  * Storage rules (design §3.2 / §7):
  *
@@ -79,6 +91,21 @@ function normalizeStrength(value, fallback) {
 export function normalizeState(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return createDefaultState()
   if (raw.version !== STATE_VERSION) return createDefaultState()
+  return normalizeStrengths(raw)
+}
+
+/**
+ * Validate an unversioned `{ light, dark }` pair (the Host `Config` shape and
+ * the boot hint), falling back per field.
+ *
+ * Pure: never reads storage, never mutates the input, always returns a new
+ * object. Two invalid fields collapse to the shipped default pairing.
+ *
+ * @param {unknown} raw - anything, usually a plain object.
+ * @returns {{ light: string, dark: string }}
+ */
+export function normalizeStrengths(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return createDefaultState()
   return {
     light: normalizeStrength(raw.light, DEFAULT_STATE.light),
     dark: normalizeStrength(raw.dark, DEFAULT_STATE.dark),
@@ -154,6 +181,37 @@ function isStoredState(parsed) {
     && typeof parsed.dark === 'string'
     && STRENGTHS.includes(parsed.dark)
   )
+}
+
+/**
+ * Read the stored payload without repairing or defaulting it.
+ *
+ * Distinguishes "this browser never chose anything" (or the cache is
+ * corrupt/stale-version) from a real choice, which the 0.2.1 → 0.3.0 migration
+ * needs: only a genuine non-default cache is seeded into the Host settings
+ * document. Never throws; a missing/unreadable/malformed entry returns `null`.
+ *
+ * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
+ * @returns {{ version: number, light: string, dark: string } | null}
+ */
+export function readStoredState(storage) {
+  const target = resolveStorage(storage)
+  if (!target) return null
+  let raw
+  try {
+    raw = target.getItem(STORAGE_KEY)
+  } catch {
+    return null
+  }
+  if (typeof raw !== 'string') return null
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!isStoredState(parsed)) return null
+  return { version: STATE_VERSION, light: parsed.light, dark: parsed.dark }
 }
 
 /**

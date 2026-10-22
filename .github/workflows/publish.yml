@@ -46,10 +46,8 @@ jobs:
           node-version: 24.x
           registry-url: https://registry.npmjs.org
 
-      # The package has no runtime dependencies, so there is no install step.
-      # `prepack` (package.json) only *verifies* that the committed client.js is
-      # byte-for-byte what src/ builds (build.mjs -C); it never regenerates the
-      # artifact. The verify step below runs the same checks as ci.yml.
+      # Tag must equal package.json version; a manual dispatch must run on the
+      # tagged release commit (see docs/releasing.md §3).
       - name: Verify release version and dist-tag
         id: version
         env:
@@ -81,6 +79,16 @@ jobs:
           echo "npm_tag=${NPM_TAG}" >> "$GITHUB_OUTPUT"
           node --version
           npm --version
+
+      # The package has no runtime dependencies: DSH provides
+      # `@deepseek-ai/schemastery` to the Host half at run time. It is a
+      # devDependency only because the test suite imports it directly, so install
+      # it before the checks; it never ships in the tarball (`files` whitelist).
+      # `prepack` only *verifies* that the committed client.js is what src/ builds
+      # (build.mjs -C) and never regenerates it; the checks below equal ci.yml.
+      # No runtime dependency is installed, and no lockfile is written.
+      - name: Install test dependencies
+        run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
 
       - name: Test
         run: node --test

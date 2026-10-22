@@ -11,8 +11,13 @@
  *    Appearance control (`follow system` / `dark` / `light`, which writes the
  *    same global preference as DSH's own Appearance switch);
  *  - a small observable store that the page subscribes to
- *    (`useSyncExternalStore`) and that persists the chosen strengths in
- *    `localStorage` (key `dsh-everforest/v1`).
+ *    (`useSyncExternalStore`) and that persists the chosen strengths through
+ *    DSH's Host settings form (`ctx.configForms`, see `src/durable.js`). The
+ *    choice lives in the active profile's `cordis.patch.yml` and is shared by
+ *    every browser of that profile; the browser's `localStorage` copy is only a
+ *    first-paint cache and the fallback for a host that serves no settings form
+ *    (pre-0.3.0). A 0.2.x cache still holding a real choice is seeded into the
+ *    Host once, on the first load after the upgrade.
  *
  * The override disposer returned by `overrideTokens` is NOT tied to the plugin
  * fiber (the layer lives on the root ThemeRuntime), so the layer is created
@@ -20,14 +25,26 @@
  * for the injected `<style>` element and the locale dictionaries.
  *
  * `theme` is the only hard dependency (the token layer must apply even if the
- * settings UI is unavailable). `slots` and `locale` are waited for through
- * `ctx.inject`, so a profile that provides them later still gets the Settings
- * page instead of silently losing it.
+ * settings UI is unavailable). `slots` / `locale` / `configForms` are waited
+ * for through `ctx.inject`, so a profile that provides them later still gets the
+ * Settings page / durable persistence instead of silently losing it. The
+ * `configForms` injection is deliberately soft: an older host that does not
+ * provide the service must not hold the whole Client plugin pending.
  */
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
-import { readState, STORAGE_KEY, writeState } from './state.js'
+import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
+import {
+  bootHintState,
+  ENTRY_ID,
+  hasUserLayer,
+  shouldSeed,
+  stateFromHost,
+  statesEqual,
+  stateToSetOps,
+  stateToUnsetOps,
+} from './durable.js'
 import { EN, NS, ZH } from './locale.js'
 import { SETTINGS_STYLES, createSettingsComponent } from './settings-page.js'
 
@@ -41,6 +58,28 @@ export const name = PACKAGE_ID
 export const inject = ['theme']
 
 /**
+ * The pair this document should start from, resolved the same way the Host boot
+ * row paints the first frame: the `localStorage` cache first, otherwise the
+ * Host-backed pair the row published on `window.__EVERFOREST_BOOT__`, otherwise
+ * the shipped default. Using the hint (instead of `readState()` alone) is what
+ * keeps a fresh browser profile from flashing the default before the
+ * asynchronous `configForms` snapshot arrives.
+ *
+ * @returns {{ light: string, dark: string }}
+ */
+function initialState() {
+  try {
+    if (typeof window !== 'undefined') {
+      const hint = bootHintState(window.__EVERFOREST_BOOT__)
+      if (hint !== null) return hint
+    }
+  } catch {
+    // A host without the boot row: fall through to the cache.
+  }
+  return readState()
+}
+
+/**
  * Mount the plugin.
  * @param {import('cordis').Context} ctx
  */
@@ -48,7 +87,7 @@ export function apply(ctx) {
   const React = require('react')
   const h = React.createElement
 
-  let state = readState()
+  let state = initialState()
   let layerDispose = null
   let cachedSnapshot = null
   const listeners = new Set()
@@ -114,6 +153,11 @@ export function apply(ctx) {
   // keeps a stale copy, and the next card click there writes the stale value
   // back over the other window's choice (a silent lost update). The event also
   // fires with `key === null` when another window calls `clear()`.
+  //
+  // Since 0.3.0 the Host document is the authority across browsers, and this
+  // listener stays for the two cases the broadcast cannot cover: same-origin
+  // windows before the settings snapshot arrives, and a host with no settings
+  // form at all (localStorage remains the whole store there).
   ctx.effect(() => {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return undefined
     const onStorage = (event) => {
@@ -130,9 +174,201 @@ export function apply(ctx) {
     }
   }, 'everforest: cross-window sync')
 
-  // 2. Settings page stores the user's per-scheme strength choice. Writes are
-  // synchronous localStorage writes so the choice survives a restart; when
-  // storage is unavailable the choice still applies for this session.
+  // 2. Durable persistence through DSH's Host settings form.
+  //
+  // The form is addressed by the profile entry id (`ENTRY_ID`, a contract with
+  // cordis.patch.yml) and is owned by the shared `dsh-client-ui-settings`
+  // service. `ctx.inject` is intentionally soft: on a host without the service
+  // the callback never fires and the plugin keeps working from localStorage;
+  // declaring it in the module-level `inject` array would instead hold the
+  // whole Client plugin pending forever.
+  let form = null
+  let seedCompleted = false
+  let refusedWarned = false
+  /**
+   * A user choice made before the settings form was ready (`'set'` / `'unset'`).
+   * The form's initial snapshot is asynchronous; without this queue a click in
+   * that window would be silently dropped (or overwritten by the first adopt),
+   * which is the one moment a user can reach the page faster than the Host.
+   */
+  let queuedWrite = null
+
+  /** The form's current snapshot, or null while unbound/throwing. */
+  function hostSnapshot() {
+    if (form === null) return null
+    try {
+      const snapshot = form.getSnapshot()
+      return snapshot !== null && typeof snapshot === 'object' ? snapshot : null
+    } catch {
+      return null
+    }
+  }
+
+  function warnRefusedOnce() {
+    if (refusedWarned) return
+    refusedWarned = true
+    console.warn(`${LOG_PREFIX} the Host refused the strength write (another browser or a lock changed it); using the Host value`)
+  }
+
+  /**
+   * Make a Host-reported pair the current one and refresh the first-paint cache.
+   * Writes the cache even when the pair did not change: a fresh browser profile
+   * that booted from the Host value needs a cache entry so its next reload can
+   * paint before the Host payload is consulted.
+   */
+  function adoptHostPair(pair) {
+    if (statesEqual(pair, state)) {
+      writeState(state)
+      return
+    }
+    state = { light: pair.light, dark: pair.dark }
+    writeState(state)
+    applyLayer()
+    notify()
+  }
+
+  /**
+   * Send one atomic mutation to the Host document and settle its answer.
+   *
+   * A refusal (revision conflict from another browser, locked/higher-priority
+   * patch layer) makes the controller re-read the document before it resolves
+   * `false`; adopting that fresh snapshot is the correct recovery — the value
+   * the Host never accepted must not stick locally.
+   *
+   * @param {Array<object>} ops - `set` / `unset` form operations.
+   * @param {string} failureMessage - warning suffix when the wire call throws.
+   */
+  function writeToHost(ops, failureMessage) {
+    try {
+      Promise.resolve(form.mutate(ops))
+        .then((accepted) => {
+          if (accepted) return
+          warnRefusedOnce()
+          syncFromHost()
+        })
+        .catch((error) => {
+          console.warn(`${LOG_PREFIX} ${failureMessage}`, error)
+        })
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} ${failureMessage}`, error)
+    }
+  }
+
+  /** Seed a pre-0.3.0 cache choice into the Host document (one-shot migration). */
+  function seedHost(snapshot) {
+    try {
+      Promise.resolve(form.mutate(stateToSetOps(state), snapshot.revision))
+        .then((accepted) => {
+          if (!accepted) syncFromHost()
+        })
+        .catch((error) => {
+          console.warn(`${LOG_PREFIX} could not migrate the saved strength to the Host; localStorage keeps it`, error)
+        })
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} could not migrate the saved strength to the Host; localStorage keeps it`, error)
+    }
+  }
+
+  /** Persist the current pair after a user choice, queueing it while not ready. */
+  function persistChoice() {
+    const snapshot = hostSnapshot()
+    if (form === null || snapshot === null || snapshot.status !== 'ready') {
+      queuedWrite = 'set'
+      return
+    }
+    if (snapshot.writable === false) return
+    writeToHost(stateToSetOps(state), 'the strength was not saved to the Host; it applies to this session')
+  }
+
+  /** Clear the Host override after "restore defaults" so the row disappears. */
+  function persistReset() {
+    const snapshot = hostSnapshot()
+    if (form === null || snapshot === null || snapshot.status !== 'ready') {
+      queuedWrite = 'unset'
+      return
+    }
+    if (snapshot.writable === false) return
+    if (!hasUserLayer(snapshot.user)) return
+    writeToHost(stateToUnsetOps(), 'the saved strength was not cleared on the Host; the local reset still applies')
+  }
+
+  /** Apply a choice queued while the form was still loading. */
+  function flushQueuedWrite(snapshot) {
+    const kind = queuedWrite
+    queuedWrite = null
+    seedCompleted = true
+    if (snapshot.writable === false) return
+    if (kind === 'unset') {
+      if (hasUserLayer(snapshot.user)) {
+        writeToHost(stateToUnsetOps(), 'the saved strength was not cleared on the Host; the local reset still applies')
+      }
+      return
+    }
+    writeToHost(stateToSetOps(state), 'the strength was not saved to the Host; it applies to this session')
+  }
+
+  /**
+   * Resolve the Host document into local state.
+   *
+   * Called on every form snapshot change (so a write in another browser is
+   * adopted immediately) and once when the form binds. Precedence:
+   *
+   *  0. a local user choice was made before the snapshot existed → push it;
+   *  1. a Host-stored choice is the authority → adopt it;
+   *  2. no Host choice yet but a real (non-default) 0.2.x cache choice exists →
+   *     seed the Host once and keep the cached pair;
+   *  3. no Host choice and nothing worth seeding → adopt the Host's effective
+   *     value (the shipped defaults).
+   */
+  function syncFromHost() {
+    const snapshot = hostSnapshot()
+    if (snapshot === null || snapshot.status !== 'ready') return
+    if (queuedWrite !== null) {
+      flushQueuedWrite(snapshot)
+      return
+    }
+    if (hasUserLayer(snapshot.user)) {
+      seedCompleted = true
+      adoptHostPair(stateFromHost(snapshot.value))
+      return
+    }
+    if (!seedCompleted && shouldSeed(snapshot.user, readStoredState())) {
+      seedCompleted = true
+      seedHost(snapshot)
+      return
+    }
+    seedCompleted = true
+    adoptHostPair(stateFromHost(snapshot.value))
+  }
+
+  if (typeof ctx.inject === 'function') {
+    try {
+      ctx.inject(['configForms'], (formsCtx) => {
+        let unsubscribe = null
+        try {
+          const bound = formsCtx.configForms.get(ENTRY_ID)
+          form = bound
+          if (typeof bound.subscribe === 'function') unsubscribe = bound.subscribe(syncFromHost)
+          syncFromHost()
+        } catch (error) {
+          form = null
+          console.warn(`${LOG_PREFIX} the Host settings form is unavailable; strengths stay localStorage-only`, error)
+          return undefined
+        }
+        return () => {
+          if (typeof unsubscribe === 'function') unsubscribe()
+          form = null
+        }
+      })
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} could not wait for the Host settings form; strengths stay localStorage-only`, error)
+    }
+  }
+
+  // 3. Settings page stores the user's per-scheme strength choice. Writes update
+  // the local state and the first-paint cache synchronously (so the choice
+  // survives a restart even when the Host write is slow or refused), then go to
+  // the Host document as the durable, cross-browser store.
   function select(scheme, strength) {
     if (scheme !== 'light' && scheme !== 'dark') return
     if (!STRENGTHS.includes(strength)) return
@@ -142,6 +378,7 @@ export function apply(ctx) {
     writeState(state)
     if (changed) applyLayer()
     notify()
+    persistChoice()
     // Picking a card from the other scheme group also switches DSH's
     // Appearance preference so the user sees the result immediately. This is a
     // durable Host-backed preference write (shared by every authenticated
@@ -157,6 +394,7 @@ export function apply(ctx) {
     writeState(state)
     if (changed) applyLayer()
     notify()
+    persistReset()
   }
 
   /**
@@ -187,7 +425,7 @@ export function apply(ctx) {
     setPreference,
   }
 
-  // 3. Settings page, locale dictionaries and the page stylesheet. These need
+  // 4. Settings page, locale dictionaries and the page stylesheet. These need
   // the optional `slots` / `locale` services. They are normally already present
   // when the module materializes (`ctx.get` is the sanctioned optional access,
   // and the returned proxy stays bound to this plugin's context so registrations
@@ -268,7 +506,7 @@ export function apply(ctx) {
     console.warn(`${LOG_PREFIX} slots/locale are unavailable; the Settings page is skipped (the theme still applies)`)
   }
 
-  // 4. Cheap upgrade guard: if DSH renamed its token sheets, warn once instead
+  // 5. Cheap upgrade guard: if DSH renamed its token sheets, warn once instead
   // of failing. The override layer degrades to native colors for missing names.
   function runSelfCheck() {
     if (typeof document === 'undefined' || !document.body) return

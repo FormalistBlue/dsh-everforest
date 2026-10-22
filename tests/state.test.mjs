@@ -1,10 +1,13 @@
 /**
  * Unit tests for the persisted user state (`src/state.js`).
  *
- * The state is the per-scheme strength choice stored in
- * `localStorage['dsh-everforest/v1']`. The tests cover the defaults, the pure
- * normalizer (hostile inputs included), and the never-throwing storage
- * adapters, using plain in-memory `Storage` stubs.
+ * The state is the per-scheme strength choice cached in
+ * `localStorage['dsh-everforest/v1']` (the Host profile config is the source of
+ * truth since 0.3.0; this module owns the cache and the 0.2.x migration source).
+ * The tests cover the defaults, the pure normalizers (hostile inputs included),
+ * the never-throwing storage adapters, and `readStoredState()` — the
+ * no-repair/no-default read the migration needs to tell "a real choice exists"
+ * from "nothing stored yet".
  */
 
 import { test } from 'node:test'
@@ -16,7 +19,9 @@ import {
   STATE_VERSION,
   createDefaultState,
   normalizeState,
+  normalizeStrengths,
   readState,
+  readStoredState,
   resetState,
   writeState,
 } from '../src/state.js'
@@ -258,4 +263,67 @@ test('resetState restores the Enchanted defaults and persists them', () => {
   // Still returns the defaults when the write fails.
   const failed = resetState(createThrowingStorage())
   assert.deepEqual(failed, { light: 'hard', dark: 'soft' })
+})
+
+test('normalizeStrengths validates the unversioned Host pair without a version field', () => {
+  assert.deepEqual(normalizeStrengths({ light: 'soft', dark: 'medium' }), { light: 'soft', dark: 'medium' })
+  // The Host section is unversioned, so a stray version must not discard it.
+  assert.deepEqual(normalizeStrengths({ version: 99, light: 'soft', dark: 'medium' }), {
+    light: 'soft',
+    dark: 'medium',
+  })
+  // A versioned cache without that field, though, is still a pair.
+  assert.deepEqual(normalizeStrengths({ light: 'nope', dark: 'hard' }), {
+    light: DEFAULT_STATE.light,
+    dark: 'hard',
+  })
+  for (const hostile of [null, undefined, 'hard', [1, 2], 42]) {
+    assert.deepEqual(normalizeStrengths(hostile), { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark })
+  }
+  // Unknown extra fields are ignored, never copied.
+  assert.deepEqual(normalizeStrengths({ light: 'soft', dark: 'hard', extra: true }), {
+    light: 'soft',
+    dark: 'hard',
+  })
+})
+
+test('readStoredState reports a real choice and never repairs or defaults', () => {
+  const valid = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard' })
+  const storage = createMemoryStorage({ [STORAGE_KEY]: valid })
+  assert.deepEqual(readStoredState(storage), { version: STATE_VERSION, light: 'soft', dark: 'hard' })
+  assert.equal(storage.calls.setItem.length, 0, 'readStoredState must not rewrite the cache')
+
+  // Absent key, unreadable storage, malformed JSON, unknown version, and an
+  // invalid strength all mean "nothing worth migrating".
+  for (const storage of [
+    createMemoryStorage(),
+    createThrowingStorage(),
+    createMemoryStorage({ [STORAGE_KEY]: '{oops' }),
+    createMemoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: 99, light: 'soft', dark: 'hard' }) }),
+    createMemoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'nope', dark: 'hard' }) }),
+    createMemoryStorage({ [STORAGE_KEY]: 'null' }),
+  ]) {
+    assert.equal(readStoredState(storage), null)
+  }
+  assert.equal(readStoredState(undefined), null)
+
+  // A valid default pairing is still a stored choice (readState and
+  // readStoredState must agree on validity); the migration decides separately
+  // whether it is worth seeding.
+  const defaults = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }),
+  })
+  assert.deepEqual(readStoredState(defaults), {
+    version: STATE_VERSION,
+    light: DEFAULT_STATE.light,
+    dark: DEFAULT_STATE.dark,
+  })
+})
+
+test('readStoredState ignores unknown extra fields like readState does', () => {
+  const storage = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'medium', dark: 'soft', extra: 'kept' }),
+  })
+  assert.deepEqual(readStoredState(storage), { version: STATE_VERSION, light: 'medium', dark: 'soft' })
+  assert.equal(storage.calls.setItem.length, 0)
 })

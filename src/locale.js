@@ -44,7 +44,7 @@ export const EN = {
   'reset': 'Restore defaults',
 
   'hint.scheme': 'Picking a card in the other group also switches DeepSeek Harness Appearance so you can preview it, and saves that as the global appearance preference shared by every signed-in browser. Choose “Follow system” above to restore automatic switching.',
-  'hint.storage': 'Strength is saved per browser or app window: the Desktop app keeps it across restarts, while a browser tab only keeps it for its current address (the dev server picks a new port on each start). Tabs on the same address stay in sync.',
+  'hint.storage': 'Strength is saved in the Host configuration of the current profile, so every browser on that profile shares it; this browser keeps a localStorage copy only as a first-frame cache. Restart DeepSeek Harness after updating the Host half of the plugin.',
 
   'aria.card': '{scheme} {strength} palette',
   'aria.group': '{scheme} palettes',
@@ -79,7 +79,7 @@ export const ZH = {
   'reset': '恢复默认',
 
   'hint.scheme': '点击另一深浅色组中的色卡会同时切换 DeepSeek Harness 外观以便立即预览，并把结果保存为全局外观偏好（所有已登录浏览器共享）；可用上面的「跟随系统」恢复自动跟随。',
-  'hint.storage': '强度按浏览器 / 应用窗口保存：Desktop 窗口重启后仍然保留；用浏览器打开时只对当前地址生效（每次启动端口可能不同）。同一地址的多个标签页会实时同步。',
+  'hint.storage': '强度保存在当前 profile 的 Host 配置中，同一 profile 的所有浏览器共享；本浏览器的 localStorage 只作为首帧缓存。更新插件的 Host 半部后需重启 DeepSeek Harness。',
 
   'aria.card': '{scheme} {strength} 配色',
   'aria.group': '{scheme}配色',
