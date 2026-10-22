@@ -170,7 +170,7 @@ DSH 侧（本机 profile = `desktop`）：
 5. **升级 / 回滚后必须重启 DSH**：Host 半部（`index.js` / `src/host-config.js`）在 Host 启动时装载，刷新页面不会重载。只更新 npm 包但没重启时，新 Client 会退回 localStorage-only（选择仍生效、只是暂不写 Host），重启 DSH 后第一次加载会把本地缓存一次性播种到 Host。0.2.1 → 0.3.0 的首次启动会自动把旧 localStorage 的非默认强度一次性播种到 Host（前提是 Host 尚无用户配置），升级验收请用旧版本留下非默认强度后重启确认。
 6. **写入被拒时回读 Host**：home patch / `--patch` 覆盖等场景以 `mutate` 返回 `false`（`response.ok=false`）表现——settings 服务回读，Client 以 Host 值为准并 warn 一次，设置页不弹错；旧宿主（无 settings 服务 / schemastery 无 `volatile()`）下表单不出现，强度退回 localStorage（按 origin），设置页不报错。正常 profile 不应出现该降级。
 7. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色；profile patch 里的 `everforest` 行 `config` 会随卸载/停用保留（下次启用继续用）。
-8. 首帧：Web 刷新 / 新开标签时 loading 页（含 spinner 环与进度弧）即为当前配色（本浏览器缓存优先、Host 值兜底，见 `design.md` §5）；Desktop 完全退出后重启，原生色最多 1 帧。**Host 半部（`index.js`）改动必须重启 Host 进程**——首帧 row 在 Host ready 时收集，单纯刷新页面或只换 `client.js` 都不会更新它。
+8. 首帧：Web 刷新 / 新开标签时 loading 页（含 spinner 环与进度弧）即为当前配色（本浏览器缓存优先、Host 值兜底，见 `design.md` §5）；Desktop 完全退出后重启，原生色最多 1 帧。**Host 半部（`index.js`）改动必须重启 Host 进程**——Web 每次 index 渲染都会重新收集首帧 row（运行中改强度对新打开的页面即时生效），Desktop 则只在 Host ready 时采集一次、之后窗口重载沿用冻结副本（靠 localStorage 缓存兜底）；单纯刷新页面不会重载 `index.js`，只换 `client.js` 也不会更新它。
 
 ## 6. 撤销与回滚
 

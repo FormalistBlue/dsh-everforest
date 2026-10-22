@@ -70,6 +70,10 @@ DSH 自己的全局偏好，本插件不另存。
 - **首帧在「Host 有值、本机无缓存」时回退默认**：旧 boot 脚本只读 localStorage，新浏览器 / 清缓存 / 新端口
   的首帧会先画默认配对；B 方案改用 Host 值兜底。
 - **设置页旧文案与实现不符**：`hint.storage` 不再声称「按浏览器 / 窗口保存」（EN / ZH 同步）。
+- **「恢复默认」在一次强度写入在途时被静默丢弃**：真实 Host 写要等一次往返才 fold 进镜像快照，这期间 `user`
+  仍是 `{}`；旧实现据此跳过 `unset`，随后在途的 `set` 落地并广播，把刚点的「恢复默认」覆盖掉（需再点一次）。
+  现在 Client 记录在途写数量（`writesInFlight`），此时把 `unset` 排在表单控制器的写队列之后——控制器本身串行化
+  写，最终状态落在继承的默认值上；`tests/integration.test.mjs` 用异步假 form 复现该窗口作为回归用例。
 
 ### Known limitations
 
@@ -95,7 +99,7 @@ DSH 自己的全局偏好，本插件不另存。
 - **首帧可能短暂显示过期缓存**：若本浏览器缓存落后于 Host（例如另一个浏览器刚改过、本窗口未收到广播），首帧
   画缓存值，Client 拿到 Host 快照后立即 adopt 一次；随后缓存与 Host 收敛。
 
-> 0.3.0 自动化验收：`node --test` **143/143 通过**（Node 22）、`npm run check` 全绿（palette / build / contrast，
+> 0.3.0 自动化验收：`node --test` **144/144 通过**（Node 22）、`npm run check` 全绿（palette / build / contrast，
 > `client.js` 已重建为 v0.3.0 头）、`npm pack --dry-run` 清单齐全（含 `src/host-config.js`）。跨浏览器共享、
 > Web / Desktop 首帧与重启行为的真机目检，以及发布，仍待按
 > [`docs/releasing.md`](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/releasing.md) §5 完成。

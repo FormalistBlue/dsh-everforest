@@ -227,7 +227,7 @@
 |---|---|
 | 真源 | 当前 profile 的 `cordis.patch.yml` 中 `everforest` 行的 `config { light, dark }`；同一 profile 所有已认证浏览器共享，重启保持 |
 | Host 半部 | 新增 `src/host-config.js` 导出 `Config`（`union(STRENGTHS).default(...).volatile()` ×2）与 `hostState(config)`；`index.js` 导出 `Config`、改为 `apply(ctx, config)`，boot 脚本在 emit 时嵌入 Host 值作兜底 |
-| Client | 软注入 `ctx.inject(['configForms'])` → `formsCtx.configForms.get('everforest')` 订阅快照：就绪后 adopt（重建覆盖层 / 刷新设置页 / 回写缓存）；选择 = 一次 `mutate` 写两个字段，恢复默认 = 一次 `mutate` 里 `unset` 两个字段；`mutate` 被拒（`response.ok=false`）adopt 远端并 warn 一次；就绪前的选择排队补写；`writable:false` 守卫仅为防御（native provider 恒 true） |
+| Client | 软注入 `ctx.inject(['configForms'])` → `formsCtx.configForms.get('everforest')` 订阅快照：就绪后 adopt（重建覆盖层 / 刷新设置页 / 回写缓存）；选择 = 一次 `mutate` 写两个字段，恢复默认 = 一次 `mutate` 里 `unset` 两个字段（若上一次写仍在途，`unset` 排在控制器串行队列之后，不会被后到的 `set` 覆盖）；`mutate` 被拒（`response.ok=false`）adopt 远端并 warn 一次；就绪前的选择排队补写；`writable:false` 守卫仅为防御（native provider 恒 true） |
 | localStorage | 降为「首帧缓存 + 旧宿主兜底」，key / 格式不变、不删除；跨 origin 的 `storage` 监听保留为兜底 |
 | 首帧 | **B 方案**：缓存优先 → Host 值兜底 → 默认；结果写 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用，正常路径不闪；已知取舍：本浏览器缓存过期时先画缓存旧值、随后一次 adopt Host 值（之后收敛） |
 | 迁移 | Host 无用户层 + 本地缓存非默认 → 启动时一次性播种；Host 已有用户层不覆盖。已知取舍：浏览器 A 恢复默认后，仍持有旧缓存的浏览器 B 下次加载会把旧值再播种回 Host 一次（之后收敛，不反复） |
@@ -243,7 +243,7 @@
 **实现与验证**
 
 - 实现：`src/host-config.js`、`index.js`（`Config` / boot / `settings.configure`）、`src/durable.js`（Client 纯逻辑：用户层判定 / 播种 / ops / boot hint）、`src/state.js#readStoredState`、`client-entry.js` 的 configForms 软等待 / 采纳 / 播种 / 写路径（含就绪前行排队补写）、localStorage 缓存保留；文案（`locale/*.json` 的 `meta.description`、`src/locale.js#hint.storage`）与 README 中英、design.md §1/§2/§3.2/§5/§7/§8/§9/§10/§11/§12、releasing.md、CHANGELOG、CI / publish workflow 同步。
-- 自动化：`node --test` **143/143 通过**（Node 22；`host-boot.test.mjs` 的 Config / B 方案、`durable.test.mjs` 的纯函数、`integration.test.mjs` 的假 configForms 生命周期（采纳 / 播种 / 选择 / 恢复默认 / 写入被拒 / 旧宿主降级 / 延迟到达 / 广播 / 排队补写 / 卸载清理）、`state.test.mjs` 的 `readStoredState`）+ `npm run check` 全绿（palette / build / contrast，`client.js` 已重建为 v0.3.0 头）+ `npm pack --dry-run` 清单齐全（含 `src/host-config.js`）。
+- 自动化：`node --test` **144/144 通过**（Node 22；`host-boot.test.mjs` 的 Config / B 方案、`durable.test.mjs` 的纯函数、`integration.test.mjs` 的假 configForms 生命周期（采纳 / 播种 / 选择 / 恢复默认 / 写入被拒 / 旧宿主降级 / 延迟到达 / 广播 / 排队补写 / 卸载清理）、`state.test.mjs` 的 `readStoredState`）+ `npm run check` 全绿（palette / build / contrast，`client.js` 已重建为 v0.3.0 头）+ `npm pack --dry-run` 清单齐全（含 `src/host-config.js`）。
 - 行为级证据（真实 DSH 投影逻辑 + schemastery 3.18.5 复现）：`volatileForm(Config)` 非空、`projectForm` 得 `{ light, dark }`、round-trip 校验通过、非法值被拒、空 profile 有效值 `{ light: 'hard', dark: 'soft' }`。
 - 人工（发布前）：跨浏览器共享（两个浏览器 / 清 localStorage）、DSH 重启后保持、0.2.1 → 0.3.0 一次性播种、写入被拒回读、非法值两种表现、Web 与 Desktop 首帧三路径、Desktop 冷启动 ≤1 帧；发布注意（Host 重启、市场冷静期）见 [`releasing.md`](releasing.md)。
 

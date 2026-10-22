@@ -56,6 +56,11 @@ const mockReact = {
  * profile): the mutation is recorded but the snapshot does not move, exactly
  * like the real controller after it re-reads the document.
  *
+ * `deferMutate: true` makes writes asynchronous like the real service: nothing
+ * is folded into the snapshot until the test drains the queue with `settle()`.
+ * That is the only way to exercise the window in which a second user action
+ * arrives while the first write is still in flight.
+ *
  * @param {object} [options]
  * @param {'loading' | 'ready' | 'unavailable'} [options.status]
  * @param {{ light?: string, dark?: string }} [options.value] - effective section.
@@ -63,6 +68,7 @@ const mockReact = {
  * @param {number} [options.revision]
  * @param {boolean} [options.writable]
  * @param {boolean} [options.refuse] - every mutate() returns false.
+ * @param {boolean} [options.deferMutate] - hold writes until `settle()`.
  */
 function createConfigForm(options = {}) {
   const shipped = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
@@ -75,9 +81,28 @@ function createConfigForm(options = {}) {
     writable: options.writable ?? true,
   }
   const listeners = new Set()
+  const pending = []
   const record = { mutations: [], subscribeCount: 0, listenerCount: () => listeners.size }
   const notify = () => {
     for (const listener of [...listeners]) listener()
+  }
+  /** Fold one mutation into the snapshot, like a resolved Host write. */
+  const applyMutation = (ops) => {
+    for (const op of ops) {
+      const field = op.path[0]
+      if (op.op === 'set') {
+        formState.value = { ...formState.value, [field]: op.value }
+        formState.user = { ...formState.user, [field]: op.value }
+      } else {
+        const user = { ...formState.user }
+        delete user[field]
+        formState.user = user
+        formState.value = { ...formState.value, [field]: formState.base[field] }
+      }
+    }
+    formState.revision += 1
+    notify()
+    return true
   }
   return {
     record,
@@ -88,25 +113,29 @@ function createConfigForm(options = {}) {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    mutate: async (ops, expectedRevision) => {
+    mutate: (ops, expectedRevision) => {
       record.mutations.push({ ops: JSON.parse(JSON.stringify(ops)), expectedRevision })
-      if (formState.writable === false) return false
-      if (options.refuse) return false
-      for (const op of ops) {
-        const field = op.path[0]
-        if (op.op === 'set') {
-          formState.value = { ...formState.value, [field]: op.value }
-          formState.user = { ...formState.user, [field]: op.value }
-        } else {
-          const user = { ...formState.user }
-          delete user[field]
-          formState.user = user
-          formState.value = { ...formState.value, [field]: formState.base[field] }
-        }
+      if (options.deferMutate) {
+        return new Promise((resolve) => {
+          pending.push({ ops, resolve })
+        })
       }
-      formState.revision += 1
-      notify()
-      return true
+      if (formState.writable === false) return Promise.resolve(false)
+      if (options.refuse) return Promise.resolve(false)
+      return Promise.resolve(applyMutation(ops))
+    },
+    /** Resolve every queued write, in order (no-op without `deferMutate`). */
+    settle: async () => {
+      while (pending.length > 0) {
+        const next = pending.shift()
+        next.resolve(formState.writable === false ? false : applyMutation(next.ops))
+      }
+    },
+    /** Resolve just the oldest queued write. */
+    settleNext: async () => {
+      const next = pending.shift()
+      if (next === undefined) return
+      next.resolve(formState.writable === false ? false : applyMutation(next.ops))
     },
     /** Simulate a change made by another browser (host broadcast). */
     emit: (next) => {
@@ -822,6 +851,35 @@ test('restore-defaults clears the Host override with unset ops', async () => {
   assert.deepEqual(form.state.user, {}, 'the override row must disappear')
   assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE })
 })
+
+test('restore-defaults clicked while a card write is in flight still clears the Host', async () => {
+  // Real writes cross the wire: until the answer folds into the mirror, the
+  // snapshot still reports an empty user layer. The reset must not trust that
+  // stale view — it has to queue the unset behind the in-flight set, which the
+  // form controller serializes.
+  const form = createConfigForm({ status: 'ready', value: {}, user: {}, revision: 1, deferMutate: true })
+  const { harness } = await mount({ harnessOptions: { form } })
+  const store = storeOf(harness)
+
+  store.select('light', 'soft')
+  assert.equal(form.record.mutations.length, 1, 'the card click must start one write')
+  assert.deepEqual(form.state.user, {}, 'the in-flight set has not been folded yet')
+
+  store.reset()
+  assert.equal(form.record.mutations.length, 2, 'the reset must queue behind the in-flight set')
+  assert.deepEqual(form.record.mutations[1].ops, [
+    { op: 'unset', path: ['light'] },
+    { op: 'unset', path: ['dark'] },
+  ])
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE })
+
+  // Drain both writes in order: set, then the queued unset.
+  await form.settle()
+  await flush()
+  assert.deepEqual(form.state.user, {}, 'the Host must not keep the write the user reset away')
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE }, 'the Host pair must be the defaults')
+})
+
 
 test('a refused Host write falls back to the Host value and warns once', async () => {
   const warnings = []

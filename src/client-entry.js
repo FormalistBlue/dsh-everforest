@@ -192,6 +192,29 @@ export function apply(ctx) {
    * which is the one moment a user can reach the page faster than the Host.
    */
   let queuedWrite = null
+  /**
+   * Host mutations this Client has sent but whose answer has not settled.
+   *
+   * The form mirror only folds a write's answer when the promise resolves, so
+   * while a write is in flight the snapshot still shows the *previous* document
+   * (`user: {}` for a first choice). "Restore defaults" must not trust that
+   * snapshot alone: it has to queue the `unset` behind the in-flight `set`,
+   * otherwise the set lands afterwards and the reset is silently lost until the
+   * user clicks again. The form controller serializes writes on its own, so
+   * ordering is guaranteed once both are queued.
+   */
+  let writesInFlight = 0
+
+  /** Mark one Host mutation as started; returns an idempotent settle callback. */
+  function beginWrite() {
+    writesInFlight += 1
+    let settled = false
+    return () => {
+      if (settled) return
+      settled = true
+      writesInFlight = Math.max(0, writesInFlight - 1)
+    }
+  }
 
   /** The form's current snapshot, or null while unbound/throwing. */
   function hostSnapshot() {
@@ -239,32 +262,40 @@ export function apply(ctx) {
    * @param {string} failureMessage - warning suffix when the wire call throws.
    */
   function writeToHost(ops, failureMessage) {
+    const settle = beginWrite()
     try {
       Promise.resolve(form.mutate(ops))
         .then((accepted) => {
+          settle()
           if (accepted) return
           warnRefusedOnce()
           syncFromHost()
         })
         .catch((error) => {
+          settle()
           console.warn(`${LOG_PREFIX} ${failureMessage}`, error)
         })
     } catch (error) {
+      settle()
       console.warn(`${LOG_PREFIX} ${failureMessage}`, error)
     }
   }
 
   /** Seed a pre-0.3.0 cache choice into the Host document (one-shot migration). */
   function seedHost(snapshot) {
+    const settle = beginWrite()
     try {
       Promise.resolve(form.mutate(stateToSetOps(state), snapshot.revision))
         .then((accepted) => {
+          settle()
           if (!accepted) syncFromHost()
         })
         .catch((error) => {
+          settle()
           console.warn(`${LOG_PREFIX} could not migrate the saved strength to the Host; localStorage keeps it`, error)
         })
     } catch (error) {
+      settle()
       console.warn(`${LOG_PREFIX} could not migrate the saved strength to the Host; localStorage keeps it`, error)
     }
   }
@@ -288,7 +319,11 @@ export function apply(ctx) {
       return
     }
     if (snapshot.writable === false) return
-    if (!hasUserLayer(snapshot.user)) return
+    // A still-in-flight `set` has not been folded into the mirror yet, so it
+    // looks like "no user layer". Queueing the unset behind it is required:
+    // the controller serializes writes, so the pair ends at the inherited
+    // defaults instead of losing the reset to the later-committed set.
+    if (!hasUserLayer(snapshot.user) && writesInFlight === 0) return
     writeToHost(stateToUnsetOps(), 'the saved strength was not cleared on the Host; the local reset still applies')
   }
 
@@ -299,7 +334,7 @@ export function apply(ctx) {
     seedCompleted = true
     if (snapshot.writable === false) return
     if (kind === 'unset') {
-      if (hasUserLayer(snapshot.user)) {
+      if (hasUserLayer(snapshot.user) || writesInFlight > 0) {
         writeToHost(stateToUnsetOps(), 'the saved strength was not cleared on the Host; the local reset still applies')
       }
       return
