@@ -11,18 +11,25 @@
  *    Appearance control (`follow system` / `dark` / `light`, which writes the
  *    same global preference as DSH's own Appearance switch);
  *  - a small observable store that the page subscribes to
- *    (`useSyncExternalStore`) and that persists the chosen strengths through
- *    DSH's Host settings form (`ctx.configForms`, see `src/durable.js`). The
- *    choice lives in the active profile's `cordis.patch.yml` and is shared by
- *    every browser of that profile; the browser's `localStorage` copy is only a
- *    first-paint cache and the fallback for a host that serves no settings form
+ *    (`useSyncExternalStore`) and that persists the chosen strengths — and,
+ *    since 0.4.0, the experimental color-mode flag — through DSH's Host
+ *    settings form (`ctx.configForms`, see `src/durable.js`). The choice lives
+ *    in the active profile's `cordis.patch.yml` and is shared by every browser
+ *    of that profile; the browser's `localStorage` copy is only a first-paint
+ *    cache and the fallback for a host that serves no settings form
  *    (pre-0.3.0). A 0.2.x cache still holding a real choice is seeded into the
- *    Host once, on the first load after the upgrade.
+ *    Host once, on the first load after the upgrade;
+ *  - the experimental **color mode**: `data-everforest-*` attributes on
+ *    `<html>` plus one `<style data-plugin-css="dsh-everforest/color-mode">`
+ *    element carrying the selector-scoped CSS from `src/color-mode.js`. Both are
+ *    installed independently of the Settings UI, so the mode keeps working when
+ *    `slots` / `locale` never arrive; with the mode off the CSS matches nothing
+ *    and the token layer is byte-identical to 0.3.0.
  *
  * The override disposer returned by `overrideTokens` is NOT tied to the plugin
  * fiber (the layer lives on the root ThemeRuntime), so the layer is created
  * inside `ctx.effect` and released explicitly on plugin unload. The same holds
- * for the injected `<style>` element and the locale dictionaries.
+ * for the injected `<style>` elements and the locale dictionaries.
  *
  * `theme` is the only hard dependency (the token layer must apply even if the
  * settings UI is unavailable). `slots` / `locale` / `configForms` are waited
@@ -33,6 +40,7 @@
  */
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
+import { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } from './color-mode.js'
 import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
 import {
@@ -58,25 +66,31 @@ export const name = PACKAGE_ID
 export const inject = ['theme']
 
 /**
- * The pair this document should start from, resolved the same way the Host boot
- * row paints the first frame: the `localStorage` cache first, otherwise the
- * Host-backed pair the row published on `window.__EVERFOREST_BOOT__`, otherwise
- * the shipped default. Using the hint (instead of `readState()` alone) is what
- * keeps a fresh browser profile from flashing the default before the
- * asynchronous `configForms` snapshot arrives.
+ * The state this document should start from, resolved the same way the Host
+ * boot row paints the first frame: the `localStorage` cache supplies the
+ * color-mode flag, the Host-backed pair the row published on
+ * `window.__EVERFOREST_BOOT__` overrides the two strengths when present, and
+ * everything else falls back to the shipped default. Using the hint (instead of
+ * `readState()` alone) is what keeps a fresh browser profile from flashing the
+ * default before the asynchronous `configForms` snapshot arrives.
  *
- * @returns {{ light: string, dark: string }}
+ * The hint only carries strengths (the Host boot row paints tokens only), so
+ * `colorMode` always comes from the cache; a missing/blocked cache reads as
+ * `false`.
+ *
+ * @returns {{ light: string, dark: string, colorMode: boolean }}
  */
 function initialState() {
+  const cached = readState()
   try {
     if (typeof window !== 'undefined') {
       const hint = bootHintState(window.__EVERFOREST_BOOT__)
-      if (hint !== null) return hint
+      if (hint !== null) return { light: hint.light, dark: hint.dark, colorMode: cached.colorMode }
     }
   } catch {
-    // A host without the boot row: fall through to the cache.
+    // A host without the boot row: the cache already holds everything.
   }
-  return readState()
+  return cached
 }
 
 /**
@@ -106,7 +120,7 @@ export function apply(ctx) {
   function getSnapshot() {
     if (cachedSnapshot === null) {
       cachedSnapshot = {
-        state: { light: state.light, dark: state.dark },
+        state: { light: state.light, dark: state.dark, colorMode: state.colorMode },
         theme: ctx.theme.getTheme(),
       }
     }
@@ -121,12 +135,45 @@ export function apply(ctx) {
   }
 
   /**
-   * Replace this plugin's override layer. `overrideTokens` treats a repeated
-   * call for the same source as a full replacement and re-stacks it on top, so
-   * the previous disposer becomes a no-op and the new one is kept for unload.
+   * Mirror the color-mode state onto `<html>` as data attributes.
+   *
+   * `colorModeDataset()` returns every attribute in one object, so toggling the
+   * mode and changing a strength are the same write; the injected stylesheet is
+   * scoped under `html[data-everforest-color-mode="on"]`, which makes the mode
+   * CSS a no-op while it is off. A missing attribute in the dataset is removed
+   * rather than left stale. DOM-less contexts (unit tests, SSR) are tolerated.
+   */
+  function applyColorModeAttributes() {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (!root || typeof root.setAttribute !== 'function') return
+    const dataset = colorModeDataset(state)
+    for (const attribute of Object.values(COLOR_MODE_ATTRS)) {
+      const value = dataset[attribute]
+      if (typeof value === 'string') root.setAttribute(attribute, value)
+      else if (typeof root.removeAttribute === 'function') root.removeAttribute(attribute)
+    }
+  }
+
+  /** The strength pair currently stacked onto ThemeRuntime (`null` before mount). */
+  let layerPair = null
+
+  /**
+   * Replace this plugin's override layer and the color-mode attributes.
+   *
+   * `overrideTokens` treats a repeated call for the same source as a full
+   * replacement and re-stacks it on top, so the previous disposer becomes a
+   * no-op and the new one is kept for unload. The token sheet only depends on
+   * the strength pair, so a call that leaves the pair untouched (e.g. toggling
+   * color mode) still refreshes the `<html>` attributes but does not re-stack
+   * the layer: the mode is selector-scoped CSS on top, never a token change.
    */
   function applyLayer() {
-    layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(state))
+    if (layerPair === null || layerPair.light !== state.light || layerPair.dark !== state.dark) {
+      layerPair = { light: state.light, dark: state.dark }
+      layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(layerPair))
+    }
+    applyColorModeAttributes()
   }
 
   // 1. Token layer, created with the client module and owned by our effect.
@@ -135,8 +182,24 @@ export function apply(ctx) {
     return () => {
       layerDispose?.()
       layerDispose = null
+      layerPair = null
     }
   }, 'everforest: token layer')
+
+  // 1b. Color-mode stylesheet. Installed independently of the Settings UI so
+  // the mode keeps working when `slots` / `locale` are absent or arrive later.
+  // The CSS is static and every rule is scoped under
+  // `html[data-everforest-color-mode="on"]`, so with the mode off (the default)
+  // nothing matches and the rendering is byte-identical to 0.3.0.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/color-mode'
+    tag.textContent = colorModeStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: color mode styles')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
@@ -163,7 +226,7 @@ export function apply(ctx) {
     const onStorage = (event) => {
       if (event.key !== STORAGE_KEY && event.key !== null) return
       const next = readState()
-      if (next.light === state.light && next.dark === state.dark) return
+      if (next.light === state.light && next.dark === state.dark && next.colorMode === state.colorMode) return
       state = next
       applyLayer()
       notify()
@@ -234,17 +297,17 @@ export function apply(ctx) {
   }
 
   /**
-   * Make a Host-reported pair the current one and refresh the first-paint cache.
-   * Writes the cache even when the pair did not change: a fresh browser profile
-   * that booted from the Host value needs a cache entry so its next reload can
-   * paint before the Host payload is consulted.
+   * Make a Host-reported state the current one and refresh the first-paint
+   * cache. Writes the cache even when the state did not change: a fresh browser
+   * profile that booted from the Host value needs a cache entry so its next
+   * reload can paint before the Host payload is consulted.
    */
-  function adoptHostPair(pair) {
-    if (statesEqual(pair, state)) {
+  function adoptHostState(hostState) {
+    if (statesEqual(hostState, state)) {
       writeState(state)
       return
     }
-    state = { light: pair.light, dark: pair.dark }
+    state = { light: hostState.light, dark: hostState.dark, colorMode: hostState.colorMode }
     writeState(state)
     applyLayer()
     notify()
@@ -292,15 +355,15 @@ export function apply(ctx) {
         })
         .catch((error) => {
           settle()
-          console.warn(`${LOG_PREFIX} could not migrate the saved strength to the Host; localStorage keeps it`, error)
+          console.warn(`${LOG_PREFIX} could not migrate the saved palette choice to the Host; localStorage keeps it`, error)
         })
     } catch (error) {
       settle()
-      console.warn(`${LOG_PREFIX} could not migrate the saved strength to the Host; localStorage keeps it`, error)
+      console.warn(`${LOG_PREFIX} could not migrate the saved palette choice to the Host; localStorage keeps it`, error)
     }
   }
 
-  /** Persist the current pair after a user choice, queueing it while not ready. */
+  /** Persist the current state after a user choice, queueing it while not ready. */
   function persistChoice() {
     const snapshot = hostSnapshot()
     if (form === null || snapshot === null || snapshot.status !== 'ready') {
@@ -308,7 +371,7 @@ export function apply(ctx) {
       return
     }
     if (snapshot.writable === false) return
-    writeToHost(stateToSetOps(state), 'the strength was not saved to the Host; it applies to this session')
+    writeToHost(stateToSetOps(state), 'the palette choice was not saved to the Host; it applies to this session')
   }
 
   /** Clear the Host override after "restore defaults" so the row disappears. */
@@ -324,7 +387,7 @@ export function apply(ctx) {
     // the controller serializes writes, so the pair ends at the inherited
     // defaults instead of losing the reset to the later-committed set.
     if (!hasUserLayer(snapshot.user) && writesInFlight === 0) return
-    writeToHost(stateToUnsetOps(), 'the saved strength was not cleared on the Host; the local reset still applies')
+    writeToHost(stateToUnsetOps(), 'the saved palette choice was not cleared on the Host; the local reset still applies')
   }
 
   /** Apply a choice queued while the form was still loading. */
@@ -335,11 +398,11 @@ export function apply(ctx) {
     if (snapshot.writable === false) return
     if (kind === 'unset') {
       if (hasUserLayer(snapshot.user) || writesInFlight > 0) {
-        writeToHost(stateToUnsetOps(), 'the saved strength was not cleared on the Host; the local reset still applies')
+        writeToHost(stateToUnsetOps(), 'the saved palette choice was not cleared on the Host; the local reset still applies')
       }
       return
     }
-    writeToHost(stateToSetOps(state), 'the strength was not saved to the Host; it applies to this session')
+    writeToHost(stateToSetOps(state), 'the palette choice was not saved to the Host; it applies to this session')
   }
 
   /**
@@ -349,9 +412,11 @@ export function apply(ctx) {
    * adopted immediately) and once when the form binds. Precedence:
    *
    *  0. a local user choice was made before the snapshot existed → push it;
-   *  1. a Host-stored choice is the authority → adopt it;
-   *  2. no Host choice yet but a real (non-default) 0.2.x cache choice exists →
-   *     seed the Host once and keep the cached pair;
+   *  1. a Host-stored choice is the authority → adopt it (all three fields:
+   *     strengths and the color-mode flag);
+   *  2. no Host choice yet but a real older cache choice exists (non-default
+   *     strengths, or color mode on) → seed the Host once and keep the cached
+   *     state;
    *  3. no Host choice and nothing worth seeding → adopt the Host's effective
    *     value (the shipped defaults).
    */
@@ -364,7 +429,7 @@ export function apply(ctx) {
     }
     if (hasUserLayer(snapshot.user)) {
       seedCompleted = true
-      adoptHostPair(stateFromHost(snapshot.value))
+      adoptHostState(stateFromHost(snapshot.value))
       return
     }
     if (!seedCompleted && shouldSeed(snapshot.user, readStoredState())) {
@@ -373,7 +438,7 @@ export function apply(ctx) {
       return
     }
     seedCompleted = true
-    adoptHostPair(stateFromHost(snapshot.value))
+    adoptHostState(stateFromHost(snapshot.value))
   }
 
   if (typeof ctx.inject === 'function') {
@@ -387,7 +452,7 @@ export function apply(ctx) {
           syncFromHost()
         } catch (error) {
           form = null
-          console.warn(`${LOG_PREFIX} the Host settings form is unavailable; strengths stay localStorage-only`, error)
+          console.warn(`${LOG_PREFIX} the Host settings form is unavailable; the palette choice stays localStorage-only`, error)
           return undefined
         }
         return () => {
@@ -396,18 +461,19 @@ export function apply(ctx) {
         }
       })
     } catch (error) {
-      console.warn(`${LOG_PREFIX} could not wait for the Host settings form; strengths stay localStorage-only`, error)
+      console.warn(`${LOG_PREFIX} could not wait for the Host settings form; the palette choice stays localStorage-only`, error)
     }
   }
 
-  // 3. Settings page stores the user's per-scheme strength choice. Writes update
-  // the local state and the first-paint cache synchronously (so the choice
-  // survives a restart even when the Host write is slow or refused), then go to
-  // the Host document as the durable, cross-browser store.
+  // 3. Settings page stores the user's palette state: the per-scheme strength
+  // choice and the experimental color-mode flag. Writes update the local state
+  // and the first-paint cache synchronously (so the choice survives a restart
+  // even when the Host write is slow or refused), then go to the Host document
+  // as the durable, cross-browser store — all three fields in one mutation.
   function select(scheme, strength) {
     if (scheme !== 'light' && scheme !== 'dark') return
     if (!STRENGTHS.includes(strength)) return
-    const next = { light: state.light, dark: state.dark, [scheme]: strength }
+    const next = { light: state.light, dark: state.dark, colorMode: state.colorMode, [scheme]: strength }
     const changed = next.light !== state.light || next.dark !== state.dark
     state = next
     writeState(state)
@@ -423,13 +489,34 @@ export function apply(ctx) {
   }
 
   function reset() {
-    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
-    const changed = next.light !== state.light || next.dark !== state.dark
+    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }
+    const changed = next.light !== state.light || next.dark !== state.dark || next.colorMode !== state.colorMode
     state = next
     writeState(state)
     if (changed) applyLayer()
     notify()
     persistReset()
+  }
+
+  /**
+   * Turn the experimental color mode on or off.
+   *
+   * Same pipeline as `select`: mirror in memory, refresh the first-paint cache,
+   * repaint, notify the page, then persist all three fields atomically through
+   * the Host form (queued while the form is still loading; a refused write is
+   * recovered by re-reading the Host document in `writeToHost`). `applyLayer`
+   * rewrites the `<html>` data attributes; the token sheet itself is untouched.
+   *
+   * @param {boolean} enabled - only the literal `true` turns the mode on.
+   */
+  function setColorMode(enabled) {
+    const next = enabled === true
+    if (next === state.colorMode) return
+    state = { light: state.light, dark: state.dark, colorMode: next }
+    writeState(state)
+    applyLayer()
+    notify()
+    persistChoice()
   }
 
   /**
@@ -458,6 +545,7 @@ export function apply(ctx) {
     select,
     reset,
     setPreference,
+    setColorMode,
   }
 
   // 4. Settings page, locale dictionaries and the page stylesheet. These need

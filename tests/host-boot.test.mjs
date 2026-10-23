@@ -11,8 +11,11 @@
  * Since 0.3.0 the row's fallback pair comes from the Host-backed `Config`
  * (`settings.describe()` projects its volatile fields into the form the Client
  * edits), while the browser's `localStorage` payload is the fresher cache and
- * therefore wins. Both directions and the published `window.__EVERFOREST_BOOT__`
- * hint are covered here.
+ * therefore wins. Since 0.4.0 `Config` also carries the volatile
+ * `colorMode` flag, but the boot row deliberately ignores it: the first paint
+ * is token-only and the color-mode CSS belongs to the Client half. Both
+ * directions and the published `window.__EVERFOREST_BOOT__` hint are covered
+ * here.
  *
  * The script itself is executed in a `node:vm` sandbox with a minimal fake DOM,
  * the same realm trick tests/integration.test.mjs uses for `client.js`.
@@ -148,15 +151,19 @@ function emitRow (harness) {
 }
 
 /** Mutable volatile config references, like the Loader's in-place updates. */
-function createLiveConfig (initial = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }) {
+function createLiveConfig (initial = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }) {
   const values = { ...initial }
   return {
-    config: { light: { get: () => values.light }, dark: { get: () => values.dark } },
+    config: {
+      light: { get: () => values.light },
+      dark: { get: () => values.dark },
+      colorMode: { get: () => values.colorMode },
+    },
     values,
   }
 }
 
-test('Config declares two live-editable scheme fields with the shipped defaults', () => {
+test('Config declares two live-editable scheme fields and a live color-mode flag', () => {
   assert.equal(ENTRY_ID, 'everforest')
   const json = Config.toJSON()
   assert.ok(json, 'Config.toJSON() must produce a serializable document')
@@ -165,19 +172,24 @@ test('Config declares two live-editable scheme fields with the shipped defaults'
   // Marking the leaves (not the whole object) is required: schemastery rejects
   // a volatile field inside a volatile object.
   const fields = Config.dict
-  assert.deepEqual(Object.keys(fields).sort(), ['dark', 'light'])
+  assert.deepEqual(Object.keys(fields).sort(), ['colorMode', 'dark', 'light'])
   assert.equal(fields.light.meta.volatile, true, 'light must be volatile (live-editable)')
   assert.equal(fields.dark.meta.volatile, true, 'dark must be volatile (live-editable)')
+  assert.equal(fields.colorMode.meta.volatile, true, 'colorMode must be volatile (live-editable)')
   assert.equal(fields.light.meta.default, DEFAULT_STATE.light)
   assert.equal(fields.dark.meta.default, DEFAULT_STATE.dark)
+  assert.equal(fields.colorMode.meta.default, false, 'color mode ships off')
 
   // The Loader validates hand-edited profile patches with this schema.
   const parsed = Config({})
   assert.equal(parsed.light.get(), DEFAULT_STATE.light)
   assert.equal(parsed.dark.get(), DEFAULT_STATE.dark)
+  assert.equal(parsed.colorMode.get(), false)
   assert.equal(Config({ light: 'soft' }).light.get(), 'soft')
+  assert.equal(Config({ colorMode: true }).colorMode.get(), true)
   assert.throws(() => Config({ light: 'nope' }), 'an invalid hand-edited strength must be rejected')
   assert.throws(() => Config({ light: 'hard', dark: 'nope' }))
+  assert.throws(() => Config({ colorMode: 'on' }), 'a hand-edited colorMode must be a boolean')
 })
 
 test('hostState() reads volatile references at call time and validates each side', () => {
@@ -187,6 +199,12 @@ test('hostState() reads volatile references at call time and validates each side
   live.values.light = 'soft'
   live.values.dark = 'hard'
   assert.deepEqual(hostState(live.config), { light: 'soft', dark: 'hard' })
+
+  // The color-mode flag is deliberately not part of the boot pair: the first
+  // paint only writes token values, and the mode's CSS arrives with the Client.
+  live.values.colorMode = true
+  assert.deepEqual(hostState(live.config), { light: 'soft', dark: 'hard' })
+  assert.equal(Object.prototype.hasOwnProperty.call(hostState(live.config), 'colorMode'), false)
 
   // Defensive: the boot row embeds strings, so anything outside the enum must
   // fall back instead of reaching the script.
@@ -334,6 +352,18 @@ test('boot values equal the Client token layer for all six variants', () => {
       assertPalette(darkRun, 'dark', dark, `dark-${dark}`)
     }
   }
+})
+
+test('the cached color-mode flag never changes the boot paint or the published hint', () => {
+  // The first paint is token-only; color mode is Client-injected CSS scoped to
+  // the chat/session DOM. A cache payload with the flag on must boot exactly
+  // like one with it off, and the hint stays a strength-only pair.
+  const off = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard', colorMode: false })
+  const on = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard', colorMode: true })
+  const offRun = runBootScript({ source: 'light', stored: off })
+  const onRun = runBootScript({ source: 'light', stored: on })
+  assert.deepEqual([...onRun.written.entries()], [...offRun.written.entries()])
+  assert.deepEqual({ ...onRun.window[BOOT_HINT] }, { version: STATE_VERSION, light: 'soft', dark: 'hard' })
 })
 
 test('no stored choice and no Host pair paints the default pairing (dark soft / light hard)', () => {

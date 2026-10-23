@@ -3,6 +3,54 @@
 `dsh-everforest` 的所有重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)：补丁版本只做配色修正、工程与文档修复，不改变 token/API 契约。
 
+## [0.4.0] - 2026-10-23
+
+次版本：新增**实验性「色彩模式」**（默认关闭）。开启后把 Everforest 调色板里此前未上场的强调色用到聊天
+Markdown 内容（h1–h3 标题、列表 marker、引用条 / 分隔线、表格表头色带与隔行斑马纹、任务列表 checkbox）
+和工作区会话记录的状态行（「待确认」行淡橙底 + 橙色状态点，「已完成未查看」行淡绿底 + 绿色状态点）。
+默认配色与 0.3.0 逐字节一致：色彩模式只注入一段作用域 CSS，**不改变 token 层**，开关关闭时所有选择器都不匹配。
+
+### Added
+
+- **色彩模式开关（实验性，默认关闭）**：设置页新增「色彩模式」区块（`role="switch"` + `aria-checked`、
+  当前 scheme 的 5 个强调色装饰片、实验性说明）；开关与两个强度一起写入当前 profile 的 Host 配置
+  （`Config` 新增 `colorMode` 布尔字段，默认 `false`、标记 `.volatile()`），同一 profile 的所有浏览器共享。
+  中英文案（`colorMode.title/desc/on/off/switch/experimental`）随 DSH 语言切换。
+- **色彩引擎 `src/color-mode.js`**：`colorModeRoles()` 对 6 个配色变体实算「中彩」角色色值——标题
+  `h1/h2/h3 = red/orange/yellow`、marker / 引用条 / hr / checkbox 用 `aqua`、表格色带与斑马纹用
+  `fg.green` 混入 `bg0`（14% / 6%）、「待确认」行底与状态点用 `orange`、「已完成」行底与状态点用
+  `green`；所有文本承载表面按 `label-primary ≥ 4.5:1` 反推权重，标题 / 装饰按 3:1、状态点对
+  `bg0` 与侧栏两个表面都按 3:1 守卫。`colorModeStyles()` 生成静态样式表：6 个自定义属性块
+  （浅色 `body:not([data-ds-dark-theme])`、深色 `body[data-ds-dark-theme]`，强度由
+  `html[data-everforest-light|dark]` 选择）+ 15 条元素规则，全部以
+  `html[data-everforest-color-mode="on"]` 开头。
+- **作用域**：只命中聊天 Markdown（`[class*="markdown"]`，排除 compact 推理变体）与会话树行
+  （`[role="treeitem"][data-row-key^="session:"]:has([data-state=…])`，选中行不覆盖、hover 单独加深）；
+  特殊格式（加粗 / 斜体 / 链接 / 行内 code 文字 / 引用文字 / 代码块）保持单色，「运行中」不上色。
+- **对比度硬门槛 G9–G15**：标题 / 装饰 ≥3.0、彩色表面上的正文 ≥4.5、状态点对两个表面 ≥3.0、
+  角色色值合法性；`docs/reference/contrast.md` 新增「色彩模式（中彩）」章节。
+- 测试：`tests/color-mode.test.mjs`（角色快照 + 4 组对比度 + CSS 结构 / 作用域 / 颜色合法性）。
+
+### Changed
+
+- `src/state.js`：state 变为 `{ light, dark, colorMode }`；localStorage payload 增加可选 `colorMode`，
+  **`STATE_VERSION` 保持 1**（0.3.x 缓存缺字段视为 `false`、不算损坏、仍参与迁移；非布尔值按损坏处理）。
+- `src/durable.js` / `src/host-config.js` / `src/client-entry.js`：Host 写入一次原子提交三个字段
+  （`light` / `dark` / `colorMode`），「恢复默认」unset 三个字段；host 表单就绪前的选择继续排队补写；
+  跨浏览器广播 / storage 事件比较也包含该 flag。`hostState()` 与首帧 boot payload **保持只含两个强度**
+  （色彩模式只影响 Client 挂载后的内容层，不影响首帧 token）。
+- 设置页「恢复默认」与说明文案、README、CHANGELOG 同步；`package.json` `version` 0.4.0、
+  `files` 增 `src/color-mode.js`。
+- 测试从 144 项增至 **163 项**（新增色彩模式、三字段状态 / 持久化 / 设置页用例）。
+
+### Notes
+
+- **实验性边界**：色彩模式依赖 DSH 0.2.1-rc.2 的 Markdown 容器类名（`[class*="markdown"]`）与会话行
+  `data-row-key` / `data-state` / `role=treeitem` 等语义锚点；DSH 升级若改名，模式可能静默失效（token 层
+  不受影响）。官方主题扩展点只支持 token 覆盖，选择器注入属本项目的实验性例外，升级 DSH 后需回归。
+- **真实界面目检需要重启 DSH**（Host `Config` schema 变化），刷新页面只更新 Client 半部；未重启时色彩模式
+  开关仍可用，但只写入 localStorage（旧宿主降级）。
+
 ## [0.3.0] - 2026-10-22
 
 次版本：强度偏好的**真源**从浏览器 `localStorage` 迁到当前 profile 的 Host 配置（官方 settings / `configForms` 通道），

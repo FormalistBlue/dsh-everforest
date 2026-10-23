@@ -1,13 +1,14 @@
 /**
  * Unit tests for the persisted user state (`src/state.js`).
  *
- * The state is the per-scheme strength choice cached in
- * `localStorage['dsh-everforest/v1']` (the Host profile config is the source of
- * truth since 0.3.0; this module owns the cache and the 0.2.x migration source).
- * The tests cover the defaults, the pure normalizers (hostile inputs included),
- * the never-throwing storage adapters, and `readStoredState()` — the
- * no-repair/no-default read the migration needs to tell "a real choice exists"
- * from "nothing stored yet".
+ * The state is the palette choice cached in `localStorage['dsh-everforest/v1']`:
+ * one strength per scheme plus the experimental color-mode flag (0.4.0). The
+ * Host profile config is the source of truth since 0.3.0; this module owns the
+ * cache and the migration source. The tests cover the defaults, the pure
+ * normalizers (hostile inputs included), the never-throwing storage adapters,
+ * the 0.3.x payload compatibility (no `colorMode` field), and
+ * `readStoredState()` — the no-repair/no-default read the migration needs to
+ * tell "a real choice exists" from "nothing stored yet".
  */
 
 import { test } from 'node:test'
@@ -56,38 +57,60 @@ function createThrowingStorage() {
   return { getItem: boom, setItem: boom, removeItem: boom }
 }
 
-/** The default pairing as it comes out of `normalizeState()`. */
+/** The default state as it comes out of `normalizeState()`. */
 function assertDefaults(state) {
-  assert.deepEqual(state, { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark })
+  assert.deepEqual(state, { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false })
+}
+
+/** A stored payload with the current schema version and an explicit colorMode. */
+function storedPayload(pair, colorMode = false) {
+  return JSON.stringify({ version: STATE_VERSION, ...pair, colorMode })
 }
 
 test('storage key and schema version are the documented ones', () => {
   assert.equal(STORAGE_KEY, 'dsh-everforest/v1')
+  // 0.4.0 adds an optional `colorMode` field; the version stays 1 so 0.3.x
+  // caches remain valid instead of being discarded.
   assert.equal(STATE_VERSION, 1)
 })
 
-test('default pairing matches Everforest Enchanted (light hard / dark soft)', () => {
+test('default state matches Everforest Enchanted (light hard / dark soft, color mode off)', () => {
   assert.deepEqual(DEFAULT_STATE, { light: 'hard', dark: 'soft' })
-  assert.deepEqual(createDefaultState(), { light: 'hard', dark: 'soft' })
+  assert.deepEqual(createDefaultState(), { light: 'hard', dark: 'soft', colorMode: false })
   // A fresh object every time: mutating one instance must not leak into others.
   const first = createDefaultState()
   first.light = 'soft'
-  assert.deepEqual(createDefaultState(), { light: 'hard', dark: 'soft' })
+  first.colorMode = true
+  assert.deepEqual(createDefaultState(), { light: 'hard', dark: 'soft', colorMode: false })
 })
 
 test('normalizeState accepts a complete, current payload', () => {
+  assert.deepEqual(normalizeState({ version: 1, light: 'soft', dark: 'hard', colorMode: true }), {
+    light: 'soft',
+    dark: 'hard',
+    colorMode: true,
+  })
+  assert.deepEqual(normalizeState({ version: 1, light: 'soft', dark: 'hard', colorMode: false }), {
+    light: 'soft',
+    dark: 'hard',
+    colorMode: false,
+  })
+  // A 0.3.x payload has no colorMode field: it reads as "off" without repair.
   assert.deepEqual(normalizeState({ version: 1, light: 'soft', dark: 'hard' }), {
     light: 'soft',
     dark: 'hard',
+    colorMode: false,
   })
   assert.deepEqual(normalizeState({ version: 1, light: 'medium', dark: 'medium' }), {
     light: 'medium',
     dark: 'medium',
+    colorMode: false,
   })
   for (const strength of STRENGTHS) {
     assert.deepEqual(normalizeState({ version: 1, light: strength, dark: strength }), {
       light: strength,
       dark: strength,
+      colorMode: false,
     })
   }
 })
@@ -101,25 +124,43 @@ test('normalizeState falls back for values that are not stored objects', () => {
 test('normalizeState rejects unknown and missing versions', () => {
   assertDefaults(normalizeState({ light: 'soft', dark: 'hard' })) // no version
   assertDefaults(normalizeState({ version: 0, light: 'soft', dark: 'hard' }))
-  assertDefaults(normalizeState({ version: 2, light: 'soft', dark: 'hard' }))
+  assertDefaults(normalizeState({ version: 2, light: 'soft', dark: 'hard', colorMode: true }))
   assertDefaults(normalizeState({ version: '1', light: 'soft', dark: 'hard' }))
   assertDefaults(normalizeState({ version: 1.5, light: 'soft', dark: 'hard' }))
 })
 
-test('normalizeState repairs individual invalid fields without dropping the other', () => {
+test('normalizeState repairs individual invalid fields without dropping the others', () => {
   assert.deepEqual(normalizeState({ version: 1, light: 'ultra', dark: 'medium' }), {
     light: 'hard',
     dark: 'medium',
+    colorMode: false,
   })
   assert.deepEqual(normalizeState({ version: 1, light: 'soft', dark: 42 }), {
     light: 'soft',
     dark: 'soft',
+    colorMode: false,
   })
   assert.deepEqual(normalizeState({ version: 1, light: null, dark: null }), {
     light: 'hard',
     dark: 'soft',
+    colorMode: false,
   })
-  assert.deepEqual(normalizeState({ version: 1 }), { light: 'hard', dark: 'soft' })
+  assert.deepEqual(normalizeState({ version: 1 }), { light: 'hard', dark: 'soft', colorMode: false })
+
+  // Only the literal boolean `true` can switch the experimental mode on; a
+  // hostile flag falls back to off while the strengths survive.
+  for (const colorMode of ['on', 'true', 1, 0, null, {}, []]) {
+    assert.deepEqual(normalizeState({ version: 1, light: 'soft', dark: 'hard', colorMode }), {
+      light: 'soft',
+      dark: 'hard',
+      colorMode: false,
+    }, `colorMode ${JSON.stringify(colorMode)} must not enable the mode`)
+  }
+  assert.deepEqual(normalizeState({ version: 1, light: 'soft', dark: 'hard', colorMode: true }), {
+    light: 'soft',
+    dark: 'hard',
+    colorMode: true,
+  })
 })
 
 test('normalizeState ignores unknown extra fields and is pure', () => {
@@ -127,10 +168,11 @@ test('normalizeState ignores unknown extra fields and is pure', () => {
     version: 1,
     light: 'soft',
     dark: 'hard',
+    colorMode: true,
     extra: { nested: true },
   })
   const normalized = normalizeState(raw)
-  assert.deepEqual(normalized, { light: 'soft', dark: 'hard' })
+  assert.deepEqual(normalized, { light: 'soft', dark: 'hard', colorMode: true })
   assert.notEqual(normalized, raw)
   assert.equal(Object.prototype.hasOwnProperty.call(normalized, 'version'), false)
   assert.equal(normalized.extra, undefined)
@@ -145,11 +187,18 @@ test('readState returns the defaults without usable storage', () => {
 
 test('readState returns the saved state and reads the versioned key', () => {
   const storage = createMemoryStorage({
-    [STORAGE_KEY]: JSON.stringify({ version: 1, light: 'soft', dark: 'medium' }),
+    [STORAGE_KEY]: storedPayload({ light: 'soft', dark: 'medium' }, true),
   })
-  assert.deepEqual(readState(storage), { light: 'soft', dark: 'medium' })
+  assert.deepEqual(readState(storage), { light: 'soft', dark: 'medium', colorMode: true })
   assert.deepEqual(storage.calls.getItem, [STORAGE_KEY])
   assert.equal(storage.calls.setItem.length, 0)
+
+  // A 0.3.x cache payload (no colorMode) is valid and is NOT rewritten.
+  const legacy = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'medium' }),
+  })
+  assert.deepEqual(readState(legacy), { light: 'soft', dark: 'medium', colorMode: false })
+  assert.equal(legacy.calls.setItem.length, 0, 'an old valid cache must not be repaired')
 })
 
 test('readState falls back to defaults when the key is missing or unreadable', () => {
@@ -174,13 +223,17 @@ test('readState repairs malformed JSON and unknown payloads by rewriting default
   const malformed = createMemoryStorage({ [STORAGE_KEY]: '{"version":1,' })
   assertDefaults(readState(malformed))
   assert.deepEqual(malformed.calls.setItem, [
-    [STORAGE_KEY, JSON.stringify({ version: 1, light: 'hard', dark: 'soft' })],
+    [STORAGE_KEY, JSON.stringify({ version: 1, light: 'hard', dark: 'soft', colorMode: false })],
   ])
 
   for (const payload of [
-    JSON.stringify({ version: 2, light: 'soft', dark: 'hard' }),
+    JSON.stringify({ version: 2, light: 'soft', dark: 'hard', colorMode: true }),
     JSON.stringify({ version: 1, light: 'ultra', dark: 'hard' }),
     JSON.stringify({ version: 1, light: 'soft' }),
+    // A non-boolean colorMode is corrupt data, not a value to coerce: the whole
+    // payload is repaired to the default state.
+    JSON.stringify({ version: 1, light: 'soft', dark: 'hard', colorMode: 'on' }),
+    JSON.stringify({ version: 1, light: 'soft', dark: 'hard', colorMode: 1 }),
     JSON.stringify([]),
     'null',
     '"hard"',
@@ -192,6 +245,7 @@ test('readState repairs malformed JSON and unknown payloads by rewriting default
       version: 1,
       light: 'hard',
       dark: 'soft',
+      colorMode: false,
     })
   }
 })
@@ -200,7 +254,7 @@ test('readState does not rewrite a valid payload with unknown extra fields', () 
   const storage = createMemoryStorage({
     [STORAGE_KEY]: JSON.stringify({ version: 1, light: 'medium', dark: 'soft', extra: 'kept' }),
   })
-  assert.deepEqual(readState(storage), { light: 'medium', dark: 'soft' })
+  assert.deepEqual(readState(storage), { light: 'medium', dark: 'soft', colorMode: false })
   assert.equal(storage.calls.setItem.length, 0)
 })
 
@@ -210,23 +264,34 @@ test('writeState persists the versioned payload and reports success', () => {
   assert.equal(storage.calls.setItem.length, 1)
   const [key, raw] = storage.calls.setItem[0]
   assert.equal(key, STORAGE_KEY)
-  assert.deepEqual(JSON.parse(raw), { version: 1, light: 'soft', dark: 'hard' })
+  // The flag is always written explicitly, even when the caller omitted it.
+  assert.deepEqual(JSON.parse(raw), { version: 1, light: 'soft', dark: 'hard', colorMode: false })
+
+  assert.equal(writeState({ light: 'hard', dark: 'medium', colorMode: true }, storage), true)
+  assert.deepEqual(JSON.parse(storage.values.get(STORAGE_KEY)), {
+    version: 1,
+    light: 'hard',
+    dark: 'medium',
+    colorMode: true,
+  })
 })
 
 test('writeState normalizes invalid fields before writing', () => {
   const storage = createMemoryStorage()
-  assert.equal(writeState({ light: 'ultra', dark: 'soft' }, storage), true)
+  assert.equal(writeState({ light: 'ultra', dark: 'soft', colorMode: 'yes' }, storage), true)
   assert.deepEqual(JSON.parse(storage.values.get(STORAGE_KEY)), {
     version: 1,
     light: 'hard',
     dark: 'soft',
+    colorMode: false,
   })
-  // Hostile input (not an object) still writes the default pairing.
+  // Hostile input (not an object) still writes the default state.
   writeState(undefined, storage)
   assert.deepEqual(JSON.parse(storage.values.get(STORAGE_KEY)), {
     version: 1,
     light: 'hard',
     dark: 'soft',
+    colorMode: false,
   })
 })
 
@@ -240,67 +305,107 @@ test('writeState fails silently for unavailable or failing storage', () => {
 test('state survives a write/read round trip', () => {
   const storage = createMemoryStorage()
   for (const state of [
-    { light: 'hard', dark: 'soft' },
-    { light: 'soft', dark: 'hard' },
-    { light: 'medium', dark: 'medium' },
+    { light: 'hard', dark: 'soft', colorMode: false },
+    { light: 'soft', dark: 'hard', colorMode: true },
+    { light: 'medium', dark: 'medium', colorMode: false },
+    { light: 'soft', dark: 'soft', colorMode: true },
   ]) {
     assert.equal(writeState(state, storage), true)
     assert.deepEqual(readState(storage), state)
   }
 })
 
-test('resetState restores the Enchanted defaults and persists them', () => {
+test('resetState restores the Enchanted defaults (color mode off) and persists them', () => {
   const storage = createMemoryStorage({
-    [STORAGE_KEY]: JSON.stringify({ version: 1, light: 'soft', dark: 'hard' }),
+    [STORAGE_KEY]: storedPayload({ light: 'soft', dark: 'hard' }, true),
   })
   const reset = resetState(storage)
-  assert.deepEqual(reset, { light: 'hard', dark: 'soft' })
+  assert.deepEqual(reset, { light: 'hard', dark: 'soft', colorMode: false })
   assert.deepEqual(JSON.parse(storage.values.get(STORAGE_KEY)), {
     version: 1,
     light: 'hard',
     dark: 'soft',
+    colorMode: false,
   })
   // Still returns the defaults when the write fails.
   const failed = resetState(createThrowingStorage())
-  assert.deepEqual(failed, { light: 'hard', dark: 'soft' })
+  assert.deepEqual(failed, { light: 'hard', dark: 'soft', colorMode: false })
 })
 
-test('normalizeStrengths validates the unversioned Host pair without a version field', () => {
-  assert.deepEqual(normalizeStrengths({ light: 'soft', dark: 'medium' }), { light: 'soft', dark: 'medium' })
+test('normalizeStrengths validates the unversioned Host section (colorMode included)', () => {
+  assert.deepEqual(normalizeStrengths({ light: 'soft', dark: 'medium' }), {
+    light: 'soft',
+    dark: 'medium',
+    colorMode: false,
+  })
+  assert.deepEqual(normalizeStrengths({ light: 'soft', dark: 'medium', colorMode: true }), {
+    light: 'soft',
+    dark: 'medium',
+    colorMode: true,
+  })
   // The Host section is unversioned, so a stray version must not discard it.
   assert.deepEqual(normalizeStrengths({ version: 99, light: 'soft', dark: 'medium' }), {
     light: 'soft',
     dark: 'medium',
+    colorMode: false,
   })
   // A versioned cache without that field, though, is still a pair.
   assert.deepEqual(normalizeStrengths({ light: 'nope', dark: 'hard' }), {
     light: DEFAULT_STATE.light,
     dark: 'hard',
+    colorMode: false,
   })
   for (const hostile of [null, undefined, 'hard', [1, 2], 42]) {
-    assert.deepEqual(normalizeStrengths(hostile), { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark })
+    assert.deepEqual(normalizeStrengths(hostile), {
+      light: DEFAULT_STATE.light,
+      dark: DEFAULT_STATE.dark,
+      colorMode: false,
+    })
+  }
+  // Only the literal boolean `true` enables the mode.
+  for (const colorMode of ['on', 1, 0, null, {}, []]) {
+    assert.equal(normalizeStrengths({ colorMode }).colorMode, false)
   }
   // Unknown extra fields are ignored, never copied.
   assert.deepEqual(normalizeStrengths({ light: 'soft', dark: 'hard', extra: true }), {
     light: 'soft',
     dark: 'hard',
+    colorMode: false,
   })
 })
 
 test('readStoredState reports a real choice and never repairs or defaults', () => {
-  const valid = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard' })
+  const valid = storedPayload({ light: 'soft', dark: 'hard' }, true)
   const storage = createMemoryStorage({ [STORAGE_KEY]: valid })
-  assert.deepEqual(readStoredState(storage), { version: STATE_VERSION, light: 'soft', dark: 'hard' })
+  assert.deepEqual(readStoredState(storage), {
+    version: STATE_VERSION,
+    light: 'soft',
+    dark: 'hard',
+    colorMode: true,
+  })
   assert.equal(storage.calls.setItem.length, 0, 'readStoredState must not rewrite the cache')
 
-  // Absent key, unreadable storage, malformed JSON, unknown version, and an
-  // invalid strength all mean "nothing worth migrating".
+  // A 0.3.x payload without the field is still a real choice.
+  const legacy = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard' }),
+  })
+  assert.deepEqual(readStoredState(legacy), {
+    version: STATE_VERSION,
+    light: 'soft',
+    dark: 'hard',
+    colorMode: false,
+  })
+  assert.equal(legacy.calls.setItem.length, 0)
+
+  // Absent key, unreadable storage, malformed JSON, unknown version, an invalid
+  // strength, and a non-boolean colorMode all mean "nothing worth migrating".
   for (const storage of [
     createMemoryStorage(),
     createThrowingStorage(),
     createMemoryStorage({ [STORAGE_KEY]: '{oops' }),
     createMemoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: 99, light: 'soft', dark: 'hard' }) }),
     createMemoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'nope', dark: 'hard' }) }),
+    createMemoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard', colorMode: 'yes' }) }),
     createMemoryStorage({ [STORAGE_KEY]: 'null' }),
   ]) {
     assert.equal(readStoredState(storage), null)
@@ -311,12 +416,34 @@ test('readStoredState reports a real choice and never repairs or defaults', () =
   // readStoredState must agree on validity); the migration decides separately
   // whether it is worth seeding.
   const defaults = createMemoryStorage({
-    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }),
+    [STORAGE_KEY]: JSON.stringify({
+      version: STATE_VERSION,
+      light: DEFAULT_STATE.light,
+      dark: DEFAULT_STATE.dark,
+      colorMode: false,
+    }),
   })
   assert.deepEqual(readStoredState(defaults), {
     version: STATE_VERSION,
     light: DEFAULT_STATE.light,
     dark: DEFAULT_STATE.dark,
+    colorMode: false,
+  })
+
+  // Default strengths with color mode on is a real choice, not the default.
+  const modeOnly = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({
+      version: STATE_VERSION,
+      light: DEFAULT_STATE.light,
+      dark: DEFAULT_STATE.dark,
+      colorMode: true,
+    }),
+  })
+  assert.deepEqual(readStoredState(modeOnly), {
+    version: STATE_VERSION,
+    light: DEFAULT_STATE.light,
+    dark: DEFAULT_STATE.dark,
+    colorMode: true,
   })
 })
 
@@ -324,6 +451,11 @@ test('readStoredState ignores unknown extra fields like readState does', () => {
   const storage = createMemoryStorage({
     [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, light: 'medium', dark: 'soft', extra: 'kept' }),
   })
-  assert.deepEqual(readStoredState(storage), { version: STATE_VERSION, light: 'medium', dark: 'soft' })
+  assert.deepEqual(readStoredState(storage), {
+    version: STATE_VERSION,
+    light: 'medium',
+    dark: 'soft',
+    colorMode: false,
+  })
   assert.equal(storage.calls.setItem.length, 0)
 })

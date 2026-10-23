@@ -19,6 +19,13 @@
 6. 侧栏表面 `--dsw-specific-sidebar-fill` 与内容底 `--dsw-alias-bg-base` 的边界对比度 ≥ 1.02:1（6 档）：DSH 用前者画侧栏列 / Windows 标题栏 / 内容卡背后的 frame，用后者画内容卡（16px 左上圆角），同色时边界消失（见 §2c）；
 7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（light·soft 为 1.05:1 的可见性取舍，见 §2d），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；
 8. FileDiff 的 added / deleted 行底色（`--dsw-alias-file-diff-*-bg`）上的 `label-primary` 代码文本 ≥ 4.5:1（light·soft 为 4.1:1 的可见性取舍，见 §2e）；DSH 用这两个 token 画行底色、文字继承 `label-primary`（2026-10-21 走查：「浅绿色背景配白色文字」与「浅色绿色背景太不明显」，见 §6.3）；
+9. 色彩模式（中彩）标题 h1 / h2 / h3 对 `bg-base` ≥ 3.0:1（6 档）；
+10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；
+11. 色彩模式（中彩）表头色带上的 `label-primary` ≥ 4.5:1（6 档）；
+12. 色彩模式（中彩）斑马纹上的 `label-primary` ≥ 4.5:1（6 档）；
+13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档）；
+14. 色彩模式（中彩）状态点（待确认 / 已完成）对 `bg-base` 与 `sidebar-fill` 都 ≥ 3.0:1（6 档）；
+15. 色彩模式（中彩）全部 15 个角色色值是合法 `#RRGGBB`（6 档）；
 
 报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。
 
@@ -82,6 +89,54 @@ DSH `FileDiff` 用 `--dsw-alias-file-diff-added/deleted-bg` 画行底、代码�
 | `--dsw-alias-file-diff-deleted-bg` | 4.61 ✅ | 4.54 ✅ | 4.11 ✅ | 6.99 ✅ | 6.34 ✅ | 5.74 ✅ |
 
 light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1.10 / 1.09，deleted 1.14 / 1.11 / 1.10：浅色档现在能看出绿 / 红条；dark 行底向画布收 40% 后文字 ≥5.23:1。
+
+## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G15）
+
+`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色（h1–h3、列表 marker、引用条、分隔线、表头色带、斑马纹、会话行底色与状态点），只在用户打开色彩模式时生效。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` 和 `fg` 强调色算出：标题与装饰朝 ink 混合到对 `bg-base` 3:1；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头，关闭时零匹配（与基线零差异）。
+
+角色色值（自定义属性均为 `--everforest-color-<角色>`，6 档）：
+
+| 角色 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft |
+|---|---|---|---|---|---|---|
+| h1 | `#F85552` | `#F85552` | `#e45856` | `#E67E80` | `#E67E80` | `#E67E80` |
+| h2 | `#d87934` | `#d07838` | `#bc7642` | `#E69875` | `#E69875` | `#E69875` |
+| h3 | `#b18d28` | `#ac8b2c` | `#9c843a` | `#DBBC7F` | `#DBBC7F` | `#DBBC7F` |
+| marker | `#37a47c` | `#39a07b` | `#409579` | `#83C092` | `#83C092` | `#83C092` |
+| quote | `#37a47c` | `#39a07b` | `#409579` | `#83C092` | `#83C092` | `#83C092` |
+| hr | `#37a47c` | `#39a07b` | `#409579` | `#83C092` | `#83C092` | `#83C092` |
+| check | `#37a47c` | `#39a07b` | `#409579` | `#83C092` | `#83C092` | `#83C092` |
+| band | `#efeece` | `#edeac3` | `#efe7cb` | `#39423e` | `#3e4845` | `#434e4c` |
+| zebra | `#f8f6e1` | `#f6f1d5` | `#efe7cb` | `#2f3738` | `#343d3f` | `#3a4447` |
+| row-warn | `#f9e7cf` | `#f6e5c9` | `#eee7ce` | `#434241` | `#484848` | `#4e4e4f` |
+| row-done | `#ececcb` | `#ece9c5` | `#eee7ce` | `#3c4742` | `#414d49` | `#465350` |
+| row-warn-hover | `#f8e4c9` | `#f6e5c9` | `#eee7ce` | `#4e4845` | `#534d4b` | `#565251` |
+| row-done-hover | `#eaeac6` | `#ece9c5` | `#eee7ce` | `#434f47` | `#48554d` | `#485552` |
+| dot-warn | `#d07838` | `#c7773d` | `#b67545` | `#E69875` | `#E69875` | `#E69875` |
+| dot-done | `#849715` | `#81931d` | `#7a8c2c` | `#A7C080` | `#A7C080` | `#A7C080` |
+
+对比度门槛明细（数值为实际比值，✅/❌ 按阈值判定）：
+
+| 检查项 | 阈值 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft | 结果 |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| h1 / bg-base | 3 | 3.17 ✅ | 3.04 ✅ | 3.01 ✅ | 5.02 ✅ | 4.55 ✅ | 4.10 ✅ | ✅ |
+| h2 / bg-base | 3 | 3.03 ✅ | 3.03 ✅ | 3.02 ✅ | 5.98 ✅ | 5.41 ✅ | 4.88 ✅ | ✅ |
+| h3 / bg-base | 3 | 3.02 ✅ | 3.00 ✅ | 3.03 ✅ | 7.55 ✅ | 6.84 ✅ | 6.16 ✅ | ✅ |
+| marker / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
+| quote / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
+| hr / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
+| check / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
+| band / label-primary | 4.5 | 4.73 ✅ | 4.56 ✅ | 4.51 ✅ | 6.14 ✅ | 5.60 ✅ | 5.11 ✅ | ✅ |
+| zebra / label-primary | 4.5 | 5.12 ✅ | 4.91 ✅ | 4.51 ✅ | 7.21 ✅ | 6.59 ✅ | 5.92 ✅ | ✅ |
+| row-warn / label-primary | 4.5 | 4.62 ✅ | 4.51 ✅ | 4.51 ✅ | 5.93 ✅ | 5.41 ✅ | 4.92 ✅ | ✅ |
+| row-done / label-primary | 4.5 | 4.64 ✅ | 4.53 ✅ | 4.51 ✅ | 5.72 ✅ | 5.22 ✅ | 4.76 ✅ | ✅ |
+| row-warn-hover / label-primary | 4.5 | 4.50 ✅ | 4.51 ✅ | 4.51 ✅ | 5.32 ✅ | 4.91 ✅ | 4.57 ✅ | ✅ |
+| row-done-hover / label-primary | 4.5 | 4.54 ✅ | 4.53 ✅ | 4.51 ✅ | 5.08 ✅ | 4.63 ✅ | 4.61 ✅ | ✅ |
+| dot-warn / bg-base | 3 | 3.16 ✅ | 3.17 ✅ | 3.12 ✅ | 5.98 ✅ | 5.41 ✅ | 4.88 ✅ | ✅ |
+| dot-warn / sidebar-fill | 3 | 3.01 ✅ | 3.02 ✅ | 3.02 ✅ | 5.36 ✅ | 4.83 ✅ | 4.34 ✅ | ✅ |
+| dot-done / bg-base | 3 | 3.16 ✅ | 3.18 ✅ | 3.12 ✅ | 6.88 ✅ | 6.23 ✅ | 5.62 ✅ | ✅ |
+| dot-done / sidebar-fill | 3 | 3.02 ✅ | 3.02 ✅ | 3.02 ✅ | 6.17 ✅ | 5.56 ✅ | 5.00 ✅ | ✅ |
+
+G15：以上 6 档 × 15 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认关闭，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。
 
 ## 3. 文本承载表面（label-primary 对比度）
 
@@ -218,5 +273,5 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 
 ```bash
 node scripts/check-contrast.mjs
-node --test tests/color.test.mjs tests/tokens.test.mjs
+node --test tests/color.test.mjs tests/tokens.test.mjs tests/color-mode.test.mjs
 ```

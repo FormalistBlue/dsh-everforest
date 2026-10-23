@@ -9,12 +9,14 @@
  *
  * The page shows an Appearance control — follow the system, or fix light/dark —
  * followed by two groups of three strength cards (Dark, default Soft; Light,
- * default Hard). Each card previews the five signature colors of its palette:
- * bg0, bg1, bg2, fg and header-aqua. Selecting a card persists the choice
- * (through the injected store) and, when it belongs to the other color scheme,
- * also switches DSH Appearance; the Appearance control switches it back to
- * `system` (or a fixed side) without touching the palette strengths, and the
- * hint copy spells both facts out.
+ * default Hard) and, since 0.4.0, the experimental **color-mode** switch with a
+ * small preview of the five accent colors. Each card previews the five signature
+ * colors of its palette: bg0, bg1, bg2, fg and header-aqua. Selecting a card
+ * persists the choice (through the injected store) and, when it belongs to the
+ * other color scheme, also switches DSH Appearance; the Appearance control
+ * switches it back to `system` (or a fixed side) without touching the palette
+ * strengths, and the hint copy spells both facts out. The color-mode switch only
+ * flips the store flag; the client entry owns the DOM/CSS side of the mode.
  *
  * Styling uses only `--dsw-*` design tokens for interface colors. The palette
  * colors in the preview stripes are Everforest data, supplied inline by the
@@ -187,6 +189,88 @@ export const SETTINGS_STYLES = `
   border-radius: 50%;
   background: var(--dsw-alias-brand-primary);
 }
+.everforest-color-mode {
+  gap: 10px;
+}
+.everforest-color-mode-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.everforest-color-mode-swatches {
+  display: inline-flex;
+  gap: 4px;
+}
+.everforest-color-mode-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 50%;
+}
+.everforest-color-mode-note {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+.everforest-color-mode-experimental {
+  color: var(--dsw-alias-label-tertiary);
+}
+.everforest-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 5px 12px 5px 6px;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  background: none;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+}
+.everforest-switch:hover {
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.everforest-switch:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+.everforest-switch-track {
+  position: relative;
+  display: inline-block;
+  width: 26px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--dsw-alias-border-l2);
+  transition: background-color .12s ease;
+}
+.everforest-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dsw-alias-bg-layer-1);
+  transition: transform .12s ease;
+}
+.everforest-switch[aria-checked='true'] {
+  border-color: var(--dsw-alias-brand-primary);
+}
+.everforest-switch[aria-checked='true'] .everforest-switch-track {
+  background: var(--dsw-alias-brand-primary);
+}
+.everforest-switch[aria-checked='true'] .everforest-switch-thumb {
+  transform: translateX(10px);
+}
+.everforest-switch-label {
+  font-weight: 500;
+}
 .everforest-current {
   display: flex;
   flex-wrap: wrap;
@@ -271,9 +355,16 @@ const APPEARANCE_OPTIONS = ['system', 'dark', 'light']
 /** Fallback strength order, used when the palette module is not yet readable. */
 const FALLBACK_STRENGTHS = ['hard', 'medium', 'soft']
 
+/**
+ * Accent colors previewed by the color-mode row, in Everforest semantic order
+ * (error → warning → notice → pass → info). The values are palette data, not
+ * chrome: they are rendered as inline swatch backgrounds for decoration only.
+ */
+const COLOR_MODE_SWATCH_KEYS = ['red', 'orange', 'yellow', 'aqua', 'green']
+
 /** Used when the page is mounted without a store (should not happen in DSH). */
 const EMPTY_SNAPSHOT = {
-  state: { light: 'hard', dark: 'soft' },
+  state: { light: 'hard', dark: 'soft', colorMode: false },
   theme: { preference: 'system', active: { colorScheme: 'dark' } },
 }
 
@@ -284,6 +375,7 @@ const EMPTY_STORE = {
   select: () => {},
   reset: () => {},
   setPreference: () => {},
+  setColorMode: () => {},
 }
 
 /**
@@ -345,7 +437,10 @@ export function createSettingsComponent(dependencies) {
   }
 
   /**
-   * Read a legal `{ light, dark }` out of a store snapshot.
+   * Read a legal state out of a store snapshot.
+   *
+   * The color-mode flag is only ever `true` for the literal boolean `true`, so a
+   * hostile or stale snapshot can never switch the experimental mode on.
    * @param {object | undefined} snapshot
    */
   function stateFromSnapshot(snapshot) {
@@ -357,6 +452,7 @@ export function createSettingsComponent(dependencies) {
     return {
       light: strengths.includes(raw.light) ? raw.light : fallback.light,
       dark: strengths.includes(raw.dark) ? raw.dark : fallback.dark,
+      colorMode: raw.colorMode === true,
     }
   }
 
@@ -400,6 +496,17 @@ export function createSettingsComponent(dependencies) {
     const foregrounds = palette.FOREGROUNDS && typeof palette.FOREGROUNDS === 'object' ? palette.FOREGROUNDS : {}
     const fg = foregrounds[scheme] && typeof foregrounds[scheme] === 'object' ? foregrounds[scheme] : {}
     return [ramp.bg0, ramp.bg1, ramp.bg2, fg.fg, fg.headerAqua]
+  }
+
+  /**
+   * The five accent colors previewed next to the color-mode switch, taken from
+   * the *active* scheme's foreground set (the mode follows the DSH appearance).
+   * Decorative only: null entries simply render an empty chip.
+   */
+  function colorModeSwatchColors(scheme) {
+    const foregrounds = palette.FOREGROUNDS && typeof palette.FOREGROUNDS === 'object' ? palette.FOREGROUNDS : {}
+    const fg = foregrounds[scheme] && typeof foregrounds[scheme] === 'object' ? foregrounds[scheme] : {}
+    return COLOR_MODE_SWATCH_KEYS.map((key) => (typeof fg[key] === 'string' ? fg[key] : null))
   }
 
   /**
@@ -552,6 +659,62 @@ export function createSettingsComponent(dependencies) {
       ])
     }
 
+    /**
+     * Experimental color-mode block: title, explanation, a decorative accent
+     * preview and a native switch (`role="switch"` + `aria-checked`).
+     *
+     * The button only flips the store flag; the Client entry owns the DOM
+     * attributes and the injected stylesheet that make the mode visible. The
+     * accent chips are pure decoration (`aria-hidden`), and the switch is
+     * labelled by copy, not color.
+     */
+    function renderColorMode() {
+      const headingId = 'everforest-color-mode-title'
+      const enabled = state.colorMode
+      const stateLabel = t(enabled ? 'colorMode.on' : 'colorMode.off')
+      const chips = colorModeSwatchColors(theme.colorScheme).map((color, index) => h('span', {
+        key: 'chip-' + index,
+        className: 'everforest-color-mode-swatch',
+        style: color ? { backgroundColor: color } : undefined,
+      }))
+      return h('section', {
+        key: 'color-mode',
+        className: 'everforest-group everforest-color-mode',
+        'aria-labelledby': headingId,
+      }, [
+        h('h3', { key: 'heading', id: headingId, className: 'everforest-group-title' }, t('colorMode.title')),
+        h('p', { key: 'desc', className: 'everforest-color-mode-note' }, t('colorMode.desc')),
+        h('div', { key: 'control', className: 'everforest-color-mode-control' }, [
+          h('span', {
+            key: 'swatches',
+            className: 'everforest-color-mode-swatches',
+            'aria-hidden': 'true',
+          }, chips),
+          h('button', {
+            key: 'switch',
+            type: 'button',
+            role: 'switch',
+            className: 'everforest-switch',
+            'aria-checked': enabled ? 'true' : 'false',
+            'aria-label': t('colorMode.switch', { state: stateLabel }),
+            'data-color-mode': enabled ? 'on' : 'off',
+            onClick: () => {
+              if (typeof store.setColorMode === 'function') store.setColorMode(!enabled)
+            },
+          }, [
+            h('span', { key: 'track', className: 'everforest-switch-track', 'aria-hidden': 'true' }, [
+              h('span', { key: 'thumb', className: 'everforest-switch-thumb' }),
+            ]),
+            h('span', { key: 'label', className: 'everforest-switch-label' }, stateLabel),
+          ]),
+        ]),
+        h('p', {
+          key: 'experimental',
+          className: 'everforest-color-mode-note everforest-color-mode-experimental',
+        }, t('colorMode.experimental')),
+      ])
+    }
+
     /** Current pairing, actual appearance, and the restore-defaults action. */
     function renderCurrent() {
       const darkLabel = t('group.dark') + ' ' + t('strength.' + state.dark)
@@ -597,6 +760,7 @@ export function createSettingsComponent(dependencies) {
       ]),
       renderAppearance(),
       GROUP_SCHEMES.map((scheme) => renderGroup(scheme)),
+      renderColorMode(),
       renderCurrent(),
       renderHints(),
     ])

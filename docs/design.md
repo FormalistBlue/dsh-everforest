@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化，见 §7 / §12）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.2 · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，见 §13）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -11,13 +11,14 @@
 3. 设置页可选强度，切换即时生效；强度保存在**当前 profile 的 Host 配置**，同一 profile 的所有浏览器共享、重启后保持（见 §7）。
 4. 可用 npm 安装。DSH 版本不匹配时给出可读结果：安装前被插件管理器拒绝（`engines.dsh`，可读错误）；已安装后升级 DSH 导致不兼容时，该 bundle 在装载 profile 时被跳过并在启动诊断里打印警告（不会白屏）。
 5. 冷启动首帧使用当前配色：Host 半部经 `webserver/index-inject` 在 Client 加载前写入 boot 调色板（loading 页底色、文字、spinner 环与进度弧）。强度按 **B 方案**解析：本浏览器缓存优先 → Host 配置兜底 → 默认最后；解析结果经 `window.__EVERFOREST_BOOT__` 交给 Client 首帧。Web 首帧即为 Everforest；Desktop 窗口在 load 后才显示、注入行由页面侧异步应用，最多残留 1 帧原生色（2026-10-19 决策接受）。
+6. 实验性**色彩模式**（0.4.0，默认关闭）：把调色板中尚未上场的强调色用到聊天 Markdown 内容（h1–h3、列表 marker、引用条 / 分隔线、表格表头色带 / 隔行斑马纹、任务列表 checkbox）与工作区会话记录状态行（「待确认」行底与状态点、「已完成未查看」行底与状态点）。**token 层零差异**：模式只额外注入一段作用域 CSS，关闭时所有选择器不匹配，渲染与 0.3.0 逐字节一致（见 §13）。
 
 **非目标（0.x）**
 
 - 不替换 DSH 的 Appearance 开关（light / dark / system 仍由 DSH 决定）；设置页只提供等价的快捷控制（见 §6），写入同一份全局偏好。
 - 不接管终端 ANSI 16 色、brand mark、macOS 专用渐变。
 - ~~不写 DSH 设置文档里的强度偏好~~ **已于 0.3.0 落地（2026-10-22）**：强度偏好改走官方 settings / `configForms` 通道写入当前 profile 的 `cordis.patch.yml`（见 §7），不再是「localStorage 唯一持久化」。**Appearance 偏好**仍归 DSH：点色卡或设置页外观控制会通过 `ctx.theme.setTheme` 写入（见 §2 / §6，已决策），本插件不接管其存储格式与 UI。
-- 不做 Enchanted 的逐级标题彩色（h1–h6 各一色）：DSH 没有逐级标题颜色 token，实现它需要改写组件选择器，违背「只走 token」的原则。
+- 不做 Enchanted 的**全量**逐级标题彩色（h1–h6 各一色）：DSH 没有逐级标题颜色 token，改写组件选择器违背「只走 token」的原则。**0.4.0 的例外**：实验性色彩模式只做 h1–h3，通过作用域 CSS 实现，默认关闭；h4–h6 仍不做（见 §13）。
 
 ## 2. 总体架构
 
@@ -107,27 +108,31 @@
   config:
     light: hard
     dark: soft
+    colorMode: false       # 0.4.0 起；缺省即 false（0.3.x patch 不用手改）
 ```
 
 ```js
-// Host 半部 src/host-config.js
+// Host 半部 src/host-config.js（0.4.0）
 export const Config = Schema.object({
   light: Schema.union(STRENGTHS).default(DEFAULT_STATE.light).volatile(),
   dark:  Schema.union(STRENGTHS).default(DEFAULT_STATE.dark).volatile(),
+  colorMode: Schema.boolean().default(false).volatile(),
 })
 ```
 
-- **`Config`** 由 DSH settings 服务扫描活跃 profile 条目后投影成表单，表单键 = entry id（`everforest`）；`.volatile()` 让 Loader 把新值写进运行中的引用而不重挂插件。非法值在校验期被拒：**冷启动 / 重挂**时 entry 不激活（无主题）；**运行中**的 volatile-only 更新失败被 Loader 捕获、保留旧值（entry 保持 ACTIVE，见 §7）。
+- **`Config`** 由 DSH settings 服务扫描活跃 profile 条目后投影成表单，表单键 = entry id（`everforest`）；`.volatile()` 让 Loader 把新值写进运行中的引用而不重挂插件。非法值在校验期被拒：**冷启动 / 重挂**时 entry 不激活（无主题）；**运行中**的 volatile-only 更新失败被 Loader 捕获、保留旧值（entry 保持 ACTIVE，见 §7）。`colorMode` 是 0.4.0 新增的第三个 volatile 字段（布尔、默认 `false`），写入与两个强度一起**一次原子提交**。
 - **Client** 通过 `ctx.inject(['configForms'], …)` 软等待服务，再 `formsCtx.configForms.get('everforest')` 读（`status` / `value` / `base` / `user` / `revision` / `writable` + `subscribe`）与写（`mutate(ops)`）；entry id 必须与 `cordis.patch.yml` 的 `id` 一致（Client 的 `src/durable.js` 与 Host 的 `src/host-config.js` 各持一份常量，测试把两者与 patch 行一起钉住）。Client 侧纯逻辑（`hasUserLayer` / `shouldSeed` / `stateFromHost` / `statesEqual` / `stateToSetOps` / `stateToUnsetOps` / `bootHintState`）集中在 `src/durable.js`，随 `build.mjs` 打进 `client.js`（不进 `files`）。
-- **首帧缓存（不是真源）**：`localStorage['dsh-everforest/v1']`，内容是 `{ version: 1, light, dark }`，与 0.2.x 数据格式一致；只用于首帧和旧宿主降级，不再删除。
-- **解析顺序**：首帧 = 缓存 → Host 值 → 默认；运行期 = Host 文档为权威。读取失败 / 缓存非法 / 版本不认识 → 逐字段回退，最终回退默认配对 `{ light: 'hard', dark: 'soft' }`，不抛错。
+- **首帧缓存（不是真源）**：`localStorage['dsh-everforest/v1']`，内容是 `{ version: 1, light, dark, colorMode? }`。0.4.0 起增加可选 `colorMode`；**`STATE_VERSION` 保持 1**，0.3.x 缓存缺该字段读作 `false` 且不算损坏（仍参与迁移），非布尔值按损坏处理。
+- **首帧 boot payload 不含 `colorMode`**：Host boot 行只画首帧需要的 8 个 token，色彩模式 CSS 在 Client 挂载后才有意义（首帧还没有聊天 / 会话 DOM），因此 `__EVERFOREST_BOOT__` 与 `hostState()` 保持只含两个强度，payload 与 0.3.0 逐字节一致。
+- **解析顺序**：首帧 = 缓存 → Host 值 → 默认；运行期 = Host 文档为权威。读取失败 / 缓存非法 / 版本不认识 → 逐字段回退，最终回退默认状态 `{ light: 'hard', dark: 'soft', colorMode: false }`，不抛错。
 
 ```js
 /** 首帧缓存 / 旧宿主降级结构（localStorage: 'dsh-everforest/v1'） */
 {
   version: 1,
   light: 'hard' | 'medium' | 'soft',   // 默认 'hard'（对齐 Enchanted 的 Light 主题）
-  dark:  'hard' | 'medium' | 'soft'    // 默认 'soft'（对齐 Enchanted 的 Dark 主题）
+  dark:  'hard' | 'medium' | 'soft',   // 默认 'soft'（对齐 Enchanted 的 Dark 主题）
+  colorMode: true | false              // 0.4.0；可缺省（缺省 = false，0.3.x 缓存兼容）
 }
 ```
 
@@ -392,43 +397,44 @@ export function apply(ctx) {
   - 外观控制：`跟随系统` / `深色` / `浅色` 三个按钮（`role="group"` + `aria-pressed`，选中态用 token）；下方说明当前实际状态（跟随系统时显示 OS 解析后的深浅色，固定时显示固定的是哪一侧）。
   - `深色` 分组：3 张卡（Hard / Medium / Soft，默认 Soft），每张含 5 段色带（`bg0`、`bg1`、`bg2`、`fg`、`header-aqua`）。
   - `浅色` 分组：同上（默认 Hard）。
-  - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（**只恢复 Enchanted 默认配对，不改外观偏好**，2026-10-21 用户确认保持）。该行是 `role="group"` + `aria-label` 的有名分组。
-- **交互**：点击卡片 → 立即应用；写入顺序是「内存 + 首帧缓存 → `configForms.mutate`（一次原子写两个字段，落 profile patch）」，若该卡属于另一个 scheme，再调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。写入被拒 / revision 冲突时由 settings 服务回读，Client 以 Host 值为准（设置页不弹错、不静默丢掉用户选择）；「恢复默认」先回默认配对并写缓存，再 `unset` Host 的两个字段（清掉 user 层，回到 base 默认）。外观控制的三个按钮调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享），页面说明文案写清楚「点色卡会固定外观，可用外观控制恢复跟随系统」。
-- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`appearance.title/label/system/dark/light/systemActive/fixed`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current.*`、`reset`、`hint.scheme`、`hint.storage`、`aria.*`。
+  - **色彩模式区块（0.4.0）**：位于两个强度分组之后、当前选择行之前。标题 + 说明 + `role="switch"` 开关（`aria-checked`、`everforest-switch` 轨道/滑块样式，选中态用 `--dsw-alias-brand-primary`）+ 当前 scheme 的 5 个强调色装饰片（red / orange / yellow / aqua / green，`aria-hidden`）+ 实验性说明。开关只翻转 store 的 `colorMode`，DOM / CSS 侧由 client entry 负责。
+  - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（**只恢复 Enchanted 默认配对与关闭色彩模式，不改外观偏好**，2026-10-21 用户确认保持）。该行是 `role="group"` + `aria-label` 的有名分组。
+- **交互**：点击卡片 → 立即应用；写入顺序是「内存 + 首帧缓存 → `configForms.mutate`（一次原子写三个字段：`light` / `dark` / `colorMode`，落 profile patch）」，若该卡属于另一个 scheme，再调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。写入被拒 / revision 冲突时由 settings 服务回读，Client 以 Host 值为准（设置页不弹错、不静默丢掉用户选择）；「恢复默认」先回默认状态并写缓存，再 `unset` Host 的三个字段（清掉 user 层，回到 base 默认）。色彩模式开关走同一条写路径（三字段原子写），只切换选择器作用域、不重建 token 覆盖层。外观控制的三个按钮调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享），页面说明文案写清楚「点色卡会固定外观，可用外观控制恢复跟随系统」。
+- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`appearance.title/label/system/dark/light/systemActive/fixed`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current.*`、`colorMode.title/desc/on/off/switch/experimental`、`reset`、`hint.scheme`、`hint.storage`、`aria.*`。
 - **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。卡片外观参照 DSH 设置卡片（圆角、边框、hover、selected 用 token，不抄写死颜色）。
 - **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分；`aria-label` 只挂在有命名 role 的元素上（当前行 `role="group"`，裸 `<div>` 的 `aria-label` 不进无障碍树）。
 - **降级**：`ctx.get('slots'/'locale')` 立即不可用时用 `ctx.inject` 等待再挂载；等待也不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
 - **已知限制**：① `settings.section` 没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标（要换图标只能像 `dshmarket` 那样用 DOM 标记 + MutationObserver 改写，0.x 不做）；② DSH 不会在 Plugins 页给本插件再生成一份自动表单——Host 半部用 `settings.configure({ auto: false })` 声明设置页由本插件自己渲染，所以强度只能在本页修改（插件详情页没有可编辑的强度卡片）。
 
-## 7. 持久化（0.3.0：Host 侧持久化）
+## 7. 持久化（0.3.0 起：Host 侧持久化；0.4.0 增加 `colorMode`）
 
-强度偏好的真源是**当前 profile 的 Host 配置**；`localStorage` 降级为「首帧缓存 + 旧宿主兜底」。Appearance（light / dark / system）仍归 DSH 自己的全局偏好，不在本节范围。
+强度选择与实验性色彩模式的真源是**当前 profile 的 Host 配置**；`localStorage` 降级为「首帧缓存 + 旧宿主兜底」。Appearance（light / dark / system）仍归 DSH 自己的全局偏好，不在本节范围。
 
 | 项 | 方案 |
 |---|---|
-| 真源 | 当前 active profile 的 `~/.dsh/profiles/<profile>/cordis.patch.yml` 中本插件行的 `config`（`light` / `dark`）；由 DSH settings 服务写入并在同一 profile 的所有已认证浏览器间广播。 |
-| 声明 | Host 半部 `src/host-config.js` 导出 `Config = Schema.object({ light, dark })`，两个叶子字段 `union(STRENGTHS).default(...).volatile()`；settings 服务只把挂 `.volatile()` 的活跃 profile 条目投影成表单。入口 id 常量在两处各持一份——Host 的 `src/host-config.js` 与 Client 的 `src/durable.js`（bundle 不能 import Host 模块）——都必须等于 patch 行的 `id`（configForms 按 entry id 寻址；改名会静默退化为 localStorage-only，测试把三者钉住）。 |
-| Client 读 | `ctx.inject(['configForms'], …)` 软等待服务（服务缺失 = 旧宿主，永不挂起插件），再 `formsCtx.configForms.get('everforest')` → `{ status, value, base, user, revision, writable }` + `subscribe(listener)`；就绪（`status: 'ready'`）后以 Host 值为权威：与内存不同则 adopt（重建覆盖层、刷新设置页、把 Host 值写回 localStorage 缓存）。`unavailable`（旧宿主 / 条目未被 serve）时保持 localStorage 行为；快照变化（其他浏览器写入的广播）走同一 adopt 路径。 |
-| Client 写 | 选择色卡：一次 `mutate([{ op: 'set', path: ['light'], value }, { op: 'set', path: ['dark'], value }])` 原子写两个字段（用户写不带 `expectedRevision`，以 settings 服务的最新 revision 为准）；恢复默认：一次 `mutate` 里 `unset` 两个字段，若上一次写还在途（镜像快照尚未 fold、`user` 仍为 `{}`），用 `writesInFlight` 判断后把 `unset` 排在表单控制器的串行写队列之后，避免被后到的 `set` 覆盖。表单就绪前的选择排队（`queuedWrite`）后补写；`mutate` 被拒（`response.ok` 为 false / revision 冲突）时服务回读，Client adopt 远端值并 warn 一次（不把未被接受的值留在本地）。`writable: false` 的守卫只是防御——0.2.1-rc.2 的 native settings provider 恒为 `true`，实际不可达。 |
-| 首帧 | B 方案（§5「首帧注入」）：boot 脚本读 `localStorage['dsh-everforest/v1']` 缓存，缺失 / 版本不符 / 字段非法时逐字段回退 emit 时嵌入的 Host 值，再回退默认；解析结果发布到 `window.__EVERFOREST_BOOT__`，Client 首帧直接沿用。Web 每次 index 渲染重算，Desktop 在 Host ready 时采集一次。已知取舍：本浏览器缓存过期（另一浏览器改过而它没收到广播）时首次打开先画缓存旧值、随后一次 adopt Host 值，之后收敛。 |
-| 缓存 | `localStorage` 保留为「首帧缓存 + 旧宿主兜底」，key / JSON 结构不变，不再删除；每次选择 / adopt 后同步写（adopt 即使值相同也写，保证新浏览器下一次 reload 有首帧缓存）。同一 origin 的 `storage` 事件同步保留（Host 广播覆盖不到时的兜底）。 |
-| 迁移 | 0.2.1 → 0.3.0：启动时若（a）Host 文档**无用户层**（`user` 非空才算有；空对象 `{}` 也是无）且（b）`readStoredState()` 读到的是**真实选择**（存在且非默认配对）→ 把缓存值一次性播种到 Host（一次 `mutate` set 两个字段，带观察到的 `revision` 作栅栏）。播种后本地保留该值；Host 已有用户层时以 Host 为准，不覆盖。 |
-| 迁移 / 重置取舍 | **已知取舍**：浏览器 A「恢复默认」清掉 Host override 后，若另一个从未升级/打开的浏览器 B 仍持有 0.2.1 的非默认 localStorage 缓存，B 下次加载会把这个旧值当作待迁移值**重新播种回 Host 一次**；之后 B 的缓存与 Host 收敛，不会反复。0.3.0 接受该取舍（一次性迁移只以「Host 无用户层」为条件，无法区分「从未选择」与「刚被重置」）。 |
-| 旧宿主降级 | 没有 settings 服务 / schemastery 无 `volatile()`（< 3.18.3）/ `configForms` 软注入永不送达 / 表单 `status: 'unavailable'` → 无表单，Client 继续用 localStorage（0.2.1 行为），主题与设置页不受影响，也不会因为等待服务而挂起插件。**只换 npm 包不重启 DSH** 即属于这一类：选择仍生效、只是暂不写 Host；重启后首启会播种。 |
+| 真源 | 当前 active profile 的 `~/.dsh/profiles/<profile>/cordis.patch.yml` 中本插件行的 `config`（`light` / `dark` / `colorMode`）；由 DSH settings 服务写入并在同一 profile 的所有已认证浏览器间广播。0.3.x 的 patch 只有前两个字段，`colorMode` 由 schema 默认值补成 `false`，不需要手改。 |
+| 声明 | Host 半部 `src/host-config.js` 导出 `Config = Schema.object({ light, dark, colorMode })`：两个强度是 `union(STRENGTHS).default(...).volatile()`，`colorMode` 是 `boolean().default(false).volatile()`（三个叶子字段各自挂 `.volatile()`，不可嵌在已 volatile 的对象里）；settings 服务只把挂 `.volatile()` 的活跃 profile 条目投影成表单。入口 id 常量在两处各持一份——Host 的 `src/host-config.js` 与 Client 的 `src/durable.js`（bundle 不能 import Host 模块）——都必须等于 patch 行的 `id`（configForms 按 entry id 寻址；改名会静默退化为 localStorage-only，测试把三者钉住）。 |
+| Client 读 | `ctx.inject(['configForms'], …)` 软等待服务（服务缺失 = 旧宿主，永不挂起插件），再 `formsCtx.configForms.get('everforest')` → `{ status, value, base, user, revision, writable }` + `subscribe(listener)`；就绪（`status: 'ready'`）后以 Host 值为权威：与内存不同则 adopt（重建覆盖层 / 刷新设置页 / 把 Host 值写回 localStorage 缓存）。`unavailable`（旧宿主 / 条目未被 serve）时保持 localStorage 行为；快照变化（其他浏览器写入的广播）走同一 adopt 路径。 |
+| Client 写 | 选择色卡 / 切换色彩模式：一次 `mutate([{ op: 'set', path: ['light'], value }, { op: 'set', path: ['dark'], value }, { op: 'set', path: ['colorMode'], value }])` 原子写三个字段（用户写不带 `expectedRevision`，以 settings 服务的最新 revision 为准）；恢复默认：一次 `mutate` 里 `unset` 三个字段，若上一次写还在途（镜像快照尚未 fold、`user` 仍为 `{}`），用 `writesInFlight` 判断后把 `unset` 排在表单控制器的串行写队列之后，避免被后到的 `set` 覆盖。表单就绪前的选择排队（`queuedWrite`）后补写；`mutate` 被拒（`response.ok` 为 false / revision 冲突）时服务回读，Client adopt 远端值并 warn 一次（不把未被接受的值留在本地）。`writable: false` 的守卫只是防御——0.2.1-rc.2 的 native settings provider 恒为 `true`，实际不可达。 |
+| 首帧 | B 方案（§5「首帧注入」）：boot 脚本读 `localStorage['dsh-everforest/v1']` 缓存，缺失 / 版本不符 / 字段非法时逐字段回退 emit 时嵌入的 Host 值，再回退默认；解析结果发布到 `window.__EVERFOREST_BOOT__`，Client 首帧直接沿用。Web 每次 index 渲染重算，Desktop 在 Host ready 时采集一次。**`colorMode` 不进 boot payload**：首帧没有聊天 / 会话 DOM，模式 CSS 在 Client 挂载后才生效；payload 与 0.3.0 逐字节一致（见 §13）。已知取舍：本浏览器缓存过期（另一浏览器改过而它没收到广播）时首次打开先画缓存旧值、随后一次 adopt Host 值，之后收敛。 |
+| 缓存 | `localStorage` 保留为「首帧缓存 + 旧宿主兜底」，key 不变（`dsh-everforest/v1`），payload 增加可选 `colorMode`（**`STATE_VERSION` 保持 1**：0.3.x 缓存缺字段读作 `false`、不算损坏、仍参与迁移；非布尔值按损坏处理）。每次选择 / adopt 后同步写（adopt 即使值相同也写，保证新浏览器下一次 reload 有首帧缓存）。同一 origin 的 `storage` 事件同步保留（Host 广播覆盖不到时的兜底），比较含 `colorMode`。 |
+| 迁移 | 0.2.1 → 0.3.0 / 0.3.0 → 0.4.0：启动时若（a）Host 文档**无用户层**（`user` 非空才算有；空对象 `{}` 也是无）且（b）`readStoredState()` 读到的是**真实选择**（存在，且非默认状态——非默认强度或色彩模式开启）→ 把缓存值一次性播种到 Host（一次 `mutate` set 三个字段，带观察到的 `revision` 作栅栏）。播种后本地保留该值；Host 已有用户层时以 Host 为准，不覆盖。 |
+| 迁移 / 重置取舍 | **已知取舍**：浏览器 A「恢复默认」清掉 Host override 后，若另一个从未升级/打开的浏览器 B 仍持有旧的缓存，B 下次加载会把这个旧值当作待迁移值**重新播种回 Host 一次**；之后 B 的缓存与 Host 收敛，不会反复。0.3.0 接受该取舍（一次性迁移只以「Host 无用户层」为条件，无法区分「从未选择」与「刚被重置」）。 |
+| 旧宿主降级 | 没有 settings 服务 / schemastery 无 `volatile()`（< 3.18.3）/ `configForms` 软注入永不送达 / 表单 `status: 'unavailable'` → 无表单，Client 继续用 localStorage（含 `colorMode`），主题、色彩模式与设置页不受影响，也不会因为等待服务而挂起插件。**只换 npm 包不重启 DSH** 即属于这一类：选择仍生效、只是暂不写 Host；重启后首启会播种。 |
 | 写入被拒 | home patch / `--patch` 覆盖等场景以 `mutate` 的 `response.ok === false` 表现：settings 服务回读后返回 `false` → Client adopt 远端值并 warn 一次，设置页不弹错（未被接受的值不会留在本地）。代码里的 `writable: false` 守卫只是防御；native settings provider 恒为 `true`，不要把 writable 当成可达主路径。 |
 | 范围 | 按 profile 隔离：同一 profile 的所有浏览器 / 窗口共享；不同 profile 各存各的。 |
-| 非法值 | 手改 patch 的 `config.light` / `dark` 为枚举外值，分两种情况：**冷启动 / 重挂**时 `Config` 校验失败 → entry 不激活（无主题），改回合法值或删除 `config` 后重启恢复；**运行中**的 volatile-only 变更由 Loader 的 `_commitVolatile` 捕获解析错误 → Host 记 warning、保留旧引用、entry 保持 **ACTIVE**（主题不丢），改回合法值即可热恢复，不必重启。 |
-| 升级 / 回滚 | Host 半部（Config 注册、boot 脚本）在 Host 启动时装载，改动需**重启 DSH**（刷新页面不会重载 `index.js`）；0.3.0 之后运行中改强度走 settings 通道，不需要重启。只换包不重启 DSH → 新 Client 退回 localStorage-only（旧宿主降级），重启后首启补播种。0.2.1 ↔ 0.3.0 回滚同样需重启；0.3.0 写入的 `config` 对 0.2.1 无害（0.2.1 没有 `Config` 导出、`apply` 也不读第二个参数），必要时可手动删除。 |
+| 非法值 | 手改 patch 的 `config.light` / `dark` 为枚举外值、或 `colorMode` 不是布尔，分两种情况：**冷启动 / 重挂**时 `Config` 校验失败 → entry 不激活（无主题），改回合法值或删除 `config` 后重启恢复；**运行中**的 volatile-only 变更由 Loader 的 `_commitVolatile` 捕获解析错误 → Host 记 warning、保留旧引用、entry 保持 **ACTIVE**（主题不丢），改回合法值即可热恢复，不必重启。 |
+| 升级 / 回滚 | Host 半部（Config 注册、boot 脚本）在 Host 启动时装载，改动需**重启 DSH**（刷新页面不会重载 `index.js`）；0.3.0 之后运行中改强度 / 色彩模式走 settings 通道，不需要重启。只换包不重启 DSH → 新 Client 退回 localStorage-only（旧宿主降级），重启后首启补播种。0.4.0 → 0.3.0 回滚：0.3.0 的 `Config` 不认识 `colorMode` 字段，若 profile patch 里已写入该字段，0.3.0 的 schema 校验会失败并导致 entry 不激活（无主题，同 2026-10-22 accent 回滚的教训），因此回滚前必须先从 `cordis.patch.yml` 删除 `colorMode` 再重启；0.2.1 没有 `Config` 导出，不受影响。 |
 
 > 为什么这样取舍：`localStorage` 是同步的、per-origin 的（Web 端口每次随机、换浏览器就丢）；DSH 的 settings 文档本来就是跨浏览器共享的 profile 级真源，但它异步、可被 home patch 覆盖、且换 Host 半部要重启。组合成「Host 真源 + 本地首帧缓存 + 失败降级」后，正常路径得到跨浏览器一致与重启保持，首帧又不等待网络；代价是首帧与 Host 可能短暂不一致（缓存过期的那一次，见 §5「残余」）。
 
 ## 8. 清单与构建
 
 ```jsonc
-// package.json（草案；2026-10-22 0.3.0 Host 侧持久化后更新）
+// package.json（草案；2026-10-23 0.4.0 色彩模式后更新）
 {
   "name": "dsh-everforest",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Everforest color themes (Dark/Light × Hard/Medium/Soft) for DeepSeek Harness Web/Desktop.",
   "type": "module",
   "main": "index.js",
@@ -475,7 +481,7 @@ export function apply(ctx) {
 ```
 
 - **运行时零依赖、无 peerDependencies**：Host 半部 `import '@deepseek-ai/schemastery'` 由 DSH 进程从自身安装解析（写进 `dependencies` 会装出第二份实例）；仓库只声明一个 devDependency 供测试 / CI 从 `node_modules` import，测试前执行 `npm install --no-package-lock --ignore-scripts --no-audit --no-fund`。`dsh.client.inject` 只影响**浏览器 bundle 的到达顺序**，不是服务注入——真正的服务门是模块导出 `export const inject = ['theme']`。`<pkg>/client` 与裸包名归一化到同一模块。
-- **Host 半部不打包**：`index.js` 直接从包目录 import `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js` / `src/host-config.js`（普通 ESM；唯一的 bare import 由 DSH 运行时解析），所以这五个文件必须进 `files`；`scripts/build.mjs` 只产出 `client.js`。`tests/integration.test.mjs` 会遍历 Host 半部的相对 import，核对 `files` 覆盖它们。Client 侧新增的 `src/durable.js`（configForms 纯逻辑）被 `client.js` 打包，不需要进 `files`。
+- **Host 半部不打包**：`index.js` 直接从包目录 import `src/palette.js` / `src/color.js` / `src/tokens.js` / `src/state.js` / `src/host-config.js`（普通 ESM；唯一的 bare import 由 DSH 运行时解析），所以这五个文件必须进 `files`；`scripts/build.mjs` 只产出 `client.js`。`tests/integration.test.mjs` 会遍历 Host 半部的相对 import，核对 `files` 覆盖它们。Client 侧模块（`src/durable.js`、`src/color-mode.js`、`src/locale.js`、`src/settings-page.js`、`src/client-entry.js`）被 `client.js` 打包，不需要进 `files`。
 - **entry id 是双半部契约**：`cordis.patch.yml` 的 `id: everforest` 必须等于 Host（`src/host-config.js`）与 Client（`src/durable.js`）各自持有的 `ENTRY_ID`——settings 服务按 entry id 投影表单，Client 也按它 `get`；测试把三者钉在一起。Host 半部还调用 `settings.configure({ auto: false })`（可选接线）声明设置页由 Client 渲染，避免 DSH 再生成一份重复表单。
 - `dsh.client.immediately`：本版本只用于 **prefetch** bundle（前端 `manifest.plugins.filter(p => p.immediately)` 预取），不改变 apply 时机，减不了首帧；`platform: 'web'` 是必需字段，package 必须导出 `./client`。
 - `scripts/build.mjs`：零依赖 Node，把 `src/*.js` 合成 `client.js` 并包成
@@ -501,6 +507,7 @@ export function apply(ctx) {
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失；patch 里的 `config` 保留，重新启用后继续生效 |
 | 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧，spinner 环与进度弧同色系）；强度分别验证「有缓存」「无缓存但 Host 有值」「两者都缺」三条路径与 `window.__EVERFOREST_BOOT__` 的值；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的 spinner / 边框随 boot token 一起着色（2026-10-21） |
 | 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；记录已知缺口 |
+| 色彩模式（0.4.0，实验性） | 设置页开关出现且可切换；开启后聊天 h1–h3 / 列表 marker / 引用条 / 分隔线 / 表格表头色带 / 斑马纹 / checkbox，以及会话列表「待确认 / 已完成未查看」行底与状态点变色；**关闭后与 0.3.0 视觉逐字节一致**（所有色彩模式选择器不匹配）；`<html>` 上出现 `data-everforest-color-mode="on"` 与两个强度属性，切换强度 / 深浅色时四组变量自动切换；选中行不覆盖选中态、hover 有加深；DSH 升级后若选择器失效，模式静默退回单色且控制台无报错 |
 | 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效；包名 `dsh-everforest` 仍可用 |
 
 **改动生效方式（开发循环）**：`client.js` 内容改动 → Plugins 页停用/启用该插件（Host 重新快照 bundle，浏览器经 HMR 换模块）或重启 Host；`package.json` / `cordis.patch.yml` 改动 → HMR 即时重组合；单纯刷新页面不会换 bundle 字节。
@@ -514,6 +521,9 @@ export function apply(ctx) {
 | 0.1.0 | 6 套调色板、覆盖层、设置页、持久化、本机可安装 | 上表前 7 项通过（安装 / 覆盖 / 设置页 / 持久化 / 深浅色 / 停用 / 首帧记录） |
 | 0.2.0 | 对比度与全页走查、shiki / diff 口径与目检、i18n、图标、README 截图、**首帧 Host boot 注入**、系统跟随收尾、npm 发布 | 走查无阻断问题；Web 首帧即 Everforest，Desktop 冷启动原生色 ≤ 1 帧；npm 包可安装并生效；中英文案与图标经检查 |
 | 0.3.0 | **Host 侧持久化（`configForms`）**、首帧 B 方案（缓存优先 / Host 兜底）、0.2.1 旧值一次性播种、localStorage 降级为缓存 + 旧宿主兜底、文案 / CI / 发布元数据同步 | 跨浏览器共享与重启保持落 profile patch；旧值迁移；写入被拒 / 旧宿主降级；其余人工目检见 §9 |
+| 0.4.0 | **实验性色彩模式（中彩）**：聊天 h1–h3 / marker / 引用条 / 分隔线 / checkbox / 表格表头色带与斑马纹、会话「待确认 / 已完成未查看」行底与状态点；Host `Config` 增第三个 volatile 字段 `colorMode`；token 层零差异；门禁 G9–G15 | 163/163 测试与 `npm run check` 全绿；样张一致性；关闭零差异；**真机目检待重启 DSH 后确认**（见 §13 残余） |
+
+> **0.4.0 验收证据（截至 2026-10-23，待真机）**：`node --test` 163/163 通过、`npm run check` 全绿（palette / build / contrast，`client.js` 已重建为 v0.4.0）；60 个中彩角色值与方案 0 样张快照逐字节一致；G9–G15 覆盖标题 / 装饰 / 彩色表面 / 状态点门槛。**真机目检未做**：Host `Config` 变化需要重启 DSH，重启后按 §9「色彩模式」行与 §13.6 目检 6 套配色与关闭零差异。
 
 > **0.3.0 验收证据**：`node --test` 144/144 通过（Node 22；含 `host-boot.test.mjs` 的 Config 与 B 方案、`durable.test.mjs` 的纯函数、`integration.test.mjs` 的假 configForms 生命周期），`npm run check` 全绿（palette / build / contrast，`client.js` 已重建为 v0.3.0），`npm pack --dry-run` 清单齐全（含 `src/host-config.js`）；跨浏览器共享（两个浏览器 / 清 localStorage）、Desktop 与 Web 首帧、升级迁移与「Host 半部需重启」等人工项已于 2026-10-22 由用户真机目检确认通过（按 [`releasing.md`](releasing.md) §5）。
 
@@ -642,3 +652,84 @@ export function apply(ctx) {
 - 人工（待发布前）：跨浏览器共享、清 localStorage、重启保持、0.2.1 → 0.3.0 迁移播种、写入被拒回读、非法值冷启动 / 运行中两种表现、首帧三路径、Desktop 冷启动 ≤1 帧；见 §9 与 [`assessment.md`](assessment.md) §13。
 
 **§12 整体残余与人工项**：Web 首帧截图、Desktop 冷启动录屏（≤1 帧）、三处代码块与 diff 目检、系统跟随全链路走查（OS 切换 / DSH Appearance / 插件按钮 / Windows 标题栏）、浅色气泡在 light·soft 下的目检；0.3.0 追加的跨浏览器 / 重启 / 迁移 / 写入被拒降级 / 首帧 B 三路径真机目检——以上已由用户于 2026-10-22 确认通过（未逐项留存截图，细节见 [`releasing.md`](releasing.md) §5）。见 §9 与 [`assessment.md`](assessment.md) §13。Desktop 的欢迎 / 登录窗口是 shell 自己的文档（`dsh-app://shell/...`），只跟随 light/dark，不走 `index-inject`，0.x 不覆盖（可接受边界）。
+
+## 13. 2026-10-23 0.4.0：色彩模式（中彩，实验性）
+
+> 前置：方案 0 样张（`.tmp/color-mode-preview/`，四列「关闭 / 轻彩 / 中彩 / 浓彩」× 6 变体，用真实 token 值复刻聊天区与会话列表）于 2026-10-23 经用户目检，选定**中彩**一档并确认范围。评估与决策过程见 [`assessment.md`](assessment.md) §14；样张截图见 `.tmp/color-mode-preview/shots/`。
+
+### 13.1 范围（2026-10-23 用户确认）
+
+| 项 | 结论 |
+|---|---|
+| 标题 | 只做 h1–h3 分级色；h4–h6 不做 |
+| 特殊格式 | 加粗 / 斜体 / 链接 / 行内 code 文字 / 引用文字 / 代码块保持单色（链接与行内 code 芯片本来就是彩色 token） |
+| 表格 | 做表头色带 + 隔行斑马纹；边框不动（彩色边框要达到 3:1 会被压成灰绿，失去意义） |
+| 列表 / 引用 / 分隔线 / checkbox | 做（marker、引用左条、hr、checkbox accent 用 aqua） |
+| 会话记录 | 「待确认」行（含待审批 / 计划待审 / 待回答）与「已完成未查看」行给**整行淡色底** + 状态点换色；「运行中」不上色 |
+| 浅色档 | 接受被对比度守卫压暗的「淡彩」 |
+| 定位 | 实验性增强，默认关闭；DSH 升级后需回归 |
+
+### 13.2 架构：token 层零差异 + 一段作用域 CSS
+
+色彩模式**不改变任何 token**：`tokensFor(state)` 的输出与 0.3.0 逐字节一致，boot payload 也不变。新增的是客户端的一段样式与三个 `<html>` 属性：
+
+- **`src/color-mode.js`**（纯 ESM，无 DOM / storage）：
+  - `COLOR_MODE_ATTRS`：`data-everforest-color-mode`（`on` / `off`）、`data-everforest-light`、`data-everforest-dark`（各自 scheme 的强度）。
+  - `colorModeRoles()`：6 变体 × 15 个角色色值，全部由 `tokensFor()` 的表面值 + `resolvePalette()` 的强调色实算并做对比度守卫（见 13.3）。
+  - `colorModeDataset(state)`：Client 写到 `document.documentElement` 的属性映射。
+  - `colorModeStyles()`：静态样式表 = 6 个自定义属性块 + 15 条元素规则，全部以 `html[data-everforest-color-mode="on"]` 开头；深浅色由 `body[data-ds-dark-theme]` 区分（DSH ui-theme 在 boot row 写 body 属性），强度由 `<html>` 上的两个 data 属性选择。
+- **`src/client-entry.js`**：`applyLayer()` 在 token 层之外同步 `<html>` 属性（切换色彩模式不重堆 token 层）；一个独立的 `ctx.effect` 注入 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/color-mode">`，与设置页样式 / slots / locale 完全解耦（设置 UI 不可用时色彩模式仍生效）。
+- **作用域选择器**：
+  - 聊天 Markdown：`[class*="markdown"]:not([data-markdown-variant="compact"])`（DSH 的容器类名是 CSS modules 哈希，但 `markdown` 子串保留；排除 compact 推理变体）。DSH 0.2.1-rc.2 的 markdown 正文容器**没有稳定 data 锚点**，这是本功能最脆弱的依赖（见 13.7）。
+  - 状态点：`[data-state="warning"]` / `[data-state="done"]`（StateDot 的语义属性，稳定）。
+  - 会话行：`[role="treeitem"][data-row-key^="session:"]:has([data-state="warning"|"done"]):not([aria-selected="true"])`（`data-row-key` / `role` / `data-state` 都是稳定锚点；选中行不覆盖，hover 用单独规则加深）。
+
+### 13.3 中彩取值与门槛
+
+所有值都是**派生值**（守卫混合），不是上游调色板原值；默认层仍原样使用官方色。
+
+| 角色 | 公式（`ink = fg.fg`，`bg = bg-base`，`sidebar = sidebar-fill`） | 门槛 |
+|---|---|---|
+| h1 / h2 / h3 | `guard(fg.red / fg.orange / fg.yellow, bg, 3)` | 彩色标题 ≥ 3:1 |
+| marker / quote / hr / check | `guard(fg.aqua, bg, 3)` | 装饰（非文本）≥ 3:1 |
+| 表格表头色带 | `safeTint(bg, fg.green, 0.14)` | 表头上的 `label-primary` ≥ 4.5:1 |
+| 隔行斑马纹 | `safeTint(bg, fg.green, 0.06)` | 同上 ≥ 4.5:1 |
+| 「待确认」行底 | `safeTint(sidebar, fg.orange, 0.12)` | 行内 `label-primary` ≥ 4.5:1 |
+| 「已完成」行底 | `safeTint(sidebar, fg.green, 0.12)` | 同上 ≥ 4.5:1 |
+| 行底 hover | 同公式 0.18 | 同上 ≥ 4.5:1 |
+| 待确认 / 已完成状态点 | `minGuard(fg.orange / fg.green, bg, sidebar, 3)` | 对内容底与侧栏底都 ≥ 3:1 |
+
+`safeTint` 从给定权重开始逐 1% 下调，直到表面上的 `label-primary` 满足 4.5:1；因此**浅色档的实际权重会低于深色档**（尤其 light·soft 的标题绿色 / 黄色被压到橄榄色），这是设计接受的「淡彩」。
+
+对比度由 `scripts/check-contrast.mjs` 的 **G9–G15** 硬门槛逐变体锁定；`docs/reference/contrast.md` §2f 有完整色值表。样张与实现共用同一组公式：`tests/color-mode.test.mjs` 把 60 个中彩值逐字节钉在 `.tmp/color-mode-preview/spec.json` 的快照上（该目录仅本地留档，不入库）。
+
+### 13.4 持久化与状态
+
+- **Host `Config`**：`light` / `dark` / `colorMode` 三个 volatile 字段（`colorMode` 为 `boolean().default(false)`，`booleanSchema()` 做 `.volatile()` 能力守卫）。0.3.x 的 patch 只有两个字段，schema 默认值补 `false`，无需手改。
+- **localStorage**：payload 增加可选 `colorMode`，**`STATE_VERSION` 保持 1**；0.3.x 缓存缺字段读作 `false` 且不算损坏（仍参与迁移），非布尔值按损坏处理。默认状态 `{ light: hard, dark: soft, colorMode: false }`。
+- **写入**：选择强度 / 切换色彩模式一次原子写三个字段；「恢复默认」unset 三个字段；表单就绪前的选择排队补写；广播 / storage 事件 / 迁移播种都包含该字段。
+- **迁移**：`shouldSeed` 的「真实选择」判定扩展为「非默认配对或 colorMode 开启」，播种一次写三个字段。
+- **首帧**：boot payload / `hostState()` / `__EVERFOREST_BOOT__` 保持只含两个强度（首帧没有聊天 / 会话 DOM，模式 CSS 在挂载后才生效），所以 0.4.0 的首帧行为与 0.3.0 一致。
+- **回滚**：0.4.0 → 0.3.0 前必须从 profile patch 删除 `colorMode`，否则 0.3.0 的 `Config` 校验会失败导致 entry 不激活（无主题）；0.2.1 不受影响。
+
+### 13.5 实现清单
+
+- 新增 `src/color-mode.js`（角色实算 + 作用域样式）、`tests/color-mode.test.mjs`。
+- 修改 `src/state.js` / `src/durable.js` / `src/host-config.js` / `src/locale.js` / `src/settings-page.js` / `src/client-entry.js`，以及对应的 5 个测试文件。
+- 修改 `scripts/build.mjs`（SOURCES 增 `color-mode.js`，位置在 `tokens.js` 之后）、`scripts/check-contrast.mjs`（G9–G15 + 报告 §2f）、`package.json`（0.4.0）。
+- 生成物：`client.js`、`docs/reference/contrast.md`。
+
+### 13.6 验证
+
+- 自动化：`node --test` **163/163 通过**（原 144 + 色彩模式 / 三字段状态 / 持久化 / 设置页 / 集成用例共 19 项）；`npm run check` 全绿（palette / build / contrast 三项 `--check`，8 条原硬门槛 + G9–G15）。
+- 样张一致性：60 个中彩角色值与方案 0 样张 `spec.json` 逐字节一致；最低对比度实测：标题 3.0027、装饰 3.0005、彩色表面正文 4.5036、状态点 3.0118（均超过对应门槛）。
+- 关闭零差异：所有 21 条 CSS 规则都以 `html[data-everforest-color-mode="on"]` 开头（无 `!important`），关闭时匹配不到任何元素；token 层与 boot payload 未改。
+- **人工（待真机）**：真实 DSH 需要**重启**才能加载新的 Host `Config`；重启后在设置页开启色彩模式目检 6 套配色下的聊天 h1–h3 / 表格 / 会话行，并确认关闭后与 0.3.0 无差异。本仓库测试环境无法替代这一步。
+
+### 13.7 已知风险与边界
+
+1. **选择器脆弱性（最高）**：DSH 的组件类名是 CSS modules 哈希，markdown 正文容器没有稳定 data 锚点，只能依赖 `[class*="markdown"]` 子串；DSH 升级若重命名容器 / 改变结构，色彩模式可能**静默失效**（颜色不生效，但 token 层与页面不会坏）。会话行锚点（`data-row-key` / `role=treeitem` / `data-state`）稳定得多。
+2. **违背官方主题契约**：DSH 官方扩展点是 alias token 覆盖（「token 样式表是颜色值的唯一权威来源」），选择器注入是本项目为内容层色彩做的**实验性例外**；不承诺跨 DSH 版本的兼容。
+3. **浅色档必然 muted**：彩色文字受 3:1 / 4.5:1 约束，浅色档的标题被压暗（h3 可能是橄榄色），属于目检已接受的结果。
+4. **视觉噪音**：h1–h3 + 表格 + 会话行同时上色，信息密度高的会话可能显得花；默认关闭 + 实验性标注是本项目的缓解方式。
+5. **维护面**：每次 DSH 升级（尤其主题 / 会话列表相关）都要检查选择器是否仍命中；`check-contrast` 只能守住色值门槛，守不住 DOM。

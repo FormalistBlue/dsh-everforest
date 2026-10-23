@@ -22,6 +22,8 @@
 
 <p align="center">Six variants — Dark / Light × Hard / Medium / Soft — default to <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>'s pairing (Dark Soft / Light Hard).</p>
 
+<p align="center">0.4.0 adds an experimental, off-by-default <strong>color mode</strong> that puts Everforest's so-far unused saturated accents on chat Markdown content and session-record status rows.</p>
+
 ## Previews
 
 | | Dark | Light |
@@ -36,7 +38,7 @@
 
 Open **Add plugin → Install a third-party plugin** in the DSH plugin page and enter `dsh-everforest`; for local development you can also select this repository directory. Alternatively, ask the agent to call `plugin_manager`'s `install_bundle` (target `dsh-everforest`).
 
-> **Upgrading**: changes to the Host half (`index.js` / `src/host-config.js`) need a **DSH restart** — refreshing the page does not reload it. Upgrading to 0.3.0 therefore needs one restart. Updating the npm package without restarting leaves the new Client on the localStorage-only fallback (choices still apply, they are just not written to the Host yet); the first load after the restart seeds the local cache into the Host. After that, picking a strength writes through DSH's settings service into the Host configuration and is broadcast to every browser on the profile, with no further restart.
+> **Upgrading**: changes to the Host half (`index.js` / `src/host-config.js`) need a **DSH restart** — refreshing the page does not reload it. Upgrading to 0.3.0 or 0.4.0 therefore needs one restart (0.4.0 adds the `colorMode` field to the Host `Config`). Updating the npm package without restarting leaves the new Client on the localStorage-only fallback (choices still apply, they are just not written to the Host yet); the first load after the restart seeds the local cache into the Host. After that, picking a strength or toggling color mode writes through DSH's settings service into the Host configuration and is broadcast to every browser on the profile, with no further restart.
 
 ## Usage
 
@@ -45,13 +47,14 @@ Open **Add plugin → Install a third-party plugin** in the DSH plugin page and 
 - Strengths are saved in the **Host configuration** of the current profile (the `everforest` row in `cordis.patch.yml`) and shared by every browser and window on that profile; this browser's localStorage is only a first-frame cache and an old-host fallback.
 - Picking a card in the other scheme's group also switches DSH Appearance (written to the global appearance preference); choose **Follow system** to restore automatic switching.
 - Every browser and window on the same profile (including tabs on the same address) syncs strength changes live.
-- **Restore defaults** resets the strengths only; it never rewrites DSH's global appearance preference.
+- **Color mode (experimental, off by default)**: when enabled, h1–h3 headings, list markers, blockquote bars / rules, table header bands and zebra rows, task-list checkboxes, and the "waiting for you / finished-unopened" session rows and status dots use Everforest accents; with it off the rendering is identical to 0.3.0. The switch lives in the same Host configuration as the strengths and is shared by every browser on the profile.
+- **Restore defaults** resets the strengths and color mode only; it never rewrites DSH's global appearance preference.
 - UI copy follows DSH's language (zh / en).
 
 ## Compatibility
 
 - Targets DSH **0.2.1-rc.2**; `engines.dsh` is `>=0.2.1-rc.2 <0.3.0-0`.
-- Colours are overridden only through `--dsw-*` / `--shiki-*` tokens, with no component CSS changes; if a DSH upgrade renames a token, the missing entries fall back to the native palette (no blank screen).
+- Colours are overridden only through `--dsw-*` / `--shiki-*` tokens, with no component CSS changes for the default palette; the experimental **color mode** additionally injects one scoped stylesheet (chat Markdown content and session-record status rows only, and only while the switch is on) — with it off nothing matches. If a DSH upgrade renames a token, the missing entries fall back to the native palette (no blank screen); if DSH renames component classes / DOM hooks, color mode may silently stop applying — that is the experimental boundary, the token layer is unaffected.
 - Strengths are persisted through DSH's official settings / `configForms` channel into the current profile's Host configuration (the Host half's `@deepseek-ai/schemastery` is resolved from DSH's own installation and never shipped with the package); on an older host without that channel the plugin falls back to browser localStorage.
 - Full token inventory: [docs/reference/token-inventory.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/token-inventory.md).
 
@@ -59,7 +62,7 @@ Open **Add plugin → Install a third-party plugin** in the DSH plugin page and 
 
 - Palette data comes from sainnhe's Everforest (six background ramps) and Everforest Enchanted (default pairing, header colours, UI semantics); see [docs/reference/palette.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/palette.md).
 - In the light variants, text-bearing surfaces are lifted 25% toward `bg0` and passed through a contrast guard (body text ≥ 4.5:1); the sidebar keeps a visible boundary against the content card.
-- Not covered: terminal ANSI 16 colours, brand / file-icon artwork, per-level heading colours. **First paint is covered**: the Host half injects the current palette before the Client loads (this browser's cache wins, falling back to the Host value when it is missing or invalid), so the Web loading screen / first frame (including the loading spinner ring and its progress arc) is already Everforest and Desktop cold start is at most one native frame. See [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) and [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md).
+- Not covered: terminal ANSI 16 colours, brand / file-icon artwork; h4–h6 heading levels stay single-colour (color mode only does h1–h3). Color-mode heading / status-dot values are derived from the palette accents with a 3:1 contrast guard, so light variants look noticeably muted ("pastel"); table bands and row tints are green / orange washes over the background. **First paint is covered**: the Host half injects the current palette before the Client loads (this browser's cache wins, falling back to the Host value when it is missing or invalid), so the Web loading screen / first frame (including the loading spinner ring and its progress arc) is already Everforest and Desktop cold start is at most one native frame. See [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) and [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md).
 
 ## Development
 

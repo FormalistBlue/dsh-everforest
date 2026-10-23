@@ -1,8 +1,9 @@
 /**
  * End-to-end checks for the dsh-everforest package that do not need a browser:
  * manifest/patch/locale/icon shape, generated-artifact freshness, the real
- * `client.js` bundle evaluated in a VM with a fake module loader, and the full
- * `apply()` lifecycle against a fake Client context.
+ * `client.js` bundle evaluated in a VM with a fake module loader (including the
+ * color-mode `<html>` attributes and the injected color-mode stylesheet), and
+ * the full `apply()` lifecycle against a fake Client context.
  *
  * Visual verification of the rendered page still needs the running Harness.
  */
@@ -63,15 +64,15 @@ const mockReact = {
  *
  * @param {object} [options]
  * @param {'loading' | 'ready' | 'unavailable'} [options.status]
- * @param {{ light?: string, dark?: string }} [options.value] - effective section.
- * @param {{ light?: string, dark?: string }} [options.user] - profile override.
+ * @param {{ light?: string, dark?: string, colorMode?: boolean }} [options.value] - effective section.
+ * @param {{ light?: string, dark?: string, colorMode?: boolean }} [options.user] - profile override.
  * @param {number} [options.revision]
  * @param {boolean} [options.writable]
  * @param {boolean} [options.refuse] - every mutate() returns false.
  * @param {boolean} [options.deferMutate] - hold writes until `settle()`.
  */
 function createConfigForm(options = {}) {
-  const shipped = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
+  const shipped = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }
   const formState = {
     status: options.status ?? 'loading',
     value: options.value === undefined ? undefined : { ...shipped, ...options.value },
@@ -328,10 +329,13 @@ function createMemoryStorage(entries = {}) {
  * self-check; by default `document.body` is undefined, which makes runSelfCheck a
  * no-op for the lifecycle tests. `storage` seeds the window's localStorage, and
  * the returned `window` stub can dispatch the DOM events the plugin listens to.
+ * `document.documentElement` records the color-mode data attributes the bundle
+ * writes; the returned `htmlAttributes` map exposes them to assertions.
  */
 function loadBundle({ body, getComputedStyle, console: consoleStub, storage, bootHint } = {}) {
   let definition = null
   const styleTags = []
+  const htmlAttributes = new Map()
   const listeners = new Map()
   const windowStub = {
     __ModuleLoader__: { load: (value) => { definition = value } },
@@ -360,6 +364,15 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage, boo
       },
     },
     createElement: () => ({ dataset: {}, textContent: '' }),
+    documentElement: {
+      getAttribute: (name) => (htmlAttributes.has(name) ? htmlAttributes.get(name) : null),
+      setAttribute: (name, value) => {
+        htmlAttributes.set(name, String(value))
+      },
+      removeAttribute: (name) => {
+        htmlAttributes.delete(name)
+      },
+    },
     body,
   }
   const sandbox = {
@@ -380,8 +393,21 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage, boo
     assert.equal(request, 'react')
     return mockReact
   })
-  return { definition, module, styleTags, window: windowStub }
+  return { definition, module, styleTags, window: windowStub, htmlAttributes }
 }
+
+/** Stylesheet tags by their `data-plugin-css` owner (Client bundles share `<style>`). */
+const tagsOwnedBy = (styleTags, owner) => styleTags.filter(
+  (tag) => tag.dataset && tag.dataset.pluginCss === owner,
+)
+const COLOR_MODE_CSS_OWNER = `${PACKAGE_ID}/color-mode`
+
+/** The default local state the Client starts from (strengths + color mode off). */
+const DEFAULT_LOCAL_STATE = Object.freeze({
+  light: DEFAULT_STATE.light,
+  dark: DEFAULT_STATE.dark,
+  colorMode: false,
+})
 
 /** Let queued Host-write promises settle (the client never blocks apply). */
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -539,7 +565,7 @@ test('bundle registers under the package id with the Client entry shape', () => 
 })
 
 test('src half imports no Harness Client package', () => {
-  for (const relative of ['palette.js', 'color.js', 'tokens.js', 'state.js', 'durable.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
+  for (const relative of ['palette.js', 'color.js', 'color-mode.js', 'tokens.js', 'state.js', 'durable.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
     const source = read(`src/${relative}`)
     assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, `${relative} imports a Harness package`)
     assert.doesNotMatch(source, /require\(['"]@deepseek-ai\//, `${relative} requires a Harness package`)
@@ -547,7 +573,7 @@ test('src half imports no Harness Client package', () => {
 })
 
 test('apply() mounts the token layer, settings page, and locale, and cleans up', async () => {
-  const { module, styleTags, window } = loadBundle()
+  const { module, styleTags, window, htmlAttributes } = loadBundle()
   const harness = createHarness()
   const originalRequire = globalThis.require
   globalThis.require = () => mockReact
@@ -578,13 +604,26 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     assert.ok(value.light.trim() !== '' && value.dark.trim() !== '', `${name} has an empty value`)
   }
 
+  // Color-mode attributes on <html> and the mode stylesheet are mounted with the
+  // token layer, independently of the Settings UI. Off by default: the mode CSS
+  // matches nothing, so the default rendering is byte-identical to 0.3.0.
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'off')
+  assert.equal(htmlAttributes.get('data-everforest-light'), DEFAULT_STATE.light)
+  assert.equal(htmlAttributes.get('data-everforest-dark'), DEFAULT_STATE.dark)
+  const colorModeStylesheets = tagsOwnedBy(styleTags, COLOR_MODE_CSS_OWNER)
+  assert.equal(colorModeStylesheets.length, 1, 'color-mode stylesheet was not injected')
+  assert.equal(colorModeStylesheets[0].dataset.plugin, PACKAGE_ID)
+  assert.ok(colorModeStylesheets[0].textContent.includes('data-everforest-color-mode="on"'))
+
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
   assert.ok(recorded.localeRegistrations[0].dictionaries.en)
   assert.ok(recorded.localeRegistrations[0].dictionaries.zh)
-  assert.equal(styleTags.length, 1, 'settings stylesheet was not injected')
-  assert.equal(styleTags[0].dataset.plugin, PACKAGE_ID)
+  const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
+  assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
+  assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
+  assert.equal(styleTags.length, 2, 'exactly two <style> elements (color mode + settings)')
   assert.equal(recorded.slotRegistrations.length, 1)
   const { options, component } = recorded.slotRegistrations[0]
   assert.equal(options.name, 'settings.section')
@@ -595,10 +634,11 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const injection = options.inject()
   assert.equal(typeof injection.t, 'function')
   const store = injection.store
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
   assert.equal(typeof store.select, 'function')
   assert.equal(typeof store.reset, 'function')
   assert.equal(typeof store.setPreference, 'function')
+  assert.equal(typeof store.setColorMode, 'function')
   assert.equal(typeof store.setPreference('auto'), 'undefined')
   assert.deepEqual(recorded.setThemeCalls, [])
 
@@ -624,8 +664,30 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
 
   // Reset restores the Enchanted default pairing without touching Appearance.
   store.reset()
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
   assert.deepEqual(recorded.setThemeCalls, ['light', 'dark'])
+
+  // Color mode is a pure attribute + selector layer: toggling it rewrites the
+  // <html> data attributes but never re-stacks the token sheet, so the palette
+  // stays byte-identical whether the mode is on or off.
+  const layersBeforeMode = recorded.tokenLayers.length
+  store.setColorMode(true)
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'on')
+  assert.equal(recorded.tokenLayers.length, layersBeforeMode, 'color mode must not rebuild the token layer')
+  assert.deepEqual({ ...store.getSnapshot().state }, {
+    light: DEFAULT_STATE.light,
+    dark: DEFAULT_STATE.dark,
+    colorMode: true,
+  })
+  // Changing a strength while the mode is on keeps the flag (and, because the
+  // active scheme is already dark, does not rewrite DSH Appearance).
+  store.select('dark', 'medium')
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'on')
+  assert.equal(store.getSnapshot().state.colorMode, true)
+  store.setColorMode(false)
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'off')
+  assert.equal(htmlAttributes.get('data-everforest-dark'), 'medium')
+  assert.equal(store.getSnapshot().state.colorMode, false)
 
   // The appearance control writes the same global preference DSH owns; the
   // store only accepts DSH's three values (no plugin-local appearance state).
@@ -664,7 +726,11 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.tokenLayers.length, 1)
   assert.equal(recorded.slotRegistrations.length, 0)
   assert.equal(recorded.localeRegistrations.length, 0)
-  assert.equal(styleTags.length, 0)
+  // The color-mode stylesheet is NOT part of the Settings UI: it is mounted
+  // with the token layer, so the mode keeps working without slots/locale.
+  assert.equal(tagsOwnedBy(styleTags, COLOR_MODE_CSS_OWNER).length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
+  assert.equal(styleTags.length, 1)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -676,7 +742,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[0].options.id, 'everforest')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 1)
+  assert.equal(styleTags.length, 2)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -690,10 +756,10 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(styleTags.length, 0, 'delayed settings stylesheet was not removed on unload')
 })
 
-test('strength changes made by another window reach this one through the storage event', () => {
-  const payload = (light, dark) => JSON.stringify({ version: STATE_VERSION, light, dark })
+test('palette changes made by another window reach this one through the storage event', () => {
+  const payload = (light, dark, colorMode = false) => JSON.stringify({ version: STATE_VERSION, light, dark, colorMode })
   const storage = createMemoryStorage({ [STORAGE_KEY]: payload('hard', 'soft') })
-  const { module, window } = loadBundle({ storage })
+  const { module, window, htmlAttributes } = loadBundle({ storage })
   const harness = createHarness()
   const originalRequire = globalThis.require
   globalThis.require = () => mockReact
@@ -704,15 +770,16 @@ test('strength changes made by another window reach this one through the storage
   }
   const { recorded } = harness
   const store = recorded.slotRegistrations[0].options.inject().store
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
   assert.equal(recorded.tokenLayers.length, 1)
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'off')
 
   // Another window persists a different pairing. The browser delivers `storage`
   // to this document; the plugin must re-read the state, rebuild the token
   // layer and refresh the Settings page.
   storage.setItem(STORAGE_KEY, payload('soft', 'medium'))
   window.dispatchEvent({ type: 'storage', key: STORAGE_KEY })
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium', colorMode: false })
   assert.equal(recorded.tokenLayers.length, 2, 'the token layer was not rebuilt')
   const expected = tokensFor({ light: 'soft', dark: 'medium' })
   assert.equal(
@@ -720,6 +787,17 @@ test('strength changes made by another window reach this one through the storage
     expected['--dsw-alias-bg-base'].light,
     'the rebuilt layer does not match the other window choice',
   )
+
+  // The color-mode flag travels with the same payload: the attributes update,
+  // but the token layer is untouched.
+  storage.setItem(STORAGE_KEY, payload('soft', 'medium', true))
+  window.dispatchEvent({ type: 'storage', key: STORAGE_KEY })
+  assert.equal(store.getSnapshot().state.colorMode, true)
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'on')
+  assert.equal(recorded.tokenLayers.length, 2, 'a color-mode-only change rebuilt the token layer')
+  storage.setItem(STORAGE_KEY, payload('soft', 'medium', false))
+  window.dispatchEvent({ type: 'storage', key: STORAGE_KEY })
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'off')
 
   // Unrelated keys and an unchanged payload are ignored.
   window.dispatchEvent({ type: 'storage', key: 'some-other-plugin/v1' })
@@ -729,7 +807,7 @@ test('strength changes made by another window reach this one through the storage
   // `clear()` in another window arrives with `key: null` and restores the defaults.
   storage.clear()
   window.dispatchEvent({ type: 'storage', key: null })
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
   assert.equal(recorded.tokenLayers.length, 3)
 
   // Unload removes the listener: later writes must not touch the layer.
@@ -741,9 +819,10 @@ test('strength changes made by another window reach this one through the storage
 })
 
 // ---------------------------------------------------------------------------
-// Host-backed durability (0.3.0): configForms binding, adoption, migration.
-// The fake form mirrors the real controller: versioned snapshots, atomic
-// mutate ops, and a refusal that leaves the document unchanged.
+// Host-backed durability (0.3.0 strengths, 0.4.0 color mode): configForms
+// binding, adoption, migration. The fake form mirrors the real controller:
+// versioned snapshots, atomic mutate ops, and a refusal that leaves the
+// document unchanged.
 // ---------------------------------------------------------------------------
 
 test('a Host-stored choice is adopted on load and cached for the first frame', async () => {
@@ -753,14 +832,33 @@ test('a Host-stored choice is adopted on load and cached for the first frame', a
     value: { light: 'medium', dark: 'hard' },
     user: { light: 'medium', dark: 'hard' },
   })
-  const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
+  const { harness, htmlAttributes } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
   const store = storeOf(harness)
 
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'hard' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'hard', colorMode: false })
   assert.equal(harness.recorded.tokenLayers.length, 2, 'the adopted pair must rebuild the token layer')
+  assert.equal(htmlAttributes.get('data-everforest-light'), 'medium')
+  assert.equal(htmlAttributes.get('data-everforest-dark'), 'hard')
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'off')
   const cached = JSON.parse(storage.getItem(STORAGE_KEY))
-  assert.deepEqual({ light: cached.light, dark: cached.dark }, { light: 'medium', dark: 'hard' })
+  assert.deepEqual(
+    { light: cached.light, dark: cached.dark, colorMode: cached.colorMode },
+    { light: 'medium', dark: 'hard', colorMode: false },
+  )
   assert.equal(form.record.subscribeCount, 1, 'the form must be observed for remote changes')
+})
+
+test('a Host-stored color mode is adopted on load and mirrored on <html>', async () => {
+  const form = createConfigForm({
+    status: 'ready',
+    value: { light: 'hard', dark: 'soft', colorMode: true },
+    user: { colorMode: true },
+  })
+  const { harness, htmlAttributes } = await mount({ harnessOptions: { form } })
+  const store = storeOf(harness)
+
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE, colorMode: true })
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'on')
 })
 
 test('a Host value equal to the cache does not rebuild the token layer', async () => {
@@ -773,7 +871,7 @@ test('a Host value equal to the cache does not rebuild the token layer', async (
     user: { light: 'medium', dark: 'hard' },
   })
   const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
-  assert.deepEqual({ ...storeOf(harness).getSnapshot().state }, { light: 'medium', dark: 'hard' })
+  assert.deepEqual({ ...storeOf(harness).getSnapshot().state }, { light: 'medium', dark: 'hard', colorMode: false })
   assert.equal(harness.recorded.tokenLayers.length, 1, 'an equal adopt must not re-stack the layer')
 })
 
@@ -789,11 +887,37 @@ test('a pre-0.3.0 cache choice is seeded into the Host once', async () => {
   assert.deepEqual(form.record.mutations[0].ops, [
     { op: 'set', path: ['light'], value: 'soft' },
     { op: 'set', path: ['dark'], value: 'medium' },
+    { op: 'set', path: ['colorMode'], value: false },
   ])
   assert.equal(form.record.mutations[0].expectedRevision, 7, 'the seed must fence on the observed revision')
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium' }, 'the cached choice must survive seeding')
-  assert.deepEqual(form.state.user, { light: 'soft', dark: 'medium' }, 'the Host now carries the migrated choice')
+  assert.deepEqual(
+    { ...store.getSnapshot().state },
+    { light: 'soft', dark: 'medium', colorMode: false },
+    'the cached choice must survive seeding',
+  )
+  assert.deepEqual(
+    form.state.user,
+    { light: 'soft', dark: 'medium', colorMode: false },
+    'the Host now carries the migrated choice',
+  )
   assert.equal(harness.recorded.tokenLayers.length, 1, 'seeding must not repaint the initial cache pair')
+})
+
+test('a cache that only turned color mode on is a real choice and is seeded', async () => {
+  const storage = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: STATE_VERSION, ...DEFAULT_STATE, colorMode: true }),
+  })
+  const form = createConfigForm({ status: 'ready', value: {}, user: {}, revision: 2 })
+  const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
+  const store = storeOf(harness)
+
+  assert.equal(form.record.mutations.length, 1, 'the color-mode-only choice must be migrated')
+  assert.deepEqual(form.record.mutations[0].ops, [
+    { op: 'set', path: ['light'], value: DEFAULT_STATE.light },
+    { op: 'set', path: ['dark'], value: DEFAULT_STATE.dark },
+    { op: 'set', path: ['colorMode'], value: true },
+  ])
+  assert.equal(store.getSnapshot().state.colorMode, true)
 })
 
 test('no migration write happens without a real cached choice', async () => {
@@ -805,11 +929,11 @@ test('no migration write happens without a real cached choice', async () => {
     const form = createConfigForm({ status: 'ready', value: {}, user: {} })
     const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
     assert.equal(form.record.mutations.length, 0)
-    assert.deepEqual({ ...storeOf(harness).getSnapshot().state }, { ...DEFAULT_STATE })
+    assert.deepEqual({ ...storeOf(harness).getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
   }
 })
 
-test('a card click writes the whole pair to the Host in one mutation', async () => {
+test('a card click writes the whole state to the Host in one mutation', async () => {
   const storage = createMemoryStorage()
   const form = createConfigForm({ status: 'ready', value: {}, user: {}, revision: 4 })
   const { harness } = await mount({ harnessOptions: { form }, loadOptions: { storage } })
@@ -822,23 +946,64 @@ test('a card click writes the whole pair to the Host in one mutation', async () 
   assert.deepEqual(form.record.mutations[0].ops, [
     { op: 'set', path: ['light'], value: 'soft' },
     { op: 'set', path: ['dark'], value: 'soft' },
+    { op: 'set', path: ['colorMode'], value: false },
   ])
   assert.equal(form.record.mutations[0].expectedRevision, undefined, 'a user write must not fence on an older revision')
-  assert.deepEqual(form.state.user, { light: 'soft', dark: 'soft' })
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'soft' })
+  assert.deepEqual(form.state.user, { light: 'soft', dark: 'soft', colorMode: false })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'soft', colorMode: false })
   const cached = JSON.parse(storage.getItem(STORAGE_KEY))
-  assert.deepEqual({ light: cached.light, dark: cached.dark }, { light: 'soft', dark: 'soft' })
+  assert.deepEqual(
+    { light: cached.light, dark: cached.dark, colorMode: cached.colorMode },
+    { light: 'soft', dark: 'soft', colorMode: false },
+  )
+})
+
+test('toggling color mode writes all three fields and never re-stacks the token layer', async () => {
+  const form = createConfigForm({ status: 'ready', value: {}, user: {}, revision: 1 })
+  const { harness, htmlAttributes } = await mount({ harnessOptions: { form } })
+  const store = storeOf(harness)
+  assert.equal(harness.recorded.tokenLayers.length, 1)
+
+  store.setColorMode(true)
+  await flush()
+  assert.deepEqual(form.record.mutations[0].ops, [
+    { op: 'set', path: ['light'], value: DEFAULT_STATE.light },
+    { op: 'set', path: ['dark'], value: DEFAULT_STATE.dark },
+    { op: 'set', path: ['colorMode'], value: true },
+  ])
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'on')
+  assert.equal(store.getSnapshot().state.colorMode, true)
+  assert.equal(harness.recorded.tokenLayers.length, 1, 'color mode must not replace the token sheet')
+
+  store.setColorMode(false)
+  await flush()
+  assert.deepEqual(form.record.mutations[1].ops, [
+    { op: 'set', path: ['light'], value: DEFAULT_STATE.light },
+    { op: 'set', path: ['dark'], value: DEFAULT_STATE.dark },
+    { op: 'set', path: ['colorMode'], value: false },
+  ])
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'off')
+  assert.equal(store.getSnapshot().state.colorMode, false)
+
+  // Repeating the current value is a no-op (no extra Host write).
+  store.setColorMode(false)
+  await flush()
+  assert.equal(form.record.mutations.length, 2, 'a no-op toggle must not write to the Host')
 })
 
 test('restore-defaults clears the Host override with unset ops', async () => {
   const form = createConfigForm({
     status: 'ready',
-    value: { light: 'soft', dark: 'hard' },
-    user: { light: 'soft', dark: 'hard' },
+    value: { light: 'soft', dark: 'hard', colorMode: true },
+    user: { light: 'soft', dark: 'hard', colorMode: true },
   })
-  const { harness } = await mount({ harnessOptions: { form } })
+  const { harness, htmlAttributes } = await mount({ harnessOptions: { form } })
   const store = storeOf(harness)
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'hard' })
+  assert.deepEqual(
+    { ...store.getSnapshot().state },
+    { light: 'soft', dark: 'hard', colorMode: true },
+  )
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'on')
 
   store.reset()
   await flush()
@@ -847,9 +1012,11 @@ test('restore-defaults clears the Host override with unset ops', async () => {
   assert.deepEqual(form.record.mutations[0].ops, [
     { op: 'unset', path: ['light'] },
     { op: 'unset', path: ['dark'] },
+    { op: 'unset', path: ['colorMode'] },
   ])
   assert.deepEqual(form.state.user, {}, 'the override row must disappear')
-  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE })
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'off')
 })
 
 test('restore-defaults clicked while a card write is in flight still clears the Host', async () => {
@@ -870,14 +1037,15 @@ test('restore-defaults clicked while a card write is in flight still clears the 
   assert.deepEqual(form.record.mutations[1].ops, [
     { op: 'unset', path: ['light'] },
     { op: 'unset', path: ['dark'] },
+    { op: 'unset', path: ['colorMode'] },
   ])
-  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE })
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
 
   // Drain both writes in order: set, then the queued unset.
   await form.settle()
   await flush()
   assert.deepEqual(form.state.user, {}, 'the Host must not keep the write the user reset away')
-  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE }, 'the Host pair must be the defaults')
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE }, 'the Host state must be the defaults')
 })
 
 
@@ -897,7 +1065,11 @@ test('a refused Host write falls back to the Host value and warns once', async (
 
   store.select('light', 'medium')
   await flush()
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'hard' }, 'the unaccepted value must not stick')
+  assert.deepEqual(
+    { ...store.getSnapshot().state },
+    { light: 'soft', dark: 'hard', colorMode: false },
+    'the unaccepted value must not stick',
+  )
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /refused/)
 
@@ -909,17 +1081,28 @@ test('a refused Host write falls back to the Host value and warns once', async (
 
 test('a pre-0.3.0 host without configForms keeps working from localStorage', async () => {
   const storage = createMemoryStorage()
-  const { harness } = await mount({ harnessOptions: { configForms: false }, loadOptions: { storage } })
+  const { harness, htmlAttributes } = await mount({ harnessOptions: { configForms: false }, loadOptions: { storage } })
   const store = storeOf(harness)
 
   assert.doesNotThrow(() => store.select('dark', 'hard'))
   await flush()
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: DEFAULT_STATE.light, dark: 'hard' })
+  assert.deepEqual({ ...store.getSnapshot().state }, {
+    light: DEFAULT_STATE.light,
+    dark: 'hard',
+    colorMode: false,
+  })
   assert.deepEqual(JSON.parse(storage.getItem(STORAGE_KEY)), {
     version: STATE_VERSION,
     light: DEFAULT_STATE.light,
     dark: 'hard',
+    colorMode: false,
   })
+
+  // The color-mode CSS is independent of the Host settings service, so the mode
+  // still works (attributes + stylesheet) on a host that serves no form.
+  store.setColorMode(true)
+  assert.equal(htmlAttributes.get('data-everforest-color-mode'), 'on')
+  assert.deepEqual(JSON.parse(storage.getItem(STORAGE_KEY)).colorMode, true)
 })
 
 test('configForms arriving after apply() is adopted then', async () => {
@@ -930,11 +1113,11 @@ test('configForms arriving after apply() is adopted then', async () => {
   })
   const { harness } = await mount({ harnessOptions: { form, deferConfigForms: true } })
   const store = storeOf(harness)
-  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_STATE })
+  assert.deepEqual({ ...store.getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
 
   harness.receiveConfigForms()
   await flush()
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'hard' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'hard', colorMode: false })
 })
 
 test('a choice made before configForms arrives is queued and written when it binds', async () => {
@@ -945,7 +1128,10 @@ test('a choice made before configForms arrives is queued and written when it bin
   store.select('light', 'soft')
   await flush()
   assert.equal(form.record.mutations.length, 0, 'nothing can be written while the form is unbound')
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: DEFAULT_STATE.dark })
+  assert.deepEqual(
+    { ...store.getSnapshot().state },
+    { light: 'soft', dark: DEFAULT_STATE.dark, colorMode: false },
+  )
 
   harness.receiveConfigForms()
   await flush()
@@ -953,8 +1139,12 @@ test('a choice made before configForms arrives is queued and written when it bin
   assert.deepEqual(form.record.mutations[0].ops, [
     { op: 'set', path: ['light'], value: 'soft' },
     { op: 'set', path: ['dark'], value: DEFAULT_STATE.dark },
+    { op: 'set', path: ['colorMode'], value: false },
   ])
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: DEFAULT_STATE.dark })
+  assert.deepEqual(
+    { ...store.getSnapshot().state },
+    { light: 'soft', dark: DEFAULT_STATE.dark, colorMode: false },
+  )
 })
 
 test('a choice made in another browser is adopted through the Host broadcast', async () => {
@@ -965,14 +1155,14 @@ test('a choice made in another browser is adopted through the Host broadcast', a
   })
   const { harness } = await mount({ harnessOptions: { form } })
   const store = storeOf(harness)
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'hard' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'hard', colorMode: false })
 
   form.emit({
     user: { light: 'medium', dark: 'medium' },
     value: { light: 'medium', dark: 'medium' },
     revision: 2,
   })
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'medium' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'medium', dark: 'medium', colorMode: false })
   assert.equal(harness.recorded.tokenLayers.length, 3, 'the broadcast pair must repaint')
 })
 
@@ -1002,13 +1192,37 @@ test('the Client starts from the Host boot hint when its cache is empty', async 
     globalThis.require = originalRequire
   }
   const store = storeOf(harness)
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium' })
+  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'soft', dark: 'medium', colorMode: false })
   const expected = tokensFor({ light: 'soft', dark: 'medium' })
   assert.equal(
     harness.recorded.tokenLayers[0].tokens['--dsw-alias-bg-base'].light,
     expected['--dsw-alias-bg-base'].light,
     'the first token layer must use the hint pair instead of the default',
   )
+
+  // The hint only covers the strengths: the cached color-mode flag survives it.
+  const cachedMode = createMemoryStorage({
+    [STORAGE_KEY]: JSON.stringify({
+      version: STATE_VERSION,
+      light: 'hard',
+      dark: DEFAULT_STATE.dark,
+      colorMode: true,
+    }),
+  })
+  const hintedWithCache = loadBundle({ bootHint, storage: cachedMode })
+  const hintedHarness = createHarness({ configForms: false })
+  globalThis.require = () => mockReact
+  try {
+    hintedWithCache.module.apply(hintedHarness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  assert.deepEqual(
+    { ...storeOf(hintedHarness).getSnapshot().state },
+    { light: 'soft', dark: 'medium', colorMode: true },
+    'the hint must not reset the cached color mode',
+  )
+  assert.equal(hintedWithCache.htmlAttributes.get('data-everforest-color-mode'), 'on')
 
   // A bogus hint (old Host bundle / other plugin's global) must be ignored.
   const bogus = loadBundle({ bootHint: { version: 99, light: 'soft', dark: 'medium' } })
@@ -1019,7 +1233,7 @@ test('the Client starts from the Host boot hint when its cache is empty', async 
   } finally {
     globalThis.require = originalRequire
   }
-  assert.deepEqual({ ...storeOf(bogusHarness).getSnapshot().state }, { ...DEFAULT_STATE })
+  assert.deepEqual({ ...storeOf(bogusHarness).getSnapshot().state }, { ...DEFAULT_LOCAL_STATE })
 })
 
 test('a failed Settings page setup is retried through the inject fallback', () => {
@@ -1048,7 +1262,11 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(recorded.localeRegistrations.length, 1, 'the retry registered the dictionaries twice')
   assert.equal(recorded.slotRegistrations.length, 1)
   assert.equal(recorded.slotRegistrations[0].options.id, 'everforest')
-  assert.equal(styleTags.length, 1)
+  // The color-mode stylesheet is mounted before the failure and is not part of
+  // the Settings setup, so the only retried stylesheet is the settings one.
+  assert.equal(tagsOwnedBy(styleTags, COLOR_MODE_CSS_OWNER).length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
+  assert.equal(styleTags.length, 2)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

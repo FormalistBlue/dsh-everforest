@@ -41,10 +41,17 @@ export const EN = {
   'current.active': 'Active appearance',
   'current.system': 'following system',
 
+  'colorMode.title': 'Color mode',
+  'colorMode.desc': 'Color mode tints chat Markdown content and session-record status rows with the Everforest accents: headings, list markers, quotes, table bands, checkboxes and status dots/rows. Everything else keeps the normal palette.',
+  'colorMode.on': 'on',
+  'colorMode.off': 'off',
+  'colorMode.switch': 'Color mode, currently {state}',
+  'colorMode.experimental': 'Experimental and off by default: it relies on DeepSeek Harness chat and session markup, so a DSH upgrade may break it.',
+
   'reset': 'Restore defaults',
 
   'hint.scheme': 'Picking a card in the other group also switches DeepSeek Harness Appearance so you can preview it, and saves that as the global appearance preference shared by every signed-in browser. Choose “Follow system” above to restore automatic switching.',
-  'hint.storage': 'Strength is saved in the Host configuration of the current profile, so every browser on that profile shares it; this browser keeps a localStorage copy only as a first-frame cache. Restart DeepSeek Harness after updating the Host half of the plugin.',
+  'hint.storage': 'Strength and the color-mode switch are saved in the Host configuration of the current profile, so every browser on that profile shares them; this browser keeps a localStorage copy only as a first-frame cache. Restart DeepSeek Harness after updating the Host half of the plugin.',
 
   'aria.card': '{scheme} {strength} palette',
   'aria.group': '{scheme} palettes',
@@ -76,10 +83,17 @@ export const ZH = {
   'current.active': '实际界面',
   'current.system': '跟随系统',
 
+  'colorMode.title': '色彩模式',
+  'colorMode.desc': '色彩模式会为聊天 Markdown 内容与会话记录的状态行加上 Everforest 强调色：标题、列表标记、引用、表格色带、复选框以及状态点和状态行；其他界面仍使用常规配色。',
+  'colorMode.on': '已开启',
+  'colorMode.off': '已关闭',
+  'colorMode.switch': '色彩模式，当前{state}',
+  'colorMode.experimental': '实验性功能，默认关闭：它依赖 DeepSeek Harness 的聊天与会话结构，DSH 升级后可能失效。',
+
   'reset': '恢复默认',
 
   'hint.scheme': '点击另一深浅色组中的色卡会同时切换 DeepSeek Harness 外观以便立即预览，并把结果保存为全局外观偏好（所有已登录浏览器共享）；可用上面的「跟随系统」恢复自动跟随。',
-  'hint.storage': '强度保存在当前 profile 的 Host 配置中，同一 profile 的所有浏览器共享；本浏览器的 localStorage 只作为首帧缓存。更新插件的 Host 半部后需重启 DeepSeek Harness。',
+  'hint.storage': '强度与色彩模式开关保存在当前 profile 的 Host 配置中，同一 profile 的所有浏览器共享；本浏览器的 localStorage 只作为首帧缓存。更新插件的 Host 半部后需重启 DeepSeek Harness。',
 
   'aria.card': '{scheme} {strength} 配色',
   'aria.group': '{scheme}配色',

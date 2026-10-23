@@ -33,6 +33,16 @@
  *      for all six variants (2026-10-21 visual report: the dark·soft stripe was a
  *      light green band under near-white ink, and the gutter numbers sat at 2.1:1).
  *
+ * Color mode ("中彩", src/color-mode.js) adds gates 9-15 for the six variants:
+ *   9. colour-mode headings h1/h2/h3 on bg-base >= 3.0:1;
+ *  10. colour-mode marker/quote/hr/check on bg-base >= 3.0:1;
+ *  11. label-primary on the table-header band >= 4.5:1;
+ *  12. label-primary on the table zebra stripe >= 4.5:1;
+ *  13. label-primary on the session row warn/done fills (and their :hover
+ *      variants) >= 4.5:1;
+ *  14. colour-mode status dots on both bg-base and the sidebar fill >= 3.0:1;
+ *  15. every colour-mode role value is a legal #RRGGBB colour.
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -43,6 +53,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { tokensFor, TOKEN_COVERAGE } from '../src/tokens.js'
+import { colorModeRoles } from '../src/color-mode.js'
 import { contrastRatio, hexToRgb, isHex, mix } from '../src/color.js'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
@@ -52,6 +63,12 @@ const REPORT_PATH = join(REPO_ROOT, 'docs', 'reference', 'contrast.md')
 const PRIMARY_THRESHOLD = 4.5
 const BRAND_FOREGROUND_THRESHOLD = 2.5
 const REPORT_FLOOR = 1.5
+/** Color mode: coloured headings / decorations against bg-base. */
+const COLOR_MODE_DECORATION_MIN = 3.0
+/** Color mode: label-primary text on tinted bands, stripes and session rows. */
+const COLOR_MODE_SURFACE_MIN = 4.5
+/** Color mode: status dots, measured on bg-base and on the sidebar fill. */
+const COLOR_MODE_DOT_MIN = 3.0
 /** Minimum contrast between the sidebar surface and bg-base (column boundary). */
 const SIDEBAR_BOUNDARY_MIN = 1.02
 /** Minimum contrast between the chat bubble and bg-base (card boundary). */
@@ -376,6 +393,117 @@ for (const variant of states) {
   }
 }
 
+/* ---- Gates 9-15: color mode ("中彩") role colours ------------------------- */
+const LEGAL_ROLE_COLOR = /^#[0-9a-f]{6}$/i
+/** Role keys of each gate, in report order. */
+const COLOR_MODE_HEADING_KEYS = ['h1', 'h2', 'h3']
+const COLOR_MODE_DECORATION_KEYS = ['marker', 'quote', 'hr', 'check']
+const COLOR_MODE_ROW_KEYS = ['rowWarn', 'rowDone', 'rowWarnHover', 'rowDoneHover']
+const COLOR_MODE_DOT_KEYS = ['dotWarnBase', 'dotWarnSidebar', 'dotDoneBase', 'dotDoneSidebar']
+const COLOR_MODE_DOT_LABELS = {
+  dotWarnBase: 'dot-warn on bg-base',
+  dotWarnSidebar: 'dot-warn on sidebar-fill',
+  dotDoneBase: 'dot-done on bg-base',
+  dotDoneSidebar: 'dot-done on sidebar-fill'
+}
+/** [role key, display label] of the report's colour-value table. */
+const COLOR_MODE_ROLE_LABELS = [
+  ['h1', 'h1'],
+  ['h2', 'h2'],
+  ['h3', 'h3'],
+  ['marker', 'marker'],
+  ['quote', 'quote'],
+  ['hr', 'hr'],
+  ['check', 'check'],
+  ['band', 'band'],
+  ['zebra', 'zebra'],
+  ['rowWarn', 'row-warn'],
+  ['rowDone', 'row-done'],
+  ['rowWarnHover', 'row-warn-hover'],
+  ['rowDoneHover', 'row-done-hover'],
+  ['dotWarn', 'dot-warn'],
+  ['dotDone', 'dot-done']
+]
+/** [label, ratio key, threshold] of the report's colour-mode contrast table. */
+const COLOR_MODE_CHECKS = [
+  ['h1 / bg-base', 'h1', COLOR_MODE_DECORATION_MIN],
+  ['h2 / bg-base', 'h2', COLOR_MODE_DECORATION_MIN],
+  ['h3 / bg-base', 'h3', COLOR_MODE_DECORATION_MIN],
+  ['marker / bg-base', 'marker', COLOR_MODE_DECORATION_MIN],
+  ['quote / bg-base', 'quote', COLOR_MODE_DECORATION_MIN],
+  ['hr / bg-base', 'hr', COLOR_MODE_DECORATION_MIN],
+  ['check / bg-base', 'check', COLOR_MODE_DECORATION_MIN],
+  ['band / label-primary', 'band', COLOR_MODE_SURFACE_MIN],
+  ['zebra / label-primary', 'zebra', COLOR_MODE_SURFACE_MIN],
+  ['row-warn / label-primary', 'rowWarn', COLOR_MODE_SURFACE_MIN],
+  ['row-done / label-primary', 'rowDone', COLOR_MODE_SURFACE_MIN],
+  ['row-warn-hover / label-primary', 'rowWarnHover', COLOR_MODE_SURFACE_MIN],
+  ['row-done-hover / label-primary', 'rowDoneHover', COLOR_MODE_SURFACE_MIN],
+  ['dot-warn / bg-base', 'dotWarnBase', COLOR_MODE_DOT_MIN],
+  ['dot-warn / sidebar-fill', 'dotWarnSidebar', COLOR_MODE_DOT_MIN],
+  ['dot-done / bg-base', 'dotDoneBase', COLOR_MODE_DOT_MIN],
+  ['dot-done / sidebar-fill', 'dotDoneSidebar', COLOR_MODE_DOT_MIN]
+]
+
+const roleOverlays = new Map(Object.entries(colorModeRoles()))
+const colorModeRows = []
+for (const variant of states) {
+  const roles = roleOverlays.get(variant.variant)
+  if (!roles) {
+    recordFailure(`g15:${variant.variant}`, `${variant.variant}: src/color-mode.js has no roles for this variant`)
+    continue
+  }
+  const bg = variant.get('--dsw-alias-bg-base')
+  const sidebar = variant.get('--dsw-specific-sidebar-fill')
+  const ink = variant.get('--dsw-alias-label-primary')
+  const row = {
+    variant: variant.variant,
+    roles,
+    bg,
+    sidebar,
+    ink,
+    ratios: {
+      h1: contrastRatio(roles.h1, bg),
+      h2: contrastRatio(roles.h2, bg),
+      h3: contrastRatio(roles.h3, bg),
+      marker: contrastRatio(roles.marker, bg),
+      quote: contrastRatio(roles.quote, bg),
+      hr: contrastRatio(roles.hr, bg),
+      check: contrastRatio(roles.check, bg),
+      band: contrastRatio(ink, roles.band),
+      zebra: contrastRatio(ink, roles.zebra),
+      rowWarn: contrastRatio(ink, roles.rowWarn),
+      rowDone: contrastRatio(ink, roles.rowDone),
+      rowWarnHover: contrastRatio(ink, roles.rowWarnHover),
+      rowDoneHover: contrastRatio(ink, roles.rowDoneHover),
+      dotWarnBase: contrastRatio(roles.dotWarn, bg),
+      dotWarnSidebar: contrastRatio(roles.dotWarn, sidebar),
+      dotDoneBase: contrastRatio(roles.dotDone, bg),
+      dotDoneSidebar: contrastRatio(roles.dotDone, sidebar)
+    }
+  }
+  colorModeRows.push(row)
+  const check = (gate, key, minimum, label) => {
+    const ratio = row.ratios[key]
+    if (ratio < minimum) {
+      recordFailure(`${gate}:${variant.variant}:${key}`, `${variant.variant}: color mode ${label} = ${ratio.toFixed(2)} < ${minimum}`)
+    }
+  }
+  for (const key of COLOR_MODE_HEADING_KEYS) check('g9', key, COLOR_MODE_DECORATION_MIN, `${key} on bg-base`)
+  for (const key of COLOR_MODE_DECORATION_KEYS) check('g10', key, COLOR_MODE_DECORATION_MIN, `${key} on bg-base`)
+  check('g11', 'band', COLOR_MODE_SURFACE_MIN, 'label-primary on the table-header band')
+  check('g12', 'zebra', COLOR_MODE_SURFACE_MIN, 'label-primary on the zebra stripe')
+  for (const key of COLOR_MODE_ROW_KEYS) {
+    check('g13', key, COLOR_MODE_SURFACE_MIN, `label-primary on ${key}`)
+  }
+  for (const key of COLOR_MODE_DOT_KEYS) check('g14', key, COLOR_MODE_DOT_MIN, COLOR_MODE_DOT_LABELS[key])
+  for (const [role, value] of Object.entries(roles)) {
+    if (!LEGAL_ROLE_COLOR.test(value)) {
+      recordFailure(`g15:${variant.variant}:${role}`, `${variant.variant}: color mode role ${role} is not a #RRGGBB colour: ${value}`)
+    }
+  }
+}
+
 /* ---- Report-only measurements -------------------------------------------- */
 const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
   const ratios = {}
@@ -432,6 +560,13 @@ function renderMarkdown () {
     '6. 侧栏表面 `--dsw-specific-sidebar-fill` 与内容底 `--dsw-alias-bg-base` 的边界对比度 ≥ 1.02:1（6 档）：DSH 用前者画侧栏列 / Windows 标题栏 / 内容卡背后的 frame，用后者画内容卡（16px 左上圆角），同色时边界消失（见 §2c）；',
     '7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（light·soft 为 1.05:1 的可见性取舍，见 §2d），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；',
     '8. FileDiff 的 added / deleted 行底色（`--dsw-alias-file-diff-*-bg`）上的 `label-primary` 代码文本 ≥ 4.5:1（light·soft 为 4.1:1 的可见性取舍，见 §2e）；DSH 用这两个 token 画行底色、文字继承 `label-primary`（2026-10-21 走查：「浅绿色背景配白色文字」与「浅色绿色背景太不明显」，见 §6.3）；',
+    '9. 色彩模式（中彩）标题 h1 / h2 / h3 对 `bg-base` ≥ 3.0:1（6 档）；',
+    '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；',
+    '11. 色彩模式（中彩）表头色带上的 `label-primary` ≥ 4.5:1（6 档）；',
+    '12. 色彩模式（中彩）斑马纹上的 `label-primary` ≥ 4.5:1（6 档）；',
+    '13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档）；',
+    '14. 色彩模式（中彩）状态点（待确认 / 已完成）对 `bg-base` 与 `sidebar-fill` 都 ≥ 3.0:1（6 档）；',
+    '15. 色彩模式（中彩）全部 15 个角色色值是合法 `#RRGGBB`（6 档）；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -543,6 +678,37 @@ function renderMarkdown () {
   )
   push(
     '',
+    '## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G15）',
+    '',
+    '`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色（h1–h3、列表 marker、引用条、分隔线、表头色带、斑马纹、会话行底色与状态点），只在用户打开色彩模式时生效。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` 和 `fg` 强调色算出：标题与装饰朝 ink 混合到对 `bg-base` 3:1；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头，关闭时零匹配（与基线零差异）。',
+    '',
+    '角色色值（自定义属性均为 `--everforest-color-<角色>`，6 档）：',
+    '',
+    '| 角色 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft |',
+    '|---|---|---|---|---|---|---|'
+  )
+  for (const [role, label] of COLOR_MODE_ROLE_LABELS) {
+    const cells = colorModeRows.map((row) => `\`${row.roles[role]}\``)
+    push(`| ${label} | ${cells.join(' | ')} |`)
+  }
+  push(
+    '',
+    '对比度门槛明细（数值为实际比值，✅/❌ 按阈值判定）：',
+    '',
+    '| 检查项 | 阈值 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft | 结果 |',
+    '|---|---:|---:|---:|---:|---:|---:|---:|---|'
+  )
+  for (const [label, key, minimum] of COLOR_MODE_CHECKS) {
+    const cells = colorModeRows.map((row) => `${format(row.ratios[key])} ${pass(row.ratios[key] >= minimum)}`)
+    const ok = colorModeRows.every((row) => row.ratios[key] >= minimum)
+    push(`| ${label} | ${minimum} | ${cells.join(' | ')} | ${pass(ok)} |`)
+  }
+  push(
+    '',
+    'G15：以上 6 档 × 15 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认关闭，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。',
+  )
+  push(
+    '',
     '## 3. 文本承载表面（label-primary 对比度）',
     '',
     '`docs/design.md` §4 要求这些表面上的主文本可读；`src/tokens.js` 的 `readableSurface` 会在不达标时向方案背景色 `bg0` 微调（light 提亮、dark 压暗，bg0 始终是该 scheme 下与 `fg` 对比最高的背景），实际值如下。',
@@ -642,7 +808,7 @@ function renderMarkdown () {
     '',
     '```bash',
     'node scripts/check-contrast.mjs',
-    'node --test tests/color.test.mjs tests/tokens.test.mjs',
+    'node --test tests/color.test.mjs tests/tokens.test.mjs tests/color-mode.test.mjs',
     '```',
     ''
   )

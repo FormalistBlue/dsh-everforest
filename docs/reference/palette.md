@@ -101,13 +101,24 @@
 | 代码：值 / 常量 | `fg-purple` | — |
 | 代码：行内代码 | `fg-blue` | — |
 | 代码块标题遮罩 | `#0004` | 半透明黑 |
-| 标题 h1–h6 | `header-red / orange / yellow / green / blue / purple` | **DSH 无法用 token 逐级着色**，见下方偏差 |
+| 标题 h1–h6 | `header-red / orange / yellow / green / blue / purple` | **DSH 没有逐级标题颜色 token**；0.4.0 起由实验性色彩模式（h1–h3）用作用域 CSS 近似，见 §6 与下方偏差 |
 | tag | `header-blue` @ 10% / 20% | — |
 | 嵌入块底 | dark `rgba(62,75,80,.7)`、light `rgb(238 236 213 / 70%)` | 近似 bg2 的 70% 透明度 |
 
 ### 与 DSH 的已知偏差
 
-1. **逐级标题色**：Enchanted 给 h1–h6 不同颜色；DSH 的 Markdown 标题走统一的字号/字重 token + `label-primary`，没有逐级颜色 token。0.x 不做（保持 token 路线），必要时再议。
+1. **逐级标题色**：Enchanted 给 h1–h6 不同颜色；DSH 的 Markdown 标题走统一的字号/字重 token + `label-primary`，没有逐级颜色 token。0.4.0 起由**实验性色彩模式**（默认关闭）实现 h1–h3 分级色：`h1 = red`、`h2 = orange`、`h3 = yellow`（取 `fg-*` 系，经 3:1 对比度守卫），通过客户端注入的作用域 CSS 实现，**token 层保持零差异**；h4–h6 仍不做。
 2. **Obsidian 专有变量**：`text-muted`（`color-base-70`）、`tag-color-hsl`、`code-header` 等没有 DSH 对应物，仅作语义参考。
 3. **平铺背景**：Enchanted 把 secondary 也设成 bg0；DSH 的侧栏 / composer / 气泡需要若干区分面，本项目在保持 bg0 主底的前提下，用 `bg1` / `bg2` 做必要的层级（见 `docs/design.md` §4 的 DSH token 映射）。其中**侧栏例外**：`--dsw-specific-sidebar-fill` 取 `bg0` → `bg1` 的 80% 混合并经对比度守卫，否则 Windows 外壳把侧栏 / 标题栏 / 内容卡背后的 frame 画成同色、列边界消失（2026-10-18 视觉走查修正）。
 4. **header 色不随变体调整**：非默认的 4 个变体沿用同一组 header 色；实现后若对比度检查不达标，再按背景亮度做小幅修正并记录在此。
+
+## 6. 色彩模式（0.4.0）的派生色
+
+实验性色彩模式（默认关闭）**不新增调色板数据**：它在 6 个变体上把已有强调色——`red` / `orange` / `yellow` / `aqua` / `green`——映射到内容层角色，并对每个值做对比度守卫（规则、门槛与逐变体实算值见 [`contrast.md`](contrast.md) §2f 与 [`design.md`](../design.md) §13）：
+
+- **标题**：h1 / h2 / h3 = `red` / `orange` / `yellow`，对 `bg0` 守卫到 3:1；浅色档因此明显被压暗（light·soft 的 h3 ≈ `#9c843a` 橄榄色）。
+- **装饰**：列表 marker、引用左条、分隔线、任务列表 checkbox = `aqua`（对 `bg0` 守卫到 3:1）。
+- **彩色表面**：表格表头色带 / 隔行斑马纹 = `fg.green` 混入 `bg0`（14% / 6%，按 `label-primary ≥ 4.5:1` 反推）；「待确认」行底 = `fg.orange` 混入侧栏底（12%），「已完成未查看」行底 = `fg.green` 混入侧栏底（12%），hover 加深到 0.18。
+- **状态点**：「待确认」=`orange`、「已完成」=`green`，对 `bg0` 与侧栏底两个表面都守卫到 3:1。
+
+这些值是**派生值而非上游色**（守卫混合），与「官方 6 档背景 + 原样强调色」的默认层严格分离：色彩模式关闭时 token 输出与 0.3.0 逐字节一致，调色板数据本身未改。

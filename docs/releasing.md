@@ -27,6 +27,13 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **市场冷静期**：npm 发布后 24 小时内 pnpm 的 `minimumReleaseAge` 会让市场静默装到上一个成熟版本（§8.6）；市场侧验收 / 上架条目更新要等冷静期过，别把「市场仍装 0.2.1」当成发布失败。
 > - **2026-10-22 已发布**：tag `v0.3.0`（commit `d042e49`）→ publish run `39721766551` → npm `latest` = `0.3.0`（`dist.shasum` `e08fe50add7f16c479cc766973e1e8e92b747cce`，带 SLSA provenance），GitHub Release `v0.3.0` 已由 workflow 自动创建；registry 元数据传播约 1 分钟后可在 `https://registry.npmjs.org/dsh-everforest/0.3.0` 复核。
 
+> **0.4.0 发布注意（尚未发布，当前仅本地实现）**
+>
+> - **升级后必须重启 DSH**：0.4.0 的 Host `Config` 增加第三个 volatile 字段 `colorMode`；Host 半部在启动时装载，刷新页面不会重载 `index.js`。重启后设置页的色彩模式开关才写进当前 profile 的 `cordis.patch.yml`。未重启时新 Client 退回 localStorage-only（开关仍生效、只是暂不写 Host）。
+> - **回滚必须先清理配置**：0.4.0 → 0.3.0 前从 profile patch 删除 `everforest` 行的 `colorMode` 字段，否则 0.3.0 的 schema 校验失败、entry 不激活（无主题）。0.2.1 无 `Config`，不受影响。
+> - **发布前必须补真机目检**：重启 DSH 后按 `docs/design.md` §9「色彩模式」行 / §13.6 目检 6 套配色下的聊天 h1–h3 / 表格 / 会话行，并确认关闭色彩模式后与 0.3.0 无差异；样张（`.tmp/color-mode-preview/`）只代表注入 CSS 的预期效果，不能替代真机。
+> - **实验性口径**：市场条目文案按 2026-10-22 定稿的短文案，不随本功能追加（见 §8.6 / 仓库约定「插件功能迭代后不追加市场描述」）；README / CHANGELOG 已注明实验性、默认关闭、DSH 升级需回归。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。

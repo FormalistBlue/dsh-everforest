@@ -37,6 +37,7 @@ const SOURCES = [
   'palette.js',
   'color.js',
   'tokens.js',
+  'color-mode.js',
   'state.js',
   'durable.js',
   'locale.js',
