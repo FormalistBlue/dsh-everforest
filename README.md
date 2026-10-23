@@ -21,8 +21,6 @@
 
 <p align="center">提供深色 / 浅色 × 硬 / 中 / 软共 6 档配色，默认对齐 <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>（深色 Soft / 浅色 Hard）。</p>
 
-<p align="center">0.4.0 起提供实验性「色彩模式」（默认关闭）：把 Everforest 里尚未上场的高饱和强调色用到聊天 Markdown 富文本（h1–h6 六色标题、加粗 / 斜体、行内 code、内部链接、删除线、引用块、表格等）与会话记录状态行上。</p>
-
 ## 预览
 
 | | 深色 Dark | 浅色 Light |
@@ -37,7 +35,7 @@
 
 在 DSH 的插件管理页打开 **Add plugin → Install a third-party plugin**，输入 `dsh-everforest` 安装；本地开发时也可以直接选择本仓库目录。或由 Agent 调用 `plugin_manager` 的 `install_bundle`（目标 `dsh-everforest`）。
 
-> **升级提示**：Host 半部（`index.js` / `src/host-config.js`）的改动需要**重启 DSH** 才生效，仅刷新页面不够；0.3.0 与 0.4.0 升级都至少重启一次（0.4.0 的 Host `Config` 增加了 `colorMode` 字段）。只更新 npm 包但没重启时，新 Client 会退回 localStorage-only（选择仍生效、只是暂不写 Host），重启 DSH 后第一次加载会把本地缓存一次性播种到 Host。重启之后在设置页切换强度 / 色彩模式由 DSH 的 settings 服务写入 Host 配置，并在同一 profile 的浏览器间实时广播，无需再重启。
+> **升级提示**：Host 半部（`index.js` / `src/host-config.js`）的改动需要**重启 DSH** 才生效，仅刷新页面不够；0.3.0 升级必须先重启一次。只更新 npm 包但没重启时，新 Client 会退回 localStorage-only（选择仍生效、只是暂不写 Host），重启 DSH 后第一次加载会把本地缓存一次性播种到 Host。重启之后在设置页切换强度由 DSH 的 settings 服务写入 Host 配置，并在同一 profile 的浏览器间实时广播，无需再重启。
 
 ## 使用
 
@@ -46,14 +44,13 @@
 - 强度保存在当前 profile 的 **Host 配置**（`cordis.patch.yml` 的 `everforest` 行），登录同一 profile 的所有浏览器 / 窗口共享；本浏览器的 localStorage 只作为首帧缓存和旧宿主兜底。
 - 点另一深浅色组的色卡会同时切换 DSH 外观（写入全局外观偏好）；「跟随系统」可恢复自动跟随。
 - 同一 profile 下所有浏览器 / 窗口（含同一地址的多个标签页）的强度选择会实时同步。
-- **色彩模式（实验性，默认关闭）**：开启后聊天富文本用上 Everforest 强调色——h1–h6 六色标题、加粗 / 斜体紫、行内 code 蓝、内部文件链接 aqua、删除线与已完成任务淡化、引用块淡底、列表 marker / 引用条 / 分隔线、表格表头色带 / 斑马纹 / 行 hover、checkbox 蓝；工作区会话记录的「待确认 / 已完成未查看」行底色与状态点也随之上色（「运行中」不上色）。关闭时渲染与 0.3.0 完全一致。开关与强度写在同一份 Host 配置里，同一 profile 的所有浏览器共享。
-- 「恢复默认」只重置深浅强度与色彩模式，不改写 DSH 的全局外观偏好。
+- 「恢复默认」只重置深浅强度，不改写 DSH 的全局外观偏好。
 - 中英文文案随 DSH 语言切换。
 
 ## 兼容性
 
 - 目标 DSH **0.2.1-rc.2**；`engines.dsh` 为 `>=0.2.1-rc.2 <0.3.0-0`。
-- 仅通过 `--dsw-*` / `--shiki-*` token 覆盖默认配色，不改组件样式；实验性「色彩模式」开启时才额外注入一段作用域 CSS（只命中聊天 Markdown 富文本与会话记录状态行，且只在开关打开时生效），关闭时不匹配任何元素。DSH 升级若 token 改名，缺失项退回原生配色（不会白屏）；若组件类名 / DOM 结构变化，色彩模式可能静默失效——这是实验性边界，token 层不受影响。
+- 仅通过 `--dsw-*` / `--shiki-*` token 覆盖配色，不改组件样式；DSH 升级若 token 改名，缺失项退回原生配色（不会白屏）。
 - 强度偏好走 DSH 官方的 settings / `configForms` 通道写入当前 profile 的 Host 配置（Host 半部的 `@deepseek-ai/schemastery` 由 DSH 运行时解析，不随包安装）；旧宿主上没有该通道时自动降级为浏览器 localStorage。
 - 完整 token 清单见 [docs/reference/token-inventory.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/token-inventory.md)。
 
@@ -61,7 +58,7 @@
 
 - 配色数据取自 sainnhe 的 Everforest（6 套背景色阶）与 Everforest Enchanted（默认配对、header 色、UI 语义），见 [docs/reference/palette.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/palette.md)。
 - 浅色档的正文表面向 `bg0` 提亮 25% 并做对比度守卫（正文 ≥ 4.5:1）；侧栏与内容卡保留可辨边界。
-- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork；默认层标题仍是单色，h1–h6 分级着色只在实验性色彩模式中生效。色彩模式的标题 / 强调文字 / 状态点色值是对调色板强调色做对比度守卫后的派生值（彩色文字与装饰 ≥3:1，染底表面上的正文仍保持 4.5:1），浅色档会明显被压暗（偏「淡彩」），light·soft 的表格色带与会话行底几乎不可辨；表格色带与行底色是绿色 / 橙色混入背景的淡染。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色（本浏览器缓存优先，缺失 / 非法时用 Host 配置兜底），Web 的 loading 页 / 首帧（含 loading 动效的 spinner 环与进度弧）即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) 与 [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md)。
+- 未覆盖：终端 ANSI 16 色、brand / 文件图标 artwork、逐级标题彩色。**首帧已覆盖**：Host 半部在 Client 加载前注入当前配色（本浏览器缓存优先，缺失 / 非法时用 Host 配置兜底），Web 的 loading 页 / 首帧（含 loading 动效的 spinner 环与进度弧）即为 Everforest，Electron 冷启动最多 1 帧原生色。详见 [docs/design.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/design.md) 与 [docs/reference/contrast.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/docs/reference/contrast.md)。
 
 ## 开发
 
