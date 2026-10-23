@@ -5,6 +5,7 @@
 > 2026-10-21 更新：0.2.1 的 P1 打磨落地（loading spinner boot token、跨窗口同步、设置页失败重试、无障碍、构建守卫），见 §5 / §11 与 [design.md](design.md) §12。
 > 2026-10-22 更新：**0.3.0 Host 侧持久化落地**（`configForms`）：强度真源迁到当前 profile 的 `cordis.patch.yml`，同一 profile 所有浏览器共享；localStorage 降为「首帧缓存 + 旧宿主兜底」，0.2.1 旧值一次性播种，首帧改 B 方案。见 §3 / §5 / §7 / §8 / §9 与新增 §13。
 > 2026-10-23 更新：**0.4.0 实验性色彩模式（中彩）落地**（默认关闭、token 层零差异）；用户验收初版（h1–h3 + 表格 + 会话行）后要求补齐 h1–h6 与参考 Enchanted 的富文本角色，扩展轮同日完成。见 §14 / §15 与 [design.md](design.md) §13。
+> 2026-10-23 更新（设置页）：用户截图复核要求去掉解释性文案、外观改用 DSH 默认样式；已按 DSH `AppearanceRow` 对齐并删除 6 条文案，见 §16 与 [design.md](design.md) §6.1。
 
 ## 1. 结论
 
@@ -14,7 +15,7 @@
 - **不需要改 DSH 组件 CSS，也不需要构建工具链**：正文是一份普通 JS 的 Client 半部；Host 半部承载 bundle 行、`Config`（强度 schema）与一条首帧注入 row，并在 0.3.0 起承担 Host 侧持久化的声明端（见 §3 / §5）。
 - **覆盖率高**：UI 主样式由 token 驱动，覆盖 195 个颜色 token 即可整站改色，另有 11 个 `--shiki-*` 接管代码块高亮。已知硬编码例外：终端空态 SVG（`#17191d` / `#fff`）、macOS darwin 渐变、品牌与文件类型图标 artwork、主题样式表自身的字面 token 值（可被覆盖）。**首帧 / loading 页**在 0.2.0 已由 Host 半部经 `webserver/index-inject` 注入调色板覆盖；2026-10-21 起 loading spinner 环与进度弧也走 boot token（见 §5）。
 - **配色数据已有权威来源**：官方 `palette.md` 提供 6 套背景色阶；**主参考选定 Everforest Enchanted**（Obsidian 端口）——它的背景值严格等于官方 dark-soft / light-hard，并给出 `header-*` 自定义色与完整的 UI 语义映射。因此默认配对采用「深色 soft / 浅色 hard」，与 Enchanted 观感一致，其余四档强度作为可选。
-- **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变、逐级标题彩色（DSH 无对应 token）。都不影响主体观感。
+- **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变；逐级标题彩色 DSH 无对应 token，0.4.0 起由色彩模式的实验性作用域 CSS 覆盖（默认关闭）。都不影响主体观感。
 
 ## 2. 调研方法（可复现）
 
@@ -353,3 +354,24 @@
 **残余（人工项）**
 
 真实 DSH 需**重启**后目检 h1–h6 / 富文本角色 / 6 套配色，重点确认 light·soft 的「淡彩」与「会话行底不可见」是否符合预期；关闭后与 0.3.0 无差异。当前自动化与样张不能替代真机目检；0.4.0 尚未发布。
+
+## 16. 2026-10-23 设置页文案精简与外观控件改 DSH 样式
+
+**用户反馈（截图复核）**：0.4.0 设置页里 4 处红框文字（标题下说明、外观当前状态说明、色彩模式实验性提示、页尾 Host / 缓存说明）不希望在界面显示；「外观」希望参考 DSH 默认设置页的显示样式。
+
+**决策**
+
+1. **文案全部移除，不做折叠 / tooltip 保留**：中英字典同步删键 `intro`、`appearance.systemActive`、`appearance.fixed`、`colorMode.experimental`、`hint.scheme`、`hint.storage`（键集 29 → 23，测试锁定）。持久化 / 重启口径仍写在 README 与设计文档，不再占用设置页。理由：这些信息属于「实现细节」，与 DSH 原生 Appearance row 不显示说明的风格不一致；用户明确要求界面不显示。
+2. **外观控件改为 DSH `AppearanceRow` 同款**：顺序 `浅色 / 深色 / 跟随系统`；16×16 内联 SVG path 原样取自 DSH 的 `IconLightOutlineMedium` / `IconDarkOutlineMedium` / `IconFollowsystemOutlineMedium`（stroke 1.3、`currentColor`）；卡片规则照抄 `AppearanceRow.module.css` 的 `themeCube`（`flex: 180px`、`padding: 20px 32px`、`gap: 4px`、`.5px solid --dsw-alias-border-l4`、`--dsw-radius-xl`、`14px/22px`）；hover `--dsw-alias-interactive-bg-hover`、选中底色 `--dsw-alias-bg-module-platform`。不引入 DSH 的 icon 包（primitives 只静态打进外壳），改为内联 path 复制。
+3. **选中描边用主题强调色**（唯一偏差）：DSH 用 `--dsw-static-neutral-bluish-400`；本主题把它映射成 light `#b8c0ae` / dark `#83887c`，light 下与未选中边框 `#bec5b2` 几乎同色，选中不可辨。改 `--dsw-alias-brand-primary`（aqua），同时与强度卡 / 色彩模式开关的选中态一致。
+
+**被否决**
+
+- 保留文案但改成 tooltip / 折叠：用户要求「不用显示」，tooltip 仍会在界面出现且增加交互面。
+- 直接复用 DSH 原生 Appearance row（不渲染本页外观控件）：本插件的「点另一组色卡会改写外观」需要本页有可恢复 `system` 的入口；DSH 自带 row 在 General 设置，离强度卡远，体验更差。
+- 选中态继续用 DSH 原生 token：浅色档不可辨（见上）。
+- 修改 `--dsw-static-neutral-bluish-400` 的全局映射：它被 DSH 其他组件使用，改映射会外溢。
+
+**验证**：`tests/settings-page.test.mjs` 27 项通过（新顺序 / 图标 path 数 / 选中态 / 被删文案不再渲染 / 按钮契约）；`.tmp/settings-preview/` 用真实 `SETTINGS_STYLES` + `tokensFor()` 渲染 dark-soft / light-hard 截图目检，选中卡片在浅色档可见；`npm test` 169 项、`npm run check` 全绿。README 未改（用户要求保持原文案）。
+
+**残余**：真机 DSH 设置页需刷新 / 重启后目检（Client 半部改动，刷新页面即可加载新 `client.js`）。

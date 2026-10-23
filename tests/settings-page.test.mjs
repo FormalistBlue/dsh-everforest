@@ -240,11 +240,13 @@ test('SETTINGS_STYLES uses only design tokens for interface colors', () => {
     '--dsw-alias-settings-card-fill',
     '--dsw-alias-settings-card-stroke',
     '--dsw-alias-label-primary',
-    '--dsw-alias-label-tertiary',
     '--dsw-alias-border-l1',
+    '--dsw-alias-border-l4',
+    '--dsw-alias-bg-module-platform',
     '--dsw-alias-interactive-bg-hover',
     '--dsw-focus-ring-color',
     '--dsw-radius-md',
+    '--dsw-radius-xl',
   ]) {
     assert.ok(SETTINGS_STYLES.includes(marker), `stylesheet does not use ${marker}`)
   }
@@ -256,15 +258,16 @@ test('SETTINGS_STYLES uses only design tokens for interface colors', () => {
     '.everforest-card[aria-pressed=\'true\']',
     '.everforest-card:focus-visible',
     '.everforest-swatch',
-    '.everforest-appearance-options',
-    '.everforest-appearance-option[aria-pressed=\'true\']',
-    '.everforest-appearance-option:focus-visible',
-    '.everforest-appearance-note',
+    '.everforest-appearance-cubes',
+    '.everforest-appearance-cube',
+    '.everforest-appearance-cube:hover:not([aria-pressed=\'true\'])',
+    '.everforest-appearance-cube[aria-pressed=\'true\']',
+    '.everforest-appearance-cube:focus-visible',
+    '.everforest-appearance-icon',
     '.everforest-color-mode-control',
     '.everforest-color-mode-swatches',
     '.everforest-color-mode-swatch',
     '.everforest-color-mode-note',
-    '.everforest-color-mode-experimental',
     '.everforest-switch',
     '.everforest-switch:hover',
     '.everforest-switch:focus-visible',
@@ -295,14 +298,11 @@ test('locale dictionaries are complete and mirrored', () => {
 
   const required = [
     'nav.title',
-    'intro',
     'appearance.title',
     'appearance.label',
     'appearance.system',
     'appearance.dark',
     'appearance.light',
-    'appearance.systemActive',
-    'appearance.fixed',
     'group.dark',
     'group.light',
     'strength.hard',
@@ -317,10 +317,7 @@ test('locale dictionaries are complete and mirrored', () => {
     'colorMode.on',
     'colorMode.off',
     'colorMode.switch',
-    'colorMode.experimental',
     'reset',
-    'hint.scheme',
-    'hint.storage',
     'aria.card',
     'aria.group',
   ]
@@ -346,19 +343,23 @@ test('locale dictionaries are complete and mirrored', () => {
   assert.match(ZH['group.dark'], /深色/)
   assert.match(ZH['group.light'], /浅色/)
   assert.match(ZH['appearance.system'], /跟随系统/)
-  assert.match(ZH['appearance.systemActive'], /当前生效/)
-  assert.match(ZH['hint.scheme'], /全局外观偏好/)
-  assert.match(ZH['hint.storage'], /浏览器/)
   assert.match(ZH['reset'], /恢复默认/)
-  // The color-mode copy must state what it affects, that it is experimental,
-  // that a DSH upgrade can break it, and that it is off by default.
+  // The color-mode copy states what the mode affects; the former experimental
+  // caveat paragraph was removed from the UI (2026-10-23 screenshot review).
   assert.match(ZH['colorMode.title'], /色彩模式/)
   assert.match(ZH['colorMode.desc'], /聊天 Markdown/)
   assert.match(ZH['colorMode.desc'], /会话记录/)
-  assert.match(ZH['colorMode.experimental'], /实验性/)
-  assert.match(ZH['colorMode.experimental'], /失效/)
-  assert.match(ZH['colorMode.experimental'], /默认关闭/)
-  assert.match(ZH['hint.storage'], /Host 配置/)
+  for (const removed of [
+    'intro',
+    'appearance.systemActive',
+    'appearance.fixed',
+    'colorMode.experimental',
+    'hint.scheme',
+    'hint.storage',
+  ]) {
+    assert.equal(EN[removed], undefined, `EN still has removed key ${removed}`)
+    assert.equal(ZH[removed], undefined, `ZH still has removed key ${removed}`)
+  }
 })
 
 test('locale JSON metadata exists for the plugin manager', () => {
@@ -542,14 +543,14 @@ test('current row reflects a fixed Appearance preference', () => {
   assert.match(textContent(findOne(tree, byClass('everforest-current-meta'))), /Light/)
 })
 
-test('appearance control offers system, dark and light and marks the preference', () => {
+test('appearance control uses DSH cube order (light, dark, system) and marks the preference', () => {
   const { tree } = renderPage({ store: createMockStore({ preference: 'system', colorScheme: 'light' }) })
   const options = findAll(tree, isAppearanceOption)
   assert.deepEqual(
     options.map((option) => option.props['data-preference']),
-    ['system', 'dark', 'light'],
+    ['light', 'dark', 'system'],
   )
-  assert.deepEqual(options.map(textContent), ['Follow system', 'Dark', 'Light'])
+  assert.deepEqual(options.map(textContent), ['Light', 'Dark', 'Follow system'])
   assert.deepEqual(
     options.filter((option) => option.props['aria-pressed'] === 'true').map((option) => option.props['data-preference']),
     ['system'],
@@ -558,14 +559,33 @@ test('appearance control offers system, dark and light and marks the preference'
     node.props && node.props.role === 'group' && node.props['aria-label'] === 'Appearance preference'
   ))
   assert.ok(group)
+  assert.equal(group.props.className, 'everforest-appearance-cubes')
   for (const option of options) {
     assert.equal(option.props.type, 'button')
     assert.equal(typeof option.props.onClick, 'function')
+    assert.equal(option.props.className, 'everforest-appearance-cube')
   }
-  assert.equal(
-    textContent(findOne(tree, byClass('everforest-appearance-note'))),
-    'Following the system appearance; the active side is Light.',
-  )
+  // DSH's own Appearance row shows no explanatory note; neither does this page.
+  assert.equal(findOne(tree, byClass('everforest-appearance-note')), undefined)
+})
+
+test('each appearance cube carries the DSH icon for its preference', () => {
+  const { tree } = renderPage()
+  const options = findAll(tree, isAppearanceOption)
+  const expectedPathCounts = { light: 9, dark: 1, system: 2 }
+  for (const option of options) {
+    const preference = option.props['data-preference']
+    const icon = findOne(option, byClass('everforest-appearance-icon'))
+    assert.ok(icon, `${preference}: missing icon wrapper`)
+    assert.equal(icon.props['aria-hidden'], 'true')
+    const svg = findOne(icon, (node) => node.type === 'svg')
+    assert.ok(svg, `${preference}: missing svg`)
+    assert.equal(svg.props.viewBox, '0 0 16 16')
+    assert.equal(svg.props.strokeWidth, 1.3)
+    const paths = findAll(svg, (node) => node.type === 'path')
+    assert.equal(paths.length, expectedPathCounts[preference], `${preference}: path count`)
+    for (const path of paths) assert.equal(typeof path.props.d, 'string')
+  }
 })
 
 test('clicking an appearance option calls store.setPreference and re-renders', () => {
@@ -575,10 +595,6 @@ test('clicking an appearance option calls store.setPreference and re-renders', (
   assert.deepEqual(
     options.filter((option) => option.props['aria-pressed'] === 'true').map((option) => option.props['data-preference']),
     ['dark'],
-  )
-  assert.equal(
-    textContent(findOne(tree, byClass('everforest-appearance-note'))),
-    'Appearance is fixed to Dark; it no longer follows the system.',
   )
 
   const system = options.find((option) => option.props['data-preference'] === 'system')
@@ -592,24 +608,22 @@ test('clicking an appearance option calls store.setPreference and re-renders', (
     .filter((option) => option.props['aria-pressed'] === 'true')
     .map((option) => option.props['data-preference'])
   assert.deepEqual(pressed, ['light'])
-  assert.match(
-    textContent(findOne(updated, byClass('everforest-appearance-note'))),
-    /fixed to Light/,
-  )
 })
 
-test('appearance note tracks the resolved side while following the system', () => {
-  const { tree } = renderPage({ store: createMockStore({ preference: 'system', colorScheme: 'dark' }) })
-  assert.equal(
-    textContent(findOne(tree, byClass('everforest-appearance-note'))),
-    'Following the system appearance; the active side is Dark.',
-  )
-  // Fixed preferences win over the (stale) resolved scheme for the note.
-  const { tree: fixed } = renderPage({ store: createMockStore({ preference: 'light', colorScheme: 'dark' }) })
-  assert.equal(
-    textContent(findOne(fixed, byClass('everforest-appearance-note'))),
-    'Appearance is fixed to Light; it no longer follows the system.',
-  )
+test('the removed explanatory copy is gone from the page', () => {
+  const { tree } = renderPage()
+  for (const gone of [
+    'everforest-intro',
+    'everforest-appearance-note',
+    'everforest-color-mode-experimental',
+    'everforest-hint',
+  ]) {
+    assert.equal(findOne(tree, byClass(gone)), undefined, `${gone} still rendered`)
+  }
+  // The header keeps only its title.
+  const header = findOne(tree, byClass('everforest-header'))
+  assert.equal(findAll(header, (node) => node.type === 'h2').length, 1)
+  assert.equal(findAll(header, (node) => node.type === 'p').length, 0)
 })
 
 test('color-mode block renders the switch off by default with five accent chips', () => {
@@ -650,8 +664,8 @@ test('color-mode block renders the switch off by default with five accent chips'
       palette.FOREGROUNDS.light.green,
     ],
   )
-  // The experimental caveat is rendered next to the switch.
-  assert.match(textContent(findOne(section, byClass('everforest-color-mode-experimental'))), /Experimental/)
+  // The experimental caveat paragraph was removed from the UI.
+  assert.equal(findOne(section, byClass('everforest-color-mode-experimental')), undefined)
 })
 
 test('color-mode switch reflects an enabled store and toggles through store.setColorMode', () => {
@@ -745,18 +759,13 @@ test('restore-defaults button calls store.reset and shows the default pairing', 
   assert.deepEqual(pressed, ['dark-soft', 'light-hard'])
 })
 
-test('page explains the Appearance write and the Host configuration scope', () => {
+test('page keeps the current row but drops the old hint list', () => {
   const { tree } = renderPage()
-  const hints = findAll(tree, byClass('everforest-hint'))
-  assert.equal(hints.length, 2)
-  const text = hints.map(textContent).join('\n')
-  assert.match(text, /Appearance/)
-  assert.match(text, /Follow system/)
-  assert.match(text, /global appearance preference/)
-  assert.match(text, /Host configuration of the current profile/)
-  assert.match(text, /every browser on that profile/)
-  assert.match(text, /first-frame cache/)
-  assert.match(text, /Restart/)
+  assert.equal(findAll(tree, byClass('everforest-hint')).length, 0)
+  assert.equal(findAll(tree, byClass('everforest-hints')).length, 0)
+  // The current row still explains the resolved appearance.
+  const meta = textContent(findOne(tree, byClass('everforest-current-meta')))
+  assert.match(meta, /Active appearance/)
 })
 
 test('Simplified Chinese renders translated copy and labels', () => {
@@ -771,26 +780,21 @@ test('Simplified Chinese renders translated copy and labels', () => {
   const cards = findAll(tree, isCard)
   assert.equal(cards[0].props['aria-label'], '深色 Hard 配色')
   const appearanceOptions = findAll(tree, isAppearanceOption)
-  assert.deepEqual(appearanceOptions.map(textContent), ['跟随系统', '深色', '浅色'])
+  assert.deepEqual(appearanceOptions.map(textContent), ['浅色', '深色', '跟随系统'])
   // The color-mode switch label and its accessible name are translated too.
   const toggle = findOne(tree, isColorModeSwitch)
   assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), '已关闭')
   assert.equal(toggle.props['aria-label'], '色彩模式，当前已关闭')
-  assert.match(
-    textContent(findOne(tree, byClass('everforest-appearance-note'))),
-    /正在跟随系统外观，当前生效的是浅色。/,
-  )
   assert.equal(
     textContent(findOne(tree, byClass('everforest-current-main'))),
     '当前：深色 Soft · 浅色 Hard',
   )
   assert.match(textContent(findOne(tree, byClass('everforest-current-meta'))), /跟随系统/)
   assert.equal(textContent(findOne(tree, byClass('everforest-reset'))), '恢复默认')
-  assert.match(textContent(findOne(tree, byClass('everforest-intro'))), /外观/)
-  const hintText = findAll(tree, byClass('everforest-hint')).map(textContent).join('\n')
-  assert.match(hintText, /全局外观偏好/)
-  assert.match(hintText, /同一 profile 的所有浏览器共享/)
-  assert.match(hintText, /首帧缓存/)
+  // The removed explanatory copy is not rendered in Chinese either.
+  for (const gone of ['everforest-intro', 'everforest-hint', 'everforest-appearance-note', 'everforest-color-mode-experimental']) {
+    assert.equal(findOne(tree, byClass(gone)), undefined, `${gone} still rendered`)
+  }
 })
 
 test('all interactive controls are native buttons', () => {

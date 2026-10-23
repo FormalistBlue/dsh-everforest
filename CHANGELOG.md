@@ -17,9 +17,9 @@ aqua、删除线与已完成任务淡化、引用块淡底、表格行 hover、�
 ### Added
 
 - **色彩模式开关（实验性，默认关闭）**：设置页新增「色彩模式」区块（`role="switch"` + `aria-checked`、
-  当前 scheme 的 5 个强调色装饰片、实验性说明）；开关与两个强度一起写入当前 profile 的 Host 配置
+  当前 scheme 的 5 个强调色装饰片）；开关与两个强度一起写入当前 profile 的 Host 配置
   （`Config` 新增 `colorMode` 布尔字段，默认 `false`、标记 `.volatile()`），同一 profile 的所有浏览器共享。
-  中英文案（`colorMode.title/desc/on/off/switch/experimental`）随 DSH 语言切换。
+  中英文案（`colorMode.title/desc/on/off/switch`）随 DSH 语言切换。
 - **色彩引擎 `src/color-mode.js`**：`colorModeRoles()` 对 6 个配色变体实算 **24 个「中彩」角色色值**，
   全部由 `tokensFor()` 的表面值与 `resolvePalette()` 的强调色派生并做对比度守卫：
   - 标题 `h1–h6 = red / orange / yellow / green / blue / purple`（Enchanted 的逐级标题语义；h1–h4
@@ -55,7 +55,14 @@ aqua、删除线与已完成任务淡化、引用块淡底、表格行 hover、�
   （`light` / `dark` / `colorMode`），「恢复默认」unset 三个字段；host 表单就绪前的选择继续排队补写；
   跨浏览器广播 / storage 事件比较也包含该 flag。`hostState()` 与首帧 boot payload **保持只含两个强度**
   （色彩模式只影响 Client 挂载后的内容层，不影响首帧 token）。
-- 设置页「恢复默认」与说明文案、README 中英、`docs/design.md`（§1 / §9 / §10 与 §13 重写为 24 角色）、
+- **设置页文案精简 + 外观控件对齐 DSH（2026-10-23 用户截图复核）**：删除标题下的说明、外观当前状态说明、
+  色彩模式实验性提示、页尾 Host / 缓存说明共 6 条解释性文案（中英同步删键：`intro`、
+  `appearance.systemActive/fixed`、`colorMode.experimental`、`hint.scheme/storage`）；「外观」由
+  `跟随系统 / 深色 / 浅色` 分段按钮改为 DSH 自带 Appearance row 同款的 `浅色 / 深色 / 跟随系统` 图标卡片
+  （顺序、16×16 SVG path、`--dsw-radius-xl` 卡片、`--dsw-alias-border-l4` 边框、hover / 选中底色均对齐；
+  唯一偏差：选中描边用 `--dsw-alias-brand-primary`，因为 DSH 原生 `--dsw-static-neutral-bluish-400`
+  在 Everforest 浅色下与未选中边框几乎同色）。token 层与行为路径不变，README 保持原文案。
+- 设置页「恢复默认」、README 中英、`docs/design.md`（§1 / §9 / §10 与 §13 重写为 24 角色）、
   `docs/assessment.md`（§6、§14 指针与新增 §15 富文本扩展决策）、`docs/reference/palette.md`
   （§5 语义映射 / 偏差、§6 派生色）同步；`package.json` `version` 0.4.0、`files` 增 `src/color-mode.js`。
 

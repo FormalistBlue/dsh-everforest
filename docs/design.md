@@ -38,7 +38,7 @@
 │   └─ ctx.slots.inject('settings.section', () => ctx.slots.register({ id: 'everforest', … }))│
 │                                                                                     │
 │  EverforestSection                                                                  │
-│   ├─ 外观控制 3 按钮：跟随系统 / 深色 / 浅色 → store.setPreference → setTheme        │
+│   ├─ 外观 3 卡片：浅色 / 深色 / 跟随系统（DSH AppearanceRow 样式）→ setPreference      │
 │   ├─ 深色组 3 张卡 / 浅色组 3 张卡                                                   │
 │   └─ onClick: select → 更新内存 + 写缓存 + configForms.mutate 写 Host → 替换覆盖层   │
 │       → ctx.theme.setTheme(scheme)（已决策）                                         │
@@ -392,19 +392,30 @@ export function apply(ctx) {
 ## 6. 设置页
 
 - **插槽**：`settings.section`（list），在 `ctx.slots.inject(...)` 回调内注册 `{ name: 'settings.section', id: 'everforest', order: 25, label: thunk, locale: NS, inject: () => ({ t }) }`；owner props 提供 `close`（本页不使用）。`label` thunk 每次投影重读，locale 切换不必重注册；`locale` / `inject` 面与 `dshmarket` 的注册方式一致。
-- **布局**：
-  - 标题「Everforest」+ 说明（深浅色由 DSH 的「外观」决定；可在此跟随系统或固定深浅色；再分别选择深色与浅色强度）。
-  - 外观控制：`跟随系统` / `深色` / `浅色` 三个按钮（`role="group"` + `aria-pressed`，选中态用 token）；下方说明当前实际状态（跟随系统时显示 OS 解析后的深浅色，固定时显示固定的是哪一侧）。
+- **布局**（2026-10-23 用户截图复核后精简，见 §6.1）：
+  - 标题「Everforest」——标题下不再有说明段落。
+  - 外观控制：`浅色` / `深色` / `跟随系统` 三张卡片，样式、顺序、图标与尺寸对齐 DSH 自带的 Appearance row（`themeCube`：`flex: 180px`、1.5px 圆角卡片、`--dsw-alias-border-l4` 边框、`--dsw-radius-xl`；图标用 DSH 同款 16×16 SVG path，stroke 1.3；选中卡片用 `--dsw-alias-brand-primary` 描边 + `--dsw-alias-bg-module-platform` 底色）。选中态没有额外说明文字。
   - `深色` 分组：3 张卡（Hard / Medium / Soft，默认 Soft），每张含 5 段色带（`bg0`、`bg1`、`bg2`、`fg`、`header-aqua`）。
   - `浅色` 分组：同上（默认 Hard）。
-  - **色彩模式区块（0.4.0）**：位于两个强度分组之后、当前选择行之前。标题 + 说明 + `role="switch"` 开关（`aria-checked`、`everforest-switch` 轨道/滑块样式，选中态用 `--dsw-alias-brand-primary`）+ 当前 scheme 的 5 个强调色装饰片（red / orange / yellow / aqua / green，`aria-hidden`）+ 实验性说明。开关只翻转 store 的 `colorMode`，DOM / CSS 侧由 client entry 负责。
+  - **色彩模式区块（0.4.0）**：位于两个强度分组之后、当前选择行之前。标题 + 一行说明 + `role="switch"` 开关（`aria-checked`、`everforest-switch` 轨道/滑块样式，选中态用 `--dsw-alias-brand-primary`）+ 当前 scheme 的 5 个强调色装饰片（red / orange / yellow / aqua / green，`aria-hidden`）。开关只翻转 store 的 `colorMode`，DOM / CSS 侧由 client entry 负责。
   - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（**只恢复 Enchanted 默认配对与关闭色彩模式，不改外观偏好**，2026-10-21 用户确认保持）。该行是 `role="group"` + `aria-label` 的有名分组。
-- **交互**：点击卡片 → 立即应用；写入顺序是「内存 + 首帧缓存 → `configForms.mutate`（一次原子写三个字段：`light` / `dark` / `colorMode`，落 profile patch）」，若该卡属于另一个 scheme，再调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。写入被拒 / revision 冲突时由 settings 服务回读，Client 以 Host 值为准（设置页不弹错、不静默丢掉用户选择）；「恢复默认」先回默认状态并写缓存，再 `unset` Host 的三个字段（清掉 user 层，回到 base 默认）。色彩模式开关走同一条写路径（三字段原子写），只切换选择器作用域、不重建 token 覆盖层。外观控制的三个按钮调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享），页面说明文案写清楚「点色卡会固定外观，可用外观控制恢复跟随系统」。
-- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键：`nav.title`、`intro`、`appearance.title/label/system/dark/light/systemActive/fixed`、`group.dark`、`group.light`、`strength.hard/medium/soft`、`current.*`、`colorMode.title/desc/on/off/switch/experimental`、`reset`、`hint.scheme`、`hint.storage`、`aria.*`。
-- **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。卡片外观参照 DSH 设置卡片（圆角、边框、hover、selected 用 token，不抄写死颜色）。
+  - 页面末尾不再有 `hint.scheme` / `hint.storage` 说明列表。
+- **交互**：点击卡片 → 立即应用；写入顺序是「内存 + 首帧缓存 → `configForms.mutate`（一次原子写三个字段：`light` / `dark` / `colorMode`，落 profile patch）」，若该卡属于另一个 scheme，再调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**）。写入被拒 / revision 冲突时由 settings 服务回读，Client 以 Host 值为准（设置页不弹错、不静默丢掉用户选择）；「恢复默认」先回默认状态并写缓存，再 `unset` Host 的三个字段（清掉 user 层，回到 base 默认）。色彩模式开关走同一条写路径（三字段原子写），只切换选择器作用域、不重建 token 覆盖层。外观卡片调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享）。
+- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键共 23 个：`nav.title`、`appearance.title/label/light/dark/system`、`group.dark/light`、`strength.hard/medium/soft`、`current.label/summary/active/system`、`colorMode.title/desc/on/off/switch`、`reset`、`aria.card/group`。2026-10-23 删除 `intro`、`appearance.systemActive/fixed`、`colorMode.experimental`、`hint.scheme`、`hint.storage`（用户要求不再显示这些解释性文案）。
+- **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。强度卡外观参照 DSH 设置卡片；外观三张卡片直接对齐 DSH `AppearanceRow` 的 `themeCube` 规则（`docs/design.md` §6.1 记录唯一偏差：选中描边改用主题强调色 `--dsw-alias-brand-primary`，因为 DSH 原生的 `--dsw-static-neutral-bluish-400` 在 Everforest 浅色下与未选中边框几乎同色，会看不出选中）。
 - **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分；`aria-label` 只挂在有命名 role 的元素上（当前行 `role="group"`，裸 `<div>` 的 `aria-label` 不进无障碍树）。
 - **降级**：`ctx.get('slots'/'locale')` 立即不可用时用 `ctx.inject` 等待再挂载；等待也不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
 - **已知限制**：① `settings.section` 没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标（要换图标只能像 `dshmarket` 那样用 DOM 标记 + MutationObserver 改写，0.x 不做）；② DSH 不会在 Plugins 页给本插件再生成一份自动表单——Host 半部用 `settings.configure({ auto: false })` 声明设置页由本插件自己渲染，所以强度只能在本页修改（插件详情页没有可编辑的强度卡片）。
+
+### 6.1 2026-10-23 设置页文案精简与外观控件对齐 DSH
+
+用户对 0.4.0 设置页截图复核后提出两点：①红框中的解释性文字全部去掉；②「外观」按 DSH 默认设置页的样式显示。落地：
+
+- **删除的文案**（中英同步删键）：标题下的 `intro` 说明；外观控制下方的 `appearance.systemActive` / `appearance.fixed` 当前状态说明；色彩模式开关下方的 `colorMode.experimental` 实验性提示；页尾 `hint.scheme` / `hint.storage` 两条说明（Host 配置 / 首帧缓存 / 重启口径改由 README 与设计文档承载）。页面只保留：标题、外观三卡、两个强度分组、色彩模式标题 + 一行功能说明 + 开关、当前生效行 + 恢复默认。
+- **外观控件改 DSH 同款**：直接对齐 DSH `ui-theme` 包 `AppearanceRow.module.css` 的 `themeCube` 规则与 `AppearanceRow.js` 的顺序/图标——顺序 `浅色 / 深色 / 跟随系统`，16×16 内联 SVG（Light / Dark / Follows-system 的 path 原样复制，`stroke-width` 1.3、`currentColor`），卡片 `flex: 180px; padding: 20px 32px; gap: 4px; border: .5px solid --dsw-alias-border-l4; border-radius: --dsw-radius-xl; 14px/22px`，hover 用 `--dsw-alias-interactive-bg-hover`，选中底色 `--dsw-alias-bg-module-platform`。
+- **唯一偏差**：选中描边用 `--dsw-alias-brand-primary`（Everforest aqua），不用 DSH 的 `--dsw-static-neutral-bluish-400`。理由：该 token 在本主题的映射是 `#b8c0ae`（light）/ `#83887c`（dark），light 下与未选中边框 `--dsw-alias-border-l4`（`#bec5b2`）几乎同色，选中态不可辨；用主题强调色同时与插件自己的强度卡 / 色彩模式开关选中态保持一致。
+- **验证**：`tests/settings-page.test.mjs` 覆盖新顺序、图标 path 数、`aria-pressed`、被删文案不再渲染；`.tmp/settings-preview/` 用真实 `SETTINGS_STYLES` + `tokensFor()` 渲染 dark-soft / light-hard 两档截图目检（选中态在浅色档可见）。
+- **未改**：README（用户要求保持原文案）、色彩模式的行为与持久化路径、Host `Config` 字段。
 
 ## 7. 持久化（0.3.0 起：Host 侧持久化；0.4.0 增加 `colorMode`）
 
