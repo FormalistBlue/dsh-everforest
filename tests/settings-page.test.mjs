@@ -61,7 +61,7 @@ function createMockStore(options = {}) {
     state: {
       light: options.light ?? 'hard',
       dark: options.dark ?? 'soft',
-      colorMode: options.colorMode === true,
+      colorMode: options.colorMode === undefined ? true : options.colorMode === true,
     },
     theme: {
       preference: options.preference ?? 'system',
@@ -85,7 +85,7 @@ function createMockStore(options = {}) {
     },
     reset() {
       calls.reset += 1
-      snapshot = { state: { light: 'hard', dark: 'soft', colorMode: false }, theme: snapshot.theme }
+      snapshot = { state: { light: 'hard', dark: 'soft', colorMode: true }, theme: snapshot.theme }
       notify()
     },
     setPreference(preference) {
@@ -626,7 +626,7 @@ test('the removed explanatory copy is gone from the page', () => {
   assert.equal(findAll(header, (node) => node.type === 'p').length, 0)
 })
 
-test('color-mode block renders the switch off by default with five accent chips', () => {
+test('color-mode block renders an explicitly disabled switch with five accent chips', () => {
   const { tree } = renderPage({
     store: createMockStore({ colorMode: false, colorScheme: 'light' }),
   })
@@ -668,6 +668,14 @@ test('color-mode block renders the switch off by default with five accent chips'
   assert.equal(findOne(section, byClass('everforest-color-mode-experimental')), undefined)
 })
 
+test('color mode is on by default when the store omits the flag', () => {
+  const { tree } = renderPage() // createMockStore() with no colorMode option
+  const toggle = findOne(tree, isColorModeSwitch)
+  assert.equal(toggle.props['aria-checked'], 'true')
+  assert.equal(toggle.props['data-color-mode'], 'on')
+  assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), 'on')
+})
+
 test('color-mode switch reflects an enabled store and toggles through store.setColorMode', () => {
   const store = createMockStore({ colorMode: true, colorScheme: 'dark' })
   const { tree } = renderPage({ store })
@@ -700,21 +708,26 @@ test('color-mode switch reflects an enabled store and toggles through store.setC
   assert.equal(store.getSnapshot().state.colorMode, true)
 })
 
-test('color-mode switch ignores a hostile colorMode value', () => {
-  const store = {
-    getSnapshot: () => ({
-      state: { light: 'hard', dark: 'soft', colorMode: 'on' },
-      theme: { preference: 'system', active: { colorScheme: 'light' } },
-    }),
-    subscribe: () => () => {},
-    select: () => {},
-    reset: () => {},
-    setColorMode: () => {},
+test('a missing or hostile colorMode value falls back to the default (on)', () => {
+  for (const colorMode of [undefined, 'on', 1, null]) {
+    const store = {
+      getSnapshot: () => ({
+        state: { light: 'hard', dark: 'soft', colorMode },
+        theme: { preference: 'system', active: { colorScheme: 'light' } },
+      }),
+      subscribe: () => () => {},
+      select: () => {},
+      reset: () => {},
+      setColorMode: () => {},
+    }
+    const { tree } = renderPage({ store })
+    const toggle = findOne(tree, isColorModeSwitch)
+    assert.equal(toggle.props['aria-checked'], 'true', `colorMode ${JSON.stringify(colorMode)} should fall back to on`)
+    assert.equal(toggle.props['data-color-mode'], 'on')
   }
-  const { tree } = renderPage({ store })
-  const toggle = findOne(tree, isColorModeSwitch)
-  assert.equal(toggle.props['aria-checked'], 'false', 'only the literal boolean true enables the mode')
-  assert.equal(toggle.props['data-color-mode'], 'off')
+  // Only the literal boolean `false` disables the mode.
+  const { tree } = renderPage({ store: createMockStore({ colorMode: false }) })
+  assert.equal(findOne(tree, isColorModeSwitch).props['aria-checked'], 'false')
 })
 
 test('clicking a card calls store.select with its scheme and strength', () => {
@@ -750,7 +763,7 @@ test('restore-defaults button calls store.reset and shows the default pairing', 
 
   reset.props.onClick()
   assert.equal(store.calls.reset, 1)
-  assert.deepEqual(store.getSnapshot().state, { light: 'hard', dark: 'soft', colorMode: false })
+  assert.deepEqual(store.getSnapshot().state, { light: 'hard', dark: 'soft', colorMode: true })
 
   const { tree: updated } = renderPage({ store })
   const pressed = findAll(updated, isCard)
@@ -783,8 +796,8 @@ test('Simplified Chinese renders translated copy and labels', () => {
   assert.deepEqual(appearanceOptions.map(textContent), ['浅色', '深色', '跟随系统'])
   // The color-mode switch label and its accessible name are translated too.
   const toggle = findOne(tree, isColorModeSwitch)
-  assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), '已关闭')
-  assert.equal(toggle.props['aria-label'], '色彩模式，当前已关闭')
+  assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), '已开启')
+  assert.equal(toggle.props['aria-label'], '色彩模式，当前已开启')
   assert.equal(
     textContent(findOne(tree, byClass('everforest-current-main'))),
     '当前：深色 Soft · 浅色 Hard',
@@ -833,9 +846,9 @@ test('renders safely without a store and without optional props', () => {
   )
   // The no-op fallback store keeps the appearance control clickable.
   for (const option of findAll(tree, isAppearanceOption)) option.props.onClick()
-  // ...and the color-mode switch, rendered off.
+  // ...and the color-mode switch, rendered at the default (on).
   const toggle = findOne(tree, isColorModeSwitch)
-  assert.equal(toggle.props['aria-checked'], 'false')
+  assert.equal(toggle.props['aria-checked'], 'true')
   assert.doesNotThrow(() => toggle.props.onClick())
   // Standard slot owner props are ignored by the page.
   const tree2 = Component({ t: translateEN, store: createMockStore(), close: () => {}, extra: 42 })
@@ -866,8 +879,8 @@ test('hostile store snapshots degrade to the default pairing', () => {
       .map((option) => option.props['data-preference']),
     ['system'],
   )
-  // A hostile colorMode value can never enable the experimental mode.
-  assert.equal(findOne(tree, isColorModeSwitch).props['aria-checked'], 'false')
+  // A hostile colorMode value falls back to the default (on).
+  assert.equal(findOne(tree, isColorModeSwitch).props['aria-checked'], 'true')
 })
 
 test('a missing palette module still renders the six default cards', () => {

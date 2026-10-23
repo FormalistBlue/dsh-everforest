@@ -9,11 +9,12 @@
  *
  *     - id: everforest
  *       name: dsh-everforest
- *       config: { light: hard, dark: soft, colorMode: false }
+ *       config: { light: hard, dark: soft, colorMode: true }
  *
  * and every authenticated browser of that profile reads it back through the
  * Client `ctx.configForms` service. `colorMode` is a plain boolean and starts
- * `false` (off) everywhere; it is validated by the same schema, so a hand-edited
+ * enabled (the shipped default since 2026-10-23; only an explicit `false`
+ * disables it), validated by the same schema, so a hand-edited
  * `colorMode: "on"` fails the entry load instead of reaching the Client.
  *
  * The mechanism is the official one (`dsh-settings` scans active profile
@@ -53,6 +54,7 @@
 import Schema from '@deepseek-ai/schemastery'
 
 import { DEFAULT_STATE, STRENGTHS } from './palette.js'
+import { DEFAULT_COLOR_MODE } from './state.js'
 
 /**
  * Profile entry id that owns this plugin and therefore the settings form's
@@ -113,7 +115,7 @@ function booleanSchema (fallback) {
 export const Config = Schema.object({
   light: strengthSchema(DEFAULT_STATE.light),
   dark: strengthSchema(DEFAULT_STATE.dark),
-  colorMode: booleanSchema(false),
+  colorMode: booleanSchema(DEFAULT_COLOR_MODE),
 })
 
 /**

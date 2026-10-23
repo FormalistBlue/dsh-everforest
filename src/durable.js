@@ -19,8 +19,8 @@
  * Since 0.4.0 the Host state is `{ light, dark, colorMode }`: the experimental
  * color mode is a durable, cross-browser preference like the two strengths, and
  * every write carries all three fields in one atomic mutation. A 0.3.x Host
- * section has no `colorMode`; it resolves to `false`, which is also the shipped
- * default, so an upgraded Client keeps working against an older profile patch.
+ * section has no `colorMode`; it resolves to the shipped default (on since
+ * 2026-10-23), so an upgraded Client keeps working against an older patch.
  *
  * Writes are atomic mutations: `form.mutate([...ops])`, ops being
  * `{ op: 'set', path: [field], value }` or `{ op: 'unset', path: [field] }`.
@@ -61,8 +61,8 @@ export function hasUserLayer(user) {
  *
  * Each strength is validated independently against the supported set; a
  * missing or invalid field falls back to that scheme's shipped default. The
- * `colorMode` flag falls back to `false` (off) for the same reason: a Host
- * section written by 0.3.x has no such field.
+ * `colorMode` flag falls back to the shipped default (on) for the same reason:
+ * a Host section written by 0.3.x has no such field.
  *
  * @param {unknown} value - the snapshot's effective section.
  * @returns {{ light: string, dark: string, colorMode: boolean }}
@@ -84,19 +84,19 @@ export function statesEqual(a, b) {
 /**
  * Whether a state is exactly the shipped default (no real user choice).
  *
- * That means both strengths are the default pairing **and** the experimental
- * color mode is off. A cache that holds the default strengths but has turned
- * color mode on is still a real choice and must be migrated/kept, which is why
- * the flag belongs to this predicate.
+ * That means both strengths are the default pairing **and** the color mode is
+ * at its default (on). A cache that holds the default strengths but turned the
+ * color mode off is a real choice and must be migrated/kept, which is why the
+ * flag belongs to this predicate.
  *
  * @param {{ light: string, dark: string, colorMode?: boolean }} state
  * @returns {boolean}
  */
-export function isDefaultPair(state) {
+export function isDefaultState(state) {
   return (
     state.light === DEFAULT_STATE.light
     && state.dark === DEFAULT_STATE.dark
-    && state.colorMode !== true
+    && state.colorMode !== false
   )
 }
 
@@ -115,7 +115,7 @@ export function stateToSetOps(state) {
   return [
     { op: 'set', path: ['light'], value: state.light },
     { op: 'set', path: ['dark'], value: state.dark },
-    { op: 'set', path: ['colorMode'], value: state.colorMode === true },
+    { op: 'set', path: ['colorMode'], value: state.colorMode !== false },
   ]
 }
 
@@ -136,7 +136,7 @@ export function stateToUnsetOps() {
  * Decide whether this load should migrate the browser cache into the Host.
  *
  * A one-shot migration only: the Host has no choice yet, and the cache holds a
- * real choice from an older version (non-default strengths, or color mode on).
+ * real choice from an older version (non-default strengths, or color mode off).
  * Seeding the shipped default would be pointless (it is what the Host resolves
  * anyway) and would leave a redundant override row behind.
  *
@@ -147,7 +147,7 @@ export function stateToUnsetOps() {
 export function shouldSeed(user, cached) {
   if (hasUserLayer(user)) return false
   if (cached === null) return false
-  return !isDefaultPair(cached)
+  return !isDefaultState(cached)
 }
 
 /**

@@ -1,7 +1,8 @@
 // Everforest "color mode": the opt-in content-layer role colours and stylesheet.
 //
-// Color mode is an experimental content enhancement, **off by default**: when
-// the Client sets the three `data-everforest-*` attributes from
+// Color mode is an experimental content enhancement, **on by default** since the
+// 2026-10-23 follow-up (only an explicit user choice turns it off): when the
+// Client sets the three `data-everforest-*` attributes from
 // `COLOR_MODE_ATTRS` on `document.documentElement`, the stylesheet returned by
 // `colorModeStyles()` starts matching; while the mode attribute is `"off"` every
 // selector is prefixed with `html[data-everforest-color-mode="on"]`, so the CSS

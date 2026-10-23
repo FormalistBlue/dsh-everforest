@@ -370,7 +370,7 @@ const COLOR_MODE_SWATCH_KEYS = ['red', 'orange', 'yellow', 'aqua', 'green']
 
 /** Used when the page is mounted without a store (should not happen in DSH). */
 const EMPTY_SNAPSHOT = {
-  state: { light: 'hard', dark: 'soft', colorMode: false },
+  state: { light: 'hard', dark: 'soft', colorMode: true },
   theme: { preference: 'system', active: { colorScheme: 'dark' } },
 }
 
@@ -445,8 +445,9 @@ export function createSettingsComponent(dependencies) {
   /**
    * Read a legal state out of a store snapshot.
    *
-   * The color-mode flag is only ever `true` for the literal boolean `true`, so a
-   * hostile or stale snapshot can never switch the experimental mode on.
+   * The color mode is on by default: only the literal boolean `false` turns it
+   * off, so a missing flag in a hostile or stale snapshot falls back to the
+   * default (on) exactly like the cache and Host normalizers do.
    * @param {object | undefined} snapshot
    */
   function stateFromSnapshot(snapshot) {
@@ -458,7 +459,7 @@ export function createSettingsComponent(dependencies) {
     return {
       light: strengths.includes(raw.light) ? raw.light : fallback.light,
       dark: strengths.includes(raw.dark) ? raw.dark : fallback.dark,
-      colorMode: raw.colorMode === true,
+      colorMode: raw.colorMode !== false,
     }
   }
 

@@ -4,8 +4,8 @@
 > 2026-10-19 更新：首帧 Host boot 注入已实现于 0.2.0（见 §3 / §5 / §9 / §12）；shiki / diff 口径修正。
 > 2026-10-21 更新：0.2.1 的 P1 打磨落地（loading spinner boot token、跨窗口同步、设置页失败重试、无障碍、构建守卫），见 §5 / §11 与 [design.md](design.md) §12。
 > 2026-10-22 更新：**0.3.0 Host 侧持久化落地**（`configForms`）：强度真源迁到当前 profile 的 `cordis.patch.yml`，同一 profile 所有浏览器共享；localStorage 降为「首帧缓存 + 旧宿主兜底」，0.2.1 旧值一次性播种，首帧改 B 方案。见 §3 / §5 / §7 / §8 / §9 与新增 §13。
-> 2026-10-23 更新：**0.4.0 实验性色彩模式（中彩）落地**（默认关闭、token 层零差异）；用户验收初版（h1–h3 + 表格 + 会话行）后要求补齐 h1–h6 与参考 Enchanted 的富文本角色，扩展轮同日完成。见 §14 / §15 与 [design.md](design.md) §13。
-> 2026-10-23 更新（设置页）：用户截图复核要求去掉解释性文案、外观改用 DSH 默认样式；已按 DSH `AppearanceRow` 对齐并删除 6 条文案，见 §16 与 [design.md](design.md) §6.1。
+> 2026-10-23 更新：**0.4.0 实验性色彩模式（中彩）落地**（初版默认关闭，同日按用户要求改为默认开启、token 层零差异）；用户验收初版（h1–h3 + 表格 + 会话行）后要求补齐 h1–h6 与参考 Enchanted 的富文本角色，扩展轮同日完成。见 §14 / §15 与 [design.md](design.md) §13。
+> 2026-10-23 更新（设置页）：用户截图复核要求去掉解释性文案、外观改用 DSH 默认样式；已按 DSH `AppearanceRow` 对齐并删除 6 条文案，见 §17 与 [design.md](design.md) §6.1。
 
 ## 1. 结论
 
@@ -15,7 +15,7 @@
 - **不需要改 DSH 组件 CSS，也不需要构建工具链**：正文是一份普通 JS 的 Client 半部；Host 半部承载 bundle 行、`Config`（强度 schema）与一条首帧注入 row，并在 0.3.0 起承担 Host 侧持久化的声明端（见 §3 / §5）。
 - **覆盖率高**：UI 主样式由 token 驱动，覆盖 195 个颜色 token 即可整站改色，另有 11 个 `--shiki-*` 接管代码块高亮。已知硬编码例外：终端空态 SVG（`#17191d` / `#fff`）、macOS darwin 渐变、品牌与文件类型图标 artwork、主题样式表自身的字面 token 值（可被覆盖）。**首帧 / loading 页**在 0.2.0 已由 Host 半部经 `webserver/index-inject` 注入调色板覆盖；2026-10-21 起 loading spinner 环与进度弧也走 boot token（见 §5）。
 - **配色数据已有权威来源**：官方 `palette.md` 提供 6 套背景色阶；**主参考选定 Everforest Enchanted**（Obsidian 端口）——它的背景值严格等于官方 dark-soft / light-hard，并给出 `header-*` 自定义色与完整的 UI 语义映射。因此默认配对采用「深色 soft / 浅色 hard」，与 Enchanted 观感一致，其余四档强度作为可选。
-- **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变；逐级标题彩色 DSH 无对应 token，0.4.0 起由色彩模式的实验性作用域 CSS 覆盖（默认关闭）。都不影响主体观感。
+- **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变；逐级标题彩色 DSH 无对应 token，0.4.0 起由色彩模式的实验性作用域 CSS 覆盖（默认开启、可关闭）。都不影响主体观感。
 
 ## 2. 调研方法（可复现）
 
@@ -109,7 +109,7 @@
 | 文档预览 | `--dsw-alias-bg-document-preview` / `label-document-preview`（alias 引用，自动） | ✅ 自动 |
 | 代码块语法高亮 | 9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`（共 11 个，全部显式）；作用于聊天气泡 / 工具输出 / 右侧文件预览三处 `CodeBlock` | ✅ |
 | 首帧 / loading 页 | Host 半部经 `webserver/index-inject` 追加 body script，在 Client 加载前把 boot 调色板写成 body 内联 token（scheme 读 ui-theme 已解析值；强度按 B 方案：本浏览器缓存优先 → Host 值兜底 → 默认，结果发布到 `window.__EVERFOREST_BOOT__`）；Web 首帧即 Everforest，Desktop 最多 1 帧原生色；loading spinner / 边框已由 boot token 覆盖（2026-10-21） | ✅ 0.2.0 覆盖（spinner/边框 0.2.1 补齐；强度 B 方案 0.3.0） |
-| 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 默认层不覆盖（非目标）；0.4.0 起由实验性色彩模式（默认关闭、作用域 CSS）为 h1–h6 分级着色，见 §14 / §15 |
+| 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 默认层不覆盖（非目标）；0.4.0 起由实验性色彩模式（默认开启、可关闭、作用域 CSS）为 h1–h6 分级着色，见 §14 / §15 |
 | 终端 | 底色 / 字色 / 光标跟随 token；ANSI 16 色为 xterm 内置默认盘（DSH 只传 bg/fg/cursor，且 `minimumContrastRatio: 4.5` 会自行校正）；OSC 4/10/11 不受主题控制 | ⚠️ 部分 |
 | brand mark / 文件类型图标 / 图片 | 固定 artwork（含终端空态 SVG 字面色） | ⚠️ 不覆盖 |
 | macOS 侧栏 / 标题栏渐变 | `ui-layout` 内联硬编码（仅 darwin） | ⚠️ Windows 无影响 |
@@ -282,7 +282,7 @@
 | 特殊格式 | 加粗 / 斜体 / 链接 / 行内 code 文字 / 引用文字保持单色（用户接受）；表格做表头色带 + 斑马纹、边框不动 |
 | 会话记录 | 「待确认 / 已完成未查看」给**整行底色**；「运行中」不上色 |
 | 浅色档 | 接受对比度守卫压暗后的「淡彩」 |
-| 定位 | 实验性、默认关闭、DSH 升级后需回归 |
+| 定位 | 实验性、默认开启（可关闭）、DSH 升级后需回归 |
 | 实现路线 | token 层零差异 + 客户端注入**作用域 CSS**（`<html>` data 属性开关 + `body[data-ds-dark-theme]` 分深浅色 + 强度属性选择变体），走官方 `configForms` 持久化 |
 | 被否决 | ①纯 token 色彩增强（无法分元素着色，且几乎不会真正用上那 8 个未用色）；②h4–h6 六色全量；③正文级彩色文字（浅色档对比度不可行）；④改调色板 / token 值来做色彩模式（破坏默认零差异与语义 token） |
 
@@ -349,13 +349,25 @@
 - 6 变体 × 24 角色 = **144 个色值**逐字节钉住；全部 **34 条 CSS 规则**以 `html[data-everforest-color-mode="on"]` 开头、无 `!important`、关闭时零匹配。
 - token 层与 boot payload 未改；状态 / 持久化 / 设置页未改——扩展只动 `src/color-mode.js`、`tests/color-mode.test.mjs` 与 `scripts/check-contrast.mjs`（及生成物）。
 - 样张目检（2026-10-23）：用真实 `colorModeStyles()` + `tokensFor()` 渲染 6 变体（`.tmp/color-mode-preview/rich.mjs` / `shots-rich/`）。dark 三档与 light·hard / light·medium 的 h1–h6、加粗 / 斜体、行内 code、内部链接、删除线、引用块、表格、复选框、已完成任务淡化、会话行均清晰可辨；light·soft 仅表格三档同色与会话行底不可见（已记录边界），标题 / 强调文字仍保留色相。
-- 全量 `node --test`（168 项）与 `npm run check` 由最终门禁复核。
+- 全量 `node --test`（170 项）与 `npm run check` 由最终门禁复核。
 
 **残余（人工项）**
 
 真实 DSH 需**重启**后目检 h1–h6 / 富文本角色 / 6 套配色，重点确认 light·soft 的「淡彩」与「会话行底不可见」是否符合预期；关闭后与 0.3.0 无差异。当前自动化与样张不能替代真机目检；0.4.0 尚未发布。
 
-## 16. 2026-10-23 设置页文案精简与外观控件改 DSH 样式
+## 16. 2026-10-23 色彩模式改为默认开启
+
+**用户要求**：0.4.0 验收后「色彩模式改为默认开启」。
+
+**决策**：`src/state.js` 新增 `DEFAULT_COLOR_MODE = true` 作为单一默认来源；`createDefaultState` / `normalizeStrengths`（含 Host 表单值）/ `readState` / `readStoredState` / `resetState`、Host `Config` 的 `colorMode` schema 默认值、首帧缓存与设置页开关的默认态全部跟随。语义：**只有显式 `false` 关闭**；缺失字段（0.3.x 缓存 / profile patch）解析为 `true`；非布尔值在带版本的 payload 里仍按损坏处理（修复为默认值），Host 表单的非法值回退默认。
+
+**迁移取舍**：0.4.0 初版默认关闭时，使用过的浏览器都写过显式 `colorMode: false`；升级后这些显式值继续保留（视为用户选择），不会自动翻成开启。只有从未写过该字段的旧缓存 / patch 采用新默认。没有做「旧 false 视为未选择」的强制迁移：那会把用户主动关闭的情况也翻掉，代价高于收益。
+
+**连带改动**：恢复默认（`resetState` / 设置页 reset / Host unset 三字段）回到「默认配对 + 色彩模式开启」；`shouldSeed` 的「真实选择」判定从「colorMode 开启」改为「colorMode 关闭」；README / CHANGELOG / design §13 / palette / releasing 的「默认关闭」口径全部更新，`scripts/check-contrast.mjs` 报告文案同步并重新生成 `contrast.md`。
+
+**验证**：`node --test` **170/170** 通过（state 20、durable 8、host-boot、settings-page 30、integration 39 等全绿）；`npm run check` 全绿；`node scripts/build.mjs` 重新生成 `client.js`。真机需刷新页面（Client 半部）后目检默认态。
+
+## 17. 2026-10-23 设置页文案精简与外观控件改 DSH 样式
 
 **用户反馈（截图复核）**：0.4.0 设置页里 4 处红框文字（标题下说明、外观当前状态说明、色彩模式实验性提示、页尾 Host / 缓存说明）不希望在界面显示；「外观」希望参考 DSH 默认设置页的显示样式。
 
@@ -372,6 +384,6 @@
 - 选中态继续用 DSH 原生 token：浅色档不可辨（见上）。
 - 修改 `--dsw-static-neutral-bluish-400` 的全局映射：它被 DSH 其他组件使用，改映射会外溢。
 
-**验证**：`tests/settings-page.test.mjs` 27 项通过（新顺序 / 图标 path 数 / 选中态 / 被删文案不再渲染 / 按钮契约）；`.tmp/settings-preview/` 用真实 `SETTINGS_STYLES` + `tokensFor()` 渲染 dark-soft / light-hard 截图目检，选中卡片在浅色档可见；`npm test` 169 项、`npm run check` 全绿。README 未改（用户要求保持原文案）。
+**验证**：`tests/settings-page.test.mjs` 27 项通过（新顺序 / 图标 path 数 / 选中态 / 被删文案不再渲染 / 按钮契约）；`.tmp/settings-preview/` 用真实 `SETTINGS_STYLES` + `tokensFor()` 渲染 dark-soft / light-hard 截图目检，选中卡片在浅色档可见；`npm test` 170 项、`npm run check` 全绿。
 
 **残余**：真机 DSH 设置页需刷新 / 重启后目检（Client 半部改动，刷新页面即可加载新 `client.js`）。

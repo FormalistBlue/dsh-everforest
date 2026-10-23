@@ -5,7 +5,7 @@
 
 ## [0.4.0] - 2026-10-23
 
-次版本：新增**实验性「色彩模式」**（默认关闭）。开启后把 Everforest 调色板里此前未上场的强调色用到聊天
+次版本：新增**实验性「色彩模式」**（默认开启，可在设置页关闭）。开启后把 Everforest 调色板里此前未上场的强调色用到聊天
 Markdown 内容与工作区会话记录的状态行。初版（用户目检选定「中彩」档并确认范围）覆盖 h1–h3 标题、
 列表 marker、引用条 / 分隔线、表格表头色带与隔行斑马纹、任务列表 checkbox，以及会话记录「待确认」行
 淡橙底 + 橙色状态点、「已完成未查看」行淡绿底 + 绿色状态点；用户验收初版后，参考 Obsidian
@@ -16,7 +16,7 @@ aqua、删除线与已完成任务淡化、引用块淡底、表格行 hover、�
 
 ### Added
 
-- **色彩模式开关（实验性，默认关闭）**：设置页新增「色彩模式」区块（`role="switch"` + `aria-checked`、
+- **色彩模式开关（实验性，默认开启）**：设置页新增「色彩模式」区块（`role="switch"` + `aria-checked`、
   当前 scheme 的 5 个强调色装饰片）；开关与两个强度一起写入当前 profile 的 Host 配置
   （`Config` 新增 `colorMode` 布尔字段，默认 `false`、标记 `.volatile()`），同一 profile 的所有浏览器共享。
   中英文案（`colorMode.title/desc/on/off/switch`）随 DSH 语言切换。
@@ -55,6 +55,10 @@ aqua、删除线与已完成任务淡化、引用块淡底、表格行 hover、�
   （`light` / `dark` / `colorMode`），「恢复默认」unset 三个字段；host 表单就绪前的选择继续排队补写；
   跨浏览器广播 / storage 事件比较也包含该 flag。`hostState()` 与首帧 boot payload **保持只含两个强度**
   （色彩模式只影响 Client 挂载后的内容层，不影响首帧 token）。
+- **色彩模式改为默认开启（2026-10-23 用户要求）**：`DEFAULT_COLOR_MODE = true`（`src/state.js`）；
+  Host `Config` 的 `colorMode` 默认值、localStorage 默认状态、`resetState` / 恢复默认、首帧缓存与设置页
+  开关的默认态全部跟随。只有显式 `false`（用户拨过开关并已持久化）才关闭；0.3.x 缓存 / profile patch
+  缺该字段时解析为开启。0.4.x 已写下的显式 `false` 继续保留（视为用户选择），需手动拨一次开关才开。
 - **设置页文案精简 + 外观控件对齐 DSH（2026-10-23 用户截图复核）**：删除标题下的说明、外观当前状态说明、
   色彩模式实验性提示、页尾 Host / 缓存说明共 6 条解释性文案（中英同步删键：`intro`、
   `appearance.systemActive/fixed`、`colorMode.experimental`、`hint.scheme/storage`）；「外观」由
@@ -76,7 +80,8 @@ aqua、删除线与已完成任务淡化、引用块淡底、表格行 hover、�
   收敛为同一色，会话行底退化为侧栏底色（行底不可见，只有状态点还有颜色）。这是保留色相与可读性之间
   的已知取舍，真机目检时按此预期。
 - **真实界面目检需要重启 DSH**（Host `Config` schema 变化），刷新页面只更新 Client 半部；未重启时色彩模式
-  开关仍可用，但只写入 localStorage（旧宿主降级）。0.4.0 尚未发布。
+  开关仍可用，但只写入 localStorage（旧宿主降级）。**默认开启后仍可完全关闭**：关闭时渲染与 0.3.0 逐字节一致
+  （选择器零匹配、token 层未改）。0.4.0 尚未发布。
 
 ## [0.3.0] - 2026-10-22
 

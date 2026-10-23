@@ -752,7 +752,7 @@ function renderMarkdown () {
   }
   push(
     '',
-    'G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）与 Enchanted 的 markdown 角色映射，由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认关闭，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。',
+    'G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）与 Enchanted 的 markdown 角色映射，由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认开启、可在设置页关闭；关闭时选择器零匹配，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。',
   )
   push(
     '',

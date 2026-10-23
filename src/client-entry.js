@@ -42,7 +42,7 @@
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 import { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } from './color-mode.js'
 import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
-import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
+import { DEFAULT_COLOR_MODE, readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
 import {
   bootHintState,
   ENTRY_ID,
@@ -489,7 +489,7 @@ export function apply(ctx) {
   }
 
   function reset() {
-    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }
+    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
     const changed = next.light !== state.light || next.dark !== state.dark || next.colorMode !== state.colorMode
     state = next
     writeState(state)

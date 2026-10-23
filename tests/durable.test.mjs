@@ -8,7 +8,8 @@
  *
  * Since 0.4.0 the state has three fields (`light`, `dark`, `colorMode`): every
  * Host write carries all three in one atomic mutation, and the first-paint hint
- * intentionally stays a strength-only pair.
+ * intentionally stays a strength-only pair. The color mode is on by default
+ * (2026-10-23 follow-up), so only an explicit `false` is a "turn it off" choice.
  */
 
 import { test } from 'node:test'
@@ -20,7 +21,7 @@ import {
   ENTRY_ID,
   bootHintState,
   hasUserLayer,
-  isDefaultPair,
+  isDefaultState,
   shouldSeed,
   stateFromHost,
   stateToSetOps,
@@ -50,7 +51,7 @@ test('stateFromHost validates each field against the supported strengths', () =>
   assert.deepEqual(stateFromHost({ light: 'soft', dark: 'medium' }), {
     light: 'soft',
     dark: 'medium',
-    colorMode: false,
+    colorMode: true,
   })
   assert.deepEqual(stateFromHost({ light: 'soft', dark: 'medium', colorMode: true }), {
     light: 'soft',
@@ -58,16 +59,17 @@ test('stateFromHost validates each field against the supported strengths', () =>
     colorMode: true,
   })
 
-  // One invalid side keeps the valid one; a non-boolean flag means "off".
+  // One invalid side keeps the valid one; a non-boolean flag falls back to the
+  // default (on), exactly like the cache normalizer does.
   assert.deepEqual(stateFromHost({ light: 'nope', dark: 'hard', colorMode: 'on' }), {
     light: DEFAULT_STATE.light,
     dark: 'hard',
-    colorMode: false,
+    colorMode: true,
   })
   assert.deepEqual(stateFromHost({ light: 'medium', dark: 'nope' }), {
     light: 'medium',
     dark: DEFAULT_STATE.dark,
-    colorMode: false,
+    colorMode: true,
   })
 
   // Missing/undefined sections resolve to the shipped defaults (a Host section
@@ -76,7 +78,7 @@ test('stateFromHost validates each field against the supported strengths', () =>
     assert.deepEqual(stateFromHost(hostile), {
       light: DEFAULT_STATE.light,
       dark: DEFAULT_STATE.dark,
-      colorMode: false,
+      colorMode: true,
     })
   }
 
@@ -85,24 +87,26 @@ test('stateFromHost validates each field against the supported strengths', () =>
     const state = stateFromHost({ light: strength, dark: strength, colorMode: 'yes' })
     assert.ok(STRENGTHS.includes(state.light))
     assert.ok(STRENGTHS.includes(state.dark))
-    assert.equal(state.colorMode, false)
+    assert.equal(state.colorMode, true)
   }
+  // Only the literal boolean `false` disables the mode.
+  assert.equal(stateFromHost({ colorMode: false }).colorMode, false)
 })
 
-test('statesEqual and isDefaultPair compare the full state', () => {
-  const base = { light: 'hard', dark: 'soft', colorMode: false }
-  assert.equal(statesEqual(base, { light: 'hard', dark: 'soft', colorMode: false }), true)
-  assert.equal(statesEqual(base, { light: 'hard', dark: 'soft', colorMode: true }), false)
-  assert.equal(statesEqual(base, { light: 'soft', dark: 'hard', colorMode: false }), false)
-  assert.equal(statesEqual(base, { light: 'hard', dark: 'medium', colorMode: false }), false)
+test('statesEqual and isDefaultState compare the full state', () => {
+  const base = { light: 'hard', dark: 'soft', colorMode: true }
+  assert.equal(statesEqual(base, { light: 'hard', dark: 'soft', colorMode: true }), true)
+  assert.equal(statesEqual(base, { light: 'hard', dark: 'soft', colorMode: false }), false)
+  assert.equal(statesEqual(base, { light: 'soft', dark: 'hard', colorMode: true }), false)
+  assert.equal(statesEqual(base, { light: 'hard', dark: 'medium', colorMode: true }), false)
 
-  assert.equal(isDefaultPair(base), true)
-  // A legacy call without the field still means "off".
-  assert.equal(isDefaultPair({ light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }), true)
-  // Color mode on is a real choice even with the default pairing.
-  assert.equal(isDefaultPair({ light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: true }), false)
-  assert.equal(isDefaultPair({ light: DEFAULT_STATE.light, dark: 'hard', colorMode: false }), false)
-  assert.equal(isDefaultPair({ light: 'medium', dark: DEFAULT_STATE.dark, colorMode: false }), false)
+  assert.equal(isDefaultState(base), true)
+  // A legacy call without the field still resolves to the default (on).
+  assert.equal(isDefaultState({ light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }), true)
+  // Color mode off is a real choice even with the default pairing.
+  assert.equal(isDefaultState({ light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }), false)
+  assert.equal(isDefaultState({ light: DEFAULT_STATE.light, dark: 'hard', colorMode: true }), false)
+  assert.equal(isDefaultState({ light: 'medium', dark: DEFAULT_STATE.dark, colorMode: true }), false)
 })
 
 test('set ops carry both strengths and the color-mode flag in one atomic mutation', () => {
@@ -129,7 +133,7 @@ test('unset ops clear all three fields so the config editor can drop the overrid
 
 test('shouldSeed only migrates a real cache choice when the Host has no choice', () => {
   const chosen = { light: 'soft', dark: 'hard', colorMode: false }
-  const defaults = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }
+  const defaults = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: true }
 
   assert.equal(shouldSeed({}, chosen), true, 'an older choice must be seeded once')
   assert.equal(shouldSeed({}, { ...chosen }), true)
@@ -138,8 +142,10 @@ test('shouldSeed only migrates a real cache choice when the Host has no choice',
   assert.equal(shouldSeed({ light: 'medium' }, chosen), false, 'the Host already has a choice')
   assert.equal(shouldSeed({ colorMode: true }, defaults), false, 'the Host already has a color-mode choice')
 
-  // Color mode on with the default pairing is a real choice and must migrate.
-  assert.equal(shouldSeed({}, { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: true }), true)
+  // Color mode off with the default pairing is a real choice and must migrate.
+  assert.equal(shouldSeed({}, { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }), true)
+  // A legacy cache without the flag is the default and must not seed.
+  assert.equal(shouldSeed({}, { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }), false)
 
   // A partial Host layer still counts as a choice: never overwrite it.
   assert.equal(shouldSeed({ light: 'medium' }, chosen), false)

@@ -24,10 +24,11 @@
  *
  *  - a missing key, unreadable storage, malformed JSON, an unknown `version`,
  *    or an invalid strength all fall back to the default state (light = hard,
- *    dark = soft, colorMode = false, i.e. Everforest Enchanted's defaults);
+ *    dark = soft, colorMode = on, i.e. Everforest Enchanted's pairing with the
+ *    color mode enabled by default since 2026-10-23);
  *  - `colorMode` is optional in the payload because 0.3.x caches predate it:
- *    a missing field reads as `false` and is **not** treated as corrupt (no
- *    repair rewrite, the payload still counts for the migration);
+ *    a missing field reads as the default (on) and is **not** treated as
+ *    corrupt (no repair rewrite, the payload still counts for the migration);
  *  - a non-boolean `colorMode` makes the payload invalid, exactly like an
  *    invalid strength: `readState` repairs it with the default state and
  *    `readStoredState` reports `null` (nothing trustworthy to migrate);
@@ -56,11 +57,23 @@ export const STORAGE_KEY = 'dsh-everforest/v1'
 export const STATE_VERSION = 1
 
 /**
+ * Default of the color-mode flag.
+ *
+ * `true` since the 2026-10-23 follow-up: after reviewing the 0.4.0 build the
+ * user asked for the color mode to be on by default. Only an explicit `false`
+ * (the switch was turned off and that choice was persisted) disables the mode;
+ * a missing flag — a 0.3.x cache or a profile patch written before the field
+ * existed — resolves to this default.
+ * @type {boolean}
+ */
+export const DEFAULT_COLOR_MODE = true
+
+/**
  * Build a fresh copy of the default state.
  * @returns {{ light: string, dark: string, colorMode: boolean }}
  */
 export function createDefaultState() {
-  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }
+  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
 }
 
 /**
@@ -96,15 +109,17 @@ function normalizeStrength(value, fallback) {
 /**
  * Pin the color-mode flag to a real boolean.
  *
- * A missing flag (0.3.x cache) and anything that is not a boolean (hand-edited
- * or corrupt payload) both mean "off"; the mode is experimental and must never
- * turn on by accident. Only the literal `true` enables it.
+ * The mode is on by default, so only the literal `false` turns it off; a
+ * missing flag (0.3.x cache / profile patch) and anything that is not a boolean
+ * (hand-edited or corrupt payload) resolve to the default. A non-boolean inside
+ * a versioned payload is still rejected by `isStoredState` (the cache counts as
+ * corrupt and is repaired), so this fallback only covers the Host form shape.
  *
  * @param {unknown} value
  * @returns {boolean}
  */
 function normalizeColorMode(value) {
-  return value === true
+  return value === false ? false : DEFAULT_COLOR_MODE
 }
 
 /**
@@ -130,7 +145,7 @@ export function normalizeState(raw) {
  *
  * Pure: never reads storage, never mutates the input, always returns a new
  * object. Two invalid strengths collapse to the shipped default pairing, and a
- * missing/invalid `colorMode` is `false`. `colorMode` is validated here too
+ * missing/invalid `colorMode` resolves to the default (on). `colorMode` is validated here too
  * because the Host `Config` carries it as a third volatile field since 0.4.0;
  * the boot hint simply never publishes it (see `bootHintState`).
  *
@@ -151,8 +166,8 @@ export function normalizeStrengths(raw) {
  *
  * The version is always the current one and every field is normalized first,
  * so a caller passing a hostile/incomplete object still writes a legal payload.
- * `colorMode` is written explicitly (even when `false`) so a later read never
- * has to guess whether the flag was dropped or disabled.
+ * `colorMode` is written explicitly (even when it is the default or `false`) so
+ * a later read never has to guess whether the flag was dropped or disabled.
  *
  * @param {{ light: string, dark: string, colorMode?: boolean }} state
  * @returns {{ version: number, light: string, dark: string, colorMode: boolean }}
@@ -187,7 +202,7 @@ function repairStorage(storage) {
  *
  * Never throws. Missing or unreadable entries and invalid payloads return the
  * default state; invalid payloads are rewritten in place when possible. A
- * 0.3.x payload without `colorMode` is valid and reads as `colorMode: false`
+ * 0.3.x payload without `colorMode` is valid and reads with the default (on)
  * without a rewrite.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
@@ -242,8 +257,8 @@ function isStoredState(parsed) {
  * Distinguishes "this browser never chose anything" (or the cache is
  * corrupt/stale-version) from a real choice, which the 0.2.1 → 0.3.0 migration
  * needs: only a genuine non-default cache is seeded into the Host settings
- * document. A 0.3.x payload without `colorMode` reads as `colorMode: false`
- * (the flag simply did not exist); a non-boolean flag makes the whole payload
+ * document. A 0.3.x payload without `colorMode` resolves to the default (on;
+ * the flag simply did not exist); a non-boolean flag makes the whole payload
  * untrustworthy, so it reports `null` instead. Never throws; a
  * missing/unreadable/malformed entry returns `null`.
  *
@@ -280,7 +295,7 @@ export function readStoredState(storage) {
  *
  * Accepts a plain `{ light, dark, colorMode }` (the shape used inside the
  * client) and stores it with the schema version; a missing or invalid
- * `colorMode` is stored as `false`. Writing never throws: a failure (private
+ * `colorMode` is stored as the default (on). Writing never throws: a failure (private
  * mode, quota, no storage) is reported as `false` and the caller keeps the
  * in-memory state.
  *
@@ -301,7 +316,7 @@ export function writeState(state, storage) {
 
 /**
  * Restore the default state (Enchanted's dark soft / light hard, color mode
- * off) and persist it. Returns the state even when the write fails.
+ * on) and persist it. Returns the state even when the write fails.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
  * @returns {{ light: string, dark: string, colorMode: boolean }}

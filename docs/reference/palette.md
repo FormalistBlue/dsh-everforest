@@ -103,20 +103,20 @@
 | 加粗 / 斜体（strong + em） | `fg-purple` | 两者同色；色彩模式在标题内用 `color: inherit` 保留标题色（见 §6） |
 | 删除线 / 已完成任务 | `text-faint` | 本项目对应 `label-tertiary`（由 `grey2` 派生），刻意弱化、不参与对比度门槛（见 §6） |
 | 代码块标题遮罩 | `#0004` | 半透明黑 |
-| 标题 h1–h6 | `header-red / orange / yellow / green / blue / purple` | **DSH 没有逐级标题颜色 token**，默认层标题仍单色；0.4.0 起由实验性色彩模式（默认关闭）按同一顺序改用 `fg-*` 系并经 3:1 守卫，见 §6 与下方偏差 1 |
+| 标题 h1–h6 | `header-red / orange / yellow / green / blue / purple` | **DSH 没有逐级标题颜色 token**，默认层标题仍单色；0.4.0 起由实验性色彩模式（默认开启、可关闭）按同一顺序改用 `fg-*` 系并经 3:1 守卫，见 §6 与下方偏差 1 |
 | tag | `header-blue` @ 10% / 20% | — |
 | 嵌入块底 | dark `rgba(62,75,80,.7)`、light `rgb(238 236 213 / 70%)` | 近似 bg2 的 70% 透明度 |
 
 ### 与 DSH 的已知偏差
 
-1. **逐级标题色**：Enchanted 给 h1–h6 不同颜色（`header-*` 系）；DSH 的 Markdown 标题走统一的字号 / 字重 token + `label-primary`，没有逐级颜色 token。0.4.0 起由**实验性色彩模式**（默认关闭）用客户端作用域 CSS 实现 **h1–h6**：按 Enchanted 的顺序取 `fg.red / orange / yellow / green / blue / purple`，h1–h4 对 `bg0` 守卫到 3:1、h5–h6 对每个 markdown 表面守卫到 3:1，**token 层保持零差异**；浅色档会明显被压暗。默认层仍是单色标题。
+1. **逐级标题色**：Enchanted 给 h1–h6 不同颜色（`header-*` 系）；DSH 的 Markdown 标题走统一的字号 / 字重 token + `label-primary`，没有逐级颜色 token。0.4.0 起由**实验性色彩模式**（默认开启、可关闭）用客户端作用域 CSS 实现 **h1–h6**：按 Enchanted 的顺序取 `fg.red / orange / yellow / green / blue / purple`，h1–h4 对 `bg0` 守卫到 3:1、h5–h6 对每个 markdown 表面守卫到 3:1，**token 层保持零差异**；浅色档会明显被压暗。默认层仍是单色标题。
 2. **Obsidian 专有变量**：`text-muted`（`color-base-70`）、`tag-color-hsl`、`code-header` 等没有 DSH 对应物，仅作语义参考。
 3. **平铺背景**：Enchanted 把 secondary 也设成 bg0；DSH 的侧栏 / composer / 气泡需要若干区分面，本项目在保持 bg0 主底的前提下，用 `bg1` / `bg2` 做必要的层级（见 `docs/design.md` §4 的 DSH token 映射）。其中**侧栏例外**：`--dsw-specific-sidebar-fill` 取 `bg0` → `bg1` 的 80% 混合并经对比度守卫，否则 Windows 外壳把侧栏 / 标题栏 / 内容卡背后的 frame 画成同色、列边界消失（2026-10-18 视觉走查修正）。
 4. **header 色不随变体调整**：非默认的 4 个变体沿用同一组 header 色；实现后若对比度检查不达标，再按背景亮度做小幅修正并记录在此。
 
 ## 6. 色彩模式（0.4.0）的派生色
 
-实验性色彩模式（默认关闭）**不新增调色板数据**：它在 6 个变体上把已有强调色映射到内容层角色，并对每个值做对比度守卫（公式与门槛见 [`design.md`](../design.md) §13，逐变体实算值见 [`contrast.md`](contrast.md) §2f）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 语义（h1–h6 六色、strong/em 紫、行内 code 蓝、内部链接 aqua、删除线淡化、引用块 / 表格淡底、checkbox 蓝）：
+实验性色彩模式（默认开启、可关闭）**不新增调色板数据**：它在 6 个变体上把已有强调色映射到内容层角色，并对每个值做对比度守卫（公式与门槛见 [`design.md`](../design.md) §13，逐变体实算值见 [`contrast.md`](contrast.md) §2f）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 语义（h1–h6 六色、strong/em 紫、行内 code 蓝、内部链接 aqua、删除线淡化、引用块 / 表格淡底、checkbox 蓝）：
 
 - **标题 h1–h6**：依次 `red` → `orange` → `yellow` → `green` → `blue` → `purple`；h1–h4 对 `bg0` 守卫到 3:1，h5–h6 对每个 markdown 表面（画布 / 表头带 / 斑马纹 / 行 hover / 引用块淡底）取最弱值守卫到 3:1。浅色档因此明显被压暗（light·soft 的 h1 ≈ `#e45856`、h3 ≈ `#9c843a` 橄榄色）。
 - **强调文字**：strong + em = `purple`（两者同色）；内部文件链接 = `header-aqua`；行内 code 文字 = `blue`（落在 `bg_blue` 芯片上，按芯片底色守卫）；删除线与已完成任务 = `label-tertiary`（由 `grey2` 派生，刻意弱化、不设门槛）。

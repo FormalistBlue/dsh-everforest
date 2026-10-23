@@ -151,7 +151,7 @@ function emitRow (harness) {
 }
 
 /** Mutable volatile config references, like the Loader's in-place updates. */
-function createLiveConfig (initial = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }) {
+function createLiveConfig (initial = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: true }) {
   const values = { ...initial }
   return {
     config: {
@@ -178,13 +178,13 @@ test('Config declares two live-editable scheme fields and a live color-mode flag
   assert.equal(fields.colorMode.meta.volatile, true, 'colorMode must be volatile (live-editable)')
   assert.equal(fields.light.meta.default, DEFAULT_STATE.light)
   assert.equal(fields.dark.meta.default, DEFAULT_STATE.dark)
-  assert.equal(fields.colorMode.meta.default, false, 'color mode ships off')
+  assert.equal(fields.colorMode.meta.default, true, 'color mode ships on (2026-10-23)')
 
   // The Loader validates hand-edited profile patches with this schema.
   const parsed = Config({})
   assert.equal(parsed.light.get(), DEFAULT_STATE.light)
   assert.equal(parsed.dark.get(), DEFAULT_STATE.dark)
-  assert.equal(parsed.colorMode.get(), false)
+  assert.equal(parsed.colorMode.get(), true)
   assert.equal(Config({ light: 'soft' }).light.get(), 'soft')
   assert.equal(Config({ colorMode: true }).colorMode.get(), true)
   assert.throws(() => Config({ light: 'nope' }), 'an invalid hand-edited strength must be rejected')

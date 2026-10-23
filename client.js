@@ -1329,8 +1329,9 @@ const __mod_3_color_mode_js = (() => {
 
 // Everforest "color mode": the opt-in content-layer role colours and stylesheet.
 //
-// Color mode is an experimental content enhancement, **off by default**: when
-// the Client sets the three `data-everforest-*` attributes from
+// Color mode is an experimental content enhancement, **on by default** since the
+// 2026-10-23 follow-up (only an explicit user choice turns it off): when the
+// Client sets the three `data-everforest-*` attributes from
 // `COLOR_MODE_ATTRS` on `document.documentElement`, the stylesheet returned by
 // `colorModeStyles()` starts matching; while the mode attribute is `"off"` every
 // selector is prefixed with `html[data-everforest-color-mode="on"]`, so the CSS
@@ -1754,10 +1755,11 @@ const __mod_4_state_js = (() => {
  *
  *  - a missing key, unreadable storage, malformed JSON, an unknown `version`,
  *    or an invalid strength all fall back to the default state (light = hard,
- *    dark = soft, colorMode = false, i.e. Everforest Enchanted's defaults);
+ *    dark = soft, colorMode = on, i.e. Everforest Enchanted's pairing with the
+ *    color mode enabled by default since 2026-10-23);
  *  - `colorMode` is optional in the payload because 0.3.x caches predate it:
- *    a missing field reads as `false` and is **not** treated as corrupt (no
- *    repair rewrite, the payload still counts for the migration);
+ *    a missing field reads as the default (on) and is **not** treated as
+ *    corrupt (no repair rewrite, the payload still counts for the migration);
  *  - a non-boolean `colorMode` makes the payload invalid, exactly like an
  *    invalid strength: `readState` repairs it with the default state and
  *    `readStoredState` reports `null` (nothing trustworthy to migrate);
@@ -1785,11 +1787,23 @@ const STORAGE_KEY = 'dsh-everforest/v1'
 const STATE_VERSION = 1
 
 /**
+ * Default of the color-mode flag.
+ *
+ * `true` since the 2026-10-23 follow-up: after reviewing the 0.4.0 build the
+ * user asked for the color mode to be on by default. Only an explicit `false`
+ * (the switch was turned off and that choice was persisted) disables the mode;
+ * a missing flag — a 0.3.x cache or a profile patch written before the field
+ * existed — resolves to this default.
+ * @type {boolean}
+ */
+const DEFAULT_COLOR_MODE = true
+
+/**
  * Build a fresh copy of the default state.
  * @returns {{ light: string, dark: string, colorMode: boolean }}
  */
 function createDefaultState() {
-  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }
+  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
 }
 
 /**
@@ -1825,15 +1839,17 @@ function normalizeStrength(value, fallback) {
 /**
  * Pin the color-mode flag to a real boolean.
  *
- * A missing flag (0.3.x cache) and anything that is not a boolean (hand-edited
- * or corrupt payload) both mean "off"; the mode is experimental and must never
- * turn on by accident. Only the literal `true` enables it.
+ * The mode is on by default, so only the literal `false` turns it off; a
+ * missing flag (0.3.x cache / profile patch) and anything that is not a boolean
+ * (hand-edited or corrupt payload) resolve to the default. A non-boolean inside
+ * a versioned payload is still rejected by `isStoredState` (the cache counts as
+ * corrupt and is repaired), so this fallback only covers the Host form shape.
  *
  * @param {unknown} value
  * @returns {boolean}
  */
 function normalizeColorMode(value) {
-  return value === true
+  return value === false ? false : DEFAULT_COLOR_MODE
 }
 
 /**
@@ -1859,7 +1875,7 @@ function normalizeState(raw) {
  *
  * Pure: never reads storage, never mutates the input, always returns a new
  * object. Two invalid strengths collapse to the shipped default pairing, and a
- * missing/invalid `colorMode` is `false`. `colorMode` is validated here too
+ * missing/invalid `colorMode` resolves to the default (on). `colorMode` is validated here too
  * because the Host `Config` carries it as a third volatile field since 0.4.0;
  * the boot hint simply never publishes it (see `bootHintState`).
  *
@@ -1880,8 +1896,8 @@ function normalizeStrengths(raw) {
  *
  * The version is always the current one and every field is normalized first,
  * so a caller passing a hostile/incomplete object still writes a legal payload.
- * `colorMode` is written explicitly (even when `false`) so a later read never
- * has to guess whether the flag was dropped or disabled.
+ * `colorMode` is written explicitly (even when it is the default or `false`) so
+ * a later read never has to guess whether the flag was dropped or disabled.
  *
  * @param {{ light: string, dark: string, colorMode?: boolean }} state
  * @returns {{ version: number, light: string, dark: string, colorMode: boolean }}
@@ -1916,7 +1932,7 @@ function repairStorage(storage) {
  *
  * Never throws. Missing or unreadable entries and invalid payloads return the
  * default state; invalid payloads are rewritten in place when possible. A
- * 0.3.x payload without `colorMode` is valid and reads as `colorMode: false`
+ * 0.3.x payload without `colorMode` is valid and reads with the default (on)
  * without a rewrite.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
@@ -1971,8 +1987,8 @@ function isStoredState(parsed) {
  * Distinguishes "this browser never chose anything" (or the cache is
  * corrupt/stale-version) from a real choice, which the 0.2.1 → 0.3.0 migration
  * needs: only a genuine non-default cache is seeded into the Host settings
- * document. A 0.3.x payload without `colorMode` reads as `colorMode: false`
- * (the flag simply did not exist); a non-boolean flag makes the whole payload
+ * document. A 0.3.x payload without `colorMode` resolves to the default (on;
+ * the flag simply did not exist); a non-boolean flag makes the whole payload
  * untrustworthy, so it reports `null` instead. Never throws; a
  * missing/unreadable/malformed entry returns `null`.
  *
@@ -2009,7 +2025,7 @@ function readStoredState(storage) {
  *
  * Accepts a plain `{ light, dark, colorMode }` (the shape used inside the
  * client) and stores it with the schema version; a missing or invalid
- * `colorMode` is stored as `false`. Writing never throws: a failure (private
+ * `colorMode` is stored as the default (on). Writing never throws: a failure (private
  * mode, quota, no storage) is reported as `false` and the caller keeps the
  * in-memory state.
  *
@@ -2030,7 +2046,7 @@ function writeState(state, storage) {
 
 /**
  * Restore the default state (Enchanted's dark soft / light hard, color mode
- * off) and persist it. Returns the state even when the write fails.
+ * on) and persist it. Returns the state even when the write fails.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
  * @returns {{ light: string, dark: string, colorMode: boolean }}
@@ -2041,7 +2057,7 @@ function resetState(storage) {
   return fallback
 }
 
-  return { STORAGE_KEY, STATE_VERSION, createDefaultState, normalizeState, normalizeStrengths, readState, readStoredState, writeState, resetState }
+  return { STORAGE_KEY, STATE_VERSION, DEFAULT_COLOR_MODE, createDefaultState, normalizeState, normalizeStrengths, readState, readStoredState, writeState, resetState }
 })()
 
 // ---------------------------------------------------------------- src/durable.js
@@ -2070,8 +2086,8 @@ const __mod_5_durable_js = (() => {
  * Since 0.4.0 the Host state is `{ light, dark, colorMode }`: the experimental
  * color mode is a durable, cross-browser preference like the two strengths, and
  * every write carries all three fields in one atomic mutation. A 0.3.x Host
- * section has no `colorMode`; it resolves to `false`, which is also the shipped
- * default, so an upgraded Client keeps working against an older profile patch.
+ * section has no `colorMode`; it resolves to the shipped default (on since
+ * 2026-10-23), so an upgraded Client keeps working against an older patch.
  *
  * Writes are atomic mutations: `form.mutate([...ops])`, ops being
  * `{ op: 'set', path: [field], value }` or `{ op: 'unset', path: [field] }`.
@@ -2110,8 +2126,8 @@ function hasUserLayer(user) {
  *
  * Each strength is validated independently against the supported set; a
  * missing or invalid field falls back to that scheme's shipped default. The
- * `colorMode` flag falls back to `false` (off) for the same reason: a Host
- * section written by 0.3.x has no such field.
+ * `colorMode` flag falls back to the shipped default (on) for the same reason:
+ * a Host section written by 0.3.x has no such field.
  *
  * @param {unknown} value - the snapshot's effective section.
  * @returns {{ light: string, dark: string, colorMode: boolean }}
@@ -2133,19 +2149,19 @@ function statesEqual(a, b) {
 /**
  * Whether a state is exactly the shipped default (no real user choice).
  *
- * That means both strengths are the default pairing **and** the experimental
- * color mode is off. A cache that holds the default strengths but has turned
- * color mode on is still a real choice and must be migrated/kept, which is why
- * the flag belongs to this predicate.
+ * That means both strengths are the default pairing **and** the color mode is
+ * at its default (on). A cache that holds the default strengths but turned the
+ * color mode off is a real choice and must be migrated/kept, which is why the
+ * flag belongs to this predicate.
  *
  * @param {{ light: string, dark: string, colorMode?: boolean }} state
  * @returns {boolean}
  */
-function isDefaultPair(state) {
+function isDefaultState(state) {
   return (
     state.light === DEFAULT_STATE.light
     && state.dark === DEFAULT_STATE.dark
-    && state.colorMode !== true
+    && state.colorMode !== false
   )
 }
 
@@ -2164,7 +2180,7 @@ function stateToSetOps(state) {
   return [
     { op: 'set', path: ['light'], value: state.light },
     { op: 'set', path: ['dark'], value: state.dark },
-    { op: 'set', path: ['colorMode'], value: state.colorMode === true },
+    { op: 'set', path: ['colorMode'], value: state.colorMode !== false },
   ]
 }
 
@@ -2185,7 +2201,7 @@ function stateToUnsetOps() {
  * Decide whether this load should migrate the browser cache into the Host.
  *
  * A one-shot migration only: the Host has no choice yet, and the cache holds a
- * real choice from an older version (non-default strengths, or color mode on).
+ * real choice from an older version (non-default strengths, or color mode off).
  * Seeding the shipped default would be pointless (it is what the Host resolves
  * anyway) and would leave a redundant override row behind.
  *
@@ -2196,7 +2212,7 @@ function stateToUnsetOps() {
 function shouldSeed(user, cached) {
   if (hasUserLayer(user)) return false
   if (cached === null) return false
-  return !isDefaultPair(cached)
+  return !isDefaultState(cached)
 }
 
 /**
@@ -2224,7 +2240,7 @@ function bootHintState(hint) {
   return { light: normalized.light, dark: normalized.dark }
 }
 
-  return { ENTRY_ID, hasUserLayer, stateFromHost, statesEqual, isDefaultPair, stateToSetOps, stateToUnsetOps, shouldSeed, bootHintState }
+  return { ENTRY_ID, hasUserLayer, stateFromHost, statesEqual, isDefaultState, stateToSetOps, stateToUnsetOps, shouldSeed, bootHintState }
 })()
 
 // ---------------------------------------------------------------- src/locale.js
@@ -2691,7 +2707,7 @@ const COLOR_MODE_SWATCH_KEYS = ['red', 'orange', 'yellow', 'aqua', 'green']
 
 /** Used when the page is mounted without a store (should not happen in DSH). */
 const EMPTY_SNAPSHOT = {
-  state: { light: 'hard', dark: 'soft', colorMode: false },
+  state: { light: 'hard', dark: 'soft', colorMode: true },
   theme: { preference: 'system', active: { colorScheme: 'dark' } },
 }
 
@@ -2766,8 +2782,9 @@ function createSettingsComponent(dependencies) {
   /**
    * Read a legal state out of a store snapshot.
    *
-   * The color-mode flag is only ever `true` for the literal boolean `true`, so a
-   * hostile or stale snapshot can never switch the experimental mode on.
+   * The color mode is on by default: only the literal boolean `false` turns it
+   * off, so a missing flag in a hostile or stale snapshot falls back to the
+   * default (on) exactly like the cache and Host normalizers do.
    * @param {object | undefined} snapshot
    */
   function stateFromSnapshot(snapshot) {
@@ -2779,7 +2796,7 @@ function createSettingsComponent(dependencies) {
     return {
       light: strengths.includes(raw.light) ? raw.light : fallback.light,
       dark: strengths.includes(raw.dark) ? raw.dark : fallback.dark,
-      colorMode: raw.colorMode === true,
+      colorMode: raw.colorMode !== false,
     }
   }
 
@@ -3108,7 +3125,7 @@ const __mod_8_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_4_state_js
+  const { DEFAULT_COLOR_MODE, readState, readStoredState, STORAGE_KEY, writeState } = __mod_4_state_js
   const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_5_durable_js
   const { EN, NS, ZH } = __mod_6_locale_js
   const { SETTINGS_STYLES, createSettingsComponent } = __mod_7_settings_page_js
@@ -3588,7 +3605,7 @@ function apply(ctx) {
   }
 
   function reset() {
-    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: false }
+    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
     const changed = next.light !== state.light || next.dark !== state.dark || next.colorMode !== state.colorMode
     state = next
     writeState(state)
