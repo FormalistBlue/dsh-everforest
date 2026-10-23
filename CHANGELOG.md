@@ -6,9 +6,13 @@
 ## [0.4.0] - 2026-10-23
 
 次版本：新增**实验性「色彩模式」**（默认关闭）。开启后把 Everforest 调色板里此前未上场的强调色用到聊天
-Markdown 内容（h1–h3 标题、列表 marker、引用条 / 分隔线、表格表头色带与隔行斑马纹、任务列表 checkbox）
-和工作区会话记录的状态行（「待确认」行淡橙底 + 橙色状态点，「已完成未查看」行淡绿底 + 绿色状态点）。
-默认配色与 0.3.0 逐字节一致：色彩模式只注入一段作用域 CSS，**不改变 token 层**，开关关闭时所有选择器都不匹配。
+Markdown 内容与工作区会话记录的状态行。初版（用户目检选定「中彩」档并确认范围）覆盖 h1–h3 标题、
+列表 marker、引用条 / 分隔线、表格表头色带与隔行斑马纹、任务列表 checkbox，以及会话记录「待确认」行
+淡橙底 + 橙色状态点、「已完成未查看」行淡绿底 + 绿色状态点；用户验收初版后，参考 Obsidian
+**Everforest Enchanted** 的 markdown 配色（同一上游：FireIsGood/obsidian-everforest-enchanted 的
+`theme.css`，MIT）扩展为完整富文本角色——h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接
+aqua、删除线与已完成任务淡化、引用块淡底、表格行 hover、复选框蓝。默认配色与 0.3.0 逐字节一致：
+色彩模式只注入一段作用域 CSS，**不改变 token 层**，开关关闭时所有选择器都不匹配。
 
 ### Added
 
@@ -16,20 +20,32 @@ Markdown 内容（h1–h3 标题、列表 marker、引用条 / 分隔线、表�
   当前 scheme 的 5 个强调色装饰片、实验性说明）；开关与两个强度一起写入当前 profile 的 Host 配置
   （`Config` 新增 `colorMode` 布尔字段，默认 `false`、标记 `.volatile()`），同一 profile 的所有浏览器共享。
   中英文案（`colorMode.title/desc/on/off/switch/experimental`）随 DSH 语言切换。
-- **色彩引擎 `src/color-mode.js`**：`colorModeRoles()` 对 6 个配色变体实算「中彩」角色色值——标题
-  `h1/h2/h3 = red/orange/yellow`、marker / 引用条 / hr / checkbox 用 `aqua`、表格色带与斑马纹用
-  `fg.green` 混入 `bg0`（14% / 6%）、「待确认」行底与状态点用 `orange`、「已完成」行底与状态点用
-  `green`；所有文本承载表面按 `label-primary ≥ 4.5:1` 反推权重，标题 / 装饰按 3:1、状态点对
-  `bg0` 与侧栏两个表面都按 3:1 守卫。`colorModeStyles()` 生成静态样式表：6 个自定义属性块
-  （浅色 `body:not([data-ds-dark-theme])`、深色 `body[data-ds-dark-theme]`，强度由
-  `html[data-everforest-light|dark]` 选择）+ 15 条元素规则，全部以
-  `html[data-everforest-color-mode="on"]` 开头。
+- **色彩引擎 `src/color-mode.js`**：`colorModeRoles()` 对 6 个配色变体实算 **24 个「中彩」角色色值**，
+  全部由 `tokensFor()` 的表面值与 `resolvePalette()` 的强调色派生并做对比度守卫：
+  - 标题 `h1–h6 = red / orange / yellow / green / blue / purple`（Enchanted 的逐级标题语义；h1–h4
+    大号 / 加粗按 3:1，h5–h6 与强调文字同档）；
+  - `strong` + `em` = `purple`（标题内 `color: inherit` 保留标题色）；行内 code 文字 = `blue`
+    （落在 DSH 的蓝底芯片上，按芯片底色守卫）；内部文件链接 = `header-aqua`（外链仍用官方 link token）；
+    `del` 与已完成任务 = `label-tertiary`（刻意弱化，不设门槛）；
+  - 引用块 = aqua 左边框 + aqua 8% 淡底（另加右内边距 / 圆角）；表格表头绿色带 14%、斑马纹 6%、
+    行 hover 10%；checkbox accent = blue；
+  - 会话行「待确认」`orange` / 「已完成」`green` 混入侧栏底（12%，hover 18%）+ 状态点，
+    状态点对 `bg0` 与侧栏两个表面都按 3:1 守卫；
+  - 强调文字（h5/h6、strong/em、内部链接、行内 code）对可能落到的每个 markdown 表面（画布 / 表头带 /
+    斑马纹 / 行 hover / 引用块淡底）≥ 3:1；`colorModeStyles()` 生成静态样式表：6 个自定义属性块
+    （浅色 `body:not([data-ds-dark-theme])`、深色 `body[data-ds-dark-theme]`，强度由
+    `html[data-everforest-light|dark]` 选择）+ 28 条元素规则（26 条变量驱动 + 2 条字面规则），
+    共 34 条规则，全部以 `html[data-everforest-color-mode="on"]` 开头。
 - **作用域**：只命中聊天 Markdown（`[class*="markdown"]`，排除 compact 推理变体）与会话树行
   （`[role="treeitem"][data-row-key^="session:"]:has([data-state=…])`，选中行不覆盖、hover 单独加深）；
-  特殊格式（加粗 / 斜体 / 链接 / 行内 code 文字 / 引用文字 / 代码块）保持单色，「运行中」不上色。
-- **对比度硬门槛 G9–G15**：标题 / 装饰 ≥3.0、彩色表面上的正文 ≥4.5、状态点对两个表面 ≥3.0、
-  角色色值合法性；`docs/reference/contrast.md` 新增「色彩模式（中彩）」章节。
-- 测试：`tests/color-mode.test.mjs`（角色快照 + 4 组对比度 + CSS 结构 / 作用域 / 颜色合法性）。
+  fenced code 块与外部链接保持既有 token 颜色，「运行中」不上色。
+- **对比度硬门槛 G9–G16**：大号标题（h1–h4）/ 装饰 ≥3.0、彩色表面上的正文 ≥4.5、状态点对两个表面
+  ≥3.0、角色色值合法性，以及**新增 G16**：强调文字（h5/h6、emphasis、内部链接、行内 code）对其可能
+  落到的每个 markdown 表面 ≥3.0。3:1 而非 4.5:1 是刻意的——浅色档 Everforest 强调色按 4.5 守卫会
+  混成墨色（颜色消失），Enchanted 同类文本约 2.6:1；正文 `label-primary` 仍保持 4.5:1。
+  `docs/reference/contrast.md` 新增「色彩模式（中彩）」章节（§2f，24 角色表 + G9–G16 明细）。
+- 测试：`tests/color-mode.test.mjs` 由 12 项增至 **17 项**（24 角色快照、G16 多表面守卫、字面规则、
+  规则总数、CSS 作用域 / 颜色合法性）；全量套件在提交前由门禁复核。
 
 ### Changed
 
@@ -39,17 +55,21 @@ Markdown 内容（h1–h3 标题、列表 marker、引用条 / 分隔线、表�
   （`light` / `dark` / `colorMode`），「恢复默认」unset 三个字段；host 表单就绪前的选择继续排队补写；
   跨浏览器广播 / storage 事件比较也包含该 flag。`hostState()` 与首帧 boot payload **保持只含两个强度**
   （色彩模式只影响 Client 挂载后的内容层，不影响首帧 token）。
-- 设置页「恢复默认」与说明文案、README、CHANGELOG 同步；`package.json` `version` 0.4.0、
-  `files` 增 `src/color-mode.js`。
-- 测试从 144 项增至 **163 项**（新增色彩模式、三字段状态 / 持久化 / 设置页用例）。
+- 设置页「恢复默认」与说明文案、README 中英、`docs/design.md`（§1 / §9 / §10 与 §13 重写为 24 角色）、
+  `docs/assessment.md`（§6、§14 指针与新增 §15 富文本扩展决策）、`docs/reference/palette.md`
+  （§5 语义映射 / 偏差、§6 派生色）同步；`package.json` `version` 0.4.0、`files` 增 `src/color-mode.js`。
 
 ### Notes
 
-- **实验性边界**：色彩模式依赖 DSH 0.2.1-rc.2 的 Markdown 容器类名（`[class*="markdown"]`）与会话行
-  `data-row-key` / `data-state` / `role=treeitem` 等语义锚点；DSH 升级若改名，模式可能静默失效（token 层
-  不受影响）。官方主题扩展点只支持 token 覆盖，选择器注入属本项目的实验性例外，升级 DSH 后需回归。
+- **实验性边界**：色彩模式依赖 DSH 0.2.1-rc.2 的 Markdown 容器类名（`[class*="markdown"]`）与 `fileLink` /
+  行内 code / 任务列表等结构，以及会话行 `data-row-key` / `data-state` / `role=treeitem` 等语义锚点；
+  DSH 升级若改名，模式可能静默失效（token 层不受影响）。官方主题扩展点只支持 token 覆盖，选择器注入
+  属本项目的实验性例外，升级 DSH 后需回归。
+- **浅色档的「淡彩」取舍**：light 三档的彩色文字 / 装饰实测贴着 3:1 门槛；light·soft 的表格三档绿染会
+  收敛为同一色，会话行底退化为侧栏底色（行底不可见，只有状态点还有颜色）。这是保留色相与可读性之间
+  的已知取舍，真机目检时按此预期。
 - **真实界面目检需要重启 DSH**（Host `Config` schema 变化），刷新页面只更新 Client 半部；未重启时色彩模式
-  开关仍可用，但只写入 localStorage（旧宿主降级）。
+  开关仍可用，但只写入 localStorage（旧宿主降级）。0.4.0 尚未发布。
 
 ## [0.3.0] - 2026-10-22
 

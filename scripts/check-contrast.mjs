@@ -33,15 +33,24 @@
  *      for all six variants (2026-10-21 visual report: the dark·soft stripe was a
  *      light green band under near-white ink, and the gutter numbers sat at 2.1:1).
  *
- * Color mode ("中彩", src/color-mode.js) adds gates 9-15 for the six variants:
- *   9. colour-mode headings h1/h2/h3 on bg-base >= 3.0:1;
+ * Color mode ("中彩", src/color-mode.js) adds gates 9-16 for the six variants.
+ * Enchanted-style rich-text roles: headings h1-h6, emphasis (strong+em),
+ * inline-code text, internal file links, del/completed-task text, subtle
+ * blockquote and table-row fills.
+ *   9. colour-mode large headings h1-h4 on bg-base >= 3.0:1;
  *  10. colour-mode marker/quote/hr/check on bg-base >= 3.0:1;
  *  11. label-primary on the table-header band >= 4.5:1;
- *  12. label-primary on the table zebra stripe >= 4.5:1;
+ *  12. label-primary on the table zebra stripe, the hovered row and the
+ *      blockquote fill >= 4.5:1;
  *  13. label-primary on the session row warn/done fills (and their :hover
  *      variants) >= 4.5:1;
  *  14. colour-mode status dots on both bg-base and the sidebar fill >= 3.0:1;
- *  15. every colour-mode role value is a legal #RRGGBB colour.
+ *  15. every colour-mode role value is a legal #RRGGBB colour;
+ *  16. colour-mode accent text (h5/h6, emphasis, internal links, inline code)
+ *      on every markdown surface it can sit on >= 3.0:1. 3:1 and not 4.5:1 is
+ *      deliberate: light Everforest accents cannot reach 4.5:1 without becoming
+ *      the ink colour (Enchanted itself paints them near 2.6:1); primary body
+ *      text keeps 4.5:1 on all of those surfaces.
  *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
@@ -393,11 +402,13 @@ for (const variant of states) {
   }
 }
 
-/* ---- Gates 9-15: color mode ("中彩") role colours ------------------------- */
+/* ---- Gates 9-16: color mode ("中彩") role colours ------------------------- */
 const LEGAL_ROLE_COLOR = /^#[0-9a-f]{6}$/i
 /** Role keys of each gate, in report order. */
-const COLOR_MODE_HEADING_KEYS = ['h1', 'h2', 'h3']
+const COLOR_MODE_HEADING_KEYS = ['h1', 'h2', 'h3', 'h4']
+const COLOR_MODE_ACCENT_TEXT_KEYS = ['h5', 'h6', 'emphasis', 'linkInternal']
 const COLOR_MODE_DECORATION_KEYS = ['marker', 'quote', 'hr', 'check']
+const COLOR_MODE_SURFACE_KEYS = ['band', 'zebra', 'tableHover', 'quoteBg']
 const COLOR_MODE_ROW_KEYS = ['rowWarn', 'rowDone', 'rowWarnHover', 'rowDoneHover']
 const COLOR_MODE_DOT_KEYS = ['dotWarnBase', 'dotWarnSidebar', 'dotDoneBase', 'dotDoneSidebar']
 const COLOR_MODE_DOT_LABELS = {
@@ -411,12 +422,21 @@ const COLOR_MODE_ROLE_LABELS = [
   ['h1', 'h1'],
   ['h2', 'h2'],
   ['h3', 'h3'],
+  ['h4', 'h4'],
+  ['h5', 'h5'],
+  ['h6', 'h6'],
+  ['emphasis', 'emphasis（strong+em）'],
+  ['inlineCode', 'inline-code 文字'],
+  ['linkInternal', '内部文件链接'],
+  ['faint', 'faint（删除线/已完成任务）'],
   ['marker', 'marker'],
   ['quote', 'quote'],
   ['hr', 'hr'],
   ['check', 'check'],
   ['band', 'band'],
   ['zebra', 'zebra'],
+  ['tableHover', 'table-hover'],
+  ['quoteBg', 'quote-bg'],
   ['rowWarn', 'row-warn'],
   ['rowDone', 'row-done'],
   ['rowWarnHover', 'row-warn-hover'],
@@ -429,12 +449,20 @@ const COLOR_MODE_CHECKS = [
   ['h1 / bg-base', 'h1', COLOR_MODE_DECORATION_MIN],
   ['h2 / bg-base', 'h2', COLOR_MODE_DECORATION_MIN],
   ['h3 / bg-base', 'h3', COLOR_MODE_DECORATION_MIN],
+  ['h4 / bg-base', 'h4', COLOR_MODE_DECORATION_MIN],
+  ['h5 / markdown 表面（取最弱）', 'h5', COLOR_MODE_DECORATION_MIN],
+  ['h6 / markdown 表面（取最弱）', 'h6', COLOR_MODE_DECORATION_MIN],
+  ['emphasis / markdown 表面（取最弱）', 'emphasis', COLOR_MODE_DECORATION_MIN],
+  ['link-internal / markdown 表面（取最弱）', 'linkInternal', COLOR_MODE_DECORATION_MIN],
+  ['inline-code / inline-code 底色', 'inlineCode', COLOR_MODE_DECORATION_MIN],
   ['marker / bg-base', 'marker', COLOR_MODE_DECORATION_MIN],
   ['quote / bg-base', 'quote', COLOR_MODE_DECORATION_MIN],
   ['hr / bg-base', 'hr', COLOR_MODE_DECORATION_MIN],
   ['check / bg-base', 'check', COLOR_MODE_DECORATION_MIN],
   ['band / label-primary', 'band', COLOR_MODE_SURFACE_MIN],
   ['zebra / label-primary', 'zebra', COLOR_MODE_SURFACE_MIN],
+  ['table-hover / label-primary', 'tableHover', COLOR_MODE_SURFACE_MIN],
+  ['quote-bg / label-primary', 'quoteBg', COLOR_MODE_SURFACE_MIN],
   ['row-warn / label-primary', 'rowWarn', COLOR_MODE_SURFACE_MIN],
   ['row-done / label-primary', 'rowDone', COLOR_MODE_SURFACE_MIN],
   ['row-warn-hover / label-primary', 'rowWarnHover', COLOR_MODE_SURFACE_MIN],
@@ -445,17 +473,23 @@ const COLOR_MODE_CHECKS = [
   ['dot-done / sidebar-fill', 'dotDoneSidebar', COLOR_MODE_DOT_MIN]
 ]
 
+/** The weakest contrast of `color` against any of `backgrounds`. */
+const minContrastOn = (color, backgrounds) => Math.min(...backgrounds.map((bg) => contrastRatio(color, bg)))
+
 const roleOverlays = new Map(Object.entries(colorModeRoles()))
 const colorModeRows = []
 for (const variant of states) {
   const roles = roleOverlays.get(variant.variant)
   if (!roles) {
-    recordFailure(`g15:${variant.variant}`, `${variant.variant}: src/color-mode.js has no roles for this variant`)
+    recordFailure(`g16:${variant.variant}`, `${variant.variant}: src/color-mode.js has no roles for this variant`)
     continue
   }
   const bg = variant.get('--dsw-alias-bg-base')
   const sidebar = variant.get('--dsw-specific-sidebar-fill')
   const ink = variant.get('--dsw-alias-label-primary')
+  const inlineCodeSurface = variant.get('--dsw-alias-markdown-inline-code')
+  // Every surface a piece of markdown text can sit on (h5/h6, emphasis, links).
+  const textSurfaces = [bg, roles.band, roles.zebra, roles.tableHover, roles.quoteBg]
   const row = {
     variant: variant.variant,
     roles,
@@ -466,12 +500,20 @@ for (const variant of states) {
       h1: contrastRatio(roles.h1, bg),
       h2: contrastRatio(roles.h2, bg),
       h3: contrastRatio(roles.h3, bg),
+      h4: contrastRatio(roles.h4, bg),
+      h5: minContrastOn(roles.h5, textSurfaces),
+      h6: minContrastOn(roles.h6, textSurfaces),
+      emphasis: minContrastOn(roles.emphasis, textSurfaces),
+      linkInternal: minContrastOn(roles.linkInternal, textSurfaces),
+      inlineCode: contrastRatio(roles.inlineCode, inlineCodeSurface),
       marker: contrastRatio(roles.marker, bg),
       quote: contrastRatio(roles.quote, bg),
       hr: contrastRatio(roles.hr, bg),
       check: contrastRatio(roles.check, bg),
       band: contrastRatio(ink, roles.band),
       zebra: contrastRatio(ink, roles.zebra),
+      tableHover: contrastRatio(ink, roles.tableHover),
+      quoteBg: contrastRatio(ink, roles.quoteBg),
       rowWarn: contrastRatio(ink, roles.rowWarn),
       rowDone: contrastRatio(ink, roles.rowDone),
       rowWarnHover: contrastRatio(ink, roles.rowWarnHover),
@@ -492,11 +534,15 @@ for (const variant of states) {
   for (const key of COLOR_MODE_HEADING_KEYS) check('g9', key, COLOR_MODE_DECORATION_MIN, `${key} on bg-base`)
   for (const key of COLOR_MODE_DECORATION_KEYS) check('g10', key, COLOR_MODE_DECORATION_MIN, `${key} on bg-base`)
   check('g11', 'band', COLOR_MODE_SURFACE_MIN, 'label-primary on the table-header band')
-  check('g12', 'zebra', COLOR_MODE_SURFACE_MIN, 'label-primary on the zebra stripe')
+  for (const key of COLOR_MODE_SURFACE_KEYS.slice(1)) {
+    check('g12', key, COLOR_MODE_SURFACE_MIN, `label-primary on ${key}`)
+  }
   for (const key of COLOR_MODE_ROW_KEYS) {
     check('g13', key, COLOR_MODE_SURFACE_MIN, `label-primary on ${key}`)
   }
   for (const key of COLOR_MODE_DOT_KEYS) check('g14', key, COLOR_MODE_DOT_MIN, COLOR_MODE_DOT_LABELS[key])
+  for (const key of COLOR_MODE_ACCENT_TEXT_KEYS) check('g16', key, COLOR_MODE_DECORATION_MIN, `${key} on the markdown surfaces`)
+  check('g16', 'inlineCode', COLOR_MODE_DECORATION_MIN, 'inline-code text on the inline-code chip')
   for (const [role, value] of Object.entries(roles)) {
     if (!LEGAL_ROLE_COLOR.test(value)) {
       recordFailure(`g15:${variant.variant}:${role}`, `${variant.variant}: color mode role ${role} is not a #RRGGBB colour: ${value}`)
@@ -560,13 +606,14 @@ function renderMarkdown () {
     '6. 侧栏表面 `--dsw-specific-sidebar-fill` 与内容底 `--dsw-alias-bg-base` 的边界对比度 ≥ 1.02:1（6 档）：DSH 用前者画侧栏列 / Windows 标题栏 / 内容卡背后的 frame，用后者画内容卡（16px 左上圆角），同色时边界消失（见 §2c）；',
     '7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（light·soft 为 1.05:1 的可见性取舍，见 §2d），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；',
     '8. FileDiff 的 added / deleted 行底色（`--dsw-alias-file-diff-*-bg`）上的 `label-primary` 代码文本 ≥ 4.5:1（light·soft 为 4.1:1 的可见性取舍，见 §2e）；DSH 用这两个 token 画行底色、文字继承 `label-primary`（2026-10-21 走查：「浅绿色背景配白色文字」与「浅色绿色背景太不明显」，见 §6.3）；',
-    '9. 色彩模式（中彩）标题 h1 / h2 / h3 对 `bg-base` ≥ 3.0:1（6 档）；',
+    '9. 色彩模式（中彩）大号标题 h1 / h2 / h3 / h4 对 `bg-base` ≥ 3.0:1（6 档）；',
     '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；',
     '11. 色彩模式（中彩）表头色带上的 `label-primary` ≥ 4.5:1（6 档）；',
-    '12. 色彩模式（中彩）斑马纹上的 `label-primary` ≥ 4.5:1（6 档）；',
+    '12. 色彩模式（中彩）斑马纹 / 行 hover / 引用块淡底上的 `label-primary` ≥ 4.5:1（6 档）；',
     '13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档）；',
     '14. 色彩模式（中彩）状态点（待确认 / 已完成）对 `bg-base` 与 `sidebar-fill` 都 ≥ 3.0:1（6 档）；',
-    '15. 色彩模式（中彩）全部 15 个角色色值是合法 `#RRGGBB`（6 档）；',
+    '15. 色彩模式（中彩）全部 24 个角色色值是合法 `#RRGGBB`（6 档）；',
+    '16. 色彩模式（中彩）强调文字（h5 / h6 / emphasis / 内部链接 / 行内 code）对其可能落到的每个 markdown 表面 ≥ 3.0:1（6 档）：浅色档调色板强调色本身达不到 4.5:1（Enchanted 同类文本约 2.6:1），本实现抬到 3.0:1 并保留色相，正文 `label-primary` 仍保持 4.5:1；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -678,9 +725,9 @@ function renderMarkdown () {
   )
   push(
     '',
-    '## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G15）',
+    '## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G16）',
     '',
-    '`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色（h1–h3、列表 marker、引用条、分隔线、表头色带、斑马纹、会话行底色与状态点），只在用户打开色彩模式时生效。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` 和 `fg` 强调色算出：标题与装饰朝 ink 混合到对 `bg-base` 3:1；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头，关闭时零匹配（与基线零差异）。',
+    '`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，只在用户打开色彩模式时生效。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框蓝；列表 marker / 引用条 / 分隔线 aqua；会话行与状态点沿用 0.4.0。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头，关闭时零匹配（与基线零差异）。',
     '',
     '角色色值（自定义属性均为 `--everforest-color-<角色>`，6 档）：',
     '',
@@ -705,7 +752,7 @@ function renderMarkdown () {
   }
   push(
     '',
-    'G15：以上 6 档 × 15 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认关闭，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。',
+    'G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）与 Enchanted 的 markdown 角色映射，由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认关闭，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。',
   )
   push(
     '',

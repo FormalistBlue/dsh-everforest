@@ -1338,19 +1338,40 @@ const __mod_3_color_mode_js = (() => {
 //
 // Two things live here:
 //
-//   - `colorModeRoles()` — the "中彩" (medium-color) role colours for all six
+//   - `colorModeRoles()` — the "中彩" (medium-colour) role colours for all six
 //     palette variants. Nothing is hand-picked: `tokensFor()` supplies each
-//     variant's `--dsw-alias-bg-base`, `--dsw-specific-sidebar-fill` and
-//     `--dsw-alias-label-primary`, `resolvePalette()` supplies the accent hues,
-//     and every value is then contrast-guarded with the pure helpers from
-//     `src/color.js`:
-//       headings h1–h3          guard(red / orange / yellow, bg-base, 3:1)
-//       marker / quote / hr / check  guard(aqua, bg-base, 3:1)
-//       band / zebra            green tinted into bg-base (14% / 6%)
-//       row warn / done (+hover)  orange / green tinted into sidebar (12% / 18%)
-//       dot warn / done         guarded to 3:1 on both bg-base and sidebar
-//     The tint weights are the maximum the `label-primary` text on that surface
-//     can afford (4.5:1), so light strengths settle lower than dark ones.
+//     variant's surfaces (`bg-base`, `sidebar-fill`, `label-primary`,
+//     `label-tertiary`, the inline-code chip and the code-block surface),
+//     `resolvePalette()` supplies the accent hues, and every value is then
+//     contrast-guarded with the pure helpers from `src/color.js`.
+//
+//     The mapping follows Everforest Enchanted's markdown palette
+//     (obsidian-everforest-enchanted `theme.css`, headings red→purple, emphasis
+//     purple, inline code blue, internal links aqua, faint strikethrough,
+//     tinted blockquotes/tables), adapted to the roles DSH's markdown renderer
+//     actually exposes:
+//       headings h1–h6          red / orange / yellow / green / blue / purple
+//       strong + em             purple (guarded as normal-size text)
+//       inline code text        blue, on the blue inline-code chip
+//       internal file links     aqua (external links keep the link token)
+//       del + done task items   label-tertiary (intentionally faint)
+//       marker / quote / hr     aqua
+//       checkbox accent         blue
+//       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%)
+//       blockquote fill         aqua tint into bg-base (8%)
+//       session row warn / done (+hover)  orange / green into sidebar (12% / 18%)
+//       status dots warn / done orange / green, guarded on bg-base AND sidebar
+//
+//     Thresholds: large/bold headings h1–h4 and the decorations/checkbox accent
+//     are non-body text -> 3:1; accent text (h5/h6, emphasis, inline code,
+//     internal links) is also held at 3:1 against every surface it can sit on
+//     (canvas, table band/zebra/hover, blockquote fill; the inline-code chip is
+//     a surface of its own). 3:1 and not 4.5:1 is deliberate: light Everforest
+//     accents cannot reach 4.5:1 without collapsing into the ink colour (at 4.5
+//     the light·soft purple/blue/aqua all became `#5C6A72`, i.e. no colour left),
+//     and Enchanted paints them near 2.6:1. Primary body text keeps 4.5:1 on
+//     every tinted surface; the tint weights are the maximum that text can
+//     afford, so light strengths settle lower than dark ones.
 //   - `colorModeStyles()` — the complete static stylesheet for those roles: six
 //     custom-property blocks (light scheme = `body:not([data-ds-dark-theme])`,
 //     dark scheme = `body[data-ds-dark-theme]`, the attribute DSH's ui-theme boot
@@ -1383,12 +1404,21 @@ const COLOR_MODE_ATTRS = Object.freeze({
  * @property {string} h1 - markdown-level-1 heading colour (red hue).
  * @property {string} h2 - markdown-level-2 heading colour (orange hue).
  * @property {string} h3 - markdown-level-3 heading colour (yellow hue).
- * @property {string} marker - list bullet marker and checkbox accent (aqua).
- * @property {string} quote - blockquote left border.
- * @property {string} hr - horizontal-rule fill.
- * @property {string} check - task-list checkbox accent colour.
+ * @property {string} h4 - markdown-level-4 heading colour (green hue).
+ * @property {string} h5 - markdown-level-5 heading colour (blue hue).
+ * @property {string} h6 - markdown-level-6 heading colour (purple hue).
+ * @property {string} emphasis - strong / em text colour (purple).
+ * @property {string} inlineCode - inline-code text colour (blue).
+ * @property {string} linkInternal - internal file-link colour (aqua).
+ * @property {string} faint - del and completed-task text (label-tertiary).
+ * @property {string} marker - list bullet marker (aqua).
+ * @property {string} quote - blockquote left border (aqua).
+ * @property {string} hr - horizontal-rule fill (aqua).
+ * @property {string} check - task-list checkbox accent (blue).
  * @property {string} band - table-header background band (green tint).
  * @property {string} zebra - even table-row stripe (lighter green tint).
+ * @property {string} tableHover - hovered table row (green tint).
+ * @property {string} quoteBg - blockquote fill (aqua tint).
  * @property {string} rowWarn - session row waiting for the user (orange tint).
  * @property {string} rowDone - finished, not yet opened session row (green tint).
  * @property {string} rowWarnHover - `rowWarn` on hover (stronger tint).
@@ -1397,8 +1427,22 @@ const COLOR_MODE_ATTRS = Object.freeze({
  * @property {string} dotDone - finished session status dot (green).
  */
 
-/** Minimum contrast for a coloured heading / decoration against `bg-base`. */
+/** Minimum contrast for a large / bold coloured heading or a decoration. */
 const DECORATION_CONTRAST = 3
+
+/**
+ * Minimum contrast for normal-size coloured markdown text (bold, italic,
+ * inline code, internal links, h5/h6).
+ *
+ * 3:1, not 4.5:1, on purpose: the light Everforest accents cannot reach 4.5:1
+ * on the cream canvas without collapsing into the ink colour (guarded at 4.5
+ * the light·soft purple/blue/aqua all became `#5C6A72`, i.e. no colour left).
+ * Enchanted itself paints these at ~2.6:1 in light; this mode keeps the hue at
+ * a strictly better 3:1 while every piece of *primary* body text still holds
+ * 4.5:1 (the tinted surfaces are clamped for `label-primary`). Dark variants
+ * already pass 4.5:1 unmodified, so the guard only bites in light.
+ */
+const ACCENT_TEXT_CONTRAST = 3
 
 /** Minimum contrast for `label-primary` text on a tinted color-mode surface. */
 const SURFACE_CONTRAST = 4.5
@@ -1406,47 +1450,36 @@ const SURFACE_CONTRAST = 4.5
 /** Minimum contrast for a status dot on both `bg-base` and the sidebar. */
 const DOT_CONTRAST = 3
 
+/* Tint weights (maximum that the text on the surface can afford). */
+const BAND_TINT = 0.14
+const ZEBRA_TINT = 0.06
+const TABLE_HOVER_TINT = 0.1
+const QUOTE_TINT = 0.08
+const ROW_TINT = 0.12
+const ROW_HOVER_TINT = 0.18
+
 /* ------------------------------------------------------------------ *
  * Contrast guards (the same math as the "中彩" preview)
  * ------------------------------------------------------------------ */
 
 /**
- * Blend `color` toward `ink` until it reaches `target` contrast on `bg`.
- * Returns the colour unchanged when it already passes.
+ * Blend `color` toward `ink` until it reaches `target` contrast on **every**
+ * background in `backgrounds`. Returns the colour unchanged when it already
+ * passes. One background is the common case; multi-background calls guard text
+ * that can sit on the canvas, a table fill or a blockquote fill.
  * @param {string} color - starting colour.
- * @param {string} bg - background the colour is painted on.
- * @param {number} target - minimum contrast ratio.
- * @param {string} ink - scheme ink the colour is blended toward.
- * @returns {string}
- */
-function guardTo (color, bg, target, ink) {
-  if (contrastRatio(color, bg) >= target) return color
-  for (let step = 1; step <= 100; step += 1) {
-    const value = mix(color, ink, step / 100)
-    if (contrastRatio(value, bg) >= target) return value
-  }
-  return mix(color, ink, 1)
-}
-
-/**
- * Blend `color` toward `ink` until it passes `target` on **both** backgrounds.
- * Used for the session status dots, which sit on the content canvas in the chat
- * list and on the sidebar surface in the session tree.
- * @param {string} color - starting colour.
- * @param {string} bgA - first background.
- * @param {string} bgB - second background.
+ * @param {string[]} backgrounds - surfaces the colour is painted on.
  * @param {number} target - minimum contrast ratio on each background.
  * @param {string} ink - scheme ink the colour is blended toward.
  * @returns {string}
  */
-function minGuard (color, bgA, bgB, target, ink) {
-  let weight = 0
-  let value = color
-  while (weight < 1 && (contrastRatio(value, bgA) < target || contrastRatio(value, bgB) < target)) {
-    weight = Math.round((weight + 0.01) * 100) / 100
-    value = mix(color, ink, weight)
+function guardTo (color, backgrounds, target, ink) {
+  if (backgrounds.every((bg) => contrastRatio(color, bg) >= target)) return color
+  for (let step = 1; step <= 100; step += 1) {
+    const value = mix(color, ink, step / 100)
+    if (backgrounds.every((bg) => contrastRatio(value, bg) >= target)) return value
   }
-  return value
+  return mix(color, ink, 1)
 }
 
 /**
@@ -1493,23 +1526,48 @@ function buildColorModeRoles () {
     const bg = pick('--dsw-alias-bg-base')
     const sidebar = pick('--dsw-specific-sidebar-fill')
     const labelPrimary = pick('--dsw-alias-label-primary')
-    const marker = guardTo(fg.aqua, bg, DECORATION_CONTRAST, ink)
+    const labelTertiary = pick('--dsw-alias-label-tertiary')
+    const inlineCodeSurface = pick('--dsw-alias-markdown-inline-code')
+
+    // Surfaces first: the text colours are guarded against all of them.
+    const band = safeTint(bg, fg.green, BAND_TINT, labelPrimary)
+    const zebra = safeTint(bg, fg.green, ZEBRA_TINT, labelPrimary)
+    const tableHover = safeTint(bg, fg.green, TABLE_HOVER_TINT, labelPrimary)
+    const quoteBg = safeTint(bg, fg.aqua, QUOTE_TINT, labelPrimary)
+    /** Canvas + every surface a piece of markdown text can sit on. */
+    const textSurfaces = [bg, band, zebra, tableHover, quoteBg]
+
+    const marker = guardTo(fg.aqua, [bg], DECORATION_CONTRAST, ink)
     roles[variant] = Object.freeze({
-      h1: guardTo(fg.red, bg, DECORATION_CONTRAST, ink),
-      h2: guardTo(fg.orange, bg, DECORATION_CONTRAST, ink),
-      h3: guardTo(fg.yellow, bg, DECORATION_CONTRAST, ink),
+      // Headings: Enchanted's red → orange → yellow → green → blue → purple.
+      h1: guardTo(fg.red, [bg], DECORATION_CONTRAST, ink),
+      h2: guardTo(fg.orange, [bg], DECORATION_CONTRAST, ink),
+      h3: guardTo(fg.yellow, [bg], DECORATION_CONTRAST, ink),
+      h4: guardTo(fg.green, [bg], DECORATION_CONTRAST, ink),
+      h5: guardTo(fg.blue, textSurfaces, ACCENT_TEXT_CONTRAST, ink),
+      h6: guardTo(fg.purple, textSurfaces, ACCENT_TEXT_CONTRAST, ink),
+      // Inline text styles.
+      emphasis: guardTo(fg.purple, textSurfaces, ACCENT_TEXT_CONTRAST, ink),
+      inlineCode: guardTo(fg.blue, [inlineCodeSurface], ACCENT_TEXT_CONTRAST, ink),
+      linkInternal: guardTo(fg.headerAqua, textSurfaces, ACCENT_TEXT_CONTRAST, ink),
+      faint: labelTertiary,
+      // Decorations.
       marker,
       quote: marker,
       hr: marker,
-      check: marker,
-      band: safeTint(bg, fg.green, 0.14, labelPrimary),
-      zebra: safeTint(bg, fg.green, 0.06, labelPrimary),
-      rowWarn: safeTint(sidebar, fg.orange, 0.12, labelPrimary),
-      rowDone: safeTint(sidebar, fg.green, 0.12, labelPrimary),
-      rowWarnHover: safeTint(sidebar, fg.orange, 0.18, labelPrimary),
-      rowDoneHover: safeTint(sidebar, fg.green, 0.18, labelPrimary),
-      dotWarn: minGuard(fg.orange, bg, sidebar, DOT_CONTRAST, ink),
-      dotDone: minGuard(fg.green, bg, sidebar, DOT_CONTRAST, ink)
+      check: guardTo(fg.blue, textSurfaces, DECORATION_CONTRAST, ink),
+      // Tinted fills.
+      band,
+      zebra,
+      tableHover,
+      quoteBg,
+      rowWarn: safeTint(sidebar, fg.orange, ROW_TINT, labelPrimary),
+      rowDone: safeTint(sidebar, fg.green, ROW_TINT, labelPrimary),
+      rowWarnHover: safeTint(sidebar, fg.orange, ROW_HOVER_TINT, labelPrimary),
+      rowDoneHover: safeTint(sidebar, fg.green, ROW_HOVER_TINT, labelPrimary),
+      // Status dots sit on both the canvas and the sidebar.
+      dotWarn: guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink),
+      dotDone: guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
     })
   }
   return Object.freeze(roles)
@@ -1576,23 +1634,50 @@ function sessionRowHover (state) {
   return `${COLOR_MODE_ON} [role="treeitem"][data-row-key^="session:"]:has([data-state="${state}"]):hover:not([aria-selected="true"])`
 }
 
-/** [selector, CSS property, role key] for every element rule. */
+/**
+ * [selector, CSS property, role key] for every variable-driven element rule.
+ * Order matters where two rules can hit the same element: the table-row hover
+ * rule must follow the zebra rule, and the blockquote fill must follow nothing.
+ */
 const ELEMENT_RULES = [
   [`${MARKDOWN_SCOPE} h1`, 'color', 'h1'],
   [`${MARKDOWN_SCOPE} h2`, 'color', 'h2'],
   [`${MARKDOWN_SCOPE} h3`, 'color', 'h3'],
+  [`${MARKDOWN_SCOPE} h4`, 'color', 'h4'],
+  [`${MARKDOWN_SCOPE} h5`, 'color', 'h5'],
+  [`${MARKDOWN_SCOPE} h6`, 'color', 'h6'],
+  [`${MARKDOWN_SCOPE} strong`, 'color', 'emphasis'],
+  [`${MARKDOWN_SCOPE} em`, 'color', 'emphasis'],
+  [`${MARKDOWN_SCOPE} del`, 'color', 'faint'],
+  [`${MARKDOWN_SCOPE} :not(pre) > code`, 'color', 'inlineCode'],
+  [`${MARKDOWN_SCOPE} [class*="fileLink"]`, 'color', 'linkInternal'],
   [`${MARKDOWN_SCOPE} li::marker`, 'color', 'marker'],
   [`${MARKDOWN_SCOPE} blockquote`, 'border-left-color', 'quote'],
+  [`${MARKDOWN_SCOPE} blockquote`, 'background-color', 'quoteBg'],
   [`${MARKDOWN_SCOPE} hr`, 'background-color', 'hr'],
   [`${MARKDOWN_SCOPE} thead th`, 'background-color', 'band'],
   [`${MARKDOWN_SCOPE} tbody tr:nth-child(even) > td`, 'background-color', 'zebra'],
+  [`${MARKDOWN_SCOPE} tbody tr:hover > td`, 'background-color', 'tableHover'],
   [`${MARKDOWN_SCOPE} input[type="checkbox"]`, 'accent-color', 'check'],
+  [`${MARKDOWN_SCOPE} li.task-list-item:has(input[type="checkbox"]:checked)`, 'color', 'faint'],
   [`${COLOR_MODE_ON} [data-state="warning"]`, 'color', 'dotWarn'],
   [`${COLOR_MODE_ON} [data-state="done"]`, 'color', 'dotDone'],
   [sessionRow('warning'), 'background-color', 'rowWarn'],
   [sessionRow('done'), 'background-color', 'rowDone'],
   [sessionRowHover('warning'), 'background-color', 'rowWarnHover'],
   [sessionRowHover('done'), 'background-color', 'rowDoneHover']
+]
+
+/**
+ * Rules that are not a single colour variable: they either re-assert the
+ * heading colour inside emphasis, or reshape the blockquote fill so the tinted
+ * box does not press against the right edge. They follow the colour rules so
+ * the `inherit` wins over `strong` / `em`.
+ * @type {Array<[string, Array<[string, string]>]>}
+ */
+const LITERAL_RULES = [
+  [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
+  [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]]
 ]
 
 /**
@@ -1615,6 +1700,10 @@ function buildColorModeStyles (roles) {
   }
   for (const [selector, property, role] of ELEMENT_RULES) {
     rules.push(`${selector} {\n  ${property}: var(${cssVariable(role)});\n}`)
+  }
+  for (const [selector, declarations] of LITERAL_RULES) {
+    const body = declarations.map(([property, value]) => `  ${property}: ${value};`).join('\n')
+    rules.push(`${selector} {\n${body}\n}`)
   }
   return `${rules.join('\n\n')}\n`
 }

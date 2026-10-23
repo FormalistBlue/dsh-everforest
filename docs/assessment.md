@@ -4,6 +4,7 @@
 > 2026-10-19 更新：首帧 Host boot 注入已实现于 0.2.0（见 §3 / §5 / §9 / §12）；shiki / diff 口径修正。
 > 2026-10-21 更新：0.2.1 的 P1 打磨落地（loading spinner boot token、跨窗口同步、设置页失败重试、无障碍、构建守卫），见 §5 / §11 与 [design.md](design.md) §12。
 > 2026-10-22 更新：**0.3.0 Host 侧持久化落地**（`configForms`）：强度真源迁到当前 profile 的 `cordis.patch.yml`，同一 profile 所有浏览器共享；localStorage 降为「首帧缓存 + 旧宿主兜底」，0.2.1 旧值一次性播种，首帧改 B 方案。见 §3 / §5 / §7 / §8 / §9 与新增 §13。
+> 2026-10-23 更新：**0.4.0 实验性色彩模式（中彩）落地**（默认关闭、token 层零差异）；用户验收初版（h1–h3 + 表格 + 会话行）后要求补齐 h1–h6 与参考 Enchanted 的富文本角色，扩展轮同日完成。见 §14 / §15 与 [design.md](design.md) §13。
 
 ## 1. 结论
 
@@ -107,7 +108,7 @@
 | 文档预览 | `--dsw-alias-bg-document-preview` / `label-document-preview`（alias 引用，自动） | ✅ 自动 |
 | 代码块语法高亮 | 9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`（共 11 个，全部显式）；作用于聊天气泡 / 工具输出 / 右侧文件预览三处 `CodeBlock` | ✅ |
 | 首帧 / loading 页 | Host 半部经 `webserver/index-inject` 追加 body script，在 Client 加载前把 boot 调色板写成 body 内联 token（scheme 读 ui-theme 已解析值；强度按 B 方案：本浏览器缓存优先 → Host 值兜底 → 默认，结果发布到 `window.__EVERFOREST_BOOT__`）；Web 首帧即 Everforest，Desktop 最多 1 帧原生色；loading spinner / 边框已由 boot token 覆盖（2026-10-21） | ✅ 0.2.0 覆盖（spinner/边框 0.2.1 补齐；强度 B 方案 0.3.0） |
-| 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 不覆盖（列入非目标） |
+| 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 默认层不覆盖（非目标）；0.4.0 起由实验性色彩模式（默认关闭、作用域 CSS）为 h1–h6 分级着色，见 §14 / §15 |
 | 终端 | 底色 / 字色 / 光标跟随 token；ANSI 16 色为 xterm 内置默认盘（DSH 只传 bg/fg/cursor，且 `minimumContrastRatio: 4.5` 会自行校正）；OSC 4/10/11 不受主题控制 | ⚠️ 部分 |
 | brand mark / 文件类型图标 / 图片 | 固定 artwork（含终端空态 SVG 字面色） | ⚠️ 不覆盖 |
 | macOS 侧栏 / 标题栏渐变 | `ui-layout` 内联硬编码（仅 darwin） | ⚠️ Windows 无影响 |
@@ -257,6 +258,8 @@
 
 ## 14. 2026-10-23 0.4.0：色彩模式（中彩，实验性）决策记录
 
+> 注：本节记录**初版**（h1–h3 + 表格 + 会话行）的决策。初版验收后用户要求把标题扩展到 h1–h6 并参考 Enchanted 补齐富文本角色，下文「h4–h6 不做」「特殊格式保持单色」的口径已由 §15 的扩展轮取代，本节保留为历史记录。
+
 **背景（用户诉求）**
 
 用户提出「加一个色彩模式，现在 Everforest 配色还有很多颜色没有用起来；选上色彩模式后，聊天里的 h1、列表、表格、特殊文本格式，以及工作区对话记录里待确认 / 已完成还没查看的，都可以用上这些颜色」，要求先评估、后实现。
@@ -284,10 +287,10 @@
 
 **实现与验证**
 
-- 新增 `src/color-mode.js`（6 变体 × 15 角色，全部由 `tokensFor()` + `resolvePalette()` 实算并做 3:1 / 4.5:1 守卫；静态样式表 = 6 个自定义属性块 + 15 条元素规则，全部以 `html[data-everforest-color-mode="on"]` 开头）；客户端在 `applyLayer` 同步 `<html>` 属性、独立 `ctx.effect` 注入样式（不依赖设置页 / slots / locale）。
+- 新增 `src/color-mode.js`（6 变体 × 15 角色，全部由 `tokensFor()` + `resolvePalette()` 实算并做 3:1 / 4.5:1 守卫；静态样式表 = 6 个自定义属性块 + 15 条元素规则，全部以 `html[data-everforest-color-mode="on"]` 开头）；客户端在 `applyLayer` 同步 `<html>` 属性、独立 `ctx.effect` 注入样式（不依赖设置页 / slots / locale）。**扩展轮后为 24 角色 / 34 条规则，见 §15。**
 - 状态与持久化：state 变为 `{ light, dark, colorMode }`，`STATE_VERSION` 保持 1（0.3.x 缓存兼容）；Host `Config` 增加第三个 volatile 布尔字段，写入 / 恢复默认 / 迁移播种都是一次原子操作含三个字段；boot payload 与 `hostState()` 保持只含两个强度（色彩模式只影响 Client 挂载后的内容层）。
 - 会话行用 `:has([data-state=…])` 命中，跳过选中行、hover 单独加深；状态点直接按 `[data-state]` 覆盖颜色。
-- 质量门：`scripts/check-contrast.mjs` 新增 **G9–G15**（标题 / 装饰 ≥3.0、彩色表面正文 ≥4.5、状态点对内容底与侧栏底都 ≥3.0、颜色合法性）；`node --test` **163/163 通过**、`npm run check` 全绿；60 个中彩角色值与方案 0 样张快照逐字节一致。
+- 质量门：`scripts/check-contrast.mjs` 新增 **G9–G15**（标题 / 装饰 ≥3.0、彩色表面正文 ≥4.5、状态点对内容底与侧栏底都 ≥3.0、颜色合法性）；`node --test` **163/163 通过**、`npm run check` 全绿；60 个中彩角色值与方案 0 样张快照逐字节一致。**扩展轮新增 G16 并扩到 24 角色 / 144 个色值，见 §15。**
 - 证据与留档：DSH UI 审计（可着色面 / 选择器稳定性 / 注入机制）与调色板对比度矩阵在临时目录 `%TEMP%\dsh-color-eval`（不入库）；样张与截图在仓库 `.tmp/color-mode-preview/`（gitignore 的临时目录，不入库）。
 
 **风险与边界（与 design.md §13.7 一致）**
@@ -301,3 +304,52 @@
 **残余（人工项）**
 
 真实 DSH 需**重启**后目检（Host `Config` 变化）：6 套配色下开启色彩模式的聊天 h1–h3 / 表格 / 会话行；关闭后与 0.3.0 无差异；换浏览器 / 重启后开关保持；回滚路径。当前自动化测试与样张不能替代真机目检。
+
+## 15. 2026-10-23 富文本扩展（Enchanted 参考）
+
+**背景（用户反馈）**
+
+初版色彩模式（h1–h3 + 表格 + 会话行，见 §14）实现后经用户目检，反馈「还行」，随即提出两点：①标题要 h1–h6 全做；②参考 Obsidian **Everforest Enchanted** 的 markdown 配色，把加粗 / 斜体 / 行内 code / 内部链接 / 删除线 / 引用块 / 复选框 / 表格 hover 等富文本角色补齐。初版「特殊格式保持单色、h4–h6 不做」是当时为控制风险与视觉噪音的保守取舍，不是技术上不可行——扩展轮沿用同一条作用域 CSS 路径，把角色从 15 个扩到 **24 个**。
+
+**参考来源与映射**
+
+参考 [FireIsGood/obsidian-everforest-enchanted](https://github.com/FireIsGood/obsidian-everforest-enchanted) 的 `theme.css` @ `bdd7ac7`（MIT，与本项目默认配色的同一上游）。其 markdown 配色语义为：h1–h6 依次 red → orange → yellow → green → blue → purple；strong + em = `fg-purple`；行内 code = `fg-blue`；内部链接 = `header-aqua`；删除线 = `text-faint`；引用块 / 表格给淡底；复选框 = `fg-blue`；已完成任务淡化。落到 DSH 实际存在的元素（全部经对比度守卫）：
+
+| 角色 | 取值来源 | 说明 |
+|---|---|---|
+| h1–h6 | `fg.red / orange / yellow / green / blue / purple` | h1–h4 是大号 / 加粗文本按 3:1；h5–h6 与强调文字同档 |
+| strong + em | `fg.purple` | 两者同色（与 Enchanted 一致）；标题内 `color: inherit` 保留标题色 |
+| 行内 code 文字 | `fg.blue` | Enchanted 是 fg-blue 前景；DSH 的 inline-code chip 底色是另一个 token，故只对 chip 守卫 |
+| 内部文件链接 | `fg.header-aqua` | 外链仍走官方 `--dsw-alias-link`（header-blue） |
+| 删除线 / 已完成任务 | `label-tertiary` | 刻意弱化，不参与门槛（对应 Enchanted 的 `text-faint`） |
+| 引用块 | aqua 左边框 + aqua 8% 淡底 | 淡底 + 右侧 12px padding / 圆角，给底色留白 |
+| 表格 | 表头绿色带 14% / 斑马纹 6% / 行 hover 10% | 权重按 `label-primary ≥ 4.5:1` 反推 |
+| 复选框 | `fg.blue` accent | 初版为 aqua |
+| marker / quote / hr | `fg.aqua` | 沿用初版 |
+
+**阈值取舍（本轮核心决策）**
+
+三种候选，最终取中间：
+
+1. **4.5:1（正文级）——否决**：浅色档 Everforest 强调色本身达不到。实算 light·soft：`fg.purple` 对画布只有 2.55:1，按 4.5 守卫后紫 / 蓝 / aqua 全部混成 `#5C6A72`（墨色）——即「有对比度、没颜色」。深色档本来就直接通过 4.5，守卫只在浅色档生效，因此 4.5 等于把浅色档的扩展角色全部关掉。
+2. **完全照抄 Enchanted 的 ~2.6:1——否决**：Enchanted 在浅色下同类文本只有约 2.6:1（整体风格更淡）；照抄会让本插件的彩色文字明显偏淡，与「中彩」档位不符，也浪费深色档的对比度余量。
+3. **3:1（采用，G16）**：对强调文字可能落到的每个 markdown 表面（画布、表头色带、斑马纹、行 hover、引用块淡底）取最弱值守卫；深色档自然通过，浅色档保留色相且严格优于 Enchanted。正文 `label-primary` 仍 4.5:1 不降级；装饰 / 状态点维持 3:1。代价与边界：light 三档实测 3.00–3.03，几乎无余量；light·soft 的表格三档绿染收敛为同一色、会话行底退化为侧栏底色（权重降到 0，行底不可见）。
+
+**被否决的其它方案**
+
+- 只做标题、不做富文本（初版口径）：用户明确要求参考 Enchanted，且同一作用域 CSS 的增量成本低。
+- h5–h6 按正文 4.5:1、h1–h4 按 3:1：浅色档 h5/h6 会失去颜色，同一规则族出现两套阈值，解释成本高于收益。
+- 为彩色文字修改调色板原值或新增 token：破坏默认层零差异与「强调色不随强度变化」的数据模型。
+- 用 `!important` 压过 DSH 原有规则：不必要（作用域选择器优先级足够），且会让关闭 / 卸载更难清理。
+
+**验证证据**
+
+- `tests/color-mode.test.mjs` 12 → **17 项**通过；`node scripts/check-contrast.mjs --check` 全绿（G9–G16）；`docs/reference/contrast.md` §2f 重新生成（24 角色表 + 逐项实测值）。
+- 6 变体 × 24 角色 = **144 个色值**逐字节钉住；全部 **34 条 CSS 规则**以 `html[data-everforest-color-mode="on"]` 开头、无 `!important`、关闭时零匹配。
+- token 层与 boot payload 未改；状态 / 持久化 / 设置页未改——扩展只动 `src/color-mode.js`、`tests/color-mode.test.mjs` 与 `scripts/check-contrast.mjs`（及生成物）。
+- 样张目检（2026-10-23）：用真实 `colorModeStyles()` + `tokensFor()` 渲染 6 变体（`.tmp/color-mode-preview/rich.mjs` / `shots-rich/`）。dark 三档与 light·hard / light·medium 的 h1–h6、加粗 / 斜体、行内 code、内部链接、删除线、引用块、表格、复选框、已完成任务淡化、会话行均清晰可辨；light·soft 仅表格三档同色与会话行底不可见（已记录边界），标题 / 强调文字仍保留色相。
+- 全量 `node --test`（168 项）与 `npm run check` 由最终门禁复核。
+
+**残余（人工项）**
+
+真实 DSH 需**重启**后目检 h1–h6 / 富文本角色 / 6 套配色，重点确认 light·soft 的「淡彩」与「会话行底不可见」是否符合预期；关闭后与 0.3.0 无差异。当前自动化与样张不能替代真机目检；0.4.0 尚未发布。
