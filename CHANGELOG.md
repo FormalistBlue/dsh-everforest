@@ -81,7 +81,9 @@ aqua、删除线与已完成任务淡化、引用块淡底、表格行 hover、�
   的已知取舍，真机目检时按此预期。
 - **真实界面目检需要重启 DSH**（Host `Config` schema 变化），刷新页面只更新 Client 半部；未重启时色彩模式
   开关仍可用，但只写入 localStorage（旧宿主降级）。**默认开启后仍可完全关闭**：关闭时渲染与 0.3.0 逐字节一致
-  （选择器零匹配、token 层未改）。0.4.0 尚未发布。
+  （选择器零匹配、token 层未改）。**2026-10-23 已发布**：tag `v0.4.0`（commit `af4ec47`）→ publish run
+  `39910070876` → npm `latest`（`dist.shasum` `96fbeac4516ad0baf63ac43141c8da239a1d1bcf`，带 SLSA provenance），
+  GitHub Release 已自动创建；详见 `docs/releasing.md`。
 
 ## [0.3.0] - 2026-10-22
 
