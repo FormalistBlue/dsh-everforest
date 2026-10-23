@@ -22,7 +22,7 @@
 
 <p align="center">Six variants — Dark / Light × Hard / Medium / Soft — default to <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>'s pairing (Dark Soft / Light Hard).</p>
 
-<p align="center">0.4.0 adds an experimental <strong>color mode</strong> that is on by default and can be switched off that puts Everforest's so-far unused saturated accents on chat Markdown rich text (h1–h6 colour-graded headings, bold / italic, inline code, internal links, strikethrough, blockquotes, tables, …) and on session-record status rows.</p>
+<p align="center">0.4.0 adds an experimental, off-by-default <strong>color mode</strong> that puts Everforest's so-far unused saturated accents on chat Markdown rich text (h1–h6 colour-graded headings, bold / italic, inline code, internal links, strikethrough, blockquotes, tables, …) and on session-record status rows.</p>
 
 ## Previews
 
@@ -47,7 +47,7 @@ Open **Add plugin → Install a third-party plugin** in the DSH plugin page and 
 - Strengths are saved in the **Host configuration** of the current profile (the `everforest` row in `cordis.patch.yml`) and shared by every browser and window on that profile; this browser's localStorage is only a first-frame cache and an old-host fallback.
 - Picking a card in the other scheme's group also switches DSH Appearance (written to the global appearance preference); choose **Follow system** to restore automatic switching.
 - Every browser and window on the same profile (including tabs on the same address) syncs strength changes live.
-- **Color mode (experimental, on by default)**: when enabled, chat rich text uses Everforest accents — h1–h6 colour-graded headings, purple bold / italic, blue inline code, aqua internal file links, faded strikethrough and completed tasks, tinted blockquotes, list markers / blockquote bars / rules, table header bands / zebra rows / row hover, and blue checkboxes; the "waiting for you / finished-unopened" session rows and status dots are tinted too ("running" rows stay uncoloured). With it off the rendering is identical to 0.3.0. The switch lives in the same Host configuration as the strengths and is shared by every browser on the profile.
+- **Color mode (experimental, off by default)**: when enabled, chat rich text uses Everforest accents — h1–h6 colour-graded headings, purple bold / italic, blue inline code, aqua internal file links, faded strikethrough and completed tasks, tinted blockquotes, list markers / blockquote bars / rules, table header bands / zebra rows / row hover, and blue checkboxes; the "waiting for you / finished-unopened" session rows and status dots are tinted too ("running" rows stay uncoloured). With it off the rendering is identical to 0.3.0. The switch lives in the same Host configuration as the strengths and is shared by every browser on the profile.
 - **Restore defaults** resets the strengths and color mode only; it never rewrites DSH's global appearance preference.
 - UI copy follows DSH's language (zh / en).
 
