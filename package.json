@@ -58,6 +58,7 @@
   "scripts": {
     "generate": "node scripts/palette.mjs",
     "build": "node scripts/build.mjs",
+    "build:dev": "node scripts/build.mjs --dev",
     "test": "node --test",
     "check": "node scripts/palette.mjs --check && node scripts/build.mjs --check && node scripts/check-contrast.mjs --check",
     "prepack": "node scripts/build.mjs -C"

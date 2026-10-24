@@ -8,9 +8,11 @@
 #     Workflow filename: publish.yml   (basename only)
 #     Environment: (blank)
 #
-# Release: bump package.json version, commit, tag vX.Y.Z, push main + tags.
-# The tag must equal package.json version. Stable versions publish to `latest`;
-# prerelease versions (x.y.z-*) publish to `next`.
+# Release: bump package.json version, commit, add the matching CHANGELOG.md
+# section, tag vX.Y.Z, push main + tags. The tag must equal package.json
+# version. Stable versions publish to `latest`; prerelease versions (x.y.z-*)
+# publish to `next`. The GitHub Release body is the CHANGELOG section, because
+# that body is what dsh-market shows as "更新内容" (see docs/releasing.md §5).
 name: publish
 
 on:
@@ -80,6 +82,15 @@ jobs:
           node --version
           npm --version
 
+      # The release body is what dsh-market shows as "更新内容", and it comes
+      # from CHANGELOG.md rather than `--generate-notes` (which emits only a
+      # "Full Changelog" link when no PRs are involved, leaving the market with
+      # nothing to show). Running this before `npm publish` turns "forgot the
+      # changelog section" into a failed release instead of a silent empty one.
+      # The file is consumed by the Create GitHub Release step below.
+      - name: Prepare release notes from CHANGELOG.md
+        run: node scripts/release-notes.mjs --version "${{ steps.version.outputs.version }}" --check --out "$RUNNER_TEMP/release-notes.md"
+
       # The package has no runtime dependencies: DSH provides
       # `@deepseek-ai/schemastery` to the Host half at run time. It is a
       # devDependency only because the test suite imports it directly, so install
@@ -113,7 +124,11 @@ jobs:
 
       # Tag pushes also get a GitHub Release, so the npm page and the repository
       # both carry release notes instead of only a bare tag (0.1.0–0.2.0 had no
-      # Releases at all). Idempotent: a manual dispatch after a tag push skips.
+      # Releases at all). The body is the CHANGELOG.md section prepared above,
+      # not `--generate-notes`: dsh-market reads this body for its "更新内容"
+      # dialog, and generated notes were a bare compare link. Idempotent: a
+      # manual dispatch after a tag push skips (backfill an old release with
+      # `gh release edit <tag> --notes-file <file>`, docs/releasing.md §5).
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -121,6 +136,7 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
           TAG="v${VERSION}"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "release ${TAG} already exists; nothing to create"
             exit 0
@@ -132,6 +148,6 @@ jobs:
           gh release create "$TAG" \
             --title "dsh-everforest ${TAG}" \
             --verify-tag \
-            --generate-notes \
+            --notes-file "$NOTES_FILE" \
             $PRERELEASE
 

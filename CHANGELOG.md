@@ -5,12 +5,138 @@
 
 ## [Unreleased]
 
+### Added
+
+- **工作区「当前会话」行显示效果（2026-10-24 用户反馈「选中的 tab 激活显示效果不明显，深色 / 浅色都不明显，
+  同时要和已完成 / 待回答的颜色区分开」）**：DSH 把选中会话行与 hover 合画成同一条规则
+  （`.wnFoaW_sessionRow:hover,.wnFoaW_selected{background:var(--dsw-alias-interactive-bg-hover)}`，0.2.1-rc.3 安装包核对），
+  该 token 是 `bg5` 的 16% alpha、对侧栏只有约 2.6 L*，所以打开中的会话几乎找不到，也和 hover 无法区分。
+  新增 `src/active-session.js`（纯 ESM）+ `src/client-entry.js` 的常驻样式表：只用稳定锚点
+  `[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`，把选中行画成 palette1 的 `bg_blue`
+  （与色彩模式给「待确认 / 已完成」行的 `bg_yellow` / `bg_green` 属不同色相、且复用 DSH business primary 的蓝色语义），
+  再按「先保文本 4.5:1、再尽量可见」两步守卫：向 `bg0` 微调到正文达标，若离侧栏仍不足 4.5 L* 则向 `fg.blue`
+  混合到 4.5 L* 或文本门槛先到为止。实测 light-hard `#DCECE9`(4.58:1) / light-medium `#DDEAE6`(4.52) /
+  light-soft `#E6E8DB`(4.50，画布已贴 4.5 门槛、只保留色相) / dark-hard `#384B55`(5.39) /
+  dark-medium `#3A515D`(4.94) / dark-soft `#3F5764`(4.51)。样式**常驻**、与色彩模式无关（导航可见性，
+  不是内容着色；与 `selection.js` 同级；色彩模式自 2026-10-24 起也没有设置开关）。门禁：`tests/active-session.test.mjs`（8 项）、
+  `scripts/check-contrast.mjs` 新增 G17 + 报告 §2g、`tests/integration.test.mjs` 注入/卸载断言；
+  `docs/design.md` §15 记录方案与边界。
+
+- **原生文本选区（`::selection`，2026-10-24）**：DSH 声明了 `--dsw-alias-bg-document-selection`，但
+  176 张样式表里没有任何 `::selection` 规则消费它，文字选中长期是浏览器原生蓝底白字。新增
+  `src/selection.js`（纯 ESM）+ `src/client-entry.js` 注入一条常驻 `<style data-plugin-css="dsh-everforest/selection">`：
+  六档各一条规则，底色取当前变体的 `bg_visual`（light 三档统一 `#DED8DB`；dark hard/medium/soft
+  `#4C3743` / `#543A48` / `#5C3F4F`），文字 `color: inherit` 保留元素自身颜色——代码语法色、链接色、
+  色彩模式标题色在选中时都不会被统一成同一种墨色（与 Enchanted 的行为一致；第一版写死 `color: fg`，
+  用户反馈「选中的文字颜色全部变成一样的」后改掉）。与色彩模式解耦（色彩模式自 2026-10-24 起已无开关，选区始终生效）；
+  `--dsw-alias-bg-document-selection` 的 40% 透明语义未改。新增 `tests/selection.test.mjs`（4 项），
+  `scripts/build.mjs` 的 `SOURCES` 与 `tests/integration.test.mjs` 的样式表计数同步；
+  `docs/design.md` §16.2 记录方案与实测。
+
+- **开发期调试面板（dev-only 构建，2026-10-24）**：`npm run build:dev` 打出的 `client.js` 额外把一块
+  浮动 Everforest 面板挂到主界面（`shell.overlay`），可直接切换外观（跟随 / 深色 / 浅色）与
+  深/浅各 3 档强度，免去反复打开设置页；面板可拖动、可折叠成圆钮，位置与折叠状态存 `localStorage`。
+  面板与设置页共用同一个 store（`select` / `reset` / `setPreference`），写 Host 配置、
+  首帧缓存、跨窗口广播和 DSH Appearance 的行为完全一致。面板**只存在于开发构建**：`src/dev-panel.js`
+  与 `src/client-entry.js` 的 `// @dev-only:` 段由 `scripts/build.mjs` 在生产构建中剥离，`--check` /
+  CI / `prepack` 拒绝停留在开发产物的 `client.js`；`npm run build` 恢复发布构建。DSH Client HMR
+  轮询 bundle 产物，重新构建后无需刷新页面即热替换。新增 `tests/dev-panel.test.mjs`（16 项）与
+  `tests/integration.test.mjs` 的 dev-bundle 用例，`docs/design.md` §14 记录方案与真机验收。
+
+- **主题切换过渡（原型，2026-10-24 用户要求「先做一个出来看看效果」；同日第二轮改为聚光灯式切换，第三轮修掉浅→深结束闪白，第四轮去掉同色系软硬切换渐变）**：
+  深/浅色切换改为 **View Transitions 圆形揭示（聚光灯）**：新主题快照在上层，从点击位置以
+  `clip-path: circle()` 扩张揭示，旧主题快照留在底层（实现同 rspress 的外观切换，
+  web-infra-dev/rspress#1270）。揭示方向统一为「新主题从点击点扩张」：镜像做法（旧主题在上层向点击点
+  收缩）在 View Transition 拆除快照时，clip 动画结束与快照移除之间会整帧丢掉 clip，把旧快照无裁剪地
+  画一帧；浅→深时旧快照正是浅色页，于是结束瞬间闪白（真机 screencast 实测 5 次复现 4 次）。只裁新快照
+  在结构上不会闪错色：即使丢帧，露出的也是目标主题。选圆形揭示是因为颜色插值式过渡在深浅互换中途
+  文字与画布等亮度（实测 50% 处 1.01:1，整页发灰），而圆形揭示只有移动边缘混合像素，正文全程可读。
+  实现：`src/theme-spotlight.js`（伪元素样式表 + 控制器 + 指针原点跟踪 +
+  `resolveSchemePreference`）与 `src/client-entry.js` 的接线；DSH 自带 Appearance 行通过在 ThemeRuntime
+  实例上包装 `setTheme` 覆盖（插件卸载时还原），插件自己的色卡 / 外观控件在过渡回调内包住 change；
+  OS 系统深浅色翻转与跨窗口广播无法在变更前拦截，保持瞬切（无发灰）。同深浅色内的强度切换（软/中/硬）
+  为**瞬切**：180ms 颜色渐变已按要求移除，`src/theme-transition.js` 及其样式表、
+  prepended `theme/change` 监听器、结束后的同值 token 重放和首屏动画守卫一并删除（全插件只剩 scheme
+  切换有动画，注入的 `<style>` 从 4 个减为 3 个）。`prefers-reduced-motion: reduce` / 不支持 View
+  Transitions 时一律瞬切。已知取舍：揭示时长 400ms、原点取最后一次 `pointerdown`；设置弹窗也参与快照，
+  弹窗内的选中描边会在揭示结束后随 React 重渲染更新；Windows 原生标题栏 / 终端由页面快照覆盖，但原生
+  窗口框架仍在揭示开始时切色。新增 `tests/theme-spotlight.test.mjs` 与 `tests/integration.test.mjs` 的
+  聚光灯生命周期 / 瞬切用例（210 项全通过）；本次按用户要求先交付可目检原型，`docs/design.md`
+  与 `docs/assessment.md` 的正式记录待验收后补。
+
 ### Changed
+
+- **色彩模式改为默认提供、移除设置页开关（2026-10-24 用户要求「把设置中的色彩模式这个选项去掉，作为默认提供的功能」）**：
+  设置页不再有色彩模式区块（标题 / 说明 / `role="switch"` 开关 / 5 个强调色装饰片全部删除），
+  中英 locale 键由 23 减到 18（删 `colorMode.title/desc/on/off/switch`，中英同步）。状态与持久化回到两个强度：
+  客户端 state 为 `{ light, dark }`；localStorage payload 为 `{ version: 1, light, dark }`
+  （`STATE_VERSION` 仍为 1，0.3.x 缓存同形沿用）；Host `Config`（`src/host-config.js`）只剩
+  `light` / `dark` 两个 volatile 字段；迁移（seed）/ `isDefaultState` /「恢复默认」只涉及两个强度。
+  **兼容性**：0.4.x 带 `colorMode` 的旧缓存仍合法（读取时忽略、不触发修复重写，下次写入自然丢弃）；
+  旧 profile patch 里残留的 `colorMode` 键被 schemastery 忽略（未知键不报错、值不生效），插件不读也不主动
+  unset，**无需手改 patch**。`<html>` 上仍写 `data-everforest-color-mode="on"`（现在恒为 `on`，作为作用域
+  CSS 锚点，不再是开关状态）+ `data-everforest-light` / `data-everforest-dark`；token 层、24 个角色色值与
+  34 条作用域规则零改动。dev-only 调试面板去掉色彩模式开关行与页脚「色彩模式 开/关」。版本号保持 0.4.0、
+  不发布。`scripts/check-contrast.mjs` 报告文案同步（「默认提供、无开关」）并重新生成
+  `docs/reference/contrast.md`；`docs/design.md` 新增 §13.9、`docs/assessment.md` 新增 §18 记录。
+
+- **「待确认 / 待审批」会话行底色由红改黄（2026-10-24 用户反馈「红色就像是报错了一样，改成黄色试试看」）**：
+  `src/color-mode.js` 的 `ROW_RAMP.warn` 由 `bgRed` 改为 palette1 的 `bgYellow`（done 行继续用 `bgGreen`），
+  状态点仍是橙色 `fg.orange`（「等你处理」的语义色相不变）。浅色档的 `bg_yellow` 与暖奶油画布几乎同明度
+  （约 1 L*），因此新增可见性下限 `ROW_WARN_SEPARATION = 3.5`：向 `fg.yellow` 以 1% 步长加深，到 3.5 L*
+  或正文 4.5:1 门槛先到为止（`liftWarnFill()`，只作用于 warning 行）。实测 base/hover：light-hard
+  `#FBEAC0`(4.69) / `#F9E6B5`(4.53)、light-medium `#F8E6BB`(4.53) / `#F8E6B9`(4.52)、light-soft
+  `#F2E6C9`(4.51) / `#F2E6C7`(4.50，画布已贴门槛、只保留色相)。
+  **同日第二轮（用户「深色档再亮/更黄一点」）**：palette 的深色 `bg_yellow` 是低饱和橄榄色、在浅色文字下
+  亮度已到 4.5:1 上限，因此深色档反相——行底改为 `mix(fg.yellow, bgDim, 0.22)` 的亮琥珀，行内文字改用
+  `--dsw-alias-label-primary-inverted`（= `bgDim`），三条 `body[data-ds-dark-theme]` 作用域规则让标题 /
+  尾标（`[class*="_time"]`）/ 状态点一起换墨，浅色档保持淡黄底 + 深墨不变；深色档实测 base/hover：
+  dark-hard `#B19A6B`(5.82) / `#B89F6E`(6.21)、dark-medium `#B39C6D`(5.47) / `#B9A170`(5.82)、
+  dark-soft `#B49D6F`(5.04) / `#BAA272`(5.36)（括号内为深墨对比度）。hover 时展开的行尾操作按钮
+  （「…」/ 归档 / 置顶）也一并改用深墨，避免在琥珀底上消失（用户反馈「hover 上去 icon 看不见」）。门禁：`tests/color-mode.test.mjs`
+  快照 / 来源 / 方向 / 字面规则 / 「深色 warn 必须反相」更新，G13 按 scheme 选文字色继续守 4.5:1，
+  `docs/reference/contrast.md` §2f 重新生成；`docs/design.md` §13.8.1 记录两轮取值与边界。
+
+- **UI 强调色改用官方 accent（2026-10-24，用户目检确认）**：品牌 / 主按钮 / 链接 / 深潜标签 / 危险
+  hover 等 15 个 token 从 Enchanted 的 `header-aqua` / `header-blue` 改为官方 `fg.aqua` / `fg.blue` /
+  `fg.red`（`brand-primary`、`brand-primary-new-color`、`button-primary-fill/-hover/-dimmed`、
+  `button-info-fill/-hover`、`link`、`label-primary-bluish`、`label-deep-diving(+shimmer)`、
+  `interactive-bg-hover-accent/-danger`、`onboarding-accent`、`sidebar-nav-item-active-accent`），
+  设置页色卡第 5 段同步改为 `fg.aqua`；`header-*` 只保留给 onboarding 渐变、shiki link 与浅色气泡染色。
+  品牌前景对比度 dark 5.31 / light 2.91（原 3.48 / 3.13，仍高于 2.5 的品牌门槛）；`tests/tokens.test.mjs` /
+  `tests/integration.test.mjs` / `tests/settings-page.test.mjs` 与 `docs/reference/contrast.md` 同步，
+  `npm run check` 全绿；`docs/design.md` §16.1 记录。
+
+- **适配 DSH 0.2.1-rc.3 复核（2026-10-24，无破坏性变更、无源码改动）**：本机 DSH Desktop 已自动更新到
+  `0.2.1-rc.3`（安装包 `@deepseek-ai/dsh` 与 `dsh-desktop` 均为 rc.3）。对照安装包与
+  `dsh-v0.2.1-rc.2...dsh-v0.2.1-rc.3` 源码 diff 逐项复核：ui-theme 仍是同 8 张样式表 / 206 个颜色 token
+  （77 static + 107 alias + 11 specific + 11 shiki），安装包 `ui-theme/lib/client.js` 的提取结果与 0.4.0
+  记录的 SHA-256 `882ea20f…` 一致（`token-inventory.json` 无需重新生成）；boot 页 spinner 环 / 进度弧仍取
+  `--dsw-alias-border-l2` / `--dsw-alias-brand-primary`（构建 CSS 与 rc.2 逐字节相同）；色彩模式依赖的
+  `[class*="markdown"]` / `[class*="fileLink"]` / `data-row-key^="session:"` / `data-state` 锚点在 rc.3
+  构建中保持；settings / `configForms`（含 `writable: true`）、`engines.dsh` 预发布匹配
+  （`includePrerelease: true`）与 `webserver/index-inject` 首帧 row API 均无变化。rc.3 新增的「更多」菜单
+  （`ui-entry-customization`）与侧栏 / 右侧栏面板 pin 只使用既有 menu / interactive / label token，已在覆盖层内。
+  **无代码改动**：`engines.dsh` 维持 `>=0.2.1-rc.2 <0.3.0-0`（rc.3 满足该区间，不抬高下限以免隐藏仍用 rc.2
+  的用户）；仅把 README / design / assessment / releasing / token-inventory / contrast 的版本口径与复核记录改为
+  rc.3。已知非阻塞上游小瑕疵：rc.3 右侧栏「更多工具」图标硬编码 `stroke="#A6B2C7"`，浅色档对比 1.76–2.04:1，
+  属 DSH 自身字面量、不走 token，插件不做 DOM 特例。现有 `node --test` 全量通过，未改测试。
+
+- **会话状态行改用 palette 原色（2026-10-24 用户反馈「深色模式下的绿色和红色都感觉有点不好看，
+  去 palette.md 找点颜色试试」）**：「工作区」侧栏里「待确认 / 已完成未查看」会话行保持整行实色底
+  （用户明确不要渐变、不要左侧 border），行底改为直接取 Everforest 官方 palette1 的 `bg_red` /
+  `bg_green`，不再由强调色推导：dark `#493B40`/`#3C4841`（hard）、`#514045`/`#425047`（medium）、
+  `#59464C`/`#48574E`（soft），light `#FFE7DE`/`#F3F5D9`（hard）、`#FDE3DA`/`#F0F1D2`（medium）、
+  `#F6E4D2`/`#EBE8CB`（soft）；soft 档只在 `label-primary` 不足 4.5:1 时沿 `bg0` 方向微调（新增
+  `readableRowFill()` 守卫）。hover 向对应 `fg` 强调色混 16% 后重新守卫（dark·soft 的 done 行因底色已贴
+  门槛而几乎不变，已记录为边界）。角色仍 24 个、规则仍 34 条；OKLab 派生方案及其 `toOklab` / `fromOklab`
+  辅助函数已移除。测试 `tests/color-mode.test.mjs` 19 项（行底 palette 来源 / 红绿方向 / hover 守卫）；
+  `docs/reference/contrast.md` 已重新生成，G13 全绿。样张与方案见 `docs/design.md` §13.8。
 
 - **设置页边框宽度统一（2026-10-24 用户截图反馈「everforest 里面的 border 宽度没有统一」）**：
   选中强度卡的描边实际是 2px（1px `border` + 1px inset `box-shadow`），而外观三卡、未选中卡片、
-  色卡条、开关、恢复按钮都是 1px。现在 `.everforest-page` 只声明一个 `--everforest-border-width: .5px`
-  （DSH 自带 `.5px solid` 卡片 / 输入框口径，DPR 1 下渲染为 1px 实色），页面内 8 处 `border` 全部引用它；
+  色卡条、恢复按钮都是 1px（当时的色彩模式开关行同日随后移除，见 Removed）。现在 `.everforest-page` 只声明一个 `--everforest-border-width: .5px`
+  （DSH 自带 `.5px solid` 卡片 / 输入框口径，DPR 1 下渲染为 1px 实色），页面内的 `border` 全部引用它；
   选中态只改 `border-color`、删除 inset box-shadow。`tests/settings-page.test.mjs` 新增「所有 solid 边框
   引用同一变量 / 只声明一次宽度 / 禁止 box-shadow」三项断言，`docs/design.md` 新增 §6.2 记录。
 
@@ -32,6 +158,29 @@
   真机目检偏深（用户二次反馈），故保留 30% 提亮。浅色档保持 `bg_blue`（淡薄荷）。色值仍由
   `src/tokens.js` 的 `inlineCodeSurface` 派生，`label-primary` 4.5:1 与色彩模式 `inlineCode` 3:1
   两道门槛重算后均通过；`docs/reference/contrast.md` 与 `docs/design.md`（§4 映射表 / 视觉修正记录）同步。
+
+### Removed
+
+- **设置页「色彩模式」区块与开关**（2026-10-24）：标题、功能说明、`role="switch"` 开关、当前 scheme 的
+  5 个强调色装饰片，以及 `colorMode.title` / `desc` / `on` / `off` / `switch` 五个 locale 键（中英同步，
+  键集 23 → 18）。
+- **Host `Config` 的 `colorMode` 字段**：schema 只声明 `light` / `dark` 两个 volatile 字段；旧 patch 里
+  残留的键被 schemastery 忽略（兼容、不主动清理），插件也不再写入或 `unset` 它。
+- **dev-only 调试面板的色彩模式开关行与页脚「色彩模式 开/关」**：面板只剩外观与两个强度分组。
+- **对比度报告里的旧口径**：`scripts/check-contrast.mjs` 生成的「可在设置页关闭 / 不随色彩模式开关 /
+  关闭时零匹配」等表述随脚本改为「默认提供、无开关；`data-everforest-color-mode` 恒为 `on`，仅作
+  作用域锚点」，`docs/reference/contrast.md` 由脚本重新生成（禁止手改）。
+
+### Fixed
+
+- **调试面板折叠后跑到左上角且点不出来（2026-10-24 用户反馈「点了一下最小化，然后他就跑到最左上角去了，
+  然后就点不出来了」）**：面板的 `<style>` 原本写在展开态子树里，折叠时随展开树一起卸载，小圆钮退回成
+  无样式按钮、落进 `shell.overlay`（click-through 层）的普通文档流左上角，并继承 `pointer-events: none`
+  导致鼠标无法命中（UIA 的 Invoke 仍能触发，所以表现为「看不见又点不到」）。修复：样式表在展开/折叠
+  两种状态下都渲染；`position: fixed`、`left/top`、`z-index`、`pointer-events: auto` 改为内联兜底，
+  任何一次渲染丢样式都不会再逃逸或失去点击；折叠位置也统一走视口 clamp。`tests/dev-panel.test.mjs`
+  新增回归断言（折叠态必须仍有样式表 + 内联结构性样式）。真机用鼠标完整走通
+  展开 → 折叠（圆钮留在原位置、38×38 圆形）→ 再展开。
 
 ## [0.4.0] - 2026-10-23
 

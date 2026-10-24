@@ -11,11 +11,10 @@
  * Since 0.3.0 the row's fallback pair comes from the Host-backed `Config`
  * (`settings.describe()` projects its volatile fields into the form the Client
  * edits), while the browser's `localStorage` payload is the fresher cache and
- * therefore wins. Since 0.4.0 `Config` also carries the volatile
- * `colorMode` flag, but the boot row deliberately ignores it: the first paint
- * is token-only and the color-mode CSS belongs to the Client half. Both
- * directions and the published `window.__EVERFOREST_BOOT__` hint are covered
- * here.
+ * therefore wins. Since 2026-10-24 `Config` carries only the two strength
+ * fields: color mode is a shipped default with no switch, so the boot row and
+ * the published `window.__EVERFOREST_BOOT__` hint stay strength-only. Both
+ * directions are covered here.
  *
  * The script itself is executed in a `node:vm` sandbox with a minimal fake DOM,
  * the same realm trick tests/integration.test.mjs uses for `client.js`.
@@ -151,19 +150,18 @@ function emitRow (harness) {
 }
 
 /** Mutable volatile config references, like the Loader's in-place updates. */
-function createLiveConfig (initial = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: true }) {
+function createLiveConfig (initial = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }) {
   const values = { ...initial }
   return {
     config: {
       light: { get: () => values.light },
       dark: { get: () => values.dark },
-      colorMode: { get: () => values.colorMode },
     },
     values,
   }
 }
 
-test('Config declares two live-editable scheme fields and a live color-mode flag', () => {
+test('Config declares exactly the two live-editable strength fields', () => {
   assert.equal(ENTRY_ID, 'everforest')
   const json = Config.toJSON()
   assert.ok(json, 'Config.toJSON() must produce a serializable document')
@@ -172,24 +170,27 @@ test('Config declares two live-editable scheme fields and a live color-mode flag
   // Marking the leaves (not the whole object) is required: schemastery rejects
   // a volatile field inside a volatile object.
   const fields = Config.dict
-  assert.deepEqual(Object.keys(fields).sort(), ['colorMode', 'dark', 'light'])
+  assert.deepEqual(Object.keys(fields).sort(), ['dark', 'light'])
   assert.equal(fields.light.meta.volatile, true, 'light must be volatile (live-editable)')
   assert.equal(fields.dark.meta.volatile, true, 'dark must be volatile (live-editable)')
-  assert.equal(fields.colorMode.meta.volatile, true, 'colorMode must be volatile (live-editable)')
   assert.equal(fields.light.meta.default, DEFAULT_STATE.light)
   assert.equal(fields.dark.meta.default, DEFAULT_STATE.dark)
-  assert.equal(fields.colorMode.meta.default, true, 'color mode ships on (2026-10-23)')
 
   // The Loader validates hand-edited profile patches with this schema.
   const parsed = Config({})
   assert.equal(parsed.light.get(), DEFAULT_STATE.light)
   assert.equal(parsed.dark.get(), DEFAULT_STATE.dark)
-  assert.equal(parsed.colorMode.get(), true)
   assert.equal(Config({ light: 'soft' }).light.get(), 'soft')
-  assert.equal(Config({ colorMode: true }).colorMode.get(), true)
   assert.throws(() => Config({ light: 'nope' }), 'an invalid hand-edited strength must be rejected')
   assert.throws(() => Config({ light: 'hard', dark: 'nope' }))
-  assert.throws(() => Config({ colorMode: 'on' }), 'a hand-edited colorMode must be a boolean')
+
+  // Compatibility: a 0.4.x profile patch still carries `colorMode`. schemastery
+  // tolerates unknown keys, so the entry keeps activating and the stale value is
+  // simply ignored (no throw, no field in the projected form).
+  for (const legacy of [{ light: 'soft', colorMode: true }, { colorMode: false }, { colorMode: 'on' }]) {
+    assert.doesNotThrow(() => Config(legacy), `a legacy colorMode key must not reject the patch: ${JSON.stringify(legacy)}`)
+  }
+  assert.equal(Object.prototype.hasOwnProperty.call(Config.dict, 'colorMode'), false)
 })
 
 test('hostState() reads volatile references at call time and validates each side', () => {
@@ -200,11 +201,10 @@ test('hostState() reads volatile references at call time and validates each side
   live.values.dark = 'hard'
   assert.deepEqual(hostState(live.config), { light: 'soft', dark: 'hard' })
 
-  // The color-mode flag is deliberately not part of the boot pair: the first
-  // paint only writes token values, and the mode's CSS arrives with the Client.
-  live.values.colorMode = true
-  assert.deepEqual(hostState(live.config), { light: 'soft', dark: 'hard' })
+  // The boot pair is strength-only: no color-mode field exists in the Host
+  // config any more (2026-10-24), and a stray one is ignored.
   assert.equal(Object.prototype.hasOwnProperty.call(hostState(live.config), 'colorMode'), false)
+  assert.deepEqual(hostState({ ...live.config, colorMode: { get: () => false } }), { light: 'soft', dark: 'hard' })
 
   // Defensive: the boot row embeds strings, so anything outside the enum must
   // fall back instead of reaching the script.
@@ -354,16 +354,20 @@ test('boot values equal the Client token layer for all six variants', () => {
   }
 })
 
-test('the cached color-mode flag never changes the boot paint or the published hint', () => {
-  // The first paint is token-only; color mode is Client-injected CSS scoped to
-  // the chat/session DOM. A cache payload with the flag on must boot exactly
-  // like one with it off, and the hint stays a strength-only pair.
-  const off = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard', colorMode: false })
-  const on = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard', colorMode: true })
-  const offRun = runBootScript({ source: 'light', stored: off })
-  const onRun = runBootScript({ source: 'light', stored: on })
-  assert.deepEqual([...onRun.written.entries()], [...offRun.written.entries()])
-  assert.deepEqual({ ...onRun.window[BOOT_HINT] }, { version: STATE_VERSION, light: 'soft', dark: 'hard' })
+test('a legacy cache payload with the retired colorMode flag boots identically', () => {
+  // Color mode is a shipped default since 2026-10-24: the retired flag of a
+  // 0.4.x cache is ignored by the state normalizer, so a payload carrying it
+  // (either value) boots exactly like one without it and the published hint
+  // stays a strength-only pair.
+  const legacyOff = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard', colorMode: false })
+  const legacyOn = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard', colorMode: true })
+  const plain = JSON.stringify({ version: STATE_VERSION, light: 'soft', dark: 'hard' })
+  const legacyOffRun = runBootScript({ source: 'light', stored: legacyOff })
+  const legacyOnRun = runBootScript({ source: 'light', stored: legacyOn })
+  const plainRun = runBootScript({ source: 'light', stored: plain })
+  assert.deepEqual([...legacyOnRun.written.entries()], [...plainRun.written.entries()])
+  assert.deepEqual([...legacyOffRun.written.entries()], [...plainRun.written.entries()])
+  assert.deepEqual({ ...legacyOnRun.window[BOOT_HINT] }, { version: STATE_VERSION, light: 'soft', dark: 'hard' })
 })
 
 test('no stored choice and no Host pair paints the default pairing (dark soft / light hard)', () => {
@@ -423,7 +427,7 @@ test('every boot token is also a Client-layer token and every value is a CSS val
 })
 
 test('the boot subset covers the loading spinner ring and progress arc', () => {
-  // Installed dsh-web-frontend 0.2.1-rc.2 paints the boot spinner as
+  // Installed dsh-web-frontend 0.2.1-rc.3 (same rule as rc.2) paints the boot spinner as
   //   ring: border: 2px solid var(--dsw-alias-border-l2, …)
   //   arc:  conic-gradient(var(--dsw-alias-brand-primary, …) …)
   // The fallbacks are literals, so these two alias tokens are what carry the

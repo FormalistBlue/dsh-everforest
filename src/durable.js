@@ -16,11 +16,10 @@
  *  - `revision` — a Host-side counter used to refuse stale writes;
  *  - `writable` — whether the active profile accepts form edits.
  *
- * Since 0.4.0 the Host state is `{ light, dark, colorMode }`: the experimental
- * color mode is a durable, cross-browser preference like the two strengths, and
- * every write carries all three fields in one atomic mutation. A 0.3.x Host
- * section has no `colorMode`; it resolves to the shipped default (on since
- * 2026-10-23), so an upgraded Client keeps working against an older patch.
+ * The Host state is `{ light, dark }`: the two palette strengths. Color mode
+ * ships as a default feature with no switch (2026-10-24), so it is not a
+ * durable preference (and a 0.4.x section that still carries the retired
+ * `colorMode` flag is read as the same two strengths — extra keys are ignored).
  *
  * Writes are atomic mutations: `form.mutate([...ops])`, ops being
  * `{ op: 'set', path: [field], value }` or `{ op: 'unset', path: [field] }`.
@@ -47,7 +46,10 @@ export const ENTRY_ID = 'everforest'
  * Whether a snapshot's `user` layer carries at least one Host-stored choice.
  *
  * The settings service reports "no override" as `{}` (never `undefined`), so
- * presence of the object says nothing; a non-empty key set does.
+ * presence of the object says nothing; a non-empty key set does. A 0.4.x patch
+ * that only ever stored the retired `colorMode` flag still counts as a user
+ * layer — its strengths are the shipped defaults, which is what the section
+ * resolves to anyway.
  *
  * @param {unknown} user - the snapshot's `user` layer.
  * @returns {boolean}
@@ -61,61 +63,50 @@ export function hasUserLayer(user) {
  *
  * Each strength is validated independently against the supported set; a
  * missing or invalid field falls back to that scheme's shipped default. The
- * `colorMode` flag falls back to the shipped default (on) for the same reason:
- * a Host section written by 0.3.x has no such field.
+ * retired `colorMode` key of a 0.4.x section is ignored.
  *
  * @param {unknown} value - the snapshot's effective section.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 export function stateFromHost(value) {
   return normalizeStrengths(value)
 }
 
 /**
- * Compare two full states (both strengths and the color-mode flag).
- * @param {{ light: string, dark: string, colorMode: boolean }} a
- * @param {{ light: string, dark: string, colorMode: boolean }} b
+ * Compare two full states (both strengths).
+ * @param {{ light: string, dark: string }} a
+ * @param {{ light: string, dark: string }} b
  * @returns {boolean}
  */
 export function statesEqual(a, b) {
-  return a.light === b.light && a.dark === b.dark && a.colorMode === b.colorMode
+  return a.light === b.light && a.dark === b.dark
 }
 
 /**
  * Whether a state is exactly the shipped default (no real user choice).
  *
- * That means both strengths are the default pairing **and** the color mode is
- * at its default (on). A cache that holds the default strengths but turned the
- * color mode off is a real choice and must be migrated/kept, which is why the
- * flag belongs to this predicate.
+ * That means both strengths are the default pairing.
  *
- * @param {{ light: string, dark: string, colorMode?: boolean }} state
+ * @param {{ light: string, dark: string }} state
  * @returns {boolean}
  */
 export function isDefaultState(state) {
-  return (
-    state.light === DEFAULT_STATE.light
-    && state.dark === DEFAULT_STATE.dark
-    && state.colorMode !== false
-  )
+  return state.light === DEFAULT_STATE.light && state.dark === DEFAULT_STATE.dark
 }
 
 /**
- * One atomic mutation that stores both strengths and the color-mode flag.
+ * One atomic mutation that stores both strengths.
  *
- * All three fields travel together on purpose: one revision acknowledgement
- * covers the whole choice, and a later read can never see a half-written state.
- * `colorMode` is always written explicitly so flipping it on and off again does
- * not leave an inherited/undefined field behind.
+ * Both fields travel together on purpose: one revision acknowledgement covers
+ * the whole choice, and a later read can never see a half-written state.
  *
- * @param {{ light: string, dark: string, colorMode: boolean }} state
- * @returns {Array<{ op: 'set', path: string[], value: string | boolean }>}
+ * @param {{ light: string, dark: string }} state
+ * @returns {Array<{ op: 'set', path: string[], value: string }>}
  */
 export function stateToSetOps(state) {
   return [
     { op: 'set', path: ['light'], value: state.light },
     { op: 'set', path: ['dark'], value: state.dark },
-    { op: 'set', path: ['colorMode'], value: state.colorMode !== false },
   ]
 }
 
@@ -128,7 +119,6 @@ export function stateToUnsetOps() {
   return [
     { op: 'unset', path: ['light'] },
     { op: 'unset', path: ['dark'] },
-    { op: 'unset', path: ['colorMode'] },
   ]
 }
 
@@ -136,12 +126,12 @@ export function stateToUnsetOps() {
  * Decide whether this load should migrate the browser cache into the Host.
  *
  * A one-shot migration only: the Host has no choice yet, and the cache holds a
- * real choice from an older version (non-default strengths, or color mode off).
- * Seeding the shipped default would be pointless (it is what the Host resolves
- * anyway) and would leave a redundant override row behind.
+ * real choice from an older version (non-default strengths). Seeding the
+ * shipped default would be pointless (it is what the Host resolves anyway) and
+ * would leave a redundant override row behind.
  *
  * @param {unknown} user - the snapshot's `user` layer.
- * @param {{ light: string, dark: string, colorMode: boolean } | null} cached - `readStoredState()`.
+ * @param {{ light: string, dark: string } | null} cached - `readStoredState()`.
  * @returns {boolean}
  */
 export function shouldSeed(user, cached) {
@@ -157,12 +147,6 @@ export function shouldSeed(user, cached) {
  * fresh browser profile (no cache) still renders the Host-backed pair on its
  * very first frame instead of flashing the shipped default until the
  * asynchronous `configForms` snapshot arrives.
- *
- * Only the two strengths come from the hint: the Host boot row paints the
- * first frame from token values and never publishes the color-mode flag (the
- * color-mode CSS is applied by the Client after mount), so the value is not
- * part of this contract. `colorMode` always comes from the local cache in
- * `initialState()`.
  *
  * @param {unknown} hint - `window.__EVERFOREST_BOOT__`.
  * @returns {{ light: string, dark: string } | null} `null` when the Host half

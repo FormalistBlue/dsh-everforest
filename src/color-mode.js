@@ -1,12 +1,13 @@
-// Everforest "color mode": the opt-in content-layer role colours and stylesheet.
+// Everforest "color mode": the always-on content-layer role colours and stylesheet.
 //
-// Color mode is an experimental content enhancement, **on by default** since the
-// 2026-10-23 follow-up (only an explicit user choice turns it off): when the
-// Client sets the three `data-everforest-*` attributes from
-// `COLOR_MODE_ATTRS` on `document.documentElement`, the stylesheet returned by
-// `colorModeStyles()` starts matching; while the mode attribute is `"off"` every
-// selector is prefixed with `html[data-everforest-color-mode="on"]`, so the CSS
-// matches nothing and the page is pixel-identical to the base theme.
+// Color mode ships as a default feature since 2026-10-24 — the 0.4.x Settings
+// switch was removed at the user's request, so the Client always sets the three
+// `data-everforest-*` attributes from `COLOR_MODE_ATTRS` on
+// `document.documentElement` and the stylesheet returned by `colorModeStyles()`
+// always matches. Every selector is still prefixed with
+// `html[data-everforest-color-mode="on"]`: the attribute is the stylesheet's
+// scope anchor (it keeps the rules inert if the mode ever needs to be switched
+// again) while the token layer never changes either way.
 //
 // Two things live here:
 //
@@ -31,7 +32,15 @@
 //       checkbox accent         blue
 //       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%)
 //       blockquote fill         aqua tint into bg-base (8%)
-//       session row warn / done (+hover)  orange / green into sidebar (12% / 18%)
+//       session row warn / done   solid fill from the palette's own bg_yellow /
+//                            bg_green. The waiting row is the one status surface
+//                            whose hue sits next to Everforest's warm canvas, so
+//                            on the light strengths it is deepened toward
+//                            fg.yellow until it reads as a band, while the dark
+//                            variants invert: a bright amber surface carrying the
+//                            scheme's deep contrast ink (2026-10-24 restyle and
+//                            follow-ups, design doc §13.8.1); hover is one step
+//                            stronger.
 //       status dots warn / done orange / green, guarded on bg-base AND sidebar
 //
 //     Thresholds: large/bold headings h1–h4 and the decorations/checkbox accent
@@ -52,19 +61,27 @@
 // The formulas and expected values are the ones validated by the 2026-10-23
 // "中彩" preview (`.tmp/color-mode-preview`); the role colours are pinned by
 // `tests/color-mode.test.mjs` and hard-gated in `scripts/check-contrast.mjs`.
+// The 2026-10-24 status-row restyle keeps the solid fill of 0.4.0 but takes the
+// fill colours straight from Everforest's palette1 background accents (`bg_red` /
+// `bg_green`); both an sRGB-derived and an OKLab-derived tint were rejected in
+// visual review, the palette colours are the upstream's own status surfaces.
+// 2026-10-24 follow-up: the user read the waiting row's red as an error, so the
+// waiting fill is now `bg_yellow` (dots stay orange; "warn" keeps its hue family
+// between the yellow dot ring and the warm canvas). See design doc §13.8 / §13.9.
 //
 // The module is a pure ESM source: no DOM, no storage, no state. `node --test`
 // imports it directly and `scripts/build.mjs` bundles it into `client.js`
 // (`src/client-entry.js` owns the DOM side).
 
 import { DEFAULT_STATE, SCHEMES, STRENGTHS, VARIANT_NAMES, resolvePalette } from './palette.js'
-import { contrastRatio, mix } from './color.js'
+import { contrastRatio, labLightness, mix } from './color.js'
 import { tokensFor } from './tokens.js'
 
 /**
  * The `data-*` attributes the Client sets on `document.documentElement`.
- * `mode` is `'on' | 'off'`; `light` / `dark` carry each scheme's strength so
- * the stylesheet can pick the matching variant without a JS lookup per frame.
+ * `mode` is always `'on'` in this version (the stylesheet's scope anchor);
+ * `light` / `dark` carry each scheme's strength so the stylesheet can pick the
+ * matching variant without a JS lookup per frame.
  * @type {{ mode: string, light: string, dark: string }}
  */
 export const COLOR_MODE_ATTRS = Object.freeze({
@@ -94,10 +111,14 @@ export const COLOR_MODE_ATTRS = Object.freeze({
  * @property {string} zebra - even table-row stripe (lighter green tint).
  * @property {string} tableHover - hovered table row (green tint).
  * @property {string} quoteBg - blockquote fill (aqua tint).
- * @property {string} rowWarn - session row waiting for the user (orange tint).
- * @property {string} rowDone - finished, not yet opened session row (green tint).
- * @property {string} rowWarnHover - `rowWarn` on hover (stronger tint).
- * @property {string} rowDoneHover - `rowDone` on hover (stronger tint).
+ * @property {string} rowWarn - session row waiting for the user: solid fill from
+ *   the palette's `bg_yellow`, deepened toward `fg.yellow` on the light
+ *   strengths until it separates from the sidebar; the dark variants use a bright
+ *   amber surface with the deep contrast ink instead (design doc §13.8.1).
+ * @property {string} rowWarnHover - `rowWarn` moved toward `fg.yellow` (re-guarded).
+ * @property {string} rowDone - finished, not yet opened session row: solid fill
+ *   from the palette's `bg_green`.
+ * @property {string} rowDoneHover - `rowDone` with the fill one step stronger.
  * @property {string} dotWarn - waiting session status dot (orange).
  * @property {string} dotDone - finished session status dot (green).
  */
@@ -130,8 +151,84 @@ const BAND_TINT = 0.14
 const ZEBRA_TINT = 0.06
 const TABLE_HOVER_TINT = 0.1
 const QUOTE_TINT = 0.08
-const ROW_TINT = 0.12
-const ROW_HOVER_TINT = 0.18
+
+/**
+ * Session-row fills come straight from Everforest's palette1 background
+ * accents (sainnhe/everforest `palette.md`): `bg_yellow` for a waiting row,
+ * `bg_green` for a finished one. These are the upstream's own dedicated status
+ * surfaces, so the hue never drifts the way a derived tint does (the 0.4.0 sRGB
+ * blend read as neutral grey; an OKLab-derived tint still looked off in dark
+ * mode — 2026-10-24 user reports). Both schemes use the palette pair; the
+ * contrast guard only nudges when a soft-strength value misses 4.5:1.
+ */
+const ROW_RAMP = {
+  warn: { fill: 'bgYellow', accent: 'yellow' },
+  done: { fill: 'bgGreen', accent: 'green' }
+}
+
+/** How far a hovered row moves toward its accent (re-guarded to 4.5:1). */
+const ROW_HOVER_TINT = 0.16
+
+/**
+ * Minimum CIE L* step between a waiting-row fill and the sidebar. `bg_yellow`
+ * is the one palette status surface whose hue sits next to Everforest's warm
+ * canvas (and its light strengths are only ~1 L* away from the sidebar), so the
+ * palette value alone reads as "no background" in light. The fill is deepened
+ * toward `fg.yellow` until it clears this floor, stopping where the 4.5:1 text
+ * gate runs out — light·soft has no headroom and therefore keeps the palette
+ * hue only (same ceiling as the active-session row, design doc §15). Dark values
+ * already clear the floor and stay palette-exact.
+ */
+const ROW_WARN_SEPARATION = 3.5
+
+/**
+ * Deepen a row fill toward its accent until it is `target` L* away from the
+ * sidebar, keeping the last step that still passes the text gate.
+ * @param {string} color - guarded palette fill.
+ * @param {string} sidebar - the sidebar surface the row sits on.
+ * @param {string} ink - the row's text colour.
+ * @param {string} accent - accent the fill is deepened toward.
+ * @param {number} target - minimum CIE L* distance from the sidebar.
+ * @returns {string}
+ */
+function liftWarnFill (color, sidebar, ink, accent, target) {
+  const distance = (fill) => Math.abs(labLightness(fill) - labLightness(sidebar))
+  if (distance(color) >= target) return color
+  let best = color
+  for (let weight = 0.01; weight <= 1.0001; weight += 0.01) {
+    const next = mix(color, accent, weight)
+    if (contrastRatio(ink, next) < SURFACE_CONTRAST) break
+    best = next
+    if (distance(next) >= target) return next
+  }
+  return best
+}
+
+/**
+ * How far the dark waiting-row amber is pulled from `fg.yellow` toward the
+ * scheme's deep canvas (`bgDim`). 22% keeps it a clearly yellow surface while
+ * staying inside the inverted-ink gate (measured 5.0–5.8:1; design §13.8.1).
+ */
+const ROW_WARN_AMBER = 0.22
+
+/**
+ * Pull a light surface toward the deep canvas until the deep contrast ink
+ * (`--dsw-alias-label-primary-inverted`, i.e. `bgDim`) keeps `SURFACE_CONTRAST`.
+ * This is the guard for the dark waiting row, whose bright amber surface carries
+ * the inverted ink instead of `label-primary`.
+ * @param {string} color - surface colour.
+ * @param {string} ink - deep contrast ink.
+ * @param {string} bgDim - the scheme's deepest canvas.
+ * @returns {string}
+ */
+function readableDeepInk (color, ink, bgDim) {
+  if (contrastRatio(ink, color) >= SURFACE_CONTRAST) return color
+  for (let weight = 0.01; weight <= 1.0001; weight += 0.01) {
+    const next = mix(color, bgDim, weight)
+    if (contrastRatio(ink, next) >= SURFACE_CONTRAST) return next
+  }
+  return mix(color, bgDim, 1)
+}
 
 /* ------------------------------------------------------------------ *
  * Contrast guards (the same math as the "中彩" preview)
@@ -177,6 +274,25 @@ function safeTint (base, tint, start, ink) {
   return value
 }
 
+/**
+ * Pull a row fill toward the scheme's canvas (`bg0`) until `label-primary`
+ * keeps `SURFACE_CONTRAST`. Blending toward `bg0` is safe in both directions:
+ * dark canvases darken the fill, light canvases lighten it, so the guard never
+ * guesses a direction.
+ * @param {string} color - palette background accent.
+ * @param {string} bg0 - scheme's deepest background.
+ * @param {string} ink - text colour the surface must stay readable with.
+ * @returns {string}
+ */
+function readableRowFill (color, bg0, ink) {
+  if (contrastRatio(ink, color) >= SURFACE_CONTRAST) return color
+  for (let weight = 0.02; weight <= 1.0001; weight += 0.02) {
+    const next = mix(color, bg0, weight)
+    if (contrastRatio(ink, next) >= SURFACE_CONTRAST) return next
+  }
+  return mix(color, bg0, 1)
+}
+
 /* ------------------------------------------------------------------ *
  * Roles
  * ------------------------------------------------------------------ */
@@ -196,7 +312,8 @@ function buildColorModeRoles () {
       if (!entry) throw new Error(`colorModeRoles: tokensFor() has no ${name}`)
       return entry[scheme]
     }
-    const fg = resolvePalette(state)[scheme].fg
+    const palette = resolvePalette(state)[scheme]
+    const fg = palette.fg
     const ink = fg.fg
     const bg = pick('--dsw-alias-bg-base')
     const sidebar = pick('--dsw-specific-sidebar-fill')
@@ -213,6 +330,39 @@ function buildColorModeRoles () {
     const textSurfaces = [bg, band, zebra, tableHover, quoteBg]
 
     const marker = guardTo(fg.aqua, [bg], DECORATION_CONTRAST, ink)
+    // Status dots sit on both the canvas and the sidebar.
+    const dotWarn = guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink)
+    const dotDone = guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
+    /**
+     * Session-row fill from the palette's `bg_yellow` / `bg_green`. The light
+     * waiting rows are deepened toward their accent when the palette value sits
+     * too close to the sidebar (§13.8.1); the dark waiting rows invert instead —
+     * a bright amber surface that carries the scheme's deep contrast ink, because
+     * Everforest's dark `bg_yellow` cannot read as yellow under the light ink.
+     * Hover moves the fill one accent step further and is re-guarded, so the four
+     * fills stay on one ramp.
+     */
+    const rowFill = (preset) => {
+      const warn = preset.startsWith('warn')
+      const ramp = ROW_RAMP[warn ? 'warn' : 'done']
+      if (warn && scheme === 'dark') {
+        const deepInk = pick('--dsw-alias-label-primary-inverted')
+        const amber = readableDeepInk(
+          mix(fg.yellow, palette.ramp.bgDim, ROW_WARN_AMBER),
+          deepInk,
+          palette.ramp.bgDim
+        )
+        if (!preset.endsWith('Hover')) return amber
+        return readableDeepInk(mix(amber, fg.yellow, ROW_HOVER_TINT), deepInk, palette.ramp.bgDim)
+      }
+      const paletteFill = readableRowFill(palette.ramp[ramp.fill], palette.ramp.bg0, labelPrimary)
+      const fill = warn
+        ? liftWarnFill(paletteFill, sidebar, labelPrimary, fg[ramp.accent], ROW_WARN_SEPARATION)
+        : paletteFill
+      if (!preset.endsWith('Hover')) return fill
+      const hover = mix(fill, fg[ramp.accent], ROW_HOVER_TINT)
+      return readableRowFill(hover, palette.ramp.bg0, labelPrimary)
+    }
     roles[variant] = Object.freeze({
       // Headings: Enchanted's red → orange → yellow → green → blue → purple.
       h1: guardTo(fg.red, [bg], DECORATION_CONTRAST, ink),
@@ -236,13 +386,13 @@ function buildColorModeRoles () {
       zebra,
       tableHover,
       quoteBg,
-      rowWarn: safeTint(sidebar, fg.orange, ROW_TINT, labelPrimary),
-      rowDone: safeTint(sidebar, fg.green, ROW_TINT, labelPrimary),
-      rowWarnHover: safeTint(sidebar, fg.orange, ROW_HOVER_TINT, labelPrimary),
-      rowDoneHover: safeTint(sidebar, fg.green, ROW_HOVER_TINT, labelPrimary),
+      rowWarn: rowFill('warn'),
+      rowWarnHover: rowFill('warnHover'),
+      rowDone: rowFill('done'),
+      rowDoneHover: rowFill('doneHover'),
       // Status dots sit on both the canvas and the sidebar.
-      dotWarn: guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink),
-      dotDone: guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
+      dotWarn,
+      dotDone
     })
   }
   return Object.freeze(roles)
@@ -260,15 +410,16 @@ export function colorModeRoles () {
 }
 
 /**
- * Map a Client state onto the `data-*` attributes for
- * `document.documentElement`. A falsy `colorMode` maps to `"off"`; the
- * strengths are passed through as-is (the Client keeps them normalized).
- * @param {{ colorMode?: boolean, light: string, dark: string }} state
+ * Map the current palette pair onto the `data-*` attributes for
+ * `document.documentElement`. The mode attribute is always `"on"` — color mode
+ * is a shipped default since 2026-10-24, not a toggle; the strengths are passed
+ * through as-is (the Client keeps them normalized).
+ * @param {{ light: string, dark: string }} state
  * @returns {Record<string, string>}
  */
 export function colorModeDataset (state) {
   return {
-    [COLOR_MODE_ATTRS.mode]: state.colorMode ? 'on' : 'off',
+    [COLOR_MODE_ATTRS.mode]: 'on',
     [COLOR_MODE_ATTRS.light]: state.light,
     [COLOR_MODE_ATTRS.dark]: state.dark
   }
@@ -283,7 +434,10 @@ function cssVariable (role) {
   return `--everforest-color-${role.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()}`
 }
 
-/** Every element rule is scoped to the mode being on, so "off" matches nothing. */
+/**
+ * Every element rule is scoped to the mode attribute, which this version always
+ * sets to `"on"` — the anchor keeps the stylesheet out of the plain-token layer.
+ */
 const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 
 /** Markdown content container (DSH hashes the class, `markdown` stays a substring). */
@@ -301,18 +455,28 @@ function sessionRow (state) {
 
 /**
  * The `:hover` variant of `sessionRow`; the extra pseudo-class also makes it
- * more specific than the base rule, so it wins while hovered.
+ * more specific than the base rule, so the stronger fill wins while hovered.
  * @param {'warning' | 'done'} state
  * @returns {string}
  */
 function sessionRowHover (state) {
-  return `${COLOR_MODE_ON} [role="treeitem"][data-row-key^="session:"]:has([data-state="${state}"]):hover:not([aria-selected="true"])`
+  return `${sessionRow(state)}:hover`
 }
+
+/**
+ * Dark waiting-row ink scope. The bright amber fill carries the scheme's deep
+ * contrast ink (`--dsw-alias-label-primary-inverted`), so the title inherits it
+ * and the trailing label / status dot are switched to `inherit`. The DSH class
+ * names are CSS-module hashes, matched by their stable `_time` / `data-state`
+ * suffix the same way the `markdown` container above is matched.
+ */
+const DARK_WARN_ROW = `${COLOR_MODE_ON} body[data-ds-dark-theme] [role="treeitem"][data-row-key^="session:"]:has([data-state="warning"]):not([aria-selected="true"])`
 
 /**
  * [selector, CSS property, role key] for every variable-driven element rule.
  * Order matters where two rules can hit the same element: the table-row hover
- * rule must follow the zebra rule, and the blockquote fill must follow nothing.
+ * rule must follow the zebra rule, and each session-row hover fill must follow
+ * its base fill.
  */
 const ELEMENT_RULES = [
   [`${MARKDOWN_SCOPE} h1`, 'color', 'h1'],
@@ -338,8 +502,8 @@ const ELEMENT_RULES = [
   [`${COLOR_MODE_ON} [data-state="warning"]`, 'color', 'dotWarn'],
   [`${COLOR_MODE_ON} [data-state="done"]`, 'color', 'dotDone'],
   [sessionRow('warning'), 'background-color', 'rowWarn'],
-  [sessionRow('done'), 'background-color', 'rowDone'],
   [sessionRowHover('warning'), 'background-color', 'rowWarnHover'],
+  [sessionRow('done'), 'background-color', 'rowDone'],
   [sessionRowHover('done'), 'background-color', 'rowDoneHover']
 ]
 
@@ -352,7 +516,17 @@ const ELEMENT_RULES = [
  */
 const LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
-  [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]]
+  [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  // Dark waiting rows: deep contrast ink on the amber surface (design §13.8.1).
+  // The row actions that appear on hover (the "…" menu, archive, pin) carry
+  // `label-tertiary` / `label-primary` and would vanish on the amber fill, so
+  // they get the deep ink too.
+  [DARK_WARN_ROW, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_time"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [data-state="warning"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_iconButton"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_iconButton"]:hover`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_pinIndicator"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]]
 ]
 
 /**

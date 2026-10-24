@@ -532,7 +532,8 @@ function hueStops (p, hue) {
  * ------------------------------------------------------------------ */
 
 /**
- * The 107 `--dsw-alias-*` colour tokens of the DSH 0.2.1-rc.2 ui-theme sheets.
+ * The 107 `--dsw-alias-*` colour tokens of the DSH 0.2.1-rc.2 / rc.3 ui-theme sheets
+ * (the rc.3 sheets carry the identical token set; see docs/design.md §12).
  * Every entry is an explicit role mapping (docs/design.md §4); none relies on
  * static-token following.
  * @type {Record<string, (p: object) => string>}
@@ -567,11 +568,14 @@ const ALIAS_TOKENS = {
   '--dsw-alias-border-l3': (p) => border(p, 'l3'),
   '--dsw-alias-border-l4': (p) => border(p, 'l4'),
 
-  // Brand / primary buttons (Enchanted: interactive-accent = header-aqua) -----
-  '--dsw-alias-brand-primary': (p) => p.fg.headerAqua,
+  // Brand / primary buttons. 2026-10-24 accent trial: the official `fg.aqua` /
+  // `fg.blue` replace Enchanted's muted `header-aqua` / `header-blue` here and
+  // in the link / deep-diving / interaction tokens. `header-*` stays for the
+  // onboarding artwork, the shiki link colour and the light bubble tint.
+  '--dsw-alias-brand-primary': (p) => p.fg.aqua,
   '--dsw-alias-brand-primary-invert': (p) => p.ramp.bg0,
   // Upstream token name carries a duplicated suffix; keep the exact CSS variable.
-  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => p.fg.headerAqua,
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => p.fg.aqua,
   '--dsw-alias-brand-text': (p) => p.ramp.bg0,
   '--dsw-alias-button-contrast-fill': (p) => p.fg.fg,
   '--dsw-alias-button-elevated-fill': (p) => surface(p, 2),
@@ -580,12 +584,12 @@ const ALIAS_TOKENS = {
   '--dsw-alias-button-ghost-active-border': (p) => border(p, 'l3'),
   '--dsw-alias-button-ghost-active-fill': (p) => surface(p, 2),
   '--dsw-alias-button-ghost-active-hover': (p) => surface(p, 3),
-  '--dsw-alias-button-info-fill': (p) => p.fg.headerBlue,
-  '--dsw-alias-button-info-hover': (p) => lift(p, p.fg.headerBlue, 0.18),
+  '--dsw-alias-button-info-fill': (p) => p.fg.blue,
+  '--dsw-alias-button-info-hover': (p) => lift(p, p.fg.blue, 0.18),
   // "dimmed" primary: desaturate toward the surface instead of changing the hue.
-  '--dsw-alias-button-primary-dimmed': (p) => mix(p.fg.headerAqua, surface(p, 2), 0.45),
-  '--dsw-alias-button-primary-fill': (p) => p.fg.headerAqua,
-  '--dsw-alias-button-primary-hover': (p) => p.fg.headerBlue,
+  '--dsw-alias-button-primary-dimmed': (p) => mix(p.fg.aqua, surface(p, 2), 0.45),
+  '--dsw-alias-button-primary-fill': (p) => p.fg.aqua,
+  '--dsw-alias-button-primary-hover': (p) => p.fg.blue,
   // Tool-bar material: bg2 + the upstream 45%-94% opacity range.
   '--dsw-alias-button-tool-bar-fill': (p) => alpha(surface(p, 2), 0.72),
   '--dsw-alias-button-tool-bar-fill-invisible': (p) => alpha(surface(p, 2), 0.45),
@@ -604,18 +608,18 @@ const ALIAS_TOKENS = {
   // Interactive feedback (subtle translucent overlays, as upstream) -----------
   '--dsw-alias-interactive-bg-active': (p) => alpha(p.ramp.bg5, 0.28),
   '--dsw-alias-interactive-bg-hover': (p) => alpha(p.ramp.bg5, 0.16),
-  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(p.fg.headerAqua, 0.16),
-  '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.headerRed, 0.12),
+  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(p.fg.aqua, 0.16),
+  '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.red, 0.12),
   '--dsw-alias-interactive-bg-hover-solid': (p) => surface(p, 2),
 
   // Labels -------------------------------------------------------------------
   '--dsw-alias-label-caption': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.25),
-  '--dsw-alias-label-deep-diving': (p) => p.fg.headerBlue,
-  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(p.fg.headerBlue, 40),
+  '--dsw-alias-label-deep-diving': (p) => p.fg.blue,
+  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(p.fg.blue, 40),
   '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.55),
   '--dsw-alias-label-document-preview': (p) => p.fg.grey1,
   '--dsw-alias-label-primary': (p) => p.fg.fg,
-  '--dsw-alias-label-primary-bluish': (p) => p.fg.headerBlue,
+  '--dsw-alias-label-primary-bluish': (p) => p.fg.blue,
   '--dsw-alias-label-primary-dimmed': (p) => mix(p.fg.fg, p.ramp.bg0, 0.35),
   // Brand / primary-button foreground: bg0, not white (docs/design.md §4).
   '--dsw-alias-label-primary-foreground': (p) => p.ramp.bg0,
@@ -627,7 +631,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-label-tertiary': (p) => p.fg.grey2,
 
   // Links / markdown ---------------------------------------------------------
-  '--dsw-alias-link': (p) => p.fg.headerBlue,
+  '--dsw-alias-link': (p) => p.fg.blue,
   '--dsw-alias-markdown-citation': (p) => surface(p, 2),
   '--dsw-alias-markdown-code-block': (p) => codeSurface(p),
   '--dsw-alias-markdown-code-block-banner': (p) => codeSurface(p),
@@ -645,7 +649,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-menu-icon': (p) => p.fg.grey1,
 
   // Onboarding (accent + 3 gradient stops + 3 fills = 7 tokens) --------------
-  '--dsw-alias-onboarding-accent': (p) => p.fg.headerAqua,
+  '--dsw-alias-onboarding-accent': (p) => p.fg.aqua,
   '--dsw-alias-onboarding-card-fill': (p) => alpha(surface(p, 2), 0.8),
   '--dsw-alias-onboarding-checkbox-border': (p) => border(p, 'l1'),
   '--dsw-alias-onboarding-secondary-fill': (p) => surface(p, 1),
@@ -695,7 +699,7 @@ const SPECIFIC_TOKENS = {
   '--dsw-specific-selector': (p) => surface(p, 2),
   '--dsw-specific-sidebar-fill': (p) => sidebarSurface(p),
   '--dsw-specific-sidebar-nav-item-active': (p) => surface(p, 2),
-  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.headerAqua, 0.2),
+  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.aqua, 0.2),
   '--dsw-specific-sidebar-nav-item-hover': (p) => surface(p, 1),
   '--dsw-specific-tip': (p) => surface(p, 2)
 }

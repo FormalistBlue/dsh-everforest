@@ -87,11 +87,11 @@
 | 次级表面 / 输入框 | `bg1` | 表单、行 hover 底 |
 | 边框 | `bg5`（hover `bg3`） | 表单边框、分隔线 |
 | 表格 | 底 `bg2`、隔行 `bg1`、表头 `bg_green`、hover `bg4` | — |
-| 选中 | `bg_visual`（light 用 `#DED8DB`） | 文档选区 |
+| 选中 | `bg_visual`（light 用 `#DED8DB`） | 文档预览选区 = `bg_visual` 40% 透明 token；原生文本选区由插件 `::selection` 用实色 `bg_visual`、文字 `color: inherit`（2026-10-24，见 `design.md` §16.2） |
 | 搜索高亮 | `bg_yellow` | — |
-| 链接（内部） | `header-aqua`（hover `fg-aqua`） | — |
-| 链接（外部）/ 文本强调 | `header-blue`（hover `fg-blue` / `header-purple`） | — |
-| 交互强调（按钮、选中） | `header-aqua`（hover `header-blue`） | — |
+| 链接（内部） | `header-aqua`（hover `fg-aqua`） | 色彩模式的内部文件链接仍用此色；基础 `--dsw-alias-link` 2026-10-24 起改用官方 `fg-blue`（见偏差 5） |
+| 链接（外部）/ 文本强调 | `fg-blue` | 2026-10-24 起由 header-blue 改为官方 accent（见偏差 5） |
+| 交互强调（按钮、选中） | `fg-aqua`（hover `fg-blue`） | 2026-10-24 起由 header-aqua / header-blue 改为官方 accent（见偏差 5） |
 | 代码：注释 / 标点 | `grey1` | — |
 | 代码：函数 | `fg-green` | — |
 | 代码：关键字 | `fg-blue` | — |
@@ -103,27 +103,28 @@
 | 加粗 / 斜体（strong + em） | `fg-purple` | 两者同色；色彩模式在标题内用 `color: inherit` 保留标题色（见 §6） |
 | 删除线 / 已完成任务 | `text-faint` | 本项目对应 `label-tertiary`（由 `grey2` 派生），刻意弱化、不参与对比度门槛（见 §6） |
 | 代码块标题遮罩 | `#0004` | 半透明黑 |
-| 标题 h1–h6 | `header-red / orange / yellow / green / blue / purple` | **DSH 没有逐级标题颜色 token**，默认层标题仍单色；0.4.0 起由实验性色彩模式（默认开启、可关闭）按同一顺序改用 `fg-*` 系并经 3:1 守卫，见 §6 与下方偏差 1 |
+| 标题 h1–h6 | `header-red / orange / yellow / green / blue / purple` | **DSH 没有逐级标题颜色 token**，默认层标题仍单色；0.4.0 起由色彩模式（2026-10-24 起默认提供、无开关）按同一顺序改用 `fg-*` 系并经 3:1 守卫，见 §6 与下方偏差 1 |
 | tag | `header-blue` @ 10% / 20% | — |
 | 嵌入块底 | dark `rgba(62,75,80,.7)`、light `rgb(238 236 213 / 70%)` | 近似 bg2 的 70% 透明度 |
 
 ### 与 DSH 的已知偏差
 
-1. **逐级标题色**：Enchanted 给 h1–h6 不同颜色（`header-*` 系）；DSH 的 Markdown 标题走统一的字号 / 字重 token + `label-primary`，没有逐级颜色 token。0.4.0 起由**实验性色彩模式**（默认开启、可关闭）用客户端作用域 CSS 实现 **h1–h6**：按 Enchanted 的顺序取 `fg.red / orange / yellow / green / blue / purple`，h1–h4 对 `bg0` 守卫到 3:1、h5–h6 对每个 markdown 表面守卫到 3:1，**token 层保持零差异**；浅色档会明显被压暗。默认层仍是单色标题。
+1. **逐级标题色**：Enchanted 给 h1–h6 不同颜色（`header-*` 系）；DSH 的 Markdown 标题走统一的字号 / 字重 token + `label-primary`，没有逐级颜色 token。0.4.0 起由**色彩模式**（2026-10-24 起默认提供、无开关）用客户端作用域 CSS 实现 **h1–h6**：按 Enchanted 的顺序取 `fg.red / orange / yellow / green / blue / purple`，h1–h4 对 `bg0` 守卫到 3:1、h5–h6 对每个 markdown 表面守卫到 3:1，**token 层保持零差异**；浅色档会明显被压暗。默认层仍是单色标题。
 2. **Obsidian 专有变量**：`text-muted`（`color-base-70`）、`tag-color-hsl`、`code-header` 等没有 DSH 对应物，仅作语义参考。
 3. **平铺背景**：Enchanted 把 secondary 也设成 bg0；DSH 的侧栏 / composer / 气泡需要若干区分面，本项目在保持 bg0 主底的前提下，用 `bg1` / `bg2` 做必要的层级（见 `docs/design.md` §4 的 DSH token 映射）。其中**侧栏例外**：`--dsw-specific-sidebar-fill` 取 `bg0` → `bg1` 的 80% 混合并经对比度守卫，否则 Windows 外壳把侧栏 / 标题栏 / 内容卡背后的 frame 画成同色、列边界消失（2026-10-18 视觉走查修正）。
 4. **header 色不随变体调整**：非默认的 4 个变体沿用同一组 header 色；实现后若对比度检查不达标，再按背景亮度做小幅修正并记录在此。
+5. **UI 强调色改用官方 accent（2026-10-24）**：品牌 / 主按钮 / 链接 / 深潜标签 / 危险 hover 等 token 从 Enchanted 的 `header-aqua` / `header-blue` 改为官方 `fg.aqua` / `fg.blue` / `fg.red`；`header-*` 只保留给 onboarding 渐变、shiki link 与浅色气泡染色。理由：更鲜亮的官方 accent 经用户目检确认；代价是浅色档品牌前景从 3.13:1 降到 2.91:1（仍高于 2.5 的品牌门槛），详见 `design.md` §16.1 与 `contrast.md`。
 
 ## 6. 色彩模式（0.4.0）的派生色
 
-实验性色彩模式（默认开启、可关闭）**不新增调色板数据**：它在 6 个变体上把已有强调色映射到内容层角色，并对每个值做对比度守卫（公式与门槛见 [`design.md`](../design.md) §13，逐变体实算值见 [`contrast.md`](contrast.md) §2f）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 语义（h1–h6 六色、strong/em 紫、行内 code 蓝、内部链接 aqua、删除线淡化、引用块 / 表格淡底、checkbox 蓝）：
+色彩模式（2026-10-24 起默认提供、无开关）**不新增调色板数据**：它在 6 个变体上把已有强调色映射到内容层角色，并对每个值做对比度守卫（公式与门槛见 [`design.md`](../design.md) §13，逐变体实算值见 [`contrast.md`](contrast.md) §2f）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 语义（h1–h6 六色、strong/em 紫、行内 code 蓝、内部链接 aqua、删除线淡化、引用块 / 表格淡底、checkbox 蓝）：
 
 - **标题 h1–h6**：依次 `red` → `orange` → `yellow` → `green` → `blue` → `purple`；h1–h4 对 `bg0` 守卫到 3:1，h5–h6 对每个 markdown 表面（画布 / 表头带 / 斑马纹 / 行 hover / 引用块淡底）取最弱值守卫到 3:1。浅色档因此明显被压暗（light·soft 的 h1 ≈ `#e45856`、h3 ≈ `#9c843a` 橄榄色）。
 - **强调文字**：strong + em = `purple`（两者同色）；内部文件链接 = `header-aqua`；行内 code 文字 = `blue`（落在 `bg_blue` 芯片上，按芯片底色守卫）；删除线与已完成任务 = `label-tertiary`（由 `grey2` 派生，刻意弱化、不设门槛）。
 - **装饰**：列表 marker、引用左条、分隔线 = `aqua`（对 `bg0` 3:1）；任务列表 checkbox 的 accent = `blue`（3:1）。
-- **彩色表面**：表格表头色带 / 隔行斑马纹 / 行 hover = `green` 混入 `bg0`（14% / 6% / 10%，按 `label-primary ≥ 4.5:1` 反推）；引用块淡底 = `aqua` 混入 `bg0`（8%）；「待确认」行底 = `orange` 混入侧栏底（12%），「已完成未查看」行底 = `green` 混入侧栏底（12%），hover 加深到 0.18。浅色档（尤其 light·soft）权重会被压到很低：light·soft 的表格三档绿染收敛为同一色 `#efe7cb`，会话行底退化为侧栏底色（行底不可见，只有状态点还有颜色）。
+- **彩色表面**：表格表头色带 / 隔行斑马纹 / 行 hover = `green` 混入 `bg0`（14% / 6% / 10%，按 `label-primary ≥ 4.5:1` 反推）；引用块淡底 = `aqua` 混入 `bg0`（8%）；「待确认 / 待审批」行底：浅色档 = palette1 的 `bg_yellow` 再向 `fg.yellow` 加深到 3.5 L* 或 4.5:1 门槛为止，深色档 = `fg.yellow` 向 `bgDim` 收 22% 的亮琥珀 + 深色对比墨（palette 深色 `bg_yellow` 太暗，2026-10-24 两轮：红改黄、深色档反相），「已完成未查看」行底 = palette1 的 `bg_green`；hover 向对应 `fg` 强调色混 16% 后重新守卫。浅色档（尤其 light·soft）受 4.5:1 门槛限制：light·soft 的表格三档绿染收敛为同一色 `#efe7cb`，会话行底只剩很低的明度差（状态点仍有颜色）。
 - **状态点**：「待确认」=`orange`、「已完成」=`green`，对 `bg0` 与侧栏底两个表面都守卫到 3:1。
 
-因此 0.4.0 之后，调色板的 **7 个强调色（red / orange / yellow / green / blue / purple / aqua）全部在内容层有了角色**：red / yellow / green / blue 此前已服务状态色 / 语法色，本轮新增的是「内容层」角色；`fg.aqua` 此前完全没被任何 token 读取，`orange` / `purple` 只服务个别 shiki token。`header-*` 的用法不变：`header-aqua` 仍是品牌 / 交互强调（色彩模式另用它作内部文件链接色），`header-blue` 仍是外链 / 深潜标签等 token，`header-red` / `header-purple` 仍只出现在危险交互 / onboarding 渐变等既有 token 上。**`bg4` / `bgYellow` / `bgPurple` 等背景色与 `headerOrange` / `headerYellow` / `headerGreen` 仍未被使用**——本轮没有为「用满调色板」而硬塞颜色。
+因此 0.4.0 之后，调色板的 **7 个强调色（red / orange / yellow / green / blue / purple / aqua）全部在内容层有了角色**：red / yellow / green / blue 此前已服务状态色 / 语法色，本轮新增的是「内容层」角色；`fg.aqua` 此前完全没被任何 token 读取（2026-10-24 起同时承担品牌 / 交互强调，见 §5 偏差 5），`orange` / `purple` 只服务个别 shiki token。`header-*` 的使用面自 2026-10-24 起收窄：`header-aqua` 只服务 onboarding 渐变、浅色气泡染色与色彩模式内部链接色，`header-blue` 只服务 shiki link 与 onboarding 渐变，`header-red` / `header-purple` 只出现在 onboarding 渐变；UI 强调改用官方 accent（§5 偏差 5）。**`bg4` / `bgPurple` 等背景色与 `headerOrange` / `headerYellow` / `headerGreen` 仍未被使用**（`bgYellow` 自 2026-10-24 起用于「待确认」行底）——不为「用满调色板」而硬塞颜色。
 
-这些值是**派生值而非上游色**（守卫混合），与「官方 6 档背景 + 原样强调色」的默认层严格分离：色彩模式关闭时 token 输出与 0.3.0 逐字节一致，调色板数据本身未改。
+这些值是**派生值而非上游色**（守卫混合），与「官方 6 档背景 + 原样强调色」的默认层严格分离：色彩模式始终开启、只注入作用域 CSS——token 输出与 0.3.0 逐字节一致，调色板数据本身未改。

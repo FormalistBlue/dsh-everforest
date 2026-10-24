@@ -1,13 +1,12 @@
 /**
  * The localStorage cache of the user's palette choice for dsh-everforest.
  *
- * The user picks one strength (`hard` / `medium` / `soft`) per color scheme and,
- * since 0.4.0, may switch the experimental **color mode** on or off. Since 0.3.0
- * the **source of truth** is the Host settings document (the active profile's
- * `cordis.patch.yml`, edited through the Client `ctx.configForms` service — see
- * `src/durable.js` and `src/host-config.js`), shared by every browser of that
- * profile. This module keeps the browser-local **cache** of the same state
- * under a versioned `localStorage` key:
+ * The user picks one strength (`hard` / `medium` / `soft`) per color scheme.
+ * Since 0.3.0 the **source of truth** is the Host settings document (the active
+ * profile's `cordis.patch.yml`, edited through the Client `ctx.configForms`
+ * service — see `src/durable.js` and `src/host-config.js`), shared by every
+ * browser of that profile. This module keeps the browser-local **cache** of the
+ * same state under a versioned `localStorage` key:
  *
  *  - it is what the Host boot row reads for the first paint (the cache is
  *    always at least as fresh as a Desktop boot payload, which is collected
@@ -16,22 +15,21 @@
  *    0.3.0 (`readStoredState` tells "a real choice exists" from "nothing yet");
  *  - it is the whole persistence story on a pre-0.3.0 host that serves no
  *    settings form (the Client learns that from `configForms` reporting
- *    `unavailable`);
- *  - it carries `colorMode` to the Client on the very first frame even when the
- *    Host boot hint (which only covers the two strengths) is present.
+ *    `unavailable`).
+ *
+ * Color mode is no longer part of this state: since 2026-10-24 it ships as a
+ * default feature with no switch (see docs/design.md §13), so the stored shape
+ * is back to the two strengths. A 0.4.x payload still carrying a `colorMode`
+ * field stays valid — unknown fields are ignored on read and dropped by the
+ * next write (the 0.3.x → 0.4.x compatibility rule in the other direction:
+ * 0.4.x reads a payload without the field as "color mode on", which is exactly
+ * what this version renders).
  *
  * Storage rules (design §3.2 / §7):
  *
  *  - a missing key, unreadable storage, malformed JSON, an unknown `version`,
  *    or an invalid strength all fall back to the default state (light = hard,
- *    dark = soft, colorMode = on, i.e. Everforest Enchanted's pairing with the
- *    color mode enabled by default since 2026-10-23);
- *  - `colorMode` is optional in the payload because 0.3.x caches predate it:
- *    a missing field reads as the default (on) and is **not** treated as
- *    corrupt (no repair rewrite, the payload still counts for the migration);
- *  - a non-boolean `colorMode` makes the payload invalid, exactly like an
- *    invalid strength: `readState` repairs it with the default state and
- *    `readStoredState` reports `null` (nothing trustworthy to migrate);
+ *    dark = soft, i.e. Everforest Enchanted's pairing);
  *  - invalid stored data is rewritten with the default so the next read is
  *    clean, but a failing write never throws (private mode / quota);
  *  - reading and writing never throw: the preference silently degrades to
@@ -49,31 +47,19 @@ export const STORAGE_KEY = 'dsh-everforest/v1'
 /**
  * Schema version stored alongside the state.
  *
- * Deliberately still `1`: `colorMode` is an optional addition, so a 0.3.x
- * payload stays valid and a 0.4.x payload stays readable by the previous
- * plugin (unknown fields are ignored on read). Bumping the version would
- * discard every existing cache instead of migrating it.
+ * Deliberately still `1`: the payload is `{ version, light, dark }`, which is a
+ * prefix of both the 0.3.x payload (same two fields) and the 0.4.x payload
+ * (which carried an extra `colorMode` field that this version ignores). Bumping
+ * the version would discard every existing cache instead of migrating it.
  */
 export const STATE_VERSION = 1
 
 /**
- * Default of the color-mode flag.
- *
- * `true` since the 2026-10-23 follow-up: after reviewing the 0.4.0 build the
- * user asked for the color mode to be on by default. Only an explicit `false`
- * (the switch was turned off and that choice was persisted) disables the mode;
- * a missing flag — a 0.3.x cache or a profile patch written before the field
- * existed — resolves to this default.
- * @type {boolean}
- */
-export const DEFAULT_COLOR_MODE = true
-
-/**
  * Build a fresh copy of the default state.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 export function createDefaultState() {
-  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
+  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
 }
 
 /**
@@ -107,31 +93,15 @@ function normalizeStrength(value, fallback) {
 }
 
 /**
- * Pin the color-mode flag to a real boolean.
- *
- * The mode is on by default, so only the literal `false` turns it off; a
- * missing flag (0.3.x cache / profile patch) and anything that is not a boolean
- * (hand-edited or corrupt payload) resolve to the default. A non-boolean inside
- * a versioned payload is still rejected by `isStoredState` (the cache counts as
- * corrupt and is repaired), so this fallback only covers the Host form shape.
- *
- * @param {unknown} value
- * @returns {boolean}
- */
-function normalizeColorMode(value) {
-  return value === false ? false : DEFAULT_COLOR_MODE
-}
-
-/**
- * Turn arbitrary parsed JSON into a legal `{ light, dark, colorMode }` state.
+ * Turn arbitrary parsed JSON into a legal `{ light, dark }` state.
  *
  * Pure: it never reads storage, never mutates the input, and always returns a
  * new object. An object with an unknown `version` (or with no version at all)
  * falls back to the default state; with a known version each field is
- * validated independently so one bad field does not discard the others.
+ * validated independently so one bad field does not discard the other.
  *
  * @param {unknown} raw - result of `JSON.parse()` or anything else.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 export function normalizeState(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return createDefaultState()
@@ -144,20 +114,18 @@ export function normalizeState(raw) {
  * hint), falling back per field.
  *
  * Pure: never reads storage, never mutates the input, always returns a new
- * object. Two invalid strengths collapse to the shipped default pairing, and a
- * missing/invalid `colorMode` resolves to the default (on). `colorMode` is validated here too
- * because the Host `Config` carries it as a third volatile field since 0.4.0;
- * the boot hint simply never publishes it (see `bootHintState`).
+ * object. Two invalid strengths collapse to the shipped default pairing; any
+ * other field (e.g. the `colorMode` left behind by a 0.4.x Host section) is
+ * ignored.
  *
  * @param {unknown} raw - anything, usually a plain object.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 export function normalizeStrengths(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return createDefaultState()
   return {
     light: normalizeStrength(raw.light, DEFAULT_STATE.light),
     dark: normalizeStrength(raw.dark, DEFAULT_STATE.dark),
-    colorMode: normalizeColorMode(raw.colorMode),
   }
 }
 
@@ -166,11 +134,10 @@ export function normalizeStrengths(raw) {
  *
  * The version is always the current one and every field is normalized first,
  * so a caller passing a hostile/incomplete object still writes a legal payload.
- * `colorMode` is written explicitly (even when it is the default or `false`) so
- * a later read never has to guess whether the flag was dropped or disabled.
+ * Only the two strengths are written; a legacy `colorMode` key is dropped here.
  *
- * @param {{ light: string, dark: string, colorMode?: boolean }} state
- * @returns {{ version: number, light: string, dark: string, colorMode: boolean }}
+ * @param {{ light: string, dark: string }} state
+ * @returns {{ version: number, light: string, dark: string }}
  */
 function serializeState(state) {
   const legal = normalizeState({ version: STATE_VERSION, ...state })
@@ -178,14 +145,13 @@ function serializeState(state) {
     version: STATE_VERSION,
     light: legal.light,
     dark: legal.dark,
-    colorMode: legal.colorMode,
   }
 }
 
 /**
  * Best-effort write of the default state used when reading found garbage.
  * @param {Storage} storage
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function repairStorage(storage) {
   const fallback = createDefaultState()
@@ -202,11 +168,11 @@ function repairStorage(storage) {
  *
  * Never throws. Missing or unreadable entries and invalid payloads return the
  * default state; invalid payloads are rewritten in place when possible. A
- * 0.3.x payload without `colorMode` is valid and reads with the default (on)
- * without a rewrite.
+ * 0.4.x payload carrying the retired `colorMode` field is valid and is read as
+ * the same two strengths (no rewrite).
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 export function readState(storage) {
   const target = resolveStorage(storage)
@@ -232,8 +198,8 @@ export function readState(storage) {
  * True only for a payload that already matches the stored schema exactly,
  * including the version. Used to decide whether a rewrite is worthwhile.
  *
- * `colorMode` may be absent (0.3.x cache) or boolean (0.4.x cache); any other
- * type is corrupt data, not a value to silently coerce.
+ * Unknown extra keys (the retired `colorMode`) are tolerated: they carry no
+ * meaning for this version and are dropped by the next write.
  *
  * @param {unknown} parsed
  * @returns {boolean}
@@ -241,10 +207,8 @@ export function readState(storage) {
 function isStoredState(parsed) {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return false
   if (parsed.version !== STATE_VERSION) return false
-  const colorModeValid = parsed.colorMode === undefined || typeof parsed.colorMode === 'boolean'
   return (
-    colorModeValid
-    && typeof parsed.light === 'string'
+    typeof parsed.light === 'string'
     && STRENGTHS.includes(parsed.light)
     && typeof parsed.dark === 'string'
     && STRENGTHS.includes(parsed.dark)
@@ -257,13 +221,10 @@ function isStoredState(parsed) {
  * Distinguishes "this browser never chose anything" (or the cache is
  * corrupt/stale-version) from a real choice, which the 0.2.1 → 0.3.0 migration
  * needs: only a genuine non-default cache is seeded into the Host settings
- * document. A 0.3.x payload without `colorMode` resolves to the default (on;
- * the flag simply did not exist); a non-boolean flag makes the whole payload
- * untrustworthy, so it reports `null` instead. Never throws; a
- * missing/unreadable/malformed entry returns `null`.
+ * document. Never throws; a missing/unreadable/malformed entry returns `null`.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
- * @returns {{ version: number, light: string, dark: string, colorMode: boolean } | null}
+ * @returns {{ version: number, light: string, dark: string } | null}
  */
 export function readStoredState(storage) {
   const target = resolveStorage(storage)
@@ -286,20 +247,18 @@ export function readStoredState(storage) {
     version: STATE_VERSION,
     light: parsed.light,
     dark: parsed.dark,
-    colorMode: normalizeColorMode(parsed.colorMode),
   }
 }
 
 /**
  * Persist the state.
  *
- * Accepts a plain `{ light, dark, colorMode }` (the shape used inside the
- * client) and stores it with the schema version; a missing or invalid
- * `colorMode` is stored as the default (on). Writing never throws: a failure (private
+ * Accepts a plain `{ light, dark }` (the shape used inside the client) and
+ * stores it with the schema version. Writing never throws: a failure (private
  * mode, quota, no storage) is reported as `false` and the caller keeps the
  * in-memory state.
  *
- * @param {{ light: string, dark: string, colorMode?: boolean }} state
+ * @param {{ light: string, dark: string }} state
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
  * @returns {boolean} whether the value was persisted.
  */
@@ -315,11 +274,11 @@ export function writeState(state, storage) {
 }
 
 /**
- * Restore the default state (Enchanted's dark soft / light hard, color mode
- * on) and persist it. Returns the state even when the write fails.
+ * Restore the default state (Enchanted's dark soft / light hard) and persist
+ * it. Returns the state even when the write fails.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 export function resetState(storage) {
   const fallback = createDefaultState()

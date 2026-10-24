@@ -6,6 +6,8 @@
 > 2026-10-22 更新：**0.3.0 Host 侧持久化落地**（`configForms`）：强度真源迁到当前 profile 的 `cordis.patch.yml`，同一 profile 所有浏览器共享；localStorage 降为「首帧缓存 + 旧宿主兜底」，0.2.1 旧值一次性播种，首帧改 B 方案。见 §3 / §5 / §7 / §8 / §9 与新增 §13。
 > 2026-10-23 更新：**0.4.0 实验性色彩模式（中彩）落地**（初版默认关闭，同日按用户要求改为默认开启、token 层零差异）；用户验收初版（h1–h3 + 表格 + 会话行）后要求补齐 h1–h6 与参考 Enchanted 的富文本角色，扩展轮同日完成。见 §14 / §15 与 [design.md](design.md) §13。
 > 2026-10-23 更新（设置页）：用户截图复核要求去掉解释性文案、外观改用 DSH 默认样式；已按 DSH `AppearanceRow` 对齐并删除 6 条文案，见 §17 与 [design.md](design.md) §6.1。
+> 2026-10-24 更新：DSH Desktop 已升级 **0.2.1-rc.3**；对照安装包与 `dsh-v0.2.1-rc.2...dsh-v0.2.1-rc.3` 源码 diff 复核 token（提取 SHA-256 相同）、boot spinner、markdown / 会话行锚点、settings / `configForms` 与 `includePrerelease` 行为均无变化；`engines.dsh` 不抬高下限，文档目标改为 rc.3（逐项证据见 [design.md](design.md) §12）。
+> 2026-10-24 更新（色彩模式）：用户要求把设置里的「色彩模式」选项去掉、作为默认提供的功能——设置页区块 / 开关 / 5 个色片与 5 个 locale 键移除，状态、Host `Config`、缓存回到两个强度，旧 `colorMode` 缓存字段与 profile patch 残留键兼容忽略。见新增 §18 与 [design.md](design.md) §13.9。
 
 ## 1. 结论
 
@@ -15,7 +17,7 @@
 - **不需要改 DSH 组件 CSS，也不需要构建工具链**：正文是一份普通 JS 的 Client 半部；Host 半部承载 bundle 行、`Config`（强度 schema）与一条首帧注入 row，并在 0.3.0 起承担 Host 侧持久化的声明端（见 §3 / §5）。
 - **覆盖率高**：UI 主样式由 token 驱动，覆盖 195 个颜色 token 即可整站改色，另有 11 个 `--shiki-*` 接管代码块高亮。已知硬编码例外：终端空态 SVG（`#17191d` / `#fff`）、macOS darwin 渐变、品牌与文件类型图标 artwork、主题样式表自身的字面 token 值（可被覆盖）。**首帧 / loading 页**在 0.2.0 已由 Host 半部经 `webserver/index-inject` 注入调色板覆盖；2026-10-21 起 loading spinner 环与进度弧也走 boot token（见 §5）。
 - **配色数据已有权威来源**：官方 `palette.md` 提供 6 套背景色阶；**主参考选定 Everforest Enchanted**（Obsidian 端口）——它的背景值严格等于官方 dark-soft / light-hard，并给出 `header-*` 自定义色与完整的 UI 语义映射。因此默认配对采用「深色 soft / 浅色 hard」，与 Enchanted 观感一致，其余四档强度作为可选。
-- **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变；逐级标题彩色 DSH 无对应 token，0.4.0 起由色彩模式的实验性作用域 CSS 覆盖（默认开启、可关闭）。都不影响主体观感。
+- **已知缺口**：终端 ANSI 16 色（xterm 内置默认盘）、brand mark 固定图、macOS 专用渐变；逐级标题彩色 DSH 无对应 token，0.4.0 起由色彩模式的作用域 CSS 覆盖（2026-10-24 起默认提供、无开关）。都不影响主体观感。
 
 ## 2. 调研方法（可复现）
 
@@ -109,7 +111,7 @@
 | 文档预览 | `--dsw-alias-bg-document-preview` / `label-document-preview`（alias 引用，自动） | ✅ 自动 |
 | 代码块语法高亮 | 9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`（共 11 个，全部显式）；作用于聊天气泡 / 工具输出 / 右侧文件预览三处 `CodeBlock` | ✅ |
 | 首帧 / loading 页 | Host 半部经 `webserver/index-inject` 追加 body script，在 Client 加载前把 boot 调色板写成 body 内联 token（scheme 读 ui-theme 已解析值；强度按 B 方案：本浏览器缓存优先 → Host 值兜底 → 默认，结果发布到 `window.__EVERFOREST_BOOT__`）；Web 首帧即 Everforest，Desktop 最多 1 帧原生色；loading spinner / 边框已由 boot token 覆盖（2026-10-21） | ✅ 0.2.0 覆盖（spinner/边框 0.2.1 补齐；强度 B 方案 0.3.0） |
-| 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 默认层不覆盖（非目标）；0.4.0 起由实验性色彩模式（默认开启、可关闭、作用域 CSS）为 h1–h6 分级着色，见 §14 / §15 |
+| 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 默认层不覆盖（非目标）；0.4.0 起由色彩模式（作用域 CSS；2026-10-24 起默认提供、无开关）为 h1–h6 分级着色，见 §14 / §15 / §18 |
 | 终端 | 底色 / 字色 / 光标跟随 token；ANSI 16 色为 xterm 内置默认盘（DSH 只传 bg/fg/cursor，且 `minimumContrastRatio: 4.5` 会自行校正）；OSC 4/10/11 不受主题控制 | ⚠️ 部分 |
 | brand mark / 文件类型图标 / 图片 | 固定 artwork（含终端空态 SVG 字面色） | ⚠️ 不覆盖 |
 | macOS 侧栏 / 标题栏渐变 | `ui-layout` 内联硬编码（仅 darwin） | ⚠️ Windows 无影响 |
@@ -387,3 +389,26 @@
 **验证**：`tests/settings-page.test.mjs` 27 项通过（新顺序 / 图标 path 数 / 选中态 / 被删文案不再渲染 / 按钮契约）；`.tmp/settings-preview/` 用真实 `SETTINGS_STYLES` + `tokensFor()` 渲染 dark-soft / light-hard 截图目检，选中卡片在浅色档可见；`npm test` 170 项、`npm run check` 全绿。
 
 **残余**：真机 DSH 设置页需刷新 / 重启后目检（Client 半部改动，刷新页面即可加载新 `client.js`）。
+
+## 18. 2026-10-24 色彩模式改为默认提供（移除设置页开关）
+
+**用户要求**：把设置里的「色彩模式」选项去掉，作为默认提供的功能。0.4.0 发布后曾于 2026-10-23 按用户要求把默认值改为开启（§16）；本轮进一步移除设置项本身，功能常开。
+
+**决策**
+
+1. **设置页整块移除，不做隐藏 / 折叠 / 高级设置**：删掉色彩模式标题、说明、`role="switch"` 开关与 5 个强调色装饰片；`colorMode.title/desc/on/off/switch` 五个 locale 键中英同步删除（键集 **23 → 18**）。理由：用户明确要求设置里不出现该选项；保留隐藏入口会留下第二套状态语义。
+2. **状态与持久化回到两个强度**：客户端 state 为 `{ light, dark }`；localStorage payload 为 `{ version: 1, light, dark }`，`STATE_VERSION` 仍为 1；Host `Config` 只剩 `light` / `dark` 两个 volatile 字段；迁移 / `isDefaultState` / 「恢复默认」只涉及两个强度。
+3. **兼容优先，不强制迁移**：0.4.x 缓存里多出的 `colorMode` 字段读取时忽略、不触发修复重写，下次写入自然丢弃；旧 profile patch 里残留的 `colorMode` 键被 schemastery 忽略（未知键不报错、值不生效），插件不读也不主动 unset——**用户不需要手改 patch**。
+4. **`<html>` 锚点保留**：`data-everforest-color-mode` 恒为 `"on"`，作为作用域 CSS 的锚点（不再是开关状态）；token 层、24 个角色色值与 34 条规则零改动。
+5. **dev 面板同步**：去掉色彩模式开关行与页脚「色彩模式 开/关」。
+
+**被否决**
+
+- 保留开关但默认常开：用户要求的是「去掉这个选项」，默认值改不改都仍在设置页出现，未满足要求。
+- 用环境变量 / 隐藏 URL 参数保留关闭能力：设置页之外再加一套配置入口，语义与维护成本都更高；且本功能是纯客户端样式，关闭诉求可用停用插件实现（代价是同时失去主题，已记录于 design §13.7 / §13.9）。
+- 提升 `STATE_VERSION` 以清理旧字段：会丢弃所有 0.3.x / 0.4.x 既有缓存并经迁移回填，代价高于「读取时忽略 + 下次写入丢弃」。
+- 迁移时主动 `unset` 旧 patch 的 `colorMode`：旧版本仍在读该字段时会造成额外写入；忽略即可，主动清理收益为零。
+
+**验证**：`node scripts/check-contrast.mjs --check` 通过（报告重新生成）；设置页 / state / durable / host-boot / integration / dev 面板测试随代码同步覆盖本次变更（键集 18、旧缓存与旧 patch 的兼容读取、dev 面板无开关行）。版本号保持 0.4.0、不发布，变更记入 `CHANGELOG.md` `[Unreleased]`（Changed / Removed）。
+
+**边界**：移除开关后没有单独关闭色彩模式的入口——若用户想退回单色内容层，只能停用插件（会同时失去主题）；该取舍已写入 design §13.7 第 5 条与 §13.9。真机验收刷新页面即可看到新设置页与默认提供的色彩模式；Host 半部的 schema 变化在 Host 启动时装载，但旧 `colorMode` 键兼容，不存在「为了兼容必须重启」的用例。

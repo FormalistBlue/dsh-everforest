@@ -35,6 +35,11 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **真机验收**：2026-10-23 用户在本机 DSH（重启后）目检设置页、色彩模式开关与 6 套配色下的聊天富文本 / 会话行，确认「这次调整没什么问题了」并要求发布；release 前最后一次自动化门禁为 `node --test` 170/170 + `npm run check` 全绿。
 > - **实验性口径**：市场条目文案按 2026-10-22 定稿的短文案，不随本功能追加（见 §8.6 / 仓库约定「插件功能迭代后不追加市场描述」）；CHANGELOG / design 已注明实验性、默认开启可关闭、DSH 升级需回归。README 按用户要求保持发布版原文案不动。
 > - **2026-10-23 已发布**：tag `v0.4.0`（commit `af4ec47`）→ publish run `39910070876` → npm `latest` = `0.3.0` 传播中 / 最终 `0.4.0`（`dist.shasum` `96fbeac4516ad0baf63ac43141c8da239a1d1bcf`，带 SLSA provenance，transparency log index `3412457040`），GitHub Release `v0.4.0` 已由 workflow 自动创建（2026-10-23T06:12:33Z）。registry 传播期以 `+ dsh-everforest@0.4.0` 与 tarball URL 为准。
+>
+> **2026-10-24 起的兼容说明（色彩模式改为默认提供、无设置开关；版本号仍记 0.4.0、尚未发布）**
+>
+> - 新版本的 Host `Config` 回到 `light` / `dark` 两个 volatile 字段，设置页不再有色彩模式开关；旧 profile patch 里由 0.4.0 发布版残留的 `colorMode` 键会被 schema **容忍并忽略**（schemastery 忽略未知键：校验照常通过、值不生效），**不需要手动删除**，插件也不会主动 unset；0.4.x 浏览器缓存里残留的 `colorMode` 字段同样被忽略、下次写入自然丢弃。
+> - Host 半部的 schema 变化仍在 DSH 启动时装载，但旧键兼容——**不存在「为了兼容必须重启」的用例**，也不需要为这次变更改任何 patch。刷新页面即可看到新设置页；Host 侧新 schema 在下一次 DSH 启动后生效，两种状态下功能与主题都正常。
 
 ## 0. 发布前必须确认
 
@@ -118,7 +123,7 @@ npm trust github dsh-everforest `
 - 旧版 npm（<= 11.14.x）的 `npm trust` 不发送 permissions 字段，registry 会返回无 body 的 `400 Bad Request`；npm 11.15+ 要求显式 `--allow-publish`（允许正式发布）或 `--allow-stage-publish`（允许 staged 发布）。
 - 网页等价路径：`https://www.npmjs.com/package/dsh-everforest/access` → Trusted publishers → Add a publisher（GitHub Actions；Workflow filename 只写 `publish.yml`；Environment 留空）。
 - 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；发布前会先安装 devDependency（`npm install --no-package-lock --ignore-scripts --no-audit --no-fund`，只有 `@deepseek-ai/schemastery`，运行时零依赖）再跑 `node --test` 与 `npm run check`（与 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 相同），任一失败即中止；`workflow_dispatch` 手动发布只允许在 `v<version>` 标签对应的提交上运行（`fetch-depth: 0` + `git tag --points-at HEAD` 校验）；
-- 之后发布：改版本 → 提交 → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance；发布成功后还会按 tag 自动创建 GitHub Release（`gh release create --generate-notes`，预发布版本自动加 `--prerelease`，已存在的 Release 会跳过）。
+- 之后发布：改版本 → 提交 → 在 `CHANGELOG.md` 写当前版本的小节 `## [X.Y.Z]` → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance；发布前会先跑 `node scripts/release-notes.mjs --version X.Y.Z --check`，该版本小节缺失或为空即中止（此时 npm 尚未发布）；发布成功后按 tag 自动创建 GitHub Release，正文就是该小节（`gh release create --notes-file`，预发布版本自动加 `--prerelease`，已存在的 Release 会跳过）。市场「更新内容」读的正是这个正文，所以小节要写成能独立阅读的版本说明（见 §5）。
 
 以 [npm Trusted publishing 文档](https://docs.npmjs.com/trusted-publishers) 为准。
 
@@ -152,8 +157,9 @@ npm trust github dsh-everforest `
 
 另外核对：
 
-- `engines.dsh` = `>=0.2.1-rc.2 <0.3.0-0`（安装前与装载 profile 时都会校验）；
+- `engines.dsh` = `>=0.2.1-rc.2 <0.3.0-0`（安装前与装载 profile 时都会校验；2026-10-24 复核 0.2.1-rc.3 满足该区间，未抬高下限）；
 - 版本号与 git tag 一致（`v0.1.0` ↔ `0.1.0`）；预发布版本只能发到非 `latest` 的 dist-tag（例如 `--tag next`）；
+- `CHANGELOG.md` 有当前版本对应的 `## [<version>]` 小节且非空（`node scripts/release-notes.mjs --check`；`node --test` 与 publish 都会拦）。它是 GitHub Release 正文、也就是市场「更新内容」的唯一来源，不要再依赖 `--generate-notes` 从 commit/PR 自动生成；
 - `npm publish` 前工作区干净（`git status` 无输出），发布 commit 已推送。
 
 ## 5. 发布后验证
@@ -171,7 +177,17 @@ npm 侧：
 GitHub / CI 侧：
 
 - `verify` workflow 在 `main` 的最近推送与 PR 上应全绿（6 格矩阵：Ubuntu / Windows × Node 20 / 22 / 24）；
-- Releases 页应出现 `v<version>`，notes 由 CI 生成（`--generate-notes`）。若 `Create GitHub Release` 一步失败，npm 包其实已经发布成功，本地补一条 `gh release create v<version> --verify-tag --generate-notes` 即可，不用重跑发布。
+- Releases 页应出现 `v<version>`，正文取自 `CHANGELOG.md` 的对应小节（`--notes-file`，不再是 `--generate-notes`）。若 `Create GitHub Release` 一步失败，npm 包其实已经发布成功，本地补一条即可，不用重跑发布：
+
+```powershell
+# 已发布但 Release 缺失：用同一份 CHANGELOG 小节补建（tag 换成实际版本）
+node scripts/release-notes.mjs --version 0.4.0 --out notes.md
+gh release create v0.4.0 --verify-tag --notes-file notes.md
+# Release 已存在、只是正文不对（例如 0.4.0 的旧 --generate-notes 产物）：
+# gh release edit v0.4.0 --notes-file notes.md
+```
+
+> **市场「更新内容」的链路**（dsh-market 1.66.x）：市场不读 `CHANGELOG.md`、也不读 README。awesome-dsh-plugin 每天探测一次每个仓库**最新一个正式 Release 的正文**（跳过 draft / prerelease），发布成 npm 包 `dsh-plugin-updates` 与 <https://awesome-dsh-plugin.com/updates.json>；dsh-market 拉取后显示在更新行的「更新内容」弹窗里，**最多渲染前 4 KB**。没有 Release 才退到最近 5 条 commit 的首行，纯 npm 安装退到版本发布时间。所以：小节要写成能独立阅读的版本说明，最重要的改动放开头；标题用 `###`（Release 正文不含 `##` 标题）；改完 Release 后市场最多约 1 天（探测每日 + 市场缓存 1 小时）才刷新。
 
 DSH 侧（本机 profile = `desktop`）：
 
@@ -193,6 +209,9 @@ DSH 侧（本机 profile = `desktop`）：
 - 回滚到 Host 半部不同的版本（0.2.1 ↔ 0.3.0）**同样需要重启 DSH** 才生效；0.3.0 写入 profile patch 的
   `config` 对 0.2.1 无害（0.2.1 没有 `Config` 导出、`apply` 不读第二个参数），但会被忽略、强度退回 localStorage；
   需要时可手动删除该行 `config`。
+- **2026-10-24 起（色彩模式已无设置开关）**：本版本不再声明 `colorMode`，profile patch 里残留的旧键无需处理
+  （schema 容忍并忽略，见上方「0.4.0 发布注意」的兼容说明）；只有回滚到 0.3.0 时才需要按 0.4.0 发布时的历史
+  口径先清理该字段。
 - CI 失败时先看 npm 的错误码：`EPUBLISHCONFLICT`（版本已存在）、`404 PUT`（trusted publisher 配置与 workflow/仓库不匹配）、`OTP required`（账号 2FA 但未用 OIDC/automation token）。
 
 ## 7. 常见坑
@@ -206,10 +225,12 @@ DSH 侧（本机 profile = `desktop`）：
 | `OTP required` | 账号开了 2FA 但没用 OIDC 或 automation token；本地交互发布需要 OTP |
 | 包名冲突 | 发布前 `npm view dsh-everforest version`；发布后不能改名，只能新包名 + 同步改 `dsh.client` id |
 | 安装后主题不生效 | tarball 里缺 `client.js`、`exports["./client"]` 错误，或 `dsh.client.platform` 不是 `web` |
-| DSH 提示不兼容 | `engines.dsh` 与运行时版本不匹配（本机 0.2.1-rc.2） |
+| DSH 提示不兼容 | `engines.dsh` 与运行时版本不匹配（本机 0.2.1-rc.3；兼容区间自 rc.2 起） |
 | 发布后本地仍装旧版 | 插件管理器安装会锁定版本；升级用 `plugin_manager` update/重装，替换已运行的包需重启 |
 | 升级后强度只在当前浏览器生效、patch 里没有 `config` | 只更新了 npm 包但没重启 DSH：Host 半部仍是旧版，新 Client 退回 localStorage-only；重启 DSH 后首启会把本地缓存一次性播种到 Host |
 | 手改 profile patch 成非法强度 | 运行中：volatile-only 更新解析失败被捕获 → Host warning、entry 保持 ACTIVE（旧配色不丢），改回合法值热恢复；冷启动 / 重挂：entry 不激活（无主题），改回合法值或删除 `config` 后重启恢复 |
+| publish 停在 `Prepare release notes from CHANGELOG.md` | `CHANGELOG.md` 缺当前版本 `## [X.Y.Z]` 小节，或小节为空；补写后重新提交再发。tag 已推时：`git tag -f vX.Y.Z` + `git push --force origin vX.Y.Z` 重跑——该检查在 `npm publish` 之前，此时还没发版，不会撞版本号 |
+| 市场「更新内容」只有一条 `Full Changelog` 链接 / 显示「该插件未提供更新说明」 | 该 Release 是旧的 `--generate-notes` 产物（0.4.0 及更早）；用 §5 的 `gh release edit --notes-file` 回填；市场每日探测，约 1 天内生效（弹窗只显示前 4 KB） |
 
 ## 8. DSH 生态上架：awesome-dsh-plugin 目录（dshmarket.com 的数据源）
 
@@ -283,4 +304,5 @@ description:
 - 缺 `dsh.bundle`、仓库年龄不足、缺 `dsh-plugin` topic、占位/空壳仓库；
 - 收录不等于安全审查；
 - 刚发 npm 版本 24 小时内，pnpm 的 `minimumReleaseAge` 会让市场静默装到上一个成熟版本——上架前先发最终版并过一个冷静期；
-- `engines.dsh`（当前 `>=0.2.1-rc.2 <0.3.0-0`）决定市场卡片的“宿主要求”与兼容过滤：低于它的用户可能被隐藏，放宽前需在旧宿主验证 token 覆盖。
+- 市场更新弹窗的「更新内容」= **最新 GitHub Release 的正文**（每日探测、前 4 KB、跳过 prerelease），也就是 `CHANGELOG.md` 对应小节；发版时漏写小节会先被 publish 门禁拦下（§4 / §5）；
+- `engines.dsh`（当前 `>=0.2.1-rc.2 <0.3.0-0`）决定市场卡片的“宿主要求”与兼容过滤：低于它的用户可能被隐藏，放宽前需在旧宿主验证 token 覆盖；0.2.1-rc.3 已满足该区间（2026-10-24 复核），不抬高下限以免隐藏仍用 rc.2 的用户。

@@ -5,9 +5,10 @@
  * The page is a pure `createElement` component: the client entry injects React
  * and the palette module, so here a tiny mock React (no renderer, no DOM) calls
  * the component directly and the returned element tree is inspected. This keeps
- * the component's contract — six cards, `aria-pressed`, the color-mode switch,
- * current row, click → `store.select` / `store.setColorMode`, reset →
- * `store.reset` — testable in plain Node.
+ * the component's contract — six cards, `aria-pressed`, the Appearance control,
+ * current row, click → `store.select` / `store.setPreference`, reset →
+ * `store.reset` — testable in plain Node. Color mode has no control on the page
+ * any more (a shipped default since 2026-10-24), so the tests pin its absence.
  */
 
 import { test } from 'node:test'
@@ -56,12 +57,11 @@ function createMockReact(options = {}) {
 /** Observable store double with the same contract as the client entry's store. */
 function createMockStore(options = {}) {
   const listeners = new Set()
-  const calls = { select: [], reset: 0, preference: [], colorMode: [] }
+  const calls = { select: [], reset: 0, preference: [] }
   let snapshot = {
     state: {
       light: options.light ?? 'hard',
       dark: options.dark ?? 'soft',
-      colorMode: options.colorMode === undefined ? true : options.colorMode === true,
     },
     theme: {
       preference: options.preference ?? 'system',
@@ -85,7 +85,7 @@ function createMockStore(options = {}) {
     },
     reset() {
       calls.reset += 1
-      snapshot = { state: { light: 'hard', dark: 'soft', colorMode: true }, theme: snapshot.theme }
+      snapshot = { state: { light: 'hard', dark: 'soft' }, theme: snapshot.theme }
       notify()
     },
     setPreference(preference) {
@@ -94,11 +94,6 @@ function createMockStore(options = {}) {
         ? snapshot.theme.active.colorScheme
         : preference
       snapshot = { state: snapshot.state, theme: { preference, active: { colorScheme } } }
-      notify()
-    },
-    setColorMode(enabled) {
-      calls.colorMode.push(enabled)
-      snapshot = { state: { ...snapshot.state, colorMode: enabled === true }, theme: snapshot.theme }
       notify()
     },
     setAppearance(preference, colorScheme) {
@@ -189,19 +184,6 @@ const isAppearanceOption = (node) => Boolean(
   && node.props
   && typeof node.props['data-preference'] === 'string',
 )
-const isColorModeSwitch = (node) => Boolean(
-  node
-  && node.type === 'button'
-  && node.props
-  && node.props.role === 'switch',
-)
-const isColorModeSwatch = (node) => Boolean(
-  node
-  && node.type === 'span'
-  && node.props
-  && typeof node.props.className === 'string'
-  && node.props.className.split(/\s+/).includes('everforest-color-mode-swatch'),
-)
 const byClass = (name) => (node) => Boolean(
   node
   && node.props
@@ -264,20 +246,18 @@ test('SETTINGS_STYLES uses only design tokens for interface colors', () => {
     '.everforest-appearance-cube[aria-pressed=\'true\']',
     '.everforest-appearance-cube:focus-visible',
     '.everforest-appearance-icon',
-    '.everforest-color-mode-control',
-    '.everforest-color-mode-swatches',
-    '.everforest-color-mode-swatch',
-    '.everforest-color-mode-note',
-    '.everforest-switch',
-    '.everforest-switch:hover',
-    '.everforest-switch:focus-visible',
-    '.everforest-switch[aria-checked=\'true\']',
-    '.everforest-switch[aria-checked=\'true\'] .everforest-switch-track',
-    '.everforest-switch[aria-checked=\'true\'] .everforest-switch-thumb',
-    '.everforest-switch-label',
     '.everforest-reset',
   ]) {
     assert.ok(SETTINGS_STYLES.includes(marker), `stylesheet is missing ${marker}`)
+  }
+
+  // Color mode has no control on this page since 2026-10-24: none of the 0.4.x
+  // switch / preview styles may survive in the stylesheet.
+  for (const gone of [
+    '.everforest-color-mode',
+    '.everforest-switch',
+  ]) {
+    assert.equal(SETTINGS_STYLES.includes(gone), false, `stylesheet still styles ${gone}`)
   }
 })
 
@@ -295,7 +275,7 @@ test('every settings-page border uses the same hairline width', () => {
   // 1px inset box-shadow) read as 2px next to the 1px appearance cubes. One
   // width for the whole page, and selection may only change the border colour.
   const solidBorders = SETTINGS_STYLES.match(/border(?:-(?:top|bottom|left|right))?:\s*[^;}]*solid/g) ?? []
-  assert.ok(solidBorders.length >= 8, `expected the page borders, found ${solidBorders.length}`)
+  assert.ok(solidBorders.length >= 6, `expected the page borders, found ${solidBorders.length}`)
   for (const declaration of solidBorders) {
     assert.match(declaration, /var\(--everforest-border-width\)/, `border without the shared width: ${declaration}`)
   }
@@ -330,11 +310,6 @@ test('locale dictionaries are complete and mirrored', () => {
     'current.summary',
     'current.active',
     'current.system',
-    'colorMode.title',
-    'colorMode.desc',
-    'colorMode.on',
-    'colorMode.off',
-    'colorMode.switch',
     'reset',
     'aria.card',
     'aria.group',
@@ -343,6 +318,9 @@ test('locale dictionaries are complete and mirrored', () => {
     assert.ok(enKeys.includes(key), `EN is missing key ${key}`)
     assert.ok(zhKeys.includes(key), `ZH is missing key ${key}`)
   }
+  // The 0.4.x color-mode control is gone, so its five keys are gone too: the
+  // dictionaries hold exactly the 18 keys of the remaining page.
+  assert.equal(enKeys.length, required.length)
 
   for (const dictionary of [EN, ZH]) {
     for (const [key, value] of Object.entries(dictionary)) {
@@ -362,15 +340,17 @@ test('locale dictionaries are complete and mirrored', () => {
   assert.match(ZH['group.light'], /浅色/)
   assert.match(ZH['appearance.system'], /跟随系统/)
   assert.match(ZH['reset'], /恢复默认/)
-  // The color-mode copy states what the mode affects; the former experimental
-  // caveat paragraph was removed from the UI (2026-10-23 screenshot review).
-  assert.match(ZH['colorMode.title'], /色彩模式/)
-  assert.match(ZH['colorMode.desc'], /聊天 Markdown/)
-  assert.match(ZH['colorMode.desc'], /会话记录/)
+  // Removed UI copy must stay removed (2026-10-23 screenshot review removed the
+  // explanatory paragraphs; 2026-10-24 removed the color-mode control itself).
   for (const removed of [
     'intro',
     'appearance.systemActive',
     'appearance.fixed',
+    'colorMode.title',
+    'colorMode.desc',
+    'colorMode.on',
+    'colorMode.off',
+    'colorMode.switch',
     'colorMode.experimental',
     'hint.scheme',
     'hint.storage',
@@ -392,7 +372,7 @@ test('locale JSON metadata exists for the plugin manager', () => {
   }
 })
 
-test('page renders the appearance control, two groups of three cards, then color mode', () => {
+test('page renders the appearance control, two groups of three cards, then the current row', () => {
   const { tree } = renderPage()
   const cards = findAll(tree, isCard)
   assert.equal(cards.length, 6)
@@ -409,22 +389,19 @@ test('page renders the appearance control, two groups of three cards, then color
   )
 
   const sections = findAll(tree, (node) => node.type === 'section')
-  assert.equal(sections.length, 4)
+  assert.equal(sections.length, 3)
   assert.equal(textContent(findOne(sections[0], byClass('everforest-group-title'))), 'Appearance')
   assert.equal(textContent(findOne(sections[1], byClass('everforest-group-title'))), 'Dark')
   assert.equal(textContent(findOne(sections[2], byClass('everforest-group-title'))), 'Light')
-  assert.equal(textContent(findOne(sections[3], byClass('everforest-group-title'))), 'Color mode')
   for (const section of sections) assert.ok(section.props['aria-labelledby'])
 
-  // The color-mode block sits after both strength groups and before the
-  // current-choice row (the switch is part of the choice, not of the palette
-  // card grid).
+  // Color mode has no block on the page any more: the light group is directly
+  // followed by the current-choice row.
   const order = []
   walk(tree, (node) => order.push(node))
-  const colorModeIndex = order.indexOf(findOne(tree, byClass('everforest-color-mode')))
   const currentIndex = order.indexOf(findOne(tree, byClass('everforest-current')))
-  assert.ok(colorModeIndex > order.indexOf(sections[2]), 'color mode must follow the light group')
-  assert.ok(colorModeIndex < currentIndex, 'color mode must precede the current row')
+  assert.ok(currentIndex > order.indexOf(sections[2]), 'the current row must follow the light group')
+  assert.equal(findOne(tree, byClass('everforest-color-mode')), undefined)
 
   const cardGroups = findAll(tree, (node) => (
     node.props
@@ -480,42 +457,42 @@ test('each card previews the five signature palette colors', () => {
       palette.RAMPS.dark.hard.bg1,
       palette.RAMPS.dark.hard.bg2,
       palette.FOREGROUNDS.dark.fg,
-      palette.FOREGROUNDS.dark.headerAqua,
+      palette.FOREGROUNDS.dark.aqua,
     ],
     'dark-medium': [
       palette.RAMPS.dark.medium.bg0,
       palette.RAMPS.dark.medium.bg1,
       palette.RAMPS.dark.medium.bg2,
       palette.FOREGROUNDS.dark.fg,
-      palette.FOREGROUNDS.dark.headerAqua,
+      palette.FOREGROUNDS.dark.aqua,
     ],
     'dark-soft': [
       palette.RAMPS.dark.soft.bg0,
       palette.RAMPS.dark.soft.bg1,
       palette.RAMPS.dark.soft.bg2,
       palette.FOREGROUNDS.dark.fg,
-      palette.FOREGROUNDS.dark.headerAqua,
+      palette.FOREGROUNDS.dark.aqua,
     ],
     'light-hard': [
       palette.RAMPS.light.hard.bg0,
       palette.RAMPS.light.hard.bg1,
       palette.RAMPS.light.hard.bg2,
       palette.FOREGROUNDS.light.fg,
-      palette.FOREGROUNDS.light.headerAqua,
+      palette.FOREGROUNDS.light.aqua,
     ],
     'light-medium': [
       palette.RAMPS.light.medium.bg0,
       palette.RAMPS.light.medium.bg1,
       palette.RAMPS.light.medium.bg2,
       palette.FOREGROUNDS.light.fg,
-      palette.FOREGROUNDS.light.headerAqua,
+      palette.FOREGROUNDS.light.aqua,
     ],
     'light-soft': [
       palette.RAMPS.light.soft.bg0,
       palette.RAMPS.light.soft.bg1,
       palette.RAMPS.light.soft.bg2,
       palette.FOREGROUNDS.light.fg,
-      palette.FOREGROUNDS.light.headerAqua,
+      palette.FOREGROUNDS.light.aqua,
     ],
   }
   for (const card of cards) {
@@ -644,108 +621,34 @@ test('the removed explanatory copy is gone from the page', () => {
   assert.equal(findAll(header, (node) => node.type === 'p').length, 0)
 })
 
-test('color-mode block renders an explicitly disabled switch with five accent chips', () => {
-  const { tree } = renderPage({
-    store: createMockStore({ colorMode: false, colorScheme: 'light' }),
-  })
-  const section = findOne(tree, byClass('everforest-color-mode'))
-  assert.ok(section, 'color-mode section missing')
-  assert.equal(section.type, 'section')
-  assert.ok(section.props['aria-labelledby'])
-  assert.equal(textContent(findOne(section, byClass('everforest-group-title'))), 'Color mode')
-  assert.match(textContent(findOne(section, byClass('everforest-color-mode-note'))), /chat Markdown/i)
+test('color mode has no control on the page any more (shipped default since 2026-10-24)', () => {
+  const { tree } = renderPage()
+  // No section, heading, switch, chip preview or copy for the mode.
+  assert.equal(findOne(tree, byClass('everforest-color-mode')), undefined)
+  assert.equal(findOne(tree, byClass('everforest-switch')), undefined)
+  assert.equal(findOne(tree, byClass('everforest-color-mode-swatch')), undefined)
+  assert.equal(findOne(tree, (node) => node.props && node.props.role === 'switch'), undefined)
+  const text = textContent(tree)
+  assert.doesNotMatch(text, /color mode/i)
+  assert.doesNotMatch(text, /色彩模式/)
 
-  // A native button carrying role="switch" and aria-checked — no custom widget.
-  const toggle = findOne(tree, isColorModeSwitch)
-  assert.ok(toggle, 'color-mode switch missing')
-  assert.equal(toggle.props.type, 'button')
-  assert.equal(toggle.props['aria-checked'], 'false')
-  assert.equal(toggle.props['data-color-mode'], 'off')
-  assert.equal(toggle.props.tabIndex, undefined)
-  assert.equal(toggle.props.disabled, undefined)
-  assert.equal(toggle.props['aria-hidden'], undefined)
-  assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), 'off')
-  assert.equal(toggle.props['aria-label'], 'Color mode, currently off')
-
-  // The five accent chips are decoration, never a control.
-  const container = findOne(tree, byClass('everforest-color-mode-swatches'))
-  assert.equal(container.props['aria-hidden'], 'true')
-  const swatches = findAll(tree, isColorModeSwatch)
-  assert.equal(swatches.length, 5)
-  assert.deepEqual(
-    swatches.map((swatch) => swatch.props.style.backgroundColor),
-    [
-      palette.FOREGROUNDS.light.red,
-      palette.FOREGROUNDS.light.orange,
-      palette.FOREGROUNDS.light.yellow,
-      palette.FOREGROUNDS.light.aqua,
-      palette.FOREGROUNDS.light.green,
-    ],
-  )
-  // The experimental caveat paragraph was removed from the UI.
-  assert.equal(findOne(section, byClass('everforest-color-mode-experimental')), undefined)
-})
-
-test('color mode is on by default when the store omits the flag', () => {
-  const { tree } = renderPage() // createMockStore() with no colorMode option
-  const toggle = findOne(tree, isColorModeSwitch)
-  assert.equal(toggle.props['aria-checked'], 'true')
-  assert.equal(toggle.props['data-color-mode'], 'on')
-  assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), 'on')
-})
-
-test('color-mode switch reflects an enabled store and toggles through store.setColorMode', () => {
-  const store = createMockStore({ colorMode: true, colorScheme: 'dark' })
-  const { tree } = renderPage({ store })
-  const toggle = findOne(tree, isColorModeSwitch)
-  assert.equal(toggle.props['aria-checked'], 'true')
-  assert.equal(toggle.props['data-color-mode'], 'on')
-  assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), 'on')
-  assert.equal(toggle.props['aria-label'], 'Color mode, currently on')
-  // The accent preview follows the active scheme.
-  assert.deepEqual(
-    findAll(tree, isColorModeSwatch).map((swatch) => swatch.props.style.backgroundColor),
-    [
-      palette.FOREGROUNDS.dark.red,
-      palette.FOREGROUNDS.dark.orange,
-      palette.FOREGROUNDS.dark.yellow,
-      palette.FOREGROUNDS.dark.aqua,
-      palette.FOREGROUNDS.dark.green,
-    ],
-  )
-
-  toggle.props.onClick()
-  assert.deepEqual(store.calls.colorMode, [false])
-  assert.deepEqual({ ...store.getSnapshot().state }, { light: 'hard', dark: 'soft', colorMode: false })
-  const { tree: updated } = renderPage({ store })
-  const updatedToggle = findOne(updated, isColorModeSwitch)
-  assert.equal(updatedToggle.props['aria-checked'], 'false')
-  assert.equal(textContent(findOne(updatedToggle, byClass('everforest-switch-label'))), 'off')
-  updatedToggle.props.onClick()
-  assert.deepEqual(store.calls.colorMode, [false, true])
-  assert.equal(store.getSnapshot().state.colorMode, true)
-})
-
-test('a missing or hostile colorMode value falls back to the default (on)', () => {
-  for (const colorMode of [undefined, 'on', 1, null]) {
-    const store = {
-      getSnapshot: () => ({
-        state: { light: 'hard', dark: 'soft', colorMode },
-        theme: { preference: 'system', active: { colorScheme: 'light' } },
-      }),
-      subscribe: () => () => {},
-      select: () => {},
-      reset: () => {},
-      setColorMode: () => {},
-    }
-    const { tree } = renderPage({ store })
-    const toggle = findOne(tree, isColorModeSwitch)
-    assert.equal(toggle.props['aria-checked'], 'true', `colorMode ${JSON.stringify(colorMode)} should fall back to on`)
-    assert.equal(toggle.props['data-color-mode'], 'on')
+  // Even a store snapshot that still carries the retired 0.4.x flag changes
+  // nothing: there is no control to render and the page stays valid.
+  for (const colorMode of [true, false, 'on', null]) {
+    const { tree: legacy } = renderPage({
+      store: {
+        getSnapshot: () => ({
+          state: { light: 'hard', dark: 'soft', colorMode },
+          theme: { preference: 'system', active: { colorScheme: 'light' } },
+        }),
+        subscribe: () => () => {},
+        select: () => {},
+        reset: () => {},
+      },
+    })
+    assert.equal(findAll(legacy, isCard).length, 6)
+    assert.equal(findOne(legacy, (node) => node.props && node.props.role === 'switch'), undefined)
   }
-  // Only the literal boolean `false` disables the mode.
-  const { tree } = renderPage({ store: createMockStore({ colorMode: false }) })
-  assert.equal(findOne(tree, isColorModeSwitch).props['aria-checked'], 'false')
 })
 
 test('clicking a card calls store.select with its scheme and strength', () => {
@@ -781,7 +684,7 @@ test('restore-defaults button calls store.reset and shows the default pairing', 
 
   reset.props.onClick()
   assert.equal(store.calls.reset, 1)
-  assert.deepEqual(store.getSnapshot().state, { light: 'hard', dark: 'soft', colorMode: true })
+  assert.deepEqual(store.getSnapshot().state, { light: 'hard', dark: 'soft' })
 
   const { tree: updated } = renderPage({ store })
   const pressed = findAll(updated, isCard)
@@ -802,36 +705,33 @@ test('page keeps the current row but drops the old hint list', () => {
 test('Simplified Chinese renders translated copy and labels', () => {
   const { tree } = renderPage({ t: translateZH })
   const sections = findAll(tree, (node) => node.type === 'section')
-  assert.equal(sections.length, 4)
+  assert.equal(sections.length, 3)
   assert.equal(textContent(findOne(sections[0], byClass('everforest-group-title'))), '外观')
   assert.equal(textContent(findOne(sections[1], byClass('everforest-group-title'))), '深色')
   assert.equal(textContent(findOne(sections[2], byClass('everforest-group-title'))), '浅色')
-  assert.equal(textContent(findOne(sections[3], byClass('everforest-group-title'))), '色彩模式')
 
   const cards = findAll(tree, isCard)
   assert.equal(cards[0].props['aria-label'], '深色 Hard 配色')
   const appearanceOptions = findAll(tree, isAppearanceOption)
   assert.deepEqual(appearanceOptions.map(textContent), ['浅色', '深色', '跟随系统'])
-  // The color-mode switch label and its accessible name are translated too.
-  const toggle = findOne(tree, isColorModeSwitch)
-  assert.equal(textContent(findOne(toggle, byClass('everforest-switch-label'))), '已开启')
-  assert.equal(toggle.props['aria-label'], '色彩模式，当前已开启')
   assert.equal(
     textContent(findOne(tree, byClass('everforest-current-main'))),
     '当前：深色 Soft · 浅色 Hard',
   )
   assert.match(textContent(findOne(tree, byClass('everforest-current-meta'))), /跟随系统/)
   assert.equal(textContent(findOne(tree, byClass('everforest-reset'))), '恢复默认')
-  // The removed explanatory copy is not rendered in Chinese either.
+  // The removed explanatory copy and the color-mode control are not rendered in
+  // Chinese either.
   for (const gone of ['everforest-intro', 'everforest-hint', 'everforest-appearance-note', 'everforest-color-mode-experimental']) {
     assert.equal(findOne(tree, byClass(gone)), undefined, `${gone} still rendered`)
   }
+  assert.doesNotMatch(textContent(tree), /色彩模式/)
 })
 
 test('all interactive controls are native buttons', () => {
   const { tree } = renderPage()
   const buttons = findAll(tree, (node) => node.type === 'button')
-  assert.equal(buttons.length, 11) // six cards + three appearance options + color-mode switch + reset
+  assert.equal(buttons.length, 10) // six cards + three appearance options + reset
   for (const button of buttons) {
     assert.equal(button.props.type, 'button')
     assert.equal(typeof button.props.onClick, 'function')
@@ -864,10 +764,7 @@ test('renders safely without a store and without optional props', () => {
   )
   // The no-op fallback store keeps the appearance control clickable.
   for (const option of findAll(tree, isAppearanceOption)) option.props.onClick()
-  // ...and the color-mode switch, rendered at the default (on).
-  const toggle = findOne(tree, isColorModeSwitch)
-  assert.equal(toggle.props['aria-checked'], 'true')
-  assert.doesNotThrow(() => toggle.props.onClick())
+  assert.doesNotThrow(() => findOne(tree, byClass('everforest-reset')).props.onClick())
   // Standard slot owner props are ignored by the page.
   const tree2 = Component({ t: translateEN, store: createMockStore(), close: () => {}, extra: 42 })
   assert.equal(findAll(tree2, isCard).length, 6)
@@ -879,7 +776,6 @@ test('hostile store snapshots degrade to the default pairing', () => {
     subscribe: () => () => {},
     select: () => {},
     reset: () => {},
-    setColorMode: () => {},
   }
   const { tree } = renderPage({ store })
   const pressed = findAll(tree, isCard)
@@ -897,8 +793,6 @@ test('hostile store snapshots degrade to the default pairing', () => {
       .map((option) => option.props['data-preference']),
     ['system'],
   )
-  // A hostile colorMode value falls back to the default (on).
-  assert.equal(findOne(tree, isColorModeSwitch).props['aria-checked'], 'true')
 })
 
 test('a missing palette module still renders the six default cards', () => {
@@ -911,8 +805,6 @@ test('a missing palette module still renders the six default cards', () => {
     const segments = findAll(findOne(card, byClass('everforest-swatch')), byClass('everforest-swatch-segment'))
     assert.equal(segments.length, 5)
   }
-  // The color-mode block survives too: five chips, no inline colors available.
-  const swatches = findAll(tree, isColorModeSwatch)
-  assert.equal(swatches.length, 5)
-  for (const swatch of swatches) assert.equal(swatch.props.style, undefined)
+  // The page still renders without any color-mode control.
+  assert.equal(findOne(tree, (node) => node.props && node.props.role === 'switch'), undefined)
 })

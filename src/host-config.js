@@ -1,21 +1,25 @@
 /**
  * Host-side durable configuration for dsh-everforest.
  *
- * The palette choice (`light` = Hard/Medium/Soft, `dark` = Hard/Medium/Soft and,
- * since 0.4.0, the experimental `colorMode` flag) used to live only in the
- * browser's `localStorage`, so switching browsers or opening the Web host on a
- * fresh random port lost it. This module moves the user's choice into DSH's own
- * settings document instead — the active profile's `cordis.patch.yml` gets a row
+ * The palette choice (`light` = Hard/Medium/Soft, `dark` = Hard/Medium/Soft)
+ * used to live only in the browser's `localStorage`, so switching browsers or
+ * opening the Web host on a fresh random port lost it. This module moves the
+ * user's choice into DSH's own settings document instead — the active
+ * profile's `cordis.patch.yml` gets a row
  *
  *     - id: everforest
  *       name: dsh-everforest
- *       config: { light: hard, dark: soft, colorMode: true }
+ *       config: { light: hard, dark: soft }
  *
  * and every authenticated browser of that profile reads it back through the
- * Client `ctx.configForms` service. `colorMode` is a plain boolean and starts
- * enabled (the shipped default since 2026-10-23; only an explicit `false`
- * disables it), validated by the same schema, so a hand-edited
- * `colorMode: "on"` fails the entry load instead of reaching the Client.
+ * Client `ctx.configForms` service.
+ *
+ * Until 2026-10-24 the schema also carried an experimental `colorMode` boolean.
+ * Color mode is now a default feature with no switch (docs/design.md §13), so
+ * the field is gone from this schema and from every write: an older profile
+ * patch that still contains `colorMode` keeps validating (schemastery accepts
+ * unknown keys), the value is simply ignored, and the next strength write
+ * leaves the stale key in place instead of rewriting the document.
  *
  * The mechanism is the official one (`dsh-settings` scans active profile
  * entries for a `Config` schema and projects its **volatile** fields into a
@@ -40,11 +44,11 @@
  * `volatile()` (3.18.3): such a host simply projects no form and the Client
  * falls back to `localStorage`.
  *
- * `strengthSchema()` / `booleanSchema()` build a fresh node per call regardless:
- * in schemastery 3.18.5 `.volatile()` returns a marked view and leaves the
- * receiver's own metadata alone, but a marked node still must not be reused for
- * a schema that is supposed to stay plain (a legacy/plain schema and the live
- * `Config` are never mixed here).
+ * `strengthSchema()` builds a fresh node per call: in schemastery 3.18.5
+ * `.volatile()` returns a marked view and leaves the receiver's own metadata
+ * alone, but a marked node still must not be reused for a schema that is
+ * supposed to stay plain (a legacy/plain schema and the live `Config` are never
+ * mixed here).
  *
  * The `@deepseek-ai/schemastery` import is resolved by the DSH Host at runtime
  * from its own installation. It is deliberately **not** a package dependency
@@ -54,7 +58,6 @@
 import Schema from '@deepseek-ai/schemastery'
 
 import { DEFAULT_STATE, STRENGTHS } from './palette.js'
-import { DEFAULT_COLOR_MODE } from './state.js'
 
 /**
  * Profile entry id that owns this plugin and therefore the settings form's
@@ -81,24 +84,7 @@ function strengthSchema (fallback) {
 }
 
 /**
- * One live-editable boolean field (the experimental color-mode switch).
- *
- * A fresh node per call, same capability guard as `strengthSchema`: a host whose
- * schemastery predates `.volatile()` (3.18.3) gets a plain boolean field, which
- * means the settings service projects no form and the Client falls back to
- * `localStorage` for the flag as well.
- *
- * @param {boolean} fallback - shipped default.
- * @returns {import('@deepseek-ai/schemastery').Schema} the field schema.
- */
-function booleanSchema (fallback) {
-  const node = Schema.boolean().default(fallback)
-  return typeof node.volatile === 'function' ? node.volatile() : node
-}
-
-/**
- * Host `Config`: the durable palette state — one volatile strength per scheme
- * plus the volatile color-mode flag.
+ * Host `Config`: the durable palette state — one volatile strength per scheme.
  *
  * The Loader validates a hand-edited profile patch against this schema. A cold
  * start (or remount) with an invalid value fails to activate the entry — the
@@ -106,16 +92,10 @@ function booleanSchema (fallback) {
  * running Host is rejected by the Loader with a warning and keeps the previous
  * values. Either way the shipped defaults below are the only legal starting
  * point, and the boot row only ever embeds enum members.
- *
- * `colorMode` intentionally does **not** feed the boot row (see `hostState()`):
- * it only gates Client-injected CSS scoped to the chat/session DOM, which does
- * not exist during the first paint, so the boot payload stays byte-identical
- * whether the mode is on or off.
  */
 export const Config = Schema.object({
   light: strengthSchema(DEFAULT_STATE.light),
   dark: strengthSchema(DEFAULT_STATE.dark),
-  colorMode: booleanSchema(DEFAULT_COLOR_MODE),
 })
 
 /**
@@ -127,12 +107,6 @@ export const Config = Schema.object({
  * validated against the supported set again: `Config` already enforces it, but
  * the boot row is a security-sensitive string and must never embed anything
  * outside the enum.
- *
- * `colorMode` is deliberately not returned: the boot row only paints the eight
- * tokens the first frame consumes, and the color-mode CSS is injected by the
- * Client after mount (it needs the chat/session DOM, which the boot page does
- * not render). Keeping this value pair-only also keeps the boot script and its
- * embedded value table byte-identical to 0.3.0 when the mode is off.
  *
  * @param {unknown} config - the parsed config passed to `apply`, if any.
  * @returns {{ light: string, dark: string }} a fresh, validated pair.

@@ -474,7 +474,25 @@ function contrastRatio (foreground, background) {
   return (lighter + 0.05) / (darker + 0.05)
 }
 
-  return { isHex, hexToRgb, rgbToHex, alpha, mix, interpolateRamp, relativeLuminance, contrastRatio }
+/**
+ * CIE L* (0-100) of a colour: the perceptual lightness of CIELAB, derived from
+ * the WCAG relative luminance. Alpha is ignored, like `relativeLuminance` —
+ * translucent colours should be composited first.
+ *
+ * Used where two surfaces have to differ by a minimum perceptual step rather
+ * than by a WCAG ratio (the active session row, `src/active-session.js`): for
+ * two near-identical light surfaces the contrast ratio hides the difference,
+ * L* does not.
+ * @param {string} color hex
+ * @returns {number} 0-100
+ */
+function labLightness (color) {
+  const y = relativeLuminance(color)
+  // CIE 1976: L* = 116·Y^(1/3) − 16 above the linear segment (Y > (6/29)^3).
+  return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : (24389 / 27) * y
+}
+
+  return { isHex, hexToRgb, rgbToHex, alpha, mix, interpolateRamp, relativeLuminance, contrastRatio, labLightness }
 })()
 
 // ---------------------------------------------------------------- src/tokens.js
@@ -1010,7 +1028,8 @@ function hueStops (p, hue) {
  * ------------------------------------------------------------------ */
 
 /**
- * The 107 `--dsw-alias-*` colour tokens of the DSH 0.2.1-rc.2 ui-theme sheets.
+ * The 107 `--dsw-alias-*` colour tokens of the DSH 0.2.1-rc.2 / rc.3 ui-theme sheets
+ * (the rc.3 sheets carry the identical token set; see docs/design.md §12).
  * Every entry is an explicit role mapping (docs/design.md §4); none relies on
  * static-token following.
  * @type {Record<string, (p: object) => string>}
@@ -1045,11 +1064,14 @@ const ALIAS_TOKENS = {
   '--dsw-alias-border-l3': (p) => border(p, 'l3'),
   '--dsw-alias-border-l4': (p) => border(p, 'l4'),
 
-  // Brand / primary buttons (Enchanted: interactive-accent = header-aqua) -----
-  '--dsw-alias-brand-primary': (p) => p.fg.headerAqua,
+  // Brand / primary buttons. 2026-10-24 accent trial: the official `fg.aqua` /
+  // `fg.blue` replace Enchanted's muted `header-aqua` / `header-blue` here and
+  // in the link / deep-diving / interaction tokens. `header-*` stays for the
+  // onboarding artwork, the shiki link colour and the light bubble tint.
+  '--dsw-alias-brand-primary': (p) => p.fg.aqua,
   '--dsw-alias-brand-primary-invert': (p) => p.ramp.bg0,
   // Upstream token name carries a duplicated suffix; keep the exact CSS variable.
-  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => p.fg.headerAqua,
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => p.fg.aqua,
   '--dsw-alias-brand-text': (p) => p.ramp.bg0,
   '--dsw-alias-button-contrast-fill': (p) => p.fg.fg,
   '--dsw-alias-button-elevated-fill': (p) => surface(p, 2),
@@ -1058,12 +1080,12 @@ const ALIAS_TOKENS = {
   '--dsw-alias-button-ghost-active-border': (p) => border(p, 'l3'),
   '--dsw-alias-button-ghost-active-fill': (p) => surface(p, 2),
   '--dsw-alias-button-ghost-active-hover': (p) => surface(p, 3),
-  '--dsw-alias-button-info-fill': (p) => p.fg.headerBlue,
-  '--dsw-alias-button-info-hover': (p) => lift(p, p.fg.headerBlue, 0.18),
+  '--dsw-alias-button-info-fill': (p) => p.fg.blue,
+  '--dsw-alias-button-info-hover': (p) => lift(p, p.fg.blue, 0.18),
   // "dimmed" primary: desaturate toward the surface instead of changing the hue.
-  '--dsw-alias-button-primary-dimmed': (p) => mix(p.fg.headerAqua, surface(p, 2), 0.45),
-  '--dsw-alias-button-primary-fill': (p) => p.fg.headerAqua,
-  '--dsw-alias-button-primary-hover': (p) => p.fg.headerBlue,
+  '--dsw-alias-button-primary-dimmed': (p) => mix(p.fg.aqua, surface(p, 2), 0.45),
+  '--dsw-alias-button-primary-fill': (p) => p.fg.aqua,
+  '--dsw-alias-button-primary-hover': (p) => p.fg.blue,
   // Tool-bar material: bg2 + the upstream 45%-94% opacity range.
   '--dsw-alias-button-tool-bar-fill': (p) => alpha(surface(p, 2), 0.72),
   '--dsw-alias-button-tool-bar-fill-invisible': (p) => alpha(surface(p, 2), 0.45),
@@ -1082,18 +1104,18 @@ const ALIAS_TOKENS = {
   // Interactive feedback (subtle translucent overlays, as upstream) -----------
   '--dsw-alias-interactive-bg-active': (p) => alpha(p.ramp.bg5, 0.28),
   '--dsw-alias-interactive-bg-hover': (p) => alpha(p.ramp.bg5, 0.16),
-  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(p.fg.headerAqua, 0.16),
-  '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.headerRed, 0.12),
+  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(p.fg.aqua, 0.16),
+  '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.red, 0.12),
   '--dsw-alias-interactive-bg-hover-solid': (p) => surface(p, 2),
 
   // Labels -------------------------------------------------------------------
   '--dsw-alias-label-caption': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.25),
-  '--dsw-alias-label-deep-diving': (p) => p.fg.headerBlue,
-  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(p.fg.headerBlue, 40),
+  '--dsw-alias-label-deep-diving': (p) => p.fg.blue,
+  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(p.fg.blue, 40),
   '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.55),
   '--dsw-alias-label-document-preview': (p) => p.fg.grey1,
   '--dsw-alias-label-primary': (p) => p.fg.fg,
-  '--dsw-alias-label-primary-bluish': (p) => p.fg.headerBlue,
+  '--dsw-alias-label-primary-bluish': (p) => p.fg.blue,
   '--dsw-alias-label-primary-dimmed': (p) => mix(p.fg.fg, p.ramp.bg0, 0.35),
   // Brand / primary-button foreground: bg0, not white (docs/design.md §4).
   '--dsw-alias-label-primary-foreground': (p) => p.ramp.bg0,
@@ -1105,7 +1127,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-label-tertiary': (p) => p.fg.grey2,
 
   // Links / markdown ---------------------------------------------------------
-  '--dsw-alias-link': (p) => p.fg.headerBlue,
+  '--dsw-alias-link': (p) => p.fg.blue,
   '--dsw-alias-markdown-citation': (p) => surface(p, 2),
   '--dsw-alias-markdown-code-block': (p) => codeSurface(p),
   '--dsw-alias-markdown-code-block-banner': (p) => codeSurface(p),
@@ -1123,7 +1145,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-menu-icon': (p) => p.fg.grey1,
 
   // Onboarding (accent + 3 gradient stops + 3 fills = 7 tokens) --------------
-  '--dsw-alias-onboarding-accent': (p) => p.fg.headerAqua,
+  '--dsw-alias-onboarding-accent': (p) => p.fg.aqua,
   '--dsw-alias-onboarding-card-fill': (p) => alpha(surface(p, 2), 0.8),
   '--dsw-alias-onboarding-checkbox-border': (p) => border(p, 'l1'),
   '--dsw-alias-onboarding-secondary-fill': (p) => surface(p, 1),
@@ -1173,7 +1195,7 @@ const SPECIFIC_TOKENS = {
   '--dsw-specific-selector': (p) => surface(p, 2),
   '--dsw-specific-sidebar-fill': (p) => sidebarSurface(p),
   '--dsw-specific-sidebar-nav-item-active': (p) => surface(p, 2),
-  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.headerAqua, 0.2),
+  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.aqua, 0.2),
   '--dsw-specific-sidebar-nav-item-hover': (p) => surface(p, 1),
   '--dsw-specific-tip': (p) => surface(p, 2)
 }
@@ -1376,18 +1398,19 @@ const SELF_CHECK_TOKENS = Object.freeze([
 // ---------------------------------------------------------------- src/color-mode.js
 const __mod_3_color_mode_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, VARIANT_NAMES, resolvePalette } = __mod_0_palette_js
-  const { contrastRatio, mix } = __mod_1_color_js
+  const { contrastRatio, labLightness, mix } = __mod_1_color_js
   const { tokensFor } = __mod_2_tokens_js
 
-// Everforest "color mode": the opt-in content-layer role colours and stylesheet.
+// Everforest "color mode": the always-on content-layer role colours and stylesheet.
 //
-// Color mode is an experimental content enhancement, **on by default** since the
-// 2026-10-23 follow-up (only an explicit user choice turns it off): when the
-// Client sets the three `data-everforest-*` attributes from
-// `COLOR_MODE_ATTRS` on `document.documentElement`, the stylesheet returned by
-// `colorModeStyles()` starts matching; while the mode attribute is `"off"` every
-// selector is prefixed with `html[data-everforest-color-mode="on"]`, so the CSS
-// matches nothing and the page is pixel-identical to the base theme.
+// Color mode ships as a default feature since 2026-10-24 — the 0.4.x Settings
+// switch was removed at the user's request, so the Client always sets the three
+// `data-everforest-*` attributes from `COLOR_MODE_ATTRS` on
+// `document.documentElement` and the stylesheet returned by `colorModeStyles()`
+// always matches. Every selector is still prefixed with
+// `html[data-everforest-color-mode="on"]`: the attribute is the stylesheet's
+// scope anchor (it keeps the rules inert if the mode ever needs to be switched
+// again) while the token layer never changes either way.
 //
 // Two things live here:
 //
@@ -1412,7 +1435,15 @@ const __mod_3_color_mode_js = (() => {
 //       checkbox accent         blue
 //       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%)
 //       blockquote fill         aqua tint into bg-base (8%)
-//       session row warn / done (+hover)  orange / green into sidebar (12% / 18%)
+//       session row warn / done   solid fill from the palette's own bg_yellow /
+//                            bg_green. The waiting row is the one status surface
+//                            whose hue sits next to Everforest's warm canvas, so
+//                            on the light strengths it is deepened toward
+//                            fg.yellow until it reads as a band, while the dark
+//                            variants invert: a bright amber surface carrying the
+//                            scheme's deep contrast ink (2026-10-24 restyle and
+//                            follow-ups, design doc §13.8.1); hover is one step
+//                            stronger.
 //       status dots warn / done orange / green, guarded on bg-base AND sidebar
 //
 //     Thresholds: large/bold headings h1–h4 and the decorations/checkbox accent
@@ -1433,6 +1464,13 @@ const __mod_3_color_mode_js = (() => {
 // The formulas and expected values are the ones validated by the 2026-10-23
 // "中彩" preview (`.tmp/color-mode-preview`); the role colours are pinned by
 // `tests/color-mode.test.mjs` and hard-gated in `scripts/check-contrast.mjs`.
+// The 2026-10-24 status-row restyle keeps the solid fill of 0.4.0 but takes the
+// fill colours straight from Everforest's palette1 background accents (`bg_red` /
+// `bg_green`); both an sRGB-derived and an OKLab-derived tint were rejected in
+// visual review, the palette colours are the upstream's own status surfaces.
+// 2026-10-24 follow-up: the user read the waiting row's red as an error, so the
+// waiting fill is now `bg_yellow` (dots stay orange; "warn" keeps its hue family
+// between the yellow dot ring and the warm canvas). See design doc §13.8 / §13.9.
 //
 // The module is a pure ESM source: no DOM, no storage, no state. `node --test`
 // imports it directly and `scripts/build.mjs` bundles it into `client.js`
@@ -1441,8 +1479,9 @@ const __mod_3_color_mode_js = (() => {
 
 /**
  * The `data-*` attributes the Client sets on `document.documentElement`.
- * `mode` is `'on' | 'off'`; `light` / `dark` carry each scheme's strength so
- * the stylesheet can pick the matching variant without a JS lookup per frame.
+ * `mode` is always `'on'` in this version (the stylesheet's scope anchor);
+ * `light` / `dark` carry each scheme's strength so the stylesheet can pick the
+ * matching variant without a JS lookup per frame.
  * @type {{ mode: string, light: string, dark: string }}
  */
 const COLOR_MODE_ATTRS = Object.freeze({
@@ -1472,10 +1511,14 @@ const COLOR_MODE_ATTRS = Object.freeze({
  * @property {string} zebra - even table-row stripe (lighter green tint).
  * @property {string} tableHover - hovered table row (green tint).
  * @property {string} quoteBg - blockquote fill (aqua tint).
- * @property {string} rowWarn - session row waiting for the user (orange tint).
- * @property {string} rowDone - finished, not yet opened session row (green tint).
- * @property {string} rowWarnHover - `rowWarn` on hover (stronger tint).
- * @property {string} rowDoneHover - `rowDone` on hover (stronger tint).
+ * @property {string} rowWarn - session row waiting for the user: solid fill from
+ *   the palette's `bg_yellow`, deepened toward `fg.yellow` on the light
+ *   strengths until it separates from the sidebar; the dark variants use a bright
+ *   amber surface with the deep contrast ink instead (design doc §13.8.1).
+ * @property {string} rowWarnHover - `rowWarn` moved toward `fg.yellow` (re-guarded).
+ * @property {string} rowDone - finished, not yet opened session row: solid fill
+ *   from the palette's `bg_green`.
+ * @property {string} rowDoneHover - `rowDone` with the fill one step stronger.
  * @property {string} dotWarn - waiting session status dot (orange).
  * @property {string} dotDone - finished session status dot (green).
  */
@@ -1508,8 +1551,84 @@ const BAND_TINT = 0.14
 const ZEBRA_TINT = 0.06
 const TABLE_HOVER_TINT = 0.1
 const QUOTE_TINT = 0.08
-const ROW_TINT = 0.12
-const ROW_HOVER_TINT = 0.18
+
+/**
+ * Session-row fills come straight from Everforest's palette1 background
+ * accents (sainnhe/everforest `palette.md`): `bg_yellow` for a waiting row,
+ * `bg_green` for a finished one. These are the upstream's own dedicated status
+ * surfaces, so the hue never drifts the way a derived tint does (the 0.4.0 sRGB
+ * blend read as neutral grey; an OKLab-derived tint still looked off in dark
+ * mode — 2026-10-24 user reports). Both schemes use the palette pair; the
+ * contrast guard only nudges when a soft-strength value misses 4.5:1.
+ */
+const ROW_RAMP = {
+  warn: { fill: 'bgYellow', accent: 'yellow' },
+  done: { fill: 'bgGreen', accent: 'green' }
+}
+
+/** How far a hovered row moves toward its accent (re-guarded to 4.5:1). */
+const ROW_HOVER_TINT = 0.16
+
+/**
+ * Minimum CIE L* step between a waiting-row fill and the sidebar. `bg_yellow`
+ * is the one palette status surface whose hue sits next to Everforest's warm
+ * canvas (and its light strengths are only ~1 L* away from the sidebar), so the
+ * palette value alone reads as "no background" in light. The fill is deepened
+ * toward `fg.yellow` until it clears this floor, stopping where the 4.5:1 text
+ * gate runs out — light·soft has no headroom and therefore keeps the palette
+ * hue only (same ceiling as the active-session row, design doc §15). Dark values
+ * already clear the floor and stay palette-exact.
+ */
+const ROW_WARN_SEPARATION = 3.5
+
+/**
+ * Deepen a row fill toward its accent until it is `target` L* away from the
+ * sidebar, keeping the last step that still passes the text gate.
+ * @param {string} color - guarded palette fill.
+ * @param {string} sidebar - the sidebar surface the row sits on.
+ * @param {string} ink - the row's text colour.
+ * @param {string} accent - accent the fill is deepened toward.
+ * @param {number} target - minimum CIE L* distance from the sidebar.
+ * @returns {string}
+ */
+function liftWarnFill (color, sidebar, ink, accent, target) {
+  const distance = (fill) => Math.abs(labLightness(fill) - labLightness(sidebar))
+  if (distance(color) >= target) return color
+  let best = color
+  for (let weight = 0.01; weight <= 1.0001; weight += 0.01) {
+    const next = mix(color, accent, weight)
+    if (contrastRatio(ink, next) < SURFACE_CONTRAST) break
+    best = next
+    if (distance(next) >= target) return next
+  }
+  return best
+}
+
+/**
+ * How far the dark waiting-row amber is pulled from `fg.yellow` toward the
+ * scheme's deep canvas (`bgDim`). 22% keeps it a clearly yellow surface while
+ * staying inside the inverted-ink gate (measured 5.0–5.8:1; design §13.8.1).
+ */
+const ROW_WARN_AMBER = 0.22
+
+/**
+ * Pull a light surface toward the deep canvas until the deep contrast ink
+ * (`--dsw-alias-label-primary-inverted`, i.e. `bgDim`) keeps `SURFACE_CONTRAST`.
+ * This is the guard for the dark waiting row, whose bright amber surface carries
+ * the inverted ink instead of `label-primary`.
+ * @param {string} color - surface colour.
+ * @param {string} ink - deep contrast ink.
+ * @param {string} bgDim - the scheme's deepest canvas.
+ * @returns {string}
+ */
+function readableDeepInk (color, ink, bgDim) {
+  if (contrastRatio(ink, color) >= SURFACE_CONTRAST) return color
+  for (let weight = 0.01; weight <= 1.0001; weight += 0.01) {
+    const next = mix(color, bgDim, weight)
+    if (contrastRatio(ink, next) >= SURFACE_CONTRAST) return next
+  }
+  return mix(color, bgDim, 1)
+}
 
 /* ------------------------------------------------------------------ *
  * Contrast guards (the same math as the "中彩" preview)
@@ -1555,6 +1674,25 @@ function safeTint (base, tint, start, ink) {
   return value
 }
 
+/**
+ * Pull a row fill toward the scheme's canvas (`bg0`) until `label-primary`
+ * keeps `SURFACE_CONTRAST`. Blending toward `bg0` is safe in both directions:
+ * dark canvases darken the fill, light canvases lighten it, so the guard never
+ * guesses a direction.
+ * @param {string} color - palette background accent.
+ * @param {string} bg0 - scheme's deepest background.
+ * @param {string} ink - text colour the surface must stay readable with.
+ * @returns {string}
+ */
+function readableRowFill (color, bg0, ink) {
+  if (contrastRatio(ink, color) >= SURFACE_CONTRAST) return color
+  for (let weight = 0.02; weight <= 1.0001; weight += 0.02) {
+    const next = mix(color, bg0, weight)
+    if (contrastRatio(ink, next) >= SURFACE_CONTRAST) return next
+  }
+  return mix(color, bg0, 1)
+}
+
 /* ------------------------------------------------------------------ *
  * Roles
  * ------------------------------------------------------------------ */
@@ -1574,7 +1712,8 @@ function buildColorModeRoles () {
       if (!entry) throw new Error(`colorModeRoles: tokensFor() has no ${name}`)
       return entry[scheme]
     }
-    const fg = resolvePalette(state)[scheme].fg
+    const palette = resolvePalette(state)[scheme]
+    const fg = palette.fg
     const ink = fg.fg
     const bg = pick('--dsw-alias-bg-base')
     const sidebar = pick('--dsw-specific-sidebar-fill')
@@ -1591,6 +1730,39 @@ function buildColorModeRoles () {
     const textSurfaces = [bg, band, zebra, tableHover, quoteBg]
 
     const marker = guardTo(fg.aqua, [bg], DECORATION_CONTRAST, ink)
+    // Status dots sit on both the canvas and the sidebar.
+    const dotWarn = guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink)
+    const dotDone = guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
+    /**
+     * Session-row fill from the palette's `bg_yellow` / `bg_green`. The light
+     * waiting rows are deepened toward their accent when the palette value sits
+     * too close to the sidebar (§13.8.1); the dark waiting rows invert instead —
+     * a bright amber surface that carries the scheme's deep contrast ink, because
+     * Everforest's dark `bg_yellow` cannot read as yellow under the light ink.
+     * Hover moves the fill one accent step further and is re-guarded, so the four
+     * fills stay on one ramp.
+     */
+    const rowFill = (preset) => {
+      const warn = preset.startsWith('warn')
+      const ramp = ROW_RAMP[warn ? 'warn' : 'done']
+      if (warn && scheme === 'dark') {
+        const deepInk = pick('--dsw-alias-label-primary-inverted')
+        const amber = readableDeepInk(
+          mix(fg.yellow, palette.ramp.bgDim, ROW_WARN_AMBER),
+          deepInk,
+          palette.ramp.bgDim
+        )
+        if (!preset.endsWith('Hover')) return amber
+        return readableDeepInk(mix(amber, fg.yellow, ROW_HOVER_TINT), deepInk, palette.ramp.bgDim)
+      }
+      const paletteFill = readableRowFill(palette.ramp[ramp.fill], palette.ramp.bg0, labelPrimary)
+      const fill = warn
+        ? liftWarnFill(paletteFill, sidebar, labelPrimary, fg[ramp.accent], ROW_WARN_SEPARATION)
+        : paletteFill
+      if (!preset.endsWith('Hover')) return fill
+      const hover = mix(fill, fg[ramp.accent], ROW_HOVER_TINT)
+      return readableRowFill(hover, palette.ramp.bg0, labelPrimary)
+    }
     roles[variant] = Object.freeze({
       // Headings: Enchanted's red → orange → yellow → green → blue → purple.
       h1: guardTo(fg.red, [bg], DECORATION_CONTRAST, ink),
@@ -1614,13 +1786,13 @@ function buildColorModeRoles () {
       zebra,
       tableHover,
       quoteBg,
-      rowWarn: safeTint(sidebar, fg.orange, ROW_TINT, labelPrimary),
-      rowDone: safeTint(sidebar, fg.green, ROW_TINT, labelPrimary),
-      rowWarnHover: safeTint(sidebar, fg.orange, ROW_HOVER_TINT, labelPrimary),
-      rowDoneHover: safeTint(sidebar, fg.green, ROW_HOVER_TINT, labelPrimary),
+      rowWarn: rowFill('warn'),
+      rowWarnHover: rowFill('warnHover'),
+      rowDone: rowFill('done'),
+      rowDoneHover: rowFill('doneHover'),
       // Status dots sit on both the canvas and the sidebar.
-      dotWarn: guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink),
-      dotDone: guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
+      dotWarn,
+      dotDone
     })
   }
   return Object.freeze(roles)
@@ -1638,15 +1810,16 @@ function colorModeRoles () {
 }
 
 /**
- * Map a Client state onto the `data-*` attributes for
- * `document.documentElement`. A falsy `colorMode` maps to `"off"`; the
- * strengths are passed through as-is (the Client keeps them normalized).
- * @param {{ colorMode?: boolean, light: string, dark: string }} state
+ * Map the current palette pair onto the `data-*` attributes for
+ * `document.documentElement`. The mode attribute is always `"on"` — color mode
+ * is a shipped default since 2026-10-24, not a toggle; the strengths are passed
+ * through as-is (the Client keeps them normalized).
+ * @param {{ light: string, dark: string }} state
  * @returns {Record<string, string>}
  */
 function colorModeDataset (state) {
   return {
-    [COLOR_MODE_ATTRS.mode]: state.colorMode ? 'on' : 'off',
+    [COLOR_MODE_ATTRS.mode]: 'on',
     [COLOR_MODE_ATTRS.light]: state.light,
     [COLOR_MODE_ATTRS.dark]: state.dark
   }
@@ -1661,7 +1834,10 @@ function cssVariable (role) {
   return `--everforest-color-${role.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()}`
 }
 
-/** Every element rule is scoped to the mode being on, so "off" matches nothing. */
+/**
+ * Every element rule is scoped to the mode attribute, which this version always
+ * sets to `"on"` — the anchor keeps the stylesheet out of the plain-token layer.
+ */
 const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 
 /** Markdown content container (DSH hashes the class, `markdown` stays a substring). */
@@ -1679,18 +1855,28 @@ function sessionRow (state) {
 
 /**
  * The `:hover` variant of `sessionRow`; the extra pseudo-class also makes it
- * more specific than the base rule, so it wins while hovered.
+ * more specific than the base rule, so the stronger fill wins while hovered.
  * @param {'warning' | 'done'} state
  * @returns {string}
  */
 function sessionRowHover (state) {
-  return `${COLOR_MODE_ON} [role="treeitem"][data-row-key^="session:"]:has([data-state="${state}"]):hover:not([aria-selected="true"])`
+  return `${sessionRow(state)}:hover`
 }
+
+/**
+ * Dark waiting-row ink scope. The bright amber fill carries the scheme's deep
+ * contrast ink (`--dsw-alias-label-primary-inverted`), so the title inherits it
+ * and the trailing label / status dot are switched to `inherit`. The DSH class
+ * names are CSS-module hashes, matched by their stable `_time` / `data-state`
+ * suffix the same way the `markdown` container above is matched.
+ */
+const DARK_WARN_ROW = `${COLOR_MODE_ON} body[data-ds-dark-theme] [role="treeitem"][data-row-key^="session:"]:has([data-state="warning"]):not([aria-selected="true"])`
 
 /**
  * [selector, CSS property, role key] for every variable-driven element rule.
  * Order matters where two rules can hit the same element: the table-row hover
- * rule must follow the zebra rule, and the blockquote fill must follow nothing.
+ * rule must follow the zebra rule, and each session-row hover fill must follow
+ * its base fill.
  */
 const ELEMENT_RULES = [
   [`${MARKDOWN_SCOPE} h1`, 'color', 'h1'],
@@ -1716,8 +1902,8 @@ const ELEMENT_RULES = [
   [`${COLOR_MODE_ON} [data-state="warning"]`, 'color', 'dotWarn'],
   [`${COLOR_MODE_ON} [data-state="done"]`, 'color', 'dotDone'],
   [sessionRow('warning'), 'background-color', 'rowWarn'],
-  [sessionRow('done'), 'background-color', 'rowDone'],
   [sessionRowHover('warning'), 'background-color', 'rowWarnHover'],
+  [sessionRow('done'), 'background-color', 'rowDone'],
   [sessionRowHover('done'), 'background-color', 'rowDoneHover']
 ]
 
@@ -1730,7 +1916,17 @@ const ELEMENT_RULES = [
  */
 const LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
-  [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]]
+  [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  // Dark waiting rows: deep contrast ink on the amber surface (design §13.8.1).
+  // The row actions that appear on hover (the "…" menu, archive, pin) carry
+  // `label-tertiary` / `label-primary` and would vanish on the amber fill, so
+  // they get the deep ink too.
+  [DARK_WARN_ROW, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_time"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [data-state="warning"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_iconButton"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_iconButton"]:hover`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
+  [`${DARK_WARN_ROW} [class*="_pinIndicator"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]]
 ]
 
 /**
@@ -1777,20 +1973,255 @@ function colorModeStyles () {
   return { COLOR_MODE_ATTRS, colorModeRoles, colorModeDataset, colorModeStyles }
 })()
 
+// ---------------------------------------------------------------- src/selection.js
+const __mod_4_selection_js = (() => {
+  const { RAMPS, SCHEMES, STRENGTHS } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Everforest text selection (`::selection`) for DSH.
+//
+// DSH's ui-theme ships `--dsw-alias-bg-document-selection`, but the installed
+// bundles contain no `::selection` rule that reads it (2026-10-24 check: 0
+// matching selectors across 176 stylesheets), so text selection falls back to
+// the browser's native blue. This module emits one always-on stylesheet that
+// paints selection with Everforest's own `bg_visual` colour per scheme +
+// strength, while leaving the text colour untouched: `color: inherit` keeps
+// every element's own ink, so syntax colours, links and color-mode headings
+// survive a selection (Enchanted behaves the same way). Forcing one scheme ink
+// here (2026-10-24 first cut) flattened multi-colour code into a single colour
+// — user report.
+//
+// The six blocks are keyed by the attributes the Client keeps on <html>:
+// `data-everforest-light` / `data-everforest-dark` (strength) and DSH's
+// `data-ds-dark-theme` flag on <body>. The sheet is installed independently of
+// the color mode, which only adds content-layer colours.
+//
+// `RAMPS[scheme][strength].bgVisual` already carries the effective value: the
+// light ramps hold Enchanted's #DED8DB visibility fix (docs/reference/palette.md
+// section 3), so this module needs no special case.
+
+
+/**
+ * One `::selection` block for a scheme + strength.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function selectionRule(scheme, strength) {
+  const ramp = RAMPS[scheme][strength]
+  const scope = scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+  return `${scope} ::selection {\n  background-color: ${ramp.bgVisual};\n  color: inherit;\n}`
+}
+
+/**
+ * The complete text-selection stylesheet (six rules, one per variant).
+ * @returns {string}
+ */
+function selectionStyles() {
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) => selectionRule(scheme, strength)))
+    .join('\n\n')
+}
+
+  return { selectionStyles }
+})()
+
+// ---------------------------------------------------------------- src/active-session.js
+const __mod_5_active_session_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { contrastRatio, labLightness, mix } = __mod_1_color_js
+  const { tokensFor } = __mod_2_tokens_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Everforest "active session" surface for the DSH workspace list.
+//
+// DSH paints the selected session row with the *hover* token:
+//
+//   .wnFoaW_sessionRow:hover,
+//   .wnFoaW_sessionRow.wnFoaW_selected { background: var(--dsw-alias-interactive-bg-hover) }
+//
+// (ui-workspace `Rows` CSS module, verified against the installed 0.2.1-rc.3
+// bundle and the live DOM). That token is a 16% alpha overlay of the ramp
+// border colour, which is only a ~2.6 L* step away from the sidebar fill — in
+// both schemes the open session is hard to find, and it is indistinguishable
+// from hovering any other row (2026-10-24 user report). DSH exposes no
+// dedicated "selected row" token, so this module emits one always-on rule on
+// the row's stable `aria-selected` anchor and paints it with a palette surface
+// instead.
+//
+// Why the blue surface: the color mode already spends `bg_red` on "waiting for
+// the user" and `bg_green` on "finished, not read" session rows, so the active
+// row must avoid those two hues. `bg_blue` is the remaining semantic background
+// of Everforest's palette1, and blue is also DSH's business/primary accent, so
+// "this is the session you have open" rides an existing meaning instead of
+// inventing one.
+//
+// Visibility vs legibility: the palette value alone is a strong step in the
+// dark schemes but only a hue tint in the light ones. The fill is therefore
+// blended toward `fg.blue` until it is `ACTIVE_SESSION_SEPARATION` L* away from
+// the sidebar fill, and the blend stops before `label-primary` drops under the
+// 4.5:1 text gate. In light·soft the sidebar itself already sits on the 4.5:1
+// gate (`docs/reference/contrast.md`), so that push has no headroom: the row
+// keeps the palette hue with the small L* step the gate allows. That ceiling is
+// the same one documented for the color-mode rows (design doc §13.7 / §15).
+//
+// Always-on and independent of the color mode: this is navigation, not content
+// colouring, and it has to work with the mode off. The six rules are keyed by
+// the strength attributes the token layer always writes on <html> plus DSH's own
+// `body[data-ds-dark-theme]` flag — the same pattern as `src/selection.js`.
+//
+// The row anchor is `[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`,
+// the attributes `src/color-mode.js` already relies on. Deliberately *not* the
+// hashed `wnFoaW_*` classes: `aria-selected` is an accessibility contract, the
+// class names are CSS-module build output.
+
+
+/** The row that carries the workspace's open session. */
+const ACTIVE_SESSION_ROW =
+  '[role="treeitem"][data-row-key^="session:"][aria-selected="true"]'
+
+/** Minimum contrast for `label-primary` on the active row fill (WCAG AA body text). */
+const ACTIVE_SESSION_INK_CONTRAST = 4.5
+
+/**
+ * Minimum perceptual (CIE L*) distance between the active row fill and the
+ * sidebar fill. 4.5 is about the smallest step that still reads as a distinct
+ * band at row height; the CSS guards cap it where the text gate runs out first.
+ */
+const ACTIVE_SESSION_SEPARATION = 4.5
+
+/** Palette background accent the active row starts from. */
+const ACTIVE_FILL_SOURCE = 'bgBlue'
+
+/** Step of the accent blend used to reach the separation target (1% per step). */
+const ACCENT_STEP = 0.01
+
+/**
+ * Pull a fill toward the scheme canvas (`bg0`) until `label-primary` reaches
+ * `ACTIVE_SESSION_INK_CONTRAST`. Blending toward `bg0` is safe in both
+ * directions (dark canvases darken the fill, light canvases lighten it), so the
+ * guard never guesses a direction — the same rule the color-mode row fills use.
+ * @param {string} color - palette background accent.
+ * @param {string} bg0 - the scheme's canvas colour.
+ * @param {string} ink - text colour the surface must stay readable with.
+ * @returns {string}
+ */
+function readableFill (color, bg0, ink) {
+  if (contrastRatio(ink, color) >= ACTIVE_SESSION_INK_CONTRAST) return color
+  for (let weight = ACCENT_STEP; weight <= 1.0001; weight += ACCENT_STEP) {
+    const next = mix(color, bg0, weight)
+    if (contrastRatio(ink, next) >= ACTIVE_SESSION_INK_CONTRAST) return next
+  }
+  return mix(color, bg0, 1)
+}
+
+/**
+ * Push the fill toward the blue accent until it is `ACTIVE_SESSION_SEPARATION`
+ * L* away from the sidebar, keeping the last step that still passes the text
+ * gate. Returns the fill untouched when the palette value already clears the
+ * separation (the dark schemes) or when the text gate leaves no headroom
+ * (light·soft).
+ * @param {string} fill - guarded palette fill.
+ * @param {string} sidebar - the sidebar surface the row sits on.
+ * @param {string} ink - text colour of the row.
+ * @param {string} accent - `fg.blue` of the scheme.
+ * @returns {string}
+ */
+function separatedFill (fill, sidebar, ink, accent) {
+  const distance = (color) => Math.abs(labLightness(color) - labLightness(sidebar))
+  if (distance(fill) >= ACTIVE_SESSION_SEPARATION) return fill
+  let best = fill
+  for (let weight = ACCENT_STEP; weight <= 1.0001; weight += ACCENT_STEP) {
+    const next = mix(fill, accent, weight)
+    if (contrastRatio(ink, next) < ACTIVE_SESSION_INK_CONTRAST) break
+    best = next
+    if (distance(next) >= ACTIVE_SESSION_SEPARATION) return next
+  }
+  return best
+}
+
+/**
+ * Compute the active-row fill of one palette variant.
+ * @param {string} scheme - `light` or `dark`.
+ * @param {string} strength - `hard`, `medium` or `soft`.
+ * @returns {string} opaque `#RRGGBB`.
+ */
+function activeFillFor (scheme, strength) {
+  const state = { ...DEFAULT_STATE, [scheme]: strength }
+  const palette = resolvePalette(state)[scheme]
+  const overlay = tokensFor(state)
+  const pick = (name) => {
+    const entry = overlay[name]
+    if (!entry) throw new Error(`activeSessionRoles: tokensFor() has no ${name}`)
+    return entry[scheme]
+  }
+  const ink = pick('--dsw-alias-label-primary')
+  const sidebar = pick('--dsw-specific-sidebar-fill')
+  const source = palette.ramp[ACTIVE_FILL_SOURCE]
+  if (!source) throw new Error(`activeSessionRoles: the palette has no ${ACTIVE_FILL_SOURCE}`)
+  const readable = readableFill(source, palette.ramp.bg0, ink)
+  return separatedFill(readable, sidebar, ink, palette.fg.blue)
+}
+
+/**
+ * The six active-row fills, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, { fill: string }>} keyed `light-hard` … `dark-soft`.
+ */
+function activeSessionRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = { fill: activeFillFor(scheme, strength) }
+    }
+  }
+  return roles
+}
+
+/**
+ * One active-row rule for a scheme + strength.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {string} fill
+ * @returns {string}
+ */
+function activeSessionRule (scheme, strength, fill) {
+  const scope = scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+  return `${scope} ${ACTIVE_SESSION_ROW} {\n  background-color: ${fill};\n}`
+}
+
+/**
+ * The complete active-row stylesheet (six rules, one per variant).
+ * @returns {string}
+ */
+function activeSessionStyles () {
+  const roles = activeSessionRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      activeSessionRule(scheme, strength, roles[`${scheme}-${strength}`].fill)
+    ))
+    .join('\n\n')
+}
+
+  return { ACTIVE_SESSION_ROW, ACTIVE_SESSION_INK_CONTRAST, ACTIVE_SESSION_SEPARATION, activeSessionRoles, activeSessionStyles }
+})()
+
 // ---------------------------------------------------------------- src/state.js
-const __mod_4_state_js = (() => {
+const __mod_6_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
  * The localStorage cache of the user's palette choice for dsh-everforest.
  *
- * The user picks one strength (`hard` / `medium` / `soft`) per color scheme and,
- * since 0.4.0, may switch the experimental **color mode** on or off. Since 0.3.0
- * the **source of truth** is the Host settings document (the active profile's
- * `cordis.patch.yml`, edited through the Client `ctx.configForms` service — see
- * `src/durable.js` and `src/host-config.js`), shared by every browser of that
- * profile. This module keeps the browser-local **cache** of the same state
- * under a versioned `localStorage` key:
+ * The user picks one strength (`hard` / `medium` / `soft`) per color scheme.
+ * Since 0.3.0 the **source of truth** is the Host settings document (the active
+ * profile's `cordis.patch.yml`, edited through the Client `ctx.configForms`
+ * service — see `src/durable.js` and `src/host-config.js`), shared by every
+ * browser of that profile. This module keeps the browser-local **cache** of the
+ * same state under a versioned `localStorage` key:
  *
  *  - it is what the Host boot row reads for the first paint (the cache is
  *    always at least as fresh as a Desktop boot payload, which is collected
@@ -1799,22 +2230,21 @@ const __mod_4_state_js = (() => {
  *    0.3.0 (`readStoredState` tells "a real choice exists" from "nothing yet");
  *  - it is the whole persistence story on a pre-0.3.0 host that serves no
  *    settings form (the Client learns that from `configForms` reporting
- *    `unavailable`);
- *  - it carries `colorMode` to the Client on the very first frame even when the
- *    Host boot hint (which only covers the two strengths) is present.
+ *    `unavailable`).
+ *
+ * Color mode is no longer part of this state: since 2026-10-24 it ships as a
+ * default feature with no switch (see docs/design.md §13), so the stored shape
+ * is back to the two strengths. A 0.4.x payload still carrying a `colorMode`
+ * field stays valid — unknown fields are ignored on read and dropped by the
+ * next write (the 0.3.x → 0.4.x compatibility rule in the other direction:
+ * 0.4.x reads a payload without the field as "color mode on", which is exactly
+ * what this version renders).
  *
  * Storage rules (design §3.2 / §7):
  *
  *  - a missing key, unreadable storage, malformed JSON, an unknown `version`,
  *    or an invalid strength all fall back to the default state (light = hard,
- *    dark = soft, colorMode = on, i.e. Everforest Enchanted's pairing with the
- *    color mode enabled by default since 2026-10-23);
- *  - `colorMode` is optional in the payload because 0.3.x caches predate it:
- *    a missing field reads as the default (on) and is **not** treated as
- *    corrupt (no repair rewrite, the payload still counts for the migration);
- *  - a non-boolean `colorMode` makes the payload invalid, exactly like an
- *    invalid strength: `readState` repairs it with the default state and
- *    `readStoredState` reports `null` (nothing trustworthy to migrate);
+ *    dark = soft, i.e. Everforest Enchanted's pairing);
  *  - invalid stored data is rewritten with the default so the next read is
  *    clean, but a failing write never throws (private mode / quota);
  *  - reading and writing never throw: the preference silently degrades to
@@ -1831,31 +2261,19 @@ const STORAGE_KEY = 'dsh-everforest/v1'
 /**
  * Schema version stored alongside the state.
  *
- * Deliberately still `1`: `colorMode` is an optional addition, so a 0.3.x
- * payload stays valid and a 0.4.x payload stays readable by the previous
- * plugin (unknown fields are ignored on read). Bumping the version would
- * discard every existing cache instead of migrating it.
+ * Deliberately still `1`: the payload is `{ version, light, dark }`, which is a
+ * prefix of both the 0.3.x payload (same two fields) and the 0.4.x payload
+ * (which carried an extra `colorMode` field that this version ignores). Bumping
+ * the version would discard every existing cache instead of migrating it.
  */
 const STATE_VERSION = 1
 
 /**
- * Default of the color-mode flag.
- *
- * `true` since the 2026-10-23 follow-up: after reviewing the 0.4.0 build the
- * user asked for the color mode to be on by default. Only an explicit `false`
- * (the switch was turned off and that choice was persisted) disables the mode;
- * a missing flag — a 0.3.x cache or a profile patch written before the field
- * existed — resolves to this default.
- * @type {boolean}
- */
-const DEFAULT_COLOR_MODE = true
-
-/**
  * Build a fresh copy of the default state.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function createDefaultState() {
-  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
+  return { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
 }
 
 /**
@@ -1889,31 +2307,15 @@ function normalizeStrength(value, fallback) {
 }
 
 /**
- * Pin the color-mode flag to a real boolean.
- *
- * The mode is on by default, so only the literal `false` turns it off; a
- * missing flag (0.3.x cache / profile patch) and anything that is not a boolean
- * (hand-edited or corrupt payload) resolve to the default. A non-boolean inside
- * a versioned payload is still rejected by `isStoredState` (the cache counts as
- * corrupt and is repaired), so this fallback only covers the Host form shape.
- *
- * @param {unknown} value
- * @returns {boolean}
- */
-function normalizeColorMode(value) {
-  return value === false ? false : DEFAULT_COLOR_MODE
-}
-
-/**
- * Turn arbitrary parsed JSON into a legal `{ light, dark, colorMode }` state.
+ * Turn arbitrary parsed JSON into a legal `{ light, dark }` state.
  *
  * Pure: it never reads storage, never mutates the input, and always returns a
  * new object. An object with an unknown `version` (or with no version at all)
  * falls back to the default state; with a known version each field is
- * validated independently so one bad field does not discard the others.
+ * validated independently so one bad field does not discard the other.
  *
  * @param {unknown} raw - result of `JSON.parse()` or anything else.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function normalizeState(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return createDefaultState()
@@ -1926,20 +2328,18 @@ function normalizeState(raw) {
  * hint), falling back per field.
  *
  * Pure: never reads storage, never mutates the input, always returns a new
- * object. Two invalid strengths collapse to the shipped default pairing, and a
- * missing/invalid `colorMode` resolves to the default (on). `colorMode` is validated here too
- * because the Host `Config` carries it as a third volatile field since 0.4.0;
- * the boot hint simply never publishes it (see `bootHintState`).
+ * object. Two invalid strengths collapse to the shipped default pairing; any
+ * other field (e.g. the `colorMode` left behind by a 0.4.x Host section) is
+ * ignored.
  *
  * @param {unknown} raw - anything, usually a plain object.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function normalizeStrengths(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return createDefaultState()
   return {
     light: normalizeStrength(raw.light, DEFAULT_STATE.light),
     dark: normalizeStrength(raw.dark, DEFAULT_STATE.dark),
-    colorMode: normalizeColorMode(raw.colorMode),
   }
 }
 
@@ -1948,11 +2348,10 @@ function normalizeStrengths(raw) {
  *
  * The version is always the current one and every field is normalized first,
  * so a caller passing a hostile/incomplete object still writes a legal payload.
- * `colorMode` is written explicitly (even when it is the default or `false`) so
- * a later read never has to guess whether the flag was dropped or disabled.
+ * Only the two strengths are written; a legacy `colorMode` key is dropped here.
  *
- * @param {{ light: string, dark: string, colorMode?: boolean }} state
- * @returns {{ version: number, light: string, dark: string, colorMode: boolean }}
+ * @param {{ light: string, dark: string }} state
+ * @returns {{ version: number, light: string, dark: string }}
  */
 function serializeState(state) {
   const legal = normalizeState({ version: STATE_VERSION, ...state })
@@ -1960,14 +2359,13 @@ function serializeState(state) {
     version: STATE_VERSION,
     light: legal.light,
     dark: legal.dark,
-    colorMode: legal.colorMode,
   }
 }
 
 /**
  * Best-effort write of the default state used when reading found garbage.
  * @param {Storage} storage
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function repairStorage(storage) {
   const fallback = createDefaultState()
@@ -1984,11 +2382,11 @@ function repairStorage(storage) {
  *
  * Never throws. Missing or unreadable entries and invalid payloads return the
  * default state; invalid payloads are rewritten in place when possible. A
- * 0.3.x payload without `colorMode` is valid and reads with the default (on)
- * without a rewrite.
+ * 0.4.x payload carrying the retired `colorMode` field is valid and is read as
+ * the same two strengths (no rewrite).
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function readState(storage) {
   const target = resolveStorage(storage)
@@ -2014,8 +2412,8 @@ function readState(storage) {
  * True only for a payload that already matches the stored schema exactly,
  * including the version. Used to decide whether a rewrite is worthwhile.
  *
- * `colorMode` may be absent (0.3.x cache) or boolean (0.4.x cache); any other
- * type is corrupt data, not a value to silently coerce.
+ * Unknown extra keys (the retired `colorMode`) are tolerated: they carry no
+ * meaning for this version and are dropped by the next write.
  *
  * @param {unknown} parsed
  * @returns {boolean}
@@ -2023,10 +2421,8 @@ function readState(storage) {
 function isStoredState(parsed) {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return false
   if (parsed.version !== STATE_VERSION) return false
-  const colorModeValid = parsed.colorMode === undefined || typeof parsed.colorMode === 'boolean'
   return (
-    colorModeValid
-    && typeof parsed.light === 'string'
+    typeof parsed.light === 'string'
     && STRENGTHS.includes(parsed.light)
     && typeof parsed.dark === 'string'
     && STRENGTHS.includes(parsed.dark)
@@ -2039,13 +2435,10 @@ function isStoredState(parsed) {
  * Distinguishes "this browser never chose anything" (or the cache is
  * corrupt/stale-version) from a real choice, which the 0.2.1 → 0.3.0 migration
  * needs: only a genuine non-default cache is seeded into the Host settings
- * document. A 0.3.x payload without `colorMode` resolves to the default (on;
- * the flag simply did not exist); a non-boolean flag makes the whole payload
- * untrustworthy, so it reports `null` instead. Never throws; a
- * missing/unreadable/malformed entry returns `null`.
+ * document. Never throws; a missing/unreadable/malformed entry returns `null`.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
- * @returns {{ version: number, light: string, dark: string, colorMode: boolean } | null}
+ * @returns {{ version: number, light: string, dark: string } | null}
  */
 function readStoredState(storage) {
   const target = resolveStorage(storage)
@@ -2068,20 +2461,18 @@ function readStoredState(storage) {
     version: STATE_VERSION,
     light: parsed.light,
     dark: parsed.dark,
-    colorMode: normalizeColorMode(parsed.colorMode),
   }
 }
 
 /**
  * Persist the state.
  *
- * Accepts a plain `{ light, dark, colorMode }` (the shape used inside the
- * client) and stores it with the schema version; a missing or invalid
- * `colorMode` is stored as the default (on). Writing never throws: a failure (private
+ * Accepts a plain `{ light, dark }` (the shape used inside the client) and
+ * stores it with the schema version. Writing never throws: a failure (private
  * mode, quota, no storage) is reported as `false` and the caller keeps the
  * in-memory state.
  *
- * @param {{ light: string, dark: string, colorMode?: boolean }} state
+ * @param {{ light: string, dark: string }} state
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
  * @returns {boolean} whether the value was persisted.
  */
@@ -2097,11 +2488,11 @@ function writeState(state, storage) {
 }
 
 /**
- * Restore the default state (Enchanted's dark soft / light hard, color mode
- * on) and persist it. Returns the state even when the write fails.
+ * Restore the default state (Enchanted's dark soft / light hard) and persist
+ * it. Returns the state even when the write fails.
  *
  * @param {Storage} [storage] - defaults to `globalThis.localStorage`.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function resetState(storage) {
   const fallback = createDefaultState()
@@ -2109,13 +2500,13 @@ function resetState(storage) {
   return fallback
 }
 
-  return { STORAGE_KEY, STATE_VERSION, DEFAULT_COLOR_MODE, createDefaultState, normalizeState, normalizeStrengths, readState, readStoredState, writeState, resetState }
+  return { STORAGE_KEY, STATE_VERSION, createDefaultState, normalizeState, normalizeStrengths, readState, readStoredState, writeState, resetState }
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_5_durable_js = (() => {
+const __mod_7_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_4_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_6_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -2135,11 +2526,10 @@ const __mod_5_durable_js = (() => {
  *  - `revision` — a Host-side counter used to refuse stale writes;
  *  - `writable` — whether the active profile accepts form edits.
  *
- * Since 0.4.0 the Host state is `{ light, dark, colorMode }`: the experimental
- * color mode is a durable, cross-browser preference like the two strengths, and
- * every write carries all three fields in one atomic mutation. A 0.3.x Host
- * section has no `colorMode`; it resolves to the shipped default (on since
- * 2026-10-23), so an upgraded Client keeps working against an older patch.
+ * The Host state is `{ light, dark }`: the two palette strengths. Color mode
+ * ships as a default feature with no switch (2026-10-24), so it is not a
+ * durable preference (and a 0.4.x section that still carries the retired
+ * `colorMode` flag is read as the same two strengths — extra keys are ignored).
  *
  * Writes are atomic mutations: `form.mutate([...ops])`, ops being
  * `{ op: 'set', path: [field], value }` or `{ op: 'unset', path: [field] }`.
@@ -2164,7 +2554,10 @@ const ENTRY_ID = 'everforest'
  * Whether a snapshot's `user` layer carries at least one Host-stored choice.
  *
  * The settings service reports "no override" as `{}` (never `undefined`), so
- * presence of the object says nothing; a non-empty key set does.
+ * presence of the object says nothing; a non-empty key set does. A 0.4.x patch
+ * that only ever stored the retired `colorMode` flag still counts as a user
+ * layer — its strengths are the shipped defaults, which is what the section
+ * resolves to anyway.
  *
  * @param {unknown} user - the snapshot's `user` layer.
  * @returns {boolean}
@@ -2178,61 +2571,50 @@ function hasUserLayer(user) {
  *
  * Each strength is validated independently against the supported set; a
  * missing or invalid field falls back to that scheme's shipped default. The
- * `colorMode` flag falls back to the shipped default (on) for the same reason:
- * a Host section written by 0.3.x has no such field.
+ * retired `colorMode` key of a 0.4.x section is ignored.
  *
  * @param {unknown} value - the snapshot's effective section.
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function stateFromHost(value) {
   return normalizeStrengths(value)
 }
 
 /**
- * Compare two full states (both strengths and the color-mode flag).
- * @param {{ light: string, dark: string, colorMode: boolean }} a
- * @param {{ light: string, dark: string, colorMode: boolean }} b
+ * Compare two full states (both strengths).
+ * @param {{ light: string, dark: string }} a
+ * @param {{ light: string, dark: string }} b
  * @returns {boolean}
  */
 function statesEqual(a, b) {
-  return a.light === b.light && a.dark === b.dark && a.colorMode === b.colorMode
+  return a.light === b.light && a.dark === b.dark
 }
 
 /**
  * Whether a state is exactly the shipped default (no real user choice).
  *
- * That means both strengths are the default pairing **and** the color mode is
- * at its default (on). A cache that holds the default strengths but turned the
- * color mode off is a real choice and must be migrated/kept, which is why the
- * flag belongs to this predicate.
+ * That means both strengths are the default pairing.
  *
- * @param {{ light: string, dark: string, colorMode?: boolean }} state
+ * @param {{ light: string, dark: string }} state
  * @returns {boolean}
  */
 function isDefaultState(state) {
-  return (
-    state.light === DEFAULT_STATE.light
-    && state.dark === DEFAULT_STATE.dark
-    && state.colorMode !== false
-  )
+  return state.light === DEFAULT_STATE.light && state.dark === DEFAULT_STATE.dark
 }
 
 /**
- * One atomic mutation that stores both strengths and the color-mode flag.
+ * One atomic mutation that stores both strengths.
  *
- * All three fields travel together on purpose: one revision acknowledgement
- * covers the whole choice, and a later read can never see a half-written state.
- * `colorMode` is always written explicitly so flipping it on and off again does
- * not leave an inherited/undefined field behind.
+ * Both fields travel together on purpose: one revision acknowledgement covers
+ * the whole choice, and a later read can never see a half-written state.
  *
- * @param {{ light: string, dark: string, colorMode: boolean }} state
- * @returns {Array<{ op: 'set', path: string[], value: string | boolean }>}
+ * @param {{ light: string, dark: string }} state
+ * @returns {Array<{ op: 'set', path: string[], value: string }>}
  */
 function stateToSetOps(state) {
   return [
     { op: 'set', path: ['light'], value: state.light },
     { op: 'set', path: ['dark'], value: state.dark },
-    { op: 'set', path: ['colorMode'], value: state.colorMode !== false },
   ]
 }
 
@@ -2245,7 +2627,6 @@ function stateToUnsetOps() {
   return [
     { op: 'unset', path: ['light'] },
     { op: 'unset', path: ['dark'] },
-    { op: 'unset', path: ['colorMode'] },
   ]
 }
 
@@ -2253,12 +2634,12 @@ function stateToUnsetOps() {
  * Decide whether this load should migrate the browser cache into the Host.
  *
  * A one-shot migration only: the Host has no choice yet, and the cache holds a
- * real choice from an older version (non-default strengths, or color mode off).
- * Seeding the shipped default would be pointless (it is what the Host resolves
- * anyway) and would leave a redundant override row behind.
+ * real choice from an older version (non-default strengths). Seeding the
+ * shipped default would be pointless (it is what the Host resolves anyway) and
+ * would leave a redundant override row behind.
  *
  * @param {unknown} user - the snapshot's `user` layer.
- * @param {{ light: string, dark: string, colorMode: boolean } | null} cached - `readStoredState()`.
+ * @param {{ light: string, dark: string } | null} cached - `readStoredState()`.
  * @returns {boolean}
  */
 function shouldSeed(user, cached) {
@@ -2275,12 +2656,6 @@ function shouldSeed(user, cached) {
  * very first frame instead of flashing the shipped default until the
  * asynchronous `configForms` snapshot arrives.
  *
- * Only the two strengths come from the hint: the Host boot row paints the
- * first frame from token values and never publishes the color-mode flag (the
- * color-mode CSS is applied by the Client after mount), so the value is not
- * part of this contract. `colorMode` always comes from the local cache in
- * `initialState()`.
- *
  * @param {unknown} hint - `window.__EVERFOREST_BOOT__`.
  * @returns {{ light: string, dark: string } | null} `null` when the Host half
  *   did not run (old bundle) or published an unexpected shape.
@@ -2296,7 +2671,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_6_locale_js = (() => {
+const __mod_8_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -2305,6 +2680,11 @@ const __mod_6_locale_js = (() => {
  * (`zh-CN` is only the document language mapping, not a registration key).
  * English is the key-set source of truth: `EN` and `ZH` must always expose the
  * same keys (checked by `tests/settings-page.test.mjs`).
+ *
+ * The 18 keys cover the Appearance control, the two strength groups, the
+ * current-choice row and the restore-defaults action. Color mode has no copy:
+ * it ships as a default feature with no switch since 2026-10-24 (the five
+ * `colorMode.*` keys of 0.4.x were removed with the control).
  *
  * Placeholders use the DSH locale syntax `{name}`; the Settings page expands
  * them itself so a fallback translator that only returns plain strings still
@@ -2336,12 +2716,6 @@ const EN = {
   'current.active': 'Active appearance',
   'current.system': 'following system',
 
-  'colorMode.title': 'Color mode',
-  'colorMode.desc': 'Color mode tints chat Markdown content and session-record status rows with the Everforest accents: headings, list markers, quotes, table bands, checkboxes and status dots/rows. Everything else keeps the normal palette.',
-  'colorMode.on': 'on',
-  'colorMode.off': 'off',
-  'colorMode.switch': 'Color mode, currently {state}',
-
   'reset': 'Restore defaults',
 
   'aria.card': '{scheme} {strength} palette',
@@ -2370,12 +2744,6 @@ const ZH = {
   'current.active': '实际界面',
   'current.system': '跟随系统',
 
-  'colorMode.title': '色彩模式',
-  'colorMode.desc': '色彩模式会为聊天 Markdown 内容与会话记录的状态行加上 Everforest 强调色：标题、列表标记、引用、表格色带、复选框以及状态点和状态行；其他界面仍使用常规配色。',
-  'colorMode.on': '已开启',
-  'colorMode.off': '已关闭',
-  'colorMode.switch': '色彩模式，当前{state}',
-
   'reset': '恢复默认',
 
   'aria.card': '{scheme} {strength} 配色',
@@ -2386,7 +2754,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_7_settings_page_js = (() => {
+const __mod_9_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -2399,16 +2767,16 @@ const __mod_7_settings_page_js = (() => {
  * The page shows an Appearance control — the same three icon cubes DSH's own
  * Appearance row uses (Light / Dark / Follow system; same tokens, icon style and
  * selected state) — followed by two groups of three strength cards (Dark,
- * default Soft; Light, default Hard) and, since 0.4.0, the experimental
- * **color-mode** switch with a small preview of the five accent colors. Each
- * card previews the five signature colors of its palette: bg0, bg1, bg2, fg and
- * header-aqua. Selecting a card persists the choice (through the injected store)
- * and, when it belongs to the other color scheme, also switches DSH Appearance;
- * the Appearance control switches it back to `system` (or a fixed side) without
- * touching the palette strengths. The color-mode switch only flips the store
- * flag; the client entry owns the DOM/CSS side of the mode. Explanatory copy is
- * deliberately absent: DSH's own Appearance row does not show any, and the
- * user's 2026-10-23 screenshot review asked to remove it here as well.
+ * default Soft; Light, default Hard). Each card previews the five signature
+ * colors of its palette: bg0, bg1, bg2, fg and header-aqua. Selecting a card
+ * persists the choice (through the injected store) and, when it belongs to the
+ * other color scheme, also switches DSH Appearance; the Appearance control
+ * switches it back to `system` (or a fixed side) without touching the palette
+ * strengths. Color mode has no control here: since 2026-10-24 it ships as a
+ * default feature (see `src/color-mode.js`), so the 0.4.x switch, its swatches
+ * and its copy are gone. Explanatory copy is deliberately absent: DSH's own
+ * Appearance row does not show any, and the user's 2026-10-23 screenshot review
+ * asked to remove it here as well.
  *
  * Styling uses only `--dsw-*` design tokens for interface colors. The palette
  * colors in the preview stripes are Everforest data, supplied inline by the
@@ -2424,6 +2792,12 @@ const __mod_7_settings_page_js = (() => {
  */
 const SETTINGS_STYLES = `
 .everforest-page {
+  /* One hairline width for every border in this page, matching DSH's own
+   * .5px solid settings cards / inputs / outline buttons. Selection changes the
+   * border colour only — it must never thicken the outline (2026-10-24: the
+   * selected strength cards used a 1px inset ring on top of the 1px border and
+   * read as 2px next to the appearance cubes' 1px). */
+  --everforest-border-width: .5px;
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -2474,7 +2848,7 @@ const SETTINGS_STYLES = `
   gap: 4px;
   margin: 0;
   padding: 20px 32px;
-  border: .5px solid var(--dsw-alias-border-l4);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-xl);
   background: none;
   color: var(--dsw-alias-label-primary);
@@ -2526,7 +2900,7 @@ const SETTINGS_STYLES = `
   width: 100%;
   margin: 0;
   padding: 12px;
-  border: 1px solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l2));
+  border: var(--everforest-border-width) solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l2));
   border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-settings-card-fill, var(--dsw-alias-bg-layer-2));
   color: var(--dsw-alias-label-primary);
@@ -2541,7 +2915,6 @@ const SETTINGS_STYLES = `
 }
 .everforest-card[aria-pressed='true'] {
   border-color: var(--dsw-alias-brand-primary);
-  box-shadow: inset 0 0 0 1px var(--dsw-alias-brand-primary);
 }
 .everforest-card:focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
@@ -2551,7 +2924,7 @@ const SETTINGS_STYLES = `
   display: flex;
   height: 30px;
   overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l1);
   border-radius: var(--dsw-radius-sm);
 }
 .everforest-swatch-segment {
@@ -2574,93 +2947,14 @@ const SETTINGS_STYLES = `
   border-radius: 50%;
   background: var(--dsw-alias-brand-primary);
 }
-.everforest-color-mode {
-  gap: 10px;
-}
-.everforest-color-mode-control {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-.everforest-color-mode-swatches {
-  display: inline-flex;
-  gap: 4px;
-}
-.everforest-color-mode-swatch {
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 50%;
-}
-.everforest-color-mode-note {
-  margin: 0;
-  color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
-  line-height: 18px;
-}
-.everforest-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 5px 12px 5px 6px;
-  border: 1px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-sm);
-  background: none;
-  color: var(--dsw-alias-label-primary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  line-height: 18px;
-}
-.everforest-switch:hover {
-  border-color: var(--dsw-alias-brand-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-.everforest-switch:focus-visible {
-  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
-  outline-offset: 2px;
-}
-.everforest-switch-track {
-  position: relative;
-  display: inline-block;
-  width: 26px;
-  height: 16px;
-  border-radius: 8px;
-  background: var(--dsw-alias-border-l2);
-  transition: background-color .12s ease;
-}
-.everforest-switch-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--dsw-alias-bg-layer-1);
-  transition: transform .12s ease;
-}
-.everforest-switch[aria-checked='true'] {
-  border-color: var(--dsw-alias-brand-primary);
-}
-.everforest-switch[aria-checked='true'] .everforest-switch-track {
-  background: var(--dsw-alias-brand-primary);
-}
-.everforest-switch[aria-checked='true'] .everforest-switch-thumb {
-  transform: translateX(10px);
-}
-.everforest-switch-label {
-  font-weight: 500;
-}
 .everforest-current {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
   padding: 14px 0;
-  border-top: .5px solid var(--dsw-alias-border-l2);
-  border-bottom: .5px solid var(--dsw-alias-border-l2);
+  border-top: var(--everforest-border-width) solid var(--dsw-alias-border-l2);
+  border-bottom: var(--everforest-border-width) solid var(--dsw-alias-border-l2);
 }
 .everforest-current-text {
   display: flex;
@@ -2684,7 +2978,7 @@ const SETTINGS_STYLES = `
   flex: none;
   margin: 0;
   padding: 6px 14px;
-  border: 1px solid var(--dsw-alias-border-l3);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-sm);
   background: none;
   color: var(--dsw-alias-label-primary);
@@ -2750,16 +3044,9 @@ const APPEARANCE_ICON_PATHS = {
 /** Fallback strength order, used when the palette module is not yet readable. */
 const FALLBACK_STRENGTHS = ['hard', 'medium', 'soft']
 
-/**
- * Accent colors previewed by the color-mode row, in Everforest semantic order
- * (error → warning → notice → pass → info). The values are palette data, not
- * chrome: they are rendered as inline swatch backgrounds for decoration only.
- */
-const COLOR_MODE_SWATCH_KEYS = ['red', 'orange', 'yellow', 'aqua', 'green']
-
 /** Used when the page is mounted without a store (should not happen in DSH). */
 const EMPTY_SNAPSHOT = {
-  state: { light: 'hard', dark: 'soft', colorMode: true },
+  state: { light: 'hard', dark: 'soft' },
   theme: { preference: 'system', active: { colorScheme: 'dark' } },
 }
 
@@ -2770,7 +3057,6 @@ const EMPTY_STORE = {
   select: () => {},
   reset: () => {},
   setPreference: () => {},
-  setColorMode: () => {},
 }
 
 /**
@@ -2834,9 +3120,9 @@ function createSettingsComponent(dependencies) {
   /**
    * Read a legal state out of a store snapshot.
    *
-   * The color mode is on by default: only the literal boolean `false` turns it
-   * off, so a missing flag in a hostile or stale snapshot falls back to the
-   * default (on) exactly like the cache and Host normalizers do.
+   * Only the two strengths matter to this page; the retired `colorMode` flag of
+   * a 0.4.x snapshot is ignored, and a missing/hostile field falls back to the
+   * shipped default like the cache and Host normalizers do.
    * @param {object | undefined} snapshot
    */
   function stateFromSnapshot(snapshot) {
@@ -2848,7 +3134,6 @@ function createSettingsComponent(dependencies) {
     return {
       light: strengths.includes(raw.light) ? raw.light : fallback.light,
       dark: strengths.includes(raw.dark) ? raw.dark : fallback.dark,
-      colorMode: raw.colorMode !== false,
     }
   }
 
@@ -2884,25 +3169,14 @@ function createSettingsComponent(dependencies) {
     return EMPTY_STORE
   }
 
-  /** The five preview colors of one palette: bg0, bg1, bg2, fg, header-aqua. */
+  /** The five preview colors of one palette: bg0, bg1, bg2, fg, the accent aqua. */
   function swatchColors(scheme, strength) {
     const ramps = palette.RAMPS && typeof palette.RAMPS === 'object' ? palette.RAMPS : {}
     const schemeRamps = ramps[scheme] && typeof ramps[scheme] === 'object' ? ramps[scheme] : {}
     const ramp = schemeRamps[strength] && typeof schemeRamps[strength] === 'object' ? schemeRamps[strength] : {}
     const foregrounds = palette.FOREGROUNDS && typeof palette.FOREGROUNDS === 'object' ? palette.FOREGROUNDS : {}
     const fg = foregrounds[scheme] && typeof foregrounds[scheme] === 'object' ? foregrounds[scheme] : {}
-    return [ramp.bg0, ramp.bg1, ramp.bg2, fg.fg, fg.headerAqua]
-  }
-
-  /**
-   * The five accent colors previewed next to the color-mode switch, taken from
-   * the *active* scheme's foreground set (the mode follows the DSH appearance).
-   * Decorative only: null entries simply render an empty chip.
-   */
-  function colorModeSwatchColors(scheme) {
-    const foregrounds = palette.FOREGROUNDS && typeof palette.FOREGROUNDS === 'object' ? palette.FOREGROUNDS : {}
-    const fg = foregrounds[scheme] && typeof foregrounds[scheme] === 'object' ? foregrounds[scheme] : {}
-    return COLOR_MODE_SWATCH_KEYS.map((key) => (typeof fg[key] === 'string' ? fg[key] : null))
+    return [ramp.bg0, ramp.bg1, ramp.bg2, fg.fg, fg.aqua]
   }
 
   /**
@@ -3073,58 +3347,6 @@ function createSettingsComponent(dependencies) {
       ])
     }
 
-    /**
-     * Experimental color-mode block: title, explanation, a decorative accent
-     * preview and a native switch (`role="switch"` + `aria-checked`).
-     *
-     * The button only flips the store flag; the Client entry owns the DOM
-     * attributes and the injected stylesheet that make the mode visible. The
-     * accent chips are pure decoration (`aria-hidden`), and the switch is
-     * labelled by copy, not color.
-     */
-    function renderColorMode() {
-      const headingId = 'everforest-color-mode-title'
-      const enabled = state.colorMode
-      const stateLabel = t(enabled ? 'colorMode.on' : 'colorMode.off')
-      const chips = colorModeSwatchColors(theme.colorScheme).map((color, index) => h('span', {
-        key: 'chip-' + index,
-        className: 'everforest-color-mode-swatch',
-        style: color ? { backgroundColor: color } : undefined,
-      }))
-      return h('section', {
-        key: 'color-mode',
-        className: 'everforest-group everforest-color-mode',
-        'aria-labelledby': headingId,
-      }, [
-        h('h3', { key: 'heading', id: headingId, className: 'everforest-group-title' }, t('colorMode.title')),
-        h('p', { key: 'desc', className: 'everforest-color-mode-note' }, t('colorMode.desc')),
-        h('div', { key: 'control', className: 'everforest-color-mode-control' }, [
-          h('span', {
-            key: 'swatches',
-            className: 'everforest-color-mode-swatches',
-            'aria-hidden': 'true',
-          }, chips),
-          h('button', {
-            key: 'switch',
-            type: 'button',
-            role: 'switch',
-            className: 'everforest-switch',
-            'aria-checked': enabled ? 'true' : 'false',
-            'aria-label': t('colorMode.switch', { state: stateLabel }),
-            'data-color-mode': enabled ? 'on' : 'off',
-            onClick: () => {
-              if (typeof store.setColorMode === 'function') store.setColorMode(!enabled)
-            },
-          }, [
-            h('span', { key: 'track', className: 'everforest-switch-track', 'aria-hidden': 'true' }, [
-              h('span', { key: 'thumb', className: 'everforest-switch-thumb' }),
-            ]),
-            h('span', { key: 'label', className: 'everforest-switch-label' }, stateLabel),
-          ]),
-        ]),
-      ])
-    }
-
     /** Current pairing, actual appearance, and the restore-defaults action. */
     function renderCurrent() {
       const darkLabel = t('group.dark') + ' ' + t('strength.' + state.dark)
@@ -3161,7 +3383,6 @@ function createSettingsComponent(dependencies) {
       ]),
       renderAppearance(),
       GROUP_SCHEMES.map((scheme) => renderGroup(scheme)),
-      renderColorMode(),
       renderCurrent(),
     ])
   }
@@ -3172,15 +3393,291 @@ function createSettingsComponent(dependencies) {
   return { SETTINGS_STYLES, createSettingsComponent }
 })()
 
+// ---------------------------------------------------------------- src/theme-spotlight.js
+const __mod_10_theme_spotlight_js = (() => {
+// Spotlight theme switch for light <-> dark: the new palette is revealed by a
+// circular clip-path growing out of the pointer position, with the old palette
+// kept underneath as a static snapshot. This is the View Transitions API pattern
+// used by rspress's appearance toggle (web-infra-dev/rspress#1270):
+// `startViewTransition` snapshots the old frame, the change runs inside the
+// callback, and `documentElement.animate` animates `clip-path` on the
+// `::view-transition-new(root)` pseudo-element, which sits above
+// `::view-transition-old(root)`.
+//
+// The reveal always grows the *new* frame. The mirror variant — putting the old
+// frame on top and shrinking it into the click point — reads the same while the
+// edge moves, but flashes at the end: when the clip animation finishes, the
+// effect is dropped a frame or two before the View Transition removes its
+// pseudo-element tree, so the clipped snapshot paints unclipped once. On a
+// light -> dark switch that stray frame is the old *light* page over a dark
+// page, i.e. a visible white flash (reproduced on the real UI: a full-light
+// screencast frame between dark ones, 4 out of 5 runs). Growing the new frame is
+// structurally immune: its unclipped state is the final state, so even a frame
+// without the clip shows the destination palette. `fill: 'forwards'` is not
+// enough on its own — Chromium can still paint one unclipped frame before the
+// fill lands, so the layering is the fix, not the fill mode.
+//
+// Why not colour interpolation: fading every colour from light to dark passes
+// through the point where text and canvas have equal luminance — measured
+// ~1.01:1 mid-fade — which reads as a grey wash. A circular reveal never mixes
+// the two palettes except on the moving edge, so text stays readable the whole
+// time.
+//
+// The old frame can only be captured while the change happens inside the
+// `startViewTransition` callback, so every switch that should animate has to be
+// wrapped at the call site. `client-entry.js` wraps its own palette/Appearance
+// actions and wraps `ctx.theme.setTheme` on the service instance, which is how
+// DSH's own Appearance row is covered too. Changes that DSH applies without such
+// a call (OS scheme flip while following the system, Host broadcasts) cannot be
+// wrapped after the fact and stay instant — that is the deliberate fallback:
+// no grey, just no animation.
+//
+// The controller is DOM-light and injectable so `node --test` can drive it.
+
+/** Duration of the circular reveal, in milliseconds. */
+const SPOTLIGHT_DURATION_MS = 400
+
+/** Easing of the reveal (the same curve as the rspress implementation). */
+const SPOTLIGHT_EASING = 'ease-in'
+
+/**
+ * Whether the host asked for reduced motion. Never throws: a DOM-less context
+ * (unit tests, SSR) or a host without `matchMedia` reads as "motion allowed",
+ * exactly like a browser that never saw the media query.
+ *
+ * @param {object} [scope] - object carrying `matchMedia` (defaults to globalThis).
+ * @returns {boolean}
+ */
+function prefersReducedMotion(scope = globalThis) {
+  try {
+    return typeof scope?.matchMedia === 'function'
+      && scope.matchMedia('(prefers-reduced-motion: reduce)').matches === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The stylesheet installed once by the Client half.
+ *
+ * The user-agent cross-fade is disabled for both snapshots (a cross-fade still
+ * passes through the grey midpoint); the reveal itself is the clip-path
+ * animation started from `run()`. The frame that is clipped has to sit on top:
+ * always the new frame here.
+ *
+ * @returns {string} CSS source.
+ */
+function themeSpotlightStyles() {
+  return `::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 9999; }`
+}
+
+/**
+ * Resolve a DSH theme preference to the scheme it will paint. `system` follows
+ * the current OS preference (the same media query `ThemeRuntime` uses).
+ *
+ * @param {string} preference - `light`, `dark` or `system`.
+ * @param {object} [scope] - object carrying `matchMedia` (defaults to globalThis).
+ * @returns {'light' | 'dark' | null} the painted scheme, or null when the host
+ *   cannot answer (no `matchMedia` for `system`).
+ */
+function resolveSchemePreference(preference, scope = globalThis) {
+  if (preference === 'light' || preference === 'dark') return preference
+  if (preference !== 'system') return null
+  try {
+    if (typeof scope?.matchMedia !== 'function') return null
+    return scope.matchMedia('(prefers-color-scheme: dark)').matches === true ? 'dark' : 'light'
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Create the spotlight controller.
+ *
+ * @param {object} [options]
+ * @param {Document} [options.document] - host document; absent = no-op controller.
+ * @param {() => boolean} [options.reducedMotion] - reduced-motion predicate.
+ * @param {(callback: () => void, ms: number) => unknown} [options.schedule] - timer.
+ * @param {(handle: unknown) => void} [options.cancel] - timer canceller.
+ * @param {number} [options.durationMs] - reveal duration.
+ * @returns {{
+ *   supported: boolean,
+ *   running: boolean,
+ *   trackOrigin: () => (() => void) | undefined,
+ *   run: (change: () => void) => boolean,
+ *   dispose: () => void,
+ * }}
+ */
+function createThemeSpotlight({
+  document: doc,
+  reducedMotion = prefersReducedMotion,
+  schedule = setTimeout,
+  cancel = clearTimeout,
+  durationMs = SPOTLIGHT_DURATION_MS,
+} = {}) {
+  const root = doc && doc.documentElement ? doc.documentElement : null
+  const view = doc && doc.defaultView ? doc.defaultView : null
+  let origin = null
+  let running = false
+  let timer = null
+
+  function clearTimer() {
+    if (timer === null) return
+    try {
+      cancel(timer)
+    } catch {
+      // No timers (SSR): nothing to cancel.
+    }
+    timer = null
+  }
+
+  /**
+   * Close the spotlight bookkeeping after the transition settled. Also the
+   * timer fallback for a skipped/failed transition (`finished` may never fire).
+   */
+  function finish() {
+    if (!running) return
+    running = false
+    clearTimer()
+  }
+
+  /** Whether a reveal can run at all (View Transitions + clip-path animation). */
+  function canRun() {
+    if (root === null) return false
+    if (typeof doc.startViewTransition !== 'function') return false
+    if (typeof root.animate !== 'function') return false
+    if (typeof reducedMotion === 'function' && reducedMotion()) return false
+    return true
+  }
+
+  return {
+    get supported() {
+      return canRun()
+    },
+    get running() {
+      return running
+    },
+    /**
+     * Remember the last pointer position: the reveal grows out of it. A
+     * capture-phase listener on the document works for every caller (this
+     * plugin's controls and DSH's own Appearance row) without touching their
+     * event handlers.
+     *
+     * @returns {(() => void) | undefined} disposer, when the DOM supports it.
+     */
+    trackOrigin() {
+      if (!doc || typeof doc.addEventListener !== 'function') return undefined
+      const onPointerDown = (event) => {
+        if (typeof event?.clientX !== 'number' || typeof event?.clientY !== 'number') return
+        origin = { x: event.clientX, y: event.clientY }
+      }
+      doc.addEventListener('pointerdown', onPointerDown, true)
+      return () => doc.removeEventListener('pointerdown', onPointerDown, true)
+    },
+    /**
+     * Run one theme change behind a circular reveal that grows the new scheme
+     * from the pointer position.
+     *
+     * On unsupported hosts / reduced motion / re-entrancy the change still runs
+     * synchronously (instant switch), so callers never lose a user action.
+     *
+     * @param {() => void} change - the synchronous palette switch.
+     * @returns {boolean} whether a reveal was started.
+     */
+    run(change) {
+      if (!canRun() || running) {
+        // Re-entrant or unsupported: apply the change synchronously, but keep
+        // `running` true for the duration so the colour-transition listener
+        // (which would otherwise grey-fade the scheme switch) stays quiet.
+        const wasRunning = running
+        running = true
+        try {
+          change()
+        } finally {
+          running = wasRunning
+        }
+        return false
+      }
+      const width = view && Number.isFinite(view.innerWidth) ? view.innerWidth : 0
+      const height = view && Number.isFinite(view.innerHeight) ? view.innerHeight : 0
+      const point = origin && origin.x >= 0 && origin.y >= 0
+        ? origin
+        : { x: Math.round(width / 2), y: Math.round(height / 2) }
+      running = true
+      let transition
+      try {
+        transition = doc.startViewTransition(change)
+      } catch {
+        finish()
+        change()
+        return false
+      }
+      try {
+        timer = schedule(finish, durationMs + 240)
+      } catch {
+        // No timers: `finished` still closes the bookkeeping.
+      }
+      try {
+        transition.ready.then(() => {
+          const endRadius = Math.hypot(
+            Math.max(point.x, width - point.x),
+            Math.max(point.y, height - point.y),
+          )
+          root.animate(
+            {
+              clipPath: [
+                `circle(0px at ${point.x}px ${point.y}px)`,
+                `circle(${endRadius}px at ${point.x}px ${point.y}px)`,
+              ],
+            },
+            {
+              duration: durationMs,
+              easing: SPOTLIGHT_EASING,
+              // The new frame is clipped; the old one is never animated. A
+              // dropped effect at the end can only reveal the final palette
+              // (the unclipped new frame), never the previous one.
+              pseudoElement: '::view-transition-new(root)',
+            },
+          )
+        }).catch(() => {})
+      } catch {
+        // A transition whose `ready` is unusable: the timer closes it.
+      }
+      try {
+        transition.finished.then(finish, finish)
+      } catch {
+        // Same as above: the fallback timer owns the cleanup.
+      }
+      return true
+    },
+    /** Close bookkeeping immediately (plugin unload). */
+    dispose() {
+      finish()
+    },
+  }
+}
+
+  return { SPOTLIGHT_DURATION_MS, themeSpotlightStyles, resolveSchemePreference, createThemeSpotlight }
+})()
+
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_8_client_entry_js = (() => {
+const __mod_11_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
+  const { selectionStyles } = __mod_4_selection_js
+  const { activeSessionStyles } = __mod_5_active_session_js
   const { SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { DEFAULT_COLOR_MODE, readState, readStoredState, STORAGE_KEY, writeState } = __mod_4_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_5_durable_js
-  const { EN, NS, ZH } = __mod_6_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_7_settings_page_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_6_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_7_durable_js
+  const { EN, NS, ZH } = __mod_8_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_9_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, themeSpotlightStyles } = __mod_10_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -3195,20 +3692,24 @@ const __mod_8_client_entry_js = (() => {
  *    Appearance control (`follow system` / `dark` / `light`, which writes the
  *    same global preference as DSH's own Appearance switch);
  *  - a small observable store that the page subscribes to
- *    (`useSyncExternalStore`) and that persists the chosen strengths — and,
- *    since 0.4.0, the experimental color-mode flag — through DSH's Host
- *    settings form (`ctx.configForms`, see `src/durable.js`). The choice lives
- *    in the active profile's `cordis.patch.yml` and is shared by every browser
- *    of that profile; the browser's `localStorage` copy is only a first-paint
- *    cache and the fallback for a host that serves no settings form
+ *    (`useSyncExternalStore`) and that persists the chosen strengths through
+ *    DSH's Host settings form (`ctx.configForms`, see `src/durable.js`). The
+ *    choice lives in the active profile's `cordis.patch.yml` and is shared by
+ *    every browser of that profile; the browser's `localStorage` copy is only a
+ *    first-paint cache and the fallback for a host that serves no settings form
  *    (pre-0.3.0). A 0.2.x cache still holding a real choice is seeded into the
  *    Host once, on the first load after the upgrade;
- *  - the experimental **color mode**: `data-everforest-*` attributes on
- *    `<html>` plus one `<style data-plugin-css="dsh-everforest/color-mode">`
- *    element carrying the selector-scoped CSS from `src/color-mode.js`. Both are
- *    installed independently of the Settings UI, so the mode keeps working when
- *    `slots` / `locale` never arrive; with the mode off the CSS matches nothing
- *    and the token layer is byte-identical to 0.3.0.
+ *  - the **color mode**, a shipped default feature since 2026-10-24 (no
+ *    switch): `data-everforest-*` attributes on `<html>` plus one
+ *    `<style data-plugin-css="dsh-everforest/color-mode">` element carrying the
+ *    selector-scoped CSS from `src/color-mode.js`. Both are installed
+ *    independently of the Settings UI, so the mode keeps working when
+ *    `slots` / `locale` never arrive; the token layer is untouched, the mode is
+ *    content-layer CSS on top.
+ *  - a small always-on `::selection` stylesheet (`src/selection.js`) that paints
+ *    browser text selection with the current variant's `bg_visual` colour while
+ *    keeping each element's own text colour; DSH declares the document-selection
+ *    token but never reads it (2026-10-24).
  *
  * The override disposer returned by `overrideTokens` is NOT tied to the plugin
  * fiber (the layer lives on the root ThemeRuntime), so the layer is created
@@ -3236,24 +3737,20 @@ const inject = ['theme']
 /**
  * The state this document should start from, resolved the same way the Host
  * boot row paints the first frame: the `localStorage` cache supplies the
- * color-mode flag, the Host-backed pair the row published on
- * `window.__EVERFOREST_BOOT__` overrides the two strengths when present, and
- * everything else falls back to the shipped default. Using the hint (instead of
- * `readState()` alone) is what keeps a fresh browser profile from flashing the
- * default before the asynchronous `configForms` snapshot arrives.
+ * strengths, the Host-backed pair the row published on
+ * `window.__EVERFOREST_BOOT__` overrides them when present, and everything else
+ * falls back to the shipped default. Using the hint (instead of `readState()`
+ * alone) is what keeps a fresh browser profile from flashing the default before
+ * the asynchronous `configForms` snapshot arrives.
  *
- * The hint only carries strengths (the Host boot row paints tokens only), so
- * `colorMode` always comes from the cache; a missing/blocked cache reads as
- * `false`.
- *
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function initialState() {
   const cached = readState()
   try {
     if (typeof window !== 'undefined') {
       const hint = bootHintState(window.__EVERFOREST_BOOT__)
-      if (hint !== null) return { light: hint.light, dark: hint.dark, colorMode: cached.colorMode }
+      if (hint !== null) return { light: hint.light, dark: hint.dark }
     }
   } catch {
     // A host without the boot row: the cache already holds everything.
@@ -3288,7 +3785,7 @@ function apply(ctx) {
   function getSnapshot() {
     if (cachedSnapshot === null) {
       cachedSnapshot = {
-        state: { light: state.light, dark: state.dark, colorMode: state.colorMode },
+        state: { light: state.light, dark: state.dark },
         theme: ctx.theme.getTheme(),
       }
     }
@@ -3303,15 +3800,17 @@ function apply(ctx) {
   }
 
   /**
-   * Mirror the color-mode state onto `<html>` as data attributes.
+   * Mirror the palette pair (and the color-mode scope anchor) onto `<html>` as
+   * data attributes.
    *
-   * `colorModeDataset()` returns every attribute in one object, so toggling the
-   * mode and changing a strength are the same write; the injected stylesheet is
-   * scoped under `html[data-everforest-color-mode="on"]`, which makes the mode
-   * CSS a no-op while it is off. A missing attribute in the dataset is removed
-   * rather than left stale. DOM-less contexts (unit tests, SSR) are tolerated.
+   * `colorModeDataset()` returns every attribute in one object, so changing a
+   * strength is one write; the injected stylesheet is scoped under
+   * `html[data-everforest-color-mode="on"]`, which this version always sets — the
+   * mode is a shipped default, not a toggle. A missing attribute in the dataset
+   * is removed rather than left stale. DOM-less contexts (unit tests, SSR) are
+   * tolerated.
    */
-  function applyColorModeAttributes() {
+  function applyStateAttributes() {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     if (!root || typeof root.setAttribute !== 'function') return
@@ -3327,22 +3826,107 @@ function apply(ctx) {
   let layerPair = null
 
   /**
-   * Replace this plugin's override layer and the color-mode attributes.
+   * Replace this plugin's override layer and the `<html>` attributes.
    *
    * `overrideTokens` treats a repeated call for the same source as a full
    * replacement and re-stacks it on top, so the previous disposer becomes a
    * no-op and the new one is kept for unload. The token sheet only depends on
-   * the strength pair, so a call that leaves the pair untouched (e.g. toggling
-   * color mode) still refreshes the `<html>` attributes but does not re-stack
-   * the layer: the mode is selector-scoped CSS on top, never a token change.
+   * the strength pair, so a call that leaves the pair untouched still refreshes
+   * the `<html>` attributes but does not re-stack the layer: the color mode is
+   * selector-scoped CSS on top, never a token change.
    */
   function applyLayer() {
     if (layerPair === null || layerPair.light !== state.light || layerPair.dark !== state.dark) {
       layerPair = { light: state.light, dark: state.dark }
       layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(layerPair))
     }
-    applyColorModeAttributes()
+    applyStateAttributes()
   }
+
+  /* ------------------------------------------------------------------ *
+   * 0. Spotlight reveal for light <-> dark
+   *
+   * The grey mid-fade of a colour interpolation is not acceptable for a scheme
+   * switch, so a scheme change uses the View Transitions circular-reveal pattern
+   * instead (the one rspress uses for its appearance toggle): the old palette is
+   * snapshotted, the new palette is painted inside the transition callback, and
+   * `clip-path: circle()` grows out of the pointer position. Text is always
+   * either on the old or on the new palette — never halfway between them.
+   *
+   * Every switch that should animate must be wrapped at the call site, because
+   * the old snapshot only exists inside the `startViewTransition` callback:
+   *   - this plugin's own controls (`select` / `setPreference`) wrap the call;
+   *   - DSH's own Appearance row calls `theme.setTheme(id)` on the ThemeRuntime
+   *     instance, so wrapping that instance method is the interception point.
+   * Changes DSH applies without such a call (OS scheme flip while following the
+   * system, Host broadcasts from another browser) cannot be wrapped after the
+   * fact; they stay instant. Instant is the fallback everywhere View Transitions
+   * or the clip-path animation is unavailable.
+   * ------------------------------------------------------------------ */
+
+  const spotlight = createThemeSpotlight({
+    document: typeof document === 'undefined' ? undefined : document,
+  })
+
+  ctx.effect(() => () => spotlight.dispose(), 'everforest: theme spotlight unload')
+
+  // 0a. Pseudo-element stylesheet that disables the UA cross-fade.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/theme-spotlight'
+    tag.textContent = themeSpotlightStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: theme spotlight styles')
+
+  // 0b. Remember the click position: the reveal grows out of it.
+  const stopTrackingOrigin = spotlight.trackOrigin()
+  ctx.effect(() => () => {
+    if (typeof stopTrackingOrigin === 'function') stopTrackingOrigin()
+  }, 'everforest: theme spotlight origin')
+
+  // 0c. Wrap `theme.setTheme` on the service instance so DSH's own
+  // Appearance row gets the reveal too (its injected callback closes over the
+  // same ThemeRuntime instance). A direct wrapper is safe to remove again: the
+  // own property is deleted, falling back to the class method.
+  ctx.effect(() => {
+    const themeService = ctx.theme
+    const original = themeService && themeService.setTheme
+    if (typeof original !== 'function') return undefined
+    const hadOwnMethod = Object.prototype.hasOwnProperty.call(themeService, 'setTheme')
+    function setThemeWithSpotlight(id) {
+      const receiver = this === undefined || this === null ? themeService : this
+      // Only known preferences can be resolved; anything else keeps the
+      // service's own validation and synchronous throw.
+      if (spotlight.running || (id !== 'light' && id !== 'dark' && id !== 'system')) {
+        return original.call(receiver, id)
+      }
+      let current = null
+      try {
+        current = ctx.theme.getTheme().active.colorScheme
+      } catch {
+        current = null
+      }
+      const target = resolveSchemePreference(id)
+      if (target === null || target === current || !spotlight.supported) {
+        return original.call(receiver, id)
+      }
+      return spotlight.run(() => original.call(receiver, id))
+    }
+    try {
+      themeService.setTheme = setThemeWithSpotlight
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} could not wrap the theme service; DSH's own Appearance row stays instant`, error)
+      return undefined
+    }
+    return () => {
+      if (themeService.setTheme !== setThemeWithSpotlight) return
+      if (hadOwnMethod) themeService.setTheme = original
+      else delete themeService.setTheme
+    }
+  }, 'everforest: theme spotlight service wrap')
 
   // 1. Token layer, created with the client module and owned by our effect.
   ctx.effect(() => {
@@ -3357,8 +3941,9 @@ function apply(ctx) {
   // 1b. Color-mode stylesheet. Installed independently of the Settings UI so
   // the mode keeps working when `slots` / `locale` are absent or arrive later.
   // The CSS is static and every rule is scoped under
-  // `html[data-everforest-color-mode="on"]`, so with the mode off (the default)
-  // nothing matches and the rendering is byte-identical to 0.3.0.
+  // `html[data-everforest-color-mode="on"]`, the attribute `applyLayer()`
+  // always writes: color mode is a shipped default, not a toggle, and it never
+  // touches the token layer.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')
@@ -3368,6 +3953,39 @@ function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: color mode styles')
+
+  // 1c. Text-selection stylesheet. DSH declares
+  // `--dsw-alias-bg-document-selection` but never reads it with a `::selection`
+  // rule (verified against the installed 0.2.1-rc.3 bundles), so without this
+  // the browser's native blue wins (2026-10-24 user report). Always-on and
+  // independent of the color mode: the six rules only need the strength
+  // attributes the layer above writes on <html> plus DSH's own
+  // `body[data-ds-dark-theme]` flag.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/selection'
+    tag.textContent = selectionStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: selection styles')
+
+  // 1d. Active-session stylesheet. DSH paints the selected workspace row with
+  // the same `interactive-bg-hover` token as hover, which in Everforest's ramps
+  // is only a ~2.6 L* step from the sidebar — the open session is hard to find
+  // (2026-10-24 user report). No dedicated token exists, so one rule on the
+  // row's stable `aria-selected` anchor paints a palette-blue surface. Also
+  // always-on and color-mode independent: this is navigation, not content.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/active-session'
+    tag.textContent = activeSessionStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: active session styles')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
@@ -3394,7 +4012,7 @@ function apply(ctx) {
     const onStorage = (event) => {
       if (event.key !== STORAGE_KEY && event.key !== null) return
       const next = readState()
-      if (next.light === state.light && next.dark === state.dark && next.colorMode === state.colorMode) return
+      if (next.light === state.light && next.dark === state.dark) return
       state = next
       applyLayer()
       notify()
@@ -3475,7 +4093,7 @@ function apply(ctx) {
       writeState(state)
       return
     }
-    state = { light: hostState.light, dark: hostState.dark, colorMode: hostState.colorMode }
+    state = { light: hostState.light, dark: hostState.dark }
     writeState(state)
     applyLayer()
     notify()
@@ -3580,11 +4198,9 @@ function apply(ctx) {
    * adopted immediately) and once when the form binds. Precedence:
    *
    *  0. a local user choice was made before the snapshot existed → push it;
-   *  1. a Host-stored choice is the authority → adopt it (all three fields:
-   *     strengths and the color-mode flag);
+   *  1. a Host-stored choice is the authority → adopt it (both strengths);
    *  2. no Host choice yet but a real older cache choice exists (non-default
-   *     strengths, or color mode on) → seed the Host once and keep the cached
-   *     state;
+   *     strengths) → seed the Host once and keep the cached state;
    *  3. no Host choice and nothing worth seeding → adopt the Host's effective
    *     value (the shipped defaults).
    */
@@ -3634,57 +4250,51 @@ function apply(ctx) {
   }
 
   // 3. Settings page stores the user's palette state: the per-scheme strength
-  // choice and the experimental color-mode flag. Writes update the local state
-  // and the first-paint cache synchronously (so the choice survives a restart
-  // even when the Host write is slow or refused), then go to the Host document
-  // as the durable, cross-browser store — all three fields in one mutation.
+  // choice. Writes update the local state and the first-paint cache
+  // synchronously (so the choice survives a restart even when the Host write is
+  // slow or refused), then go to the Host document as the durable,
+  // cross-browser store — both fields in one mutation.
   function select(scheme, strength) {
     if (scheme !== 'light' && scheme !== 'dark') return
     if (!STRENGTHS.includes(strength)) return
-    const next = { light: state.light, dark: state.dark, colorMode: state.colorMode, [scheme]: strength }
+    const next = { light: state.light, dark: state.dark, [scheme]: strength }
+    const changed = next.light !== state.light || next.dark !== state.dark
+    const schemeChanging = ctx.theme.getTheme().active.colorScheme !== scheme
+    state = next
+    writeState(state)
+    if (schemeChanging) {
+      // A card from the other scheme group is one spotlight: the token re-stack
+      // for the clicked scheme is invisible until the scheme flips, so both the
+      // re-stack and the Appearance write fit in one transition callback. When
+      // View Transitions cannot run, `run` switches synchronously instead; no
+      // other path colour-fades. The new scheme always grows out of the click
+      // point; the old snapshot stays underneath (clipping the old frame
+      // instead flashes the light page at teardown, see theme-spotlight.js).
+      spotlight.run(() => {
+        if (changed) applyLayer()
+        ctx.theme.setTheme(scheme)
+      })
+    } else if (changed) {
+      // Same-scheme strength change (soft / medium / hard): swap the tokens
+      // instantly — the colour fade was removed on request (2026-10-24).
+      applyLayer()
+    }
+    notify()
+    persistChoice()
+    // The Appearance preference is written inside the spotlight callback above
+    // for a cross-scheme card; this is the durable Host-backed preference write
+    // (shared by every authenticated browser, and `system` becomes a fixed
+    // light/dark choice) — the Settings page copy says so.
+  }
+
+  function reset() {
+    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
     const changed = next.light !== state.light || next.dark !== state.dark
     state = next
     writeState(state)
     if (changed) applyLayer()
     notify()
-    persistChoice()
-    // Picking a card from the other scheme group also switches DSH's
-    // Appearance preference so the user sees the result immediately. This is a
-    // durable Host-backed preference write (shared by every authenticated
-    // browser, and `system` becomes a fixed light/dark choice) — the Settings
-    // page copy says so.
-    if (ctx.theme.getTheme().active.colorScheme !== scheme) ctx.theme.setTheme(scheme)
-  }
-
-  function reset() {
-    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
-    const changed = next.light !== state.light || next.dark !== state.dark || next.colorMode !== state.colorMode
-    state = next
-    writeState(state)
-    if (changed) applyLayer()
-    notify()
     persistReset()
-  }
-
-  /**
-   * Turn the experimental color mode on or off.
-   *
-   * Same pipeline as `select`: mirror in memory, refresh the first-paint cache,
-   * repaint, notify the page, then persist all three fields atomically through
-   * the Host form (queued while the form is still loading; a refused write is
-   * recovered by re-reading the Host document in `writeToHost`). `applyLayer`
-   * rewrites the `<html>` data attributes; the token sheet itself is untouched.
-   *
-   * @param {boolean} enabled - only the literal `true` turns the mode on.
-   */
-  function setColorMode(enabled) {
-    const next = enabled === true
-    if (next === state.colorMode) return
-    state = { light: state.light, dark: state.dark, colorMode: next }
-    writeState(state)
-    applyLayer()
-    notify()
-    persistChoice()
   }
 
   /**
@@ -3698,6 +4308,8 @@ function apply(ctx) {
    */
   function setPreference(preference) {
     if (preference !== 'system' && preference !== 'light' && preference !== 'dark') return
+    // `theme.setTheme` is wrapped for the spotlight, so a resolved scheme change
+    // gets its reveal here (and DSH's own Appearance row gets the same one).
     try {
       ctx.theme.setTheme(preference)
     } catch (error) {
@@ -3713,7 +4325,6 @@ function apply(ctx) {
     select,
     reset,
     setPreference,
-    setColorMode,
   }
 
   // 4. Settings page, locale dictionaries and the page stylesheet. These need
@@ -3820,6 +4431,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_8_client_entry_js
+    return __mod_11_client_entry_js
   },
 })

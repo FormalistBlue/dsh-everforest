@@ -11,20 +11,24 @@
  *    Appearance control (`follow system` / `dark` / `light`, which writes the
  *    same global preference as DSH's own Appearance switch);
  *  - a small observable store that the page subscribes to
- *    (`useSyncExternalStore`) and that persists the chosen strengths — and,
- *    since 0.4.0, the experimental color-mode flag — through DSH's Host
- *    settings form (`ctx.configForms`, see `src/durable.js`). The choice lives
- *    in the active profile's `cordis.patch.yml` and is shared by every browser
- *    of that profile; the browser's `localStorage` copy is only a first-paint
- *    cache and the fallback for a host that serves no settings form
+ *    (`useSyncExternalStore`) and that persists the chosen strengths through
+ *    DSH's Host settings form (`ctx.configForms`, see `src/durable.js`). The
+ *    choice lives in the active profile's `cordis.patch.yml` and is shared by
+ *    every browser of that profile; the browser's `localStorage` copy is only a
+ *    first-paint cache and the fallback for a host that serves no settings form
  *    (pre-0.3.0). A 0.2.x cache still holding a real choice is seeded into the
  *    Host once, on the first load after the upgrade;
- *  - the experimental **color mode**: `data-everforest-*` attributes on
- *    `<html>` plus one `<style data-plugin-css="dsh-everforest/color-mode">`
- *    element carrying the selector-scoped CSS from `src/color-mode.js`. Both are
- *    installed independently of the Settings UI, so the mode keeps working when
- *    `slots` / `locale` never arrive; with the mode off the CSS matches nothing
- *    and the token layer is byte-identical to 0.3.0.
+ *  - the **color mode**, a shipped default feature since 2026-10-24 (no
+ *    switch): `data-everforest-*` attributes on `<html>` plus one
+ *    `<style data-plugin-css="dsh-everforest/color-mode">` element carrying the
+ *    selector-scoped CSS from `src/color-mode.js`. Both are installed
+ *    independently of the Settings UI, so the mode keeps working when
+ *    `slots` / `locale` never arrive; the token layer is untouched, the mode is
+ *    content-layer CSS on top.
+ *  - a small always-on `::selection` stylesheet (`src/selection.js`) that paints
+ *    browser text selection with the current variant's `bg_visual` colour while
+ *    keeping each element's own text colour; DSH declares the document-selection
+ *    token but never reads it (2026-10-24).
  *
  * The override disposer returned by `overrideTokens` is NOT tied to the plugin
  * fiber (the layer lives on the root ThemeRuntime), so the layer is created
@@ -41,8 +45,10 @@
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 import { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } from './color-mode.js'
+import { selectionStyles } from './selection.js'
+import { activeSessionStyles } from './active-session.js'
 import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
-import { DEFAULT_COLOR_MODE, readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
+import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
 import {
   bootHintState,
   ENTRY_ID,
@@ -55,6 +61,14 @@ import {
 } from './durable.js'
 import { EN, NS, ZH } from './locale.js'
 import { SETTINGS_STYLES, createSettingsComponent } from './settings-page.js'
+import {
+  createThemeSpotlight,
+  resolveSchemePreference,
+  themeSpotlightStyles,
+} from './theme-spotlight.js'
+// @dev-only:start
+import { createDevPanel } from './dev-panel.js'
+// @dev-only:end
 
 const PACKAGE_ID = 'dsh-everforest'
 const LOG_PREFIX = '[everforest]'
@@ -68,24 +82,20 @@ export const inject = ['theme']
 /**
  * The state this document should start from, resolved the same way the Host
  * boot row paints the first frame: the `localStorage` cache supplies the
- * color-mode flag, the Host-backed pair the row published on
- * `window.__EVERFOREST_BOOT__` overrides the two strengths when present, and
- * everything else falls back to the shipped default. Using the hint (instead of
- * `readState()` alone) is what keeps a fresh browser profile from flashing the
- * default before the asynchronous `configForms` snapshot arrives.
+ * strengths, the Host-backed pair the row published on
+ * `window.__EVERFOREST_BOOT__` overrides them when present, and everything else
+ * falls back to the shipped default. Using the hint (instead of `readState()`
+ * alone) is what keeps a fresh browser profile from flashing the default before
+ * the asynchronous `configForms` snapshot arrives.
  *
- * The hint only carries strengths (the Host boot row paints tokens only), so
- * `colorMode` always comes from the cache; a missing/blocked cache reads as
- * `false`.
- *
- * @returns {{ light: string, dark: string, colorMode: boolean }}
+ * @returns {{ light: string, dark: string }}
  */
 function initialState() {
   const cached = readState()
   try {
     if (typeof window !== 'undefined') {
       const hint = bootHintState(window.__EVERFOREST_BOOT__)
-      if (hint !== null) return { light: hint.light, dark: hint.dark, colorMode: cached.colorMode }
+      if (hint !== null) return { light: hint.light, dark: hint.dark }
     }
   } catch {
     // A host without the boot row: the cache already holds everything.
@@ -120,7 +130,7 @@ export function apply(ctx) {
   function getSnapshot() {
     if (cachedSnapshot === null) {
       cachedSnapshot = {
-        state: { light: state.light, dark: state.dark, colorMode: state.colorMode },
+        state: { light: state.light, dark: state.dark },
         theme: ctx.theme.getTheme(),
       }
     }
@@ -135,15 +145,17 @@ export function apply(ctx) {
   }
 
   /**
-   * Mirror the color-mode state onto `<html>` as data attributes.
+   * Mirror the palette pair (and the color-mode scope anchor) onto `<html>` as
+   * data attributes.
    *
-   * `colorModeDataset()` returns every attribute in one object, so toggling the
-   * mode and changing a strength are the same write; the injected stylesheet is
-   * scoped under `html[data-everforest-color-mode="on"]`, which makes the mode
-   * CSS a no-op while it is off. A missing attribute in the dataset is removed
-   * rather than left stale. DOM-less contexts (unit tests, SSR) are tolerated.
+   * `colorModeDataset()` returns every attribute in one object, so changing a
+   * strength is one write; the injected stylesheet is scoped under
+   * `html[data-everforest-color-mode="on"]`, which this version always sets — the
+   * mode is a shipped default, not a toggle. A missing attribute in the dataset
+   * is removed rather than left stale. DOM-less contexts (unit tests, SSR) are
+   * tolerated.
    */
-  function applyColorModeAttributes() {
+  function applyStateAttributes() {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     if (!root || typeof root.setAttribute !== 'function') return
@@ -159,22 +171,107 @@ export function apply(ctx) {
   let layerPair = null
 
   /**
-   * Replace this plugin's override layer and the color-mode attributes.
+   * Replace this plugin's override layer and the `<html>` attributes.
    *
    * `overrideTokens` treats a repeated call for the same source as a full
    * replacement and re-stacks it on top, so the previous disposer becomes a
    * no-op and the new one is kept for unload. The token sheet only depends on
-   * the strength pair, so a call that leaves the pair untouched (e.g. toggling
-   * color mode) still refreshes the `<html>` attributes but does not re-stack
-   * the layer: the mode is selector-scoped CSS on top, never a token change.
+   * the strength pair, so a call that leaves the pair untouched still refreshes
+   * the `<html>` attributes but does not re-stack the layer: the color mode is
+   * selector-scoped CSS on top, never a token change.
    */
   function applyLayer() {
     if (layerPair === null || layerPair.light !== state.light || layerPair.dark !== state.dark) {
       layerPair = { light: state.light, dark: state.dark }
       layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(layerPair))
     }
-    applyColorModeAttributes()
+    applyStateAttributes()
   }
+
+  /* ------------------------------------------------------------------ *
+   * 0. Spotlight reveal for light <-> dark
+   *
+   * The grey mid-fade of a colour interpolation is not acceptable for a scheme
+   * switch, so a scheme change uses the View Transitions circular-reveal pattern
+   * instead (the one rspress uses for its appearance toggle): the old palette is
+   * snapshotted, the new palette is painted inside the transition callback, and
+   * `clip-path: circle()` grows out of the pointer position. Text is always
+   * either on the old or on the new palette — never halfway between them.
+   *
+   * Every switch that should animate must be wrapped at the call site, because
+   * the old snapshot only exists inside the `startViewTransition` callback:
+   *   - this plugin's own controls (`select` / `setPreference`) wrap the call;
+   *   - DSH's own Appearance row calls `theme.setTheme(id)` on the ThemeRuntime
+   *     instance, so wrapping that instance method is the interception point.
+   * Changes DSH applies without such a call (OS scheme flip while following the
+   * system, Host broadcasts from another browser) cannot be wrapped after the
+   * fact; they stay instant. Instant is the fallback everywhere View Transitions
+   * or the clip-path animation is unavailable.
+   * ------------------------------------------------------------------ */
+
+  const spotlight = createThemeSpotlight({
+    document: typeof document === 'undefined' ? undefined : document,
+  })
+
+  ctx.effect(() => () => spotlight.dispose(), 'everforest: theme spotlight unload')
+
+  // 0a. Pseudo-element stylesheet that disables the UA cross-fade.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/theme-spotlight'
+    tag.textContent = themeSpotlightStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: theme spotlight styles')
+
+  // 0b. Remember the click position: the reveal grows out of it.
+  const stopTrackingOrigin = spotlight.trackOrigin()
+  ctx.effect(() => () => {
+    if (typeof stopTrackingOrigin === 'function') stopTrackingOrigin()
+  }, 'everforest: theme spotlight origin')
+
+  // 0c. Wrap `theme.setTheme` on the service instance so DSH's own
+  // Appearance row gets the reveal too (its injected callback closes over the
+  // same ThemeRuntime instance). A direct wrapper is safe to remove again: the
+  // own property is deleted, falling back to the class method.
+  ctx.effect(() => {
+    const themeService = ctx.theme
+    const original = themeService && themeService.setTheme
+    if (typeof original !== 'function') return undefined
+    const hadOwnMethod = Object.prototype.hasOwnProperty.call(themeService, 'setTheme')
+    function setThemeWithSpotlight(id) {
+      const receiver = this === undefined || this === null ? themeService : this
+      // Only known preferences can be resolved; anything else keeps the
+      // service's own validation and synchronous throw.
+      if (spotlight.running || (id !== 'light' && id !== 'dark' && id !== 'system')) {
+        return original.call(receiver, id)
+      }
+      let current = null
+      try {
+        current = ctx.theme.getTheme().active.colorScheme
+      } catch {
+        current = null
+      }
+      const target = resolveSchemePreference(id)
+      if (target === null || target === current || !spotlight.supported) {
+        return original.call(receiver, id)
+      }
+      return spotlight.run(() => original.call(receiver, id))
+    }
+    try {
+      themeService.setTheme = setThemeWithSpotlight
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} could not wrap the theme service; DSH's own Appearance row stays instant`, error)
+      return undefined
+    }
+    return () => {
+      if (themeService.setTheme !== setThemeWithSpotlight) return
+      if (hadOwnMethod) themeService.setTheme = original
+      else delete themeService.setTheme
+    }
+  }, 'everforest: theme spotlight service wrap')
 
   // 1. Token layer, created with the client module and owned by our effect.
   ctx.effect(() => {
@@ -189,8 +286,9 @@ export function apply(ctx) {
   // 1b. Color-mode stylesheet. Installed independently of the Settings UI so
   // the mode keeps working when `slots` / `locale` are absent or arrive later.
   // The CSS is static and every rule is scoped under
-  // `html[data-everforest-color-mode="on"]`, so with the mode off (the default)
-  // nothing matches and the rendering is byte-identical to 0.3.0.
+  // `html[data-everforest-color-mode="on"]`, the attribute `applyLayer()`
+  // always writes: color mode is a shipped default, not a toggle, and it never
+  // touches the token layer.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')
@@ -200,6 +298,39 @@ export function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: color mode styles')
+
+  // 1c. Text-selection stylesheet. DSH declares
+  // `--dsw-alias-bg-document-selection` but never reads it with a `::selection`
+  // rule (verified against the installed 0.2.1-rc.3 bundles), so without this
+  // the browser's native blue wins (2026-10-24 user report). Always-on and
+  // independent of the color mode: the six rules only need the strength
+  // attributes the layer above writes on <html> plus DSH's own
+  // `body[data-ds-dark-theme]` flag.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/selection'
+    tag.textContent = selectionStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: selection styles')
+
+  // 1d. Active-session stylesheet. DSH paints the selected workspace row with
+  // the same `interactive-bg-hover` token as hover, which in Everforest's ramps
+  // is only a ~2.6 L* step from the sidebar — the open session is hard to find
+  // (2026-10-24 user report). No dedicated token exists, so one rule on the
+  // row's stable `aria-selected` anchor paints a palette-blue surface. Also
+  // always-on and color-mode independent: this is navigation, not content.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/active-session'
+    tag.textContent = activeSessionStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: active session styles')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
@@ -226,7 +357,7 @@ export function apply(ctx) {
     const onStorage = (event) => {
       if (event.key !== STORAGE_KEY && event.key !== null) return
       const next = readState()
-      if (next.light === state.light && next.dark === state.dark && next.colorMode === state.colorMode) return
+      if (next.light === state.light && next.dark === state.dark) return
       state = next
       applyLayer()
       notify()
@@ -307,7 +438,7 @@ export function apply(ctx) {
       writeState(state)
       return
     }
-    state = { light: hostState.light, dark: hostState.dark, colorMode: hostState.colorMode }
+    state = { light: hostState.light, dark: hostState.dark }
     writeState(state)
     applyLayer()
     notify()
@@ -412,11 +543,9 @@ export function apply(ctx) {
    * adopted immediately) and once when the form binds. Precedence:
    *
    *  0. a local user choice was made before the snapshot existed → push it;
-   *  1. a Host-stored choice is the authority → adopt it (all three fields:
-   *     strengths and the color-mode flag);
+   *  1. a Host-stored choice is the authority → adopt it (both strengths);
    *  2. no Host choice yet but a real older cache choice exists (non-default
-   *     strengths, or color mode on) → seed the Host once and keep the cached
-   *     state;
+   *     strengths) → seed the Host once and keep the cached state;
    *  3. no Host choice and nothing worth seeding → adopt the Host's effective
    *     value (the shipped defaults).
    */
@@ -466,57 +595,51 @@ export function apply(ctx) {
   }
 
   // 3. Settings page stores the user's palette state: the per-scheme strength
-  // choice and the experimental color-mode flag. Writes update the local state
-  // and the first-paint cache synchronously (so the choice survives a restart
-  // even when the Host write is slow or refused), then go to the Host document
-  // as the durable, cross-browser store — all three fields in one mutation.
+  // choice. Writes update the local state and the first-paint cache
+  // synchronously (so the choice survives a restart even when the Host write is
+  // slow or refused), then go to the Host document as the durable,
+  // cross-browser store — both fields in one mutation.
   function select(scheme, strength) {
     if (scheme !== 'light' && scheme !== 'dark') return
     if (!STRENGTHS.includes(strength)) return
-    const next = { light: state.light, dark: state.dark, colorMode: state.colorMode, [scheme]: strength }
+    const next = { light: state.light, dark: state.dark, [scheme]: strength }
+    const changed = next.light !== state.light || next.dark !== state.dark
+    const schemeChanging = ctx.theme.getTheme().active.colorScheme !== scheme
+    state = next
+    writeState(state)
+    if (schemeChanging) {
+      // A card from the other scheme group is one spotlight: the token re-stack
+      // for the clicked scheme is invisible until the scheme flips, so both the
+      // re-stack and the Appearance write fit in one transition callback. When
+      // View Transitions cannot run, `run` switches synchronously instead; no
+      // other path colour-fades. The new scheme always grows out of the click
+      // point; the old snapshot stays underneath (clipping the old frame
+      // instead flashes the light page at teardown, see theme-spotlight.js).
+      spotlight.run(() => {
+        if (changed) applyLayer()
+        ctx.theme.setTheme(scheme)
+      })
+    } else if (changed) {
+      // Same-scheme strength change (soft / medium / hard): swap the tokens
+      // instantly — the colour fade was removed on request (2026-10-24).
+      applyLayer()
+    }
+    notify()
+    persistChoice()
+    // The Appearance preference is written inside the spotlight callback above
+    // for a cross-scheme card; this is the durable Host-backed preference write
+    // (shared by every authenticated browser, and `system` becomes a fixed
+    // light/dark choice) — the Settings page copy says so.
+  }
+
+  function reset() {
+    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark }
     const changed = next.light !== state.light || next.dark !== state.dark
     state = next
     writeState(state)
     if (changed) applyLayer()
     notify()
-    persistChoice()
-    // Picking a card from the other scheme group also switches DSH's
-    // Appearance preference so the user sees the result immediately. This is a
-    // durable Host-backed preference write (shared by every authenticated
-    // browser, and `system` becomes a fixed light/dark choice) — the Settings
-    // page copy says so.
-    if (ctx.theme.getTheme().active.colorScheme !== scheme) ctx.theme.setTheme(scheme)
-  }
-
-  function reset() {
-    const next = { light: DEFAULT_STATE.light, dark: DEFAULT_STATE.dark, colorMode: DEFAULT_COLOR_MODE }
-    const changed = next.light !== state.light || next.dark !== state.dark || next.colorMode !== state.colorMode
-    state = next
-    writeState(state)
-    if (changed) applyLayer()
-    notify()
     persistReset()
-  }
-
-  /**
-   * Turn the experimental color mode on or off.
-   *
-   * Same pipeline as `select`: mirror in memory, refresh the first-paint cache,
-   * repaint, notify the page, then persist all three fields atomically through
-   * the Host form (queued while the form is still loading; a refused write is
-   * recovered by re-reading the Host document in `writeToHost`). `applyLayer`
-   * rewrites the `<html>` data attributes; the token sheet itself is untouched.
-   *
-   * @param {boolean} enabled - only the literal `true` turns the mode on.
-   */
-  function setColorMode(enabled) {
-    const next = enabled === true
-    if (next === state.colorMode) return
-    state = { light: state.light, dark: state.dark, colorMode: next }
-    writeState(state)
-    applyLayer()
-    notify()
-    persistChoice()
   }
 
   /**
@@ -530,6 +653,8 @@ export function apply(ctx) {
    */
   function setPreference(preference) {
     if (preference !== 'system' && preference !== 'light' && preference !== 'dark') return
+    // `theme.setTheme` is wrapped for the spotlight, so a resolved scheme change
+    // gets its reveal here (and DSH's own Appearance row gets the same one).
     try {
       ctx.theme.setTheme(preference)
     } catch (error) {
@@ -545,7 +670,6 @@ export function apply(ctx) {
     select,
     reset,
     setPreference,
-    setColorMode,
   }
 
   // 4. Settings page, locale dictionaries and the page stylesheet. These need
@@ -628,6 +752,36 @@ export function apply(ctx) {
   } else if (!settingsUiMounted) {
     console.warn(`${LOG_PREFIX} slots/locale are unavailable; the Settings page is skipped (the theme still applies)`)
   }
+// @dev-only:start
+
+  // 6. Development-only debug panel. The whole block — and the
+  // `src/dev-panel.js` module it imports — exists only in the `--dev` bundle
+  // (`npm run build:dev`); the production build strips both from `client.js`,
+  // so a published artifact carries neither the panel code nor its DOM. The
+  // panel mounts into the frame-wide `shell.overlay` slot (a click-through
+  // floating layer owned by the shell) and reuses the same `store` as the
+  // Settings page, so it stays in sync with it, the Host document and every
+  // other browser of the profile.
+  const setupDevPanel = () => {
+    const devSlots = ctx.get('slots')
+    if (!devSlots) return
+    const DevPanel = createDevPanel({ React, h, store })
+    const register = () => devSlots.register(
+      { name: 'shell.overlay', id: 'everforest-dev', order: 100 },
+      DevPanel,
+    )
+    ctx.effect(() => {
+      const dispose = devSlots.inject('shell.overlay', register)
+      return () => dispose?.()
+    }, 'everforest: dev panel')
+  }
+  try {
+    if (ctx.get('slots')) setupDevPanel()
+    else if (typeof ctx.inject === 'function') ctx.inject(['slots'], () => setupDevPanel())
+  } catch (error) {
+    console.warn(`${LOG_PREFIX} dev panel setup failed; the theme still applies`, error)
+  }
+// @dev-only:end
 
   // 5. Cheap upgrade guard: if DSH renamed its token sheets, warn once instead
   // of failing. The override layer degrades to native colors for missing names.

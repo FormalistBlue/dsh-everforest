@@ -27,6 +27,7 @@
 14. 色彩模式（中彩）状态点（待确认 / 已完成）对 `bg-base` 与 `sidebar-fill` 都 ≥ 3.0:1（6 档）；
 15. 色彩模式（中彩）全部 24 个角色色值是合法 `#RRGGBB`（6 档）；
 16. 色彩模式（中彩）强调文字（h5 / h6 / emphasis / 内部链接 / 行内 code）对其可能落到的每个 markdown 表面 ≥ 3.0:1（6 档）：浅色档调色板强调色本身达不到 4.5:1（Enchanted 同类文本约 2.6:1），本实现抬到 3.0:1 并保留色相，正文 `label-primary` 仍保持 4.5:1；
+17. 工作区当前会话行（`src/active-session.js`，常驻、与色彩模式无关）：底色是合法 `#RRGGBB`、`label-primary` 在其上 ≥ 4.5:1（文本承载表面），且底色相对侧栏至少有 0.02 L* 的可见步长（不退化为侧栏同色）；6 档实测值见 §2g；
 
 报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。
 
@@ -34,16 +35,16 @@
 
 | 变体 | label-primary / bg-base | / bg-layer-1 | / bg-layer-2 | shiki fg / bg | 品牌前景 / 品牌底 | 结果 |
 |---|---:|---:|---:|---:|---:|---|
-| light-hard | 5.40 | 5.34 | 5.26 | 5.26 | 3.13 | ✅ |
-| light-medium | 5.18 | 5.12 | 5.04 | 5.04 | 3.00 | ✅ |
-| light-soft | 4.66 | 4.61 | 4.53 | 4.53 | 2.70 | ✅ |
-| dark-hard | 8.15 | 7.11 | 6.20 | 9.39 | 4.26 | ✅ |
-| dark-medium | 7.38 | 6.40 | 5.57 | 8.62 | 3.86 | ✅ |
-| dark-soft | 6.65 | 5.75 | 4.99 | 7.83 | 3.48 | ✅ |
+| light-hard | 5.40 | 5.34 | 5.26 | 5.26 | 2.91 | ✅ |
+| light-medium | 5.18 | 5.12 | 5.04 | 5.04 | 2.79 | ✅ |
+| light-soft | 4.66 | 4.61 | 4.53 | 4.53 | 2.51 | ✅ |
+| dark-hard | 8.15 | 7.11 | 6.20 | 9.39 | 6.51 | ✅ |
+| dark-medium | 7.38 | 6.40 | 5.57 | 8.62 | 5.89 | ✅ |
+| dark-soft | 6.65 | 5.75 | 4.99 | 7.83 | 5.31 | ✅ |
 
 ## 2b. 反色前景真实配对（硬门槛）
 
-`--dsw-alias-label-primary-inverted` 在 DSH 0.2.1-rc.2 中不是 toast/tooltip 深色底的文字色，而是与 `label-primary` / `button-contrast-fill` 配对的「对比墨色」（安装包 CSS：侧栏 build 徽标、附件删除按钮、brand wordmark 在当前 ink 上的反色镂空）。实现按真实配对硬门槛：
+`--dsw-alias-label-primary-inverted` 在 DSH 0.2.1-rc.2 / rc.3 中不是 toast/tooltip 深色底的文字色，而是与 `label-primary` / `button-contrast-fill` 配对的「对比墨色」（安装包 CSS：侧栏 build 徽标、附件删除按钮、brand wordmark 在当前 ink 上的反色镂空）。实现按真实配对硬门槛：
 
 | 真实配对 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft | 阈值 | 结果 |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
@@ -93,7 +94,7 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 
 ## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G16）
 
-`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，只在用户打开色彩模式时生效。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框蓝；列表 marker / 引用条 / 分隔线 aqua；会话行与状态点沿用 0.4.0。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头，关闭时零匹配（与基线零差异）。
+`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，自 2026-10-24 起作为默认功能始终生效（设置页开关已移除）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框蓝；列表 marker / 引用条 / 分隔线 aqua；会话行保持 0.4.0 的整行实色底，2026-10-24 重制版把行底换成 Everforest palette1 的 `bg_green`（已完成）与 `bg_yellow`（待确认 / 待审批；用户反馈红色像报错，当日后续由 `bg_red` 改黄），浅色档的黄色再向 `fg.yellow` 加深到 3.5 L* 或 4.5:1 门槛为止（超过 4.5:1 的 soft 档沿 `bg0` 方向微调）；深色档因为 palette 的 `bg_yellow` 在浅色墨水下只能读作橄榄灰，改为「亮琥珀底 + 深色对比墨」（`--dsw-alias-label-primary-inverted`，标题 / 尾标 / 状态点一起继承，2026-10-24 第二轮反馈「深色档再亮/更黄一点」）。hover 向对应 `fg` 强调色混 16% 后重新守卫；完成行状态点颜色不变。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头——该属性恒为 `on`，只作作用域锚点；token 层零差异（与基线一致）。
 
 角色色值（自定义属性均为 `--everforest-color-<角色>`，6 档）：
 
@@ -117,10 +118,10 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 | zebra | `#f8f6e1` | `#f6f1d5` | `#efe7cb` | `#2f3738` | `#343d3f` | `#3a4447` |
 | table-hover | `#f4f2d7` | `#f2eecc` | `#efe7cb` | `#343d3b` | `#394342` | `#3f4949` |
 | quote-bg | `#eff4e6` | `#edf0db` | `#ede8d0` | `#2e3a3b` | `#344042` | `#394749` |
-| row-warn | `#f9e7cf` | `#f6e5c9` | `#eee7ce` | `#434241` | `#484848` | `#4e4e4f` |
-| row-done | `#ececcb` | `#ece9c5` | `#eee7ce` | `#3c4742` | `#414d49` | `#465350` |
-| row-warn-hover | `#f8e4c9` | `#f6e5c9` | `#eee7ce` | `#4e4845` | `#534d4b` | `#565251` |
-| row-done-hover | `#eaeac6` | `#ece9c5` | `#eee7ce` | `#434f47` | `#48554d` | `#485552` |
+| row-warn | `#fbeac0` | `#f8e6bb` | `#f2e6c9` | `#b19a6b` | `#b39c6d` | `#b49d6f` |
+| row-warn-hover | `#f9e6b5` | `#f8e6b9` | `#f2e6c7` | `#b89f6e` | `#b9a170` | `#baa272` |
+| row-done | `#F3F5D9` | `#F0F1D2` | `#ebe8cb` | `#3C4841` | `#425047` | `#48574e` |
+| row-done-hover | `#e7ebbe` | `#e9eac1` | `#eee7ca` | `#4a5749` | `#49574b` | `#49574f` |
 | dot-warn | `#d07838` | `#c7773d` | `#b67545` | `#E69875` | `#E69875` | `#E69875` |
 | dot-done | `#849715` | `#81931d` | `#7a8c2c` | `#A7C080` | `#A7C080` | `#A7C080` |
 
@@ -145,16 +146,31 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 | zebra / label-primary | 4.5 | 5.12 ✅ | 4.91 ✅ | 4.51 ✅ | 7.21 ✅ | 6.59 ✅ | 5.92 ✅ | ✅ |
 | table-hover / label-primary | 4.5 | 4.93 ✅ | 4.76 ✅ | 4.51 ✅ | 6.62 ✅ | 6.05 ✅ | 5.50 ✅ | ✅ |
 | quote-bg / label-primary | 4.5 | 4.99 ✅ | 4.81 ✅ | 4.54 ✅ | 6.96 ✅ | 6.35 ✅ | 5.72 ✅ | ✅ |
-| row-warn / label-primary | 4.5 | 4.62 ✅ | 4.51 ✅ | 4.51 ✅ | 5.93 ✅ | 5.41 ✅ | 4.92 ✅ | ✅ |
-| row-done / label-primary | 4.5 | 4.64 ✅ | 4.53 ✅ | 4.51 ✅ | 5.72 ✅ | 5.22 ✅ | 4.76 ✅ | ✅ |
-| row-warn-hover / label-primary | 4.5 | 4.50 ✅ | 4.51 ✅ | 4.51 ✅ | 5.32 ✅ | 4.91 ✅ | 4.57 ✅ | ✅ |
-| row-done-hover / label-primary | 4.5 | 4.54 ✅ | 4.53 ✅ | 4.51 ✅ | 5.08 ✅ | 4.63 ✅ | 4.61 ✅ | ✅ |
+| row-warn / 行文字色（light label-primary，dark inverted） | 4.5 | 4.69 ✅ | 4.53 ✅ | 4.51 ✅ | 5.82 ✅ | 5.47 ✅ | 5.04 ✅ | ✅ |
+| row-warn-hover / 行文字色（light label-primary，dark inverted） | 4.5 | 4.53 ✅ | 4.52 ✅ | 4.50 ✅ | 6.21 ✅ | 5.82 ✅ | 5.36 ✅ | ✅ |
+| row-done / label-primary | 4.5 | 5.02 ✅ | 4.85 ✅ | 4.51 ✅ | 5.66 ✅ | 5.03 ✅ | 4.52 ✅ | ✅ |
+| row-done-hover / label-primary | 4.5 | 4.53 ✅ | 4.52 ✅ | 4.50 ✅ | 4.52 ✅ | 4.52 ✅ | 4.50 ✅ | ✅ |
 | dot-warn / bg-base | 3 | 3.16 ✅ | 3.17 ✅ | 3.12 ✅ | 5.98 ✅ | 5.41 ✅ | 4.88 ✅ | ✅ |
 | dot-warn / sidebar-fill | 3 | 3.01 ✅ | 3.02 ✅ | 3.02 ✅ | 5.36 ✅ | 4.83 ✅ | 4.34 ✅ | ✅ |
 | dot-done / bg-base | 3 | 3.16 ✅ | 3.18 ✅ | 3.12 ✅ | 6.88 ✅ | 6.23 ✅ | 5.62 ✅ | ✅ |
 | dot-done / sidebar-fill | 3 | 3.02 ✅ | 3.02 ✅ | 3.02 ✅ | 6.17 ✅ | 5.56 ✅ | 5.00 ✅ | ✅ |
 
-G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）与 Enchanted 的 markdown 角色映射，由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认开启、可在设置页关闭；关闭时选择器零匹配，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。
+G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）、Enchanted 的 markdown 角色映射与 2026-10-24 的状态行重制（行底取 palette1 的 `bg_yellow` / `bg_green`，浅色档黄色按可见性下限加深，hover 重新守卫），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式自 2026-10-24 起默认提供、没有设置开关（0.4.x 的开关已随设置页区块移除）；`html` 上的 `data-everforest-color-mode` 恒为 `on`，仅作作用域锚点，只改 `data-everforest-*` 属性、不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。
+
+## 2g. 工作区当前会话行（active-session，硬门槛 G17）
+
+DSH 把「当前打开的会话」和 hover 画成同一条规则（`ui-workspace` 的 `Rows` 模块：`.wnFoaW_sessionRow:hover,.wnFoaW_sessionRow.wnFoaW_selected{background:var(--dsw-alias-interactive-bg-hover)}`），而该 token 只是 `bg5` 的 16% alpha —— 在 Everforest 的压缩 ramp 里对侧栏只有约 2.6 L*，深 / 浅两档都很难找到当前会话（2026-10-24 用户反馈）。上游没有独立的「选中行」token，`src/active-session.js` 因此用一行常驻规则（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）把选中行画成 palette1 的 `bg_blue`，再按「先保证可读、再尽量可见」的顺序守卫：① 向 `bg0` 微调到 `label-primary` ≥ 4.5:1；② 若离侧栏仍不足 4.5 L*，向 `fg.blue` 混合到 4.5 L* 或文本门槛先到为止。蓝色与色彩模式给「待确认 / 已完成」行的 `bg_yellow` / `bg_green` 属于不同色相，语义上又和 DSH 的 business primary 一致。该样式常驻、与色彩模式无关（导航可见性，不是内容着色；色彩模式自 2026-10-24 起也没有开关）。
+
+| 变体 | active fill | sidebar-fill | L* 步长 | label-primary | 阈值 | 结果 |
+|---|---|---|---:|---:|---:|---|
+| light-hard | `#dcece9` | `#f9f6e6` | 4.55 | 4.58 | 4.5 | ✅ |
+| light-medium | `#ddeae6` | `#f6f1db` | 3.35 | 4.52 | 4.5 | ✅ |
+| light-soft | `#e6e8db` | `#eee7ce` | 0.06 | 4.50 | 4.5 | ✅ |
+| dark-hard | `#384B55` | `#2d363a` | 8.76 | 5.39 | 4.5 | ✅ |
+| dark-medium | `#3A515D` | `#333d42` | 8.02 | 4.94 | 4.5 | ✅ |
+| dark-soft | `#3f5764` | `#39444a` | 7.47 | 4.51 | 4.5 | ✅ |
+
+已知上限：light·soft 的画布本身已卡在 4.5:1 文本门槛（`bg0` 对 ink 约 4.59:1），侧栏与画布只差约 2 L*，任何更深的行底都会把正文压到 4.5:1 以下，所以该档只保留 palette 色相、明度步长接近 0 —— 与色彩模式会话行的 light·soft 限制同源（§2f / design doc §13.7）。light·medium 走到文本门槛上限约 3.35 L*，light·hard 4.55、dark 三档 7.47–8.76（均为 palette 原值）。
 
 ## 3. 文本承载表面（label-primary 对比度）
 
@@ -207,7 +223,7 @@ G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式
 | label-secondary / layer-2 | `--dsw-alias-label-secondary` | `--dsw-alias-bg-layer-2` | 2.60 | 2.49 | 2.24 | 3.23 | 2.90 | 2.60 |
 | label-secondary / layer-3 | `--dsw-alias-label-secondary` | `--dsw-alias-bg-layer-3` | 2.58 | 2.44 | 2.23 | 2.76 | 2.47 | 2.36 |
 | label-tertiary | `--dsw-alias-label-tertiary` | `--dsw-alias-bg-base` | 3.21 | 3.08 | 2.77 | 5.65 | 5.12 | 4.61 |
-| link | `--dsw-alias-link` | `--dsw-alias-bg-base` | 3.31 | 3.18 | 2.86 | 4.02 | 3.64 | 3.28 |
+| link | `--dsw-alias-link` | `--dsw-alias-bg-base` | 3.26 | 3.13 | 2.82 | 6.34 | 5.74 | 5.17 |
 | state-success | `--dsw-alias-state-success-primary` | `--dsw-alias-bg-base` | 2.81 | 2.69 | 2.42 | 6.88 | 6.23 | 5.62 |
 | state-warn | `--dsw-alias-state-warn-primary` | `--dsw-alias-bg-base` | 2.21 | 2.12 | 1.91 | 7.55 | 6.84 | 6.16 |
 | state-error | `--dsw-alias-state-error-primary` | `--dsw-alias-bg-base` | 3.17 | 3.04 | 2.73 | 5.02 | 4.55 | 4.10 |
@@ -218,7 +234,7 @@ G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式
 | diff-added-number | `--dsw-alias-file-diff-added-marker` | `--dsw-alias-file-diff-added-gutter` | 2.53 | 2.48 | 2.26 | 6.30 | 5.69 | 5.11 |
 | diff-deleted-number | `--dsw-alias-file-diff-deleted-marker` | `--dsw-alias-file-diff-deleted-gutter` | 2.85 | 2.79 | 2.52 | 4.83 | 4.36 | 3.97 |
 | toast-label (inverted) | `--dsw-alias-toast-label` | `--dsw-alias-toast-bg` | 5.40 | 5.18 | 4.66 | 9.39 | 8.62 | 7.83 |
-| primary-foreground (brand) | `--dsw-alias-label-primary-foreground` | `--dsw-alias-brand-primary` | 3.13 | 3.00 | 2.70 | 4.26 | 3.86 | 3.48 |
+| primary-foreground (brand) | `--dsw-alias-label-primary-foreground` | `--dsw-alias-brand-primary` | 2.91 | 2.79 | 2.51 | 6.51 | 5.89 | 5.31 |
 
 以上报告项 floor = 1.5。状态色/次要文本低于 4.5 属**上游设计取舍**：DSH 原生语义色在 light 主题下同样偏低（见 §5），插件保持 Enchanted/上游语义色，不为了数字把它们改成 `fg`。
 

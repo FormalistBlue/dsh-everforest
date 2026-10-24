@@ -7,6 +7,11 @@
  * English is the key-set source of truth: `EN` and `ZH` must always expose the
  * same keys (checked by `tests/settings-page.test.mjs`).
  *
+ * The 18 keys cover the Appearance control, the two strength groups, the
+ * current-choice row and the restore-defaults action. Color mode has no copy:
+ * it ships as a default feature with no switch since 2026-10-24 (the five
+ * `colorMode.*` keys of 0.4.x were removed with the control).
+ *
  * Placeholders use the DSH locale syntax `{name}`; the Settings page expands
  * them itself so a fallback translator that only returns plain strings still
  * renders readable copy.
@@ -37,12 +42,6 @@ export const EN = {
   'current.active': 'Active appearance',
   'current.system': 'following system',
 
-  'colorMode.title': 'Color mode',
-  'colorMode.desc': 'Color mode tints chat Markdown content and session-record status rows with the Everforest accents: headings, list markers, quotes, table bands, checkboxes and status dots/rows. Everything else keeps the normal palette.',
-  'colorMode.on': 'on',
-  'colorMode.off': 'off',
-  'colorMode.switch': 'Color mode, currently {state}',
-
   'reset': 'Restore defaults',
 
   'aria.card': '{scheme} {strength} palette',
@@ -70,12 +69,6 @@ export const ZH = {
   'current.summary': '当前：{dark} · {light}',
   'current.active': '实际界面',
   'current.system': '跟随系统',
-
-  'colorMode.title': '色彩模式',
-  'colorMode.desc': '色彩模式会为聊天 Markdown 内容与会话记录的状态行加上 Everforest 强调色：标题、列表标记、引用、表格色带、复选框以及状态点和状态行；其他界面仍使用常规配色。',
-  'colorMode.on': '已开启',
-  'colorMode.off': '已关闭',
-  'colorMode.switch': '色彩模式，当前{state}',
 
   'reset': '恢复默认',
 

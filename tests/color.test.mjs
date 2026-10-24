@@ -7,6 +7,7 @@ import {
   hexToRgb,
   interpolateRamp,
   isHex,
+  labLightness,
   mix,
   relativeLuminance,
   rgbToHex
@@ -107,4 +108,14 @@ test('contrastRatio returns WCAG ratios, 21 for black on white, 1 for equal colo
     assert.equal(forward, contrastRatio(b, a))
     assert.ok(forward >= 1 && forward <= 21)
   }
+})
+
+test('labLightness gives the CIE L* scale (0 black, 100 white, mid grey ~50)', () => {
+  assert.equal(labLightness('#000000'), 0)
+  assert.equal(labLightness('#ffffff'), 100)
+  assert.equal(labLightness('#fff'), 100)
+  assert.equal(labLightness('#777777').toFixed(1), '50.0')
+  // Monotone in relative luminance.
+  assert.ok(labLightness('#333C43') < labLightness('#5C6A72'))
+  assert.ok(labLightness('#5C6A72') < labLightness('#FFFBEF'))
 })

@@ -160,3 +160,21 @@ export function contrastRatio (foreground, background) {
   const darker = Math.min(one, two)
   return (lighter + 0.05) / (darker + 0.05)
 }
+
+/**
+ * CIE L* (0-100) of a colour: the perceptual lightness of CIELAB, derived from
+ * the WCAG relative luminance. Alpha is ignored, like `relativeLuminance` —
+ * translucent colours should be composited first.
+ *
+ * Used where two surfaces have to differ by a minimum perceptual step rather
+ * than by a WCAG ratio (the active session row, `src/active-session.js`): for
+ * two near-identical light surfaces the contrast ratio hides the difference,
+ * L* does not.
+ * @param {string} color hex
+ * @returns {number} 0-100
+ */
+export function labLightness (color) {
+  const y = relativeLuminance(color)
+  // CIE 1976: L* = 116·Y^(1/3) − 16 above the linear segment (Y > (6/29)^3).
+  return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : (24389 / 27) * y
+}

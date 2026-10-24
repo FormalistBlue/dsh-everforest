@@ -179,18 +179,22 @@ test('translucent static tokens keep their alpha ratios (8-digit hex)', () => {
   }
 })
 
-test('brand mapping: header-aqua with bg0 foreground, header-blue link', () => {
+test('brand mapping: official accent aqua with bg0 foreground, blue link', () => {
   const overlay = tokensFor(DEFAULT_STATE)
-  assert.equal(overlay['--dsw-alias-brand-primary'].light, FOREGROUNDS.light.headerAqua)
-  assert.equal(overlay['--dsw-alias-brand-primary'].dark, FOREGROUNDS.dark.headerAqua)
-  assert.equal(overlay['--dsw-alias-brand-primary-new-colorprimary-new-color'].light, FOREGROUNDS.light.headerAqua)
+  assert.equal(overlay['--dsw-alias-brand-primary'].light, FOREGROUNDS.light.aqua)
+  assert.equal(overlay['--dsw-alias-brand-primary'].dark, FOREGROUNDS.dark.aqua)
+  assert.equal(overlay['--dsw-alias-brand-primary-new-colorprimary-new-color'].light, FOREGROUNDS.light.aqua)
+  assert.equal(overlay['--dsw-alias-button-primary-fill'].dark, FOREGROUNDS.dark.aqua)
+  assert.equal(overlay['--dsw-alias-button-primary-hover'].light, FOREGROUNDS.light.blue)
+  assert.equal(overlay['--dsw-alias-button-info-fill'].dark, FOREGROUNDS.dark.blue)
   // Brand / primary-button foreground is bg0, never white.
   for (const name of ['--dsw-alias-label-primary-foreground', '--dsw-alias-brand-text']) {
     assert.equal(overlay[name].light, RAMPS.light.hard.bg0)
     assert.equal(overlay[name].dark, RAMPS.dark.soft.bg0)
   }
-  assert.equal(overlay['--dsw-alias-link'].light, FOREGROUNDS.light.headerBlue)
-  assert.equal(overlay['--dsw-alias-link'].dark, FOREGROUNDS.dark.headerBlue)
+  assert.equal(overlay['--dsw-alias-link'].light, FOREGROUNDS.light.blue)
+  assert.equal(overlay['--dsw-alias-link'].dark, FOREGROUNDS.dark.blue)
+  assert.equal(overlay['--dsw-alias-label-deep-diving'].light, FOREGROUNDS.light.blue)
 })
 
 test('inline code is a background chip, not a foreground accent', () => {

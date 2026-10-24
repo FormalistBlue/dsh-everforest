@@ -52,6 +52,13 @@
  *      the ink colour (Enchanted itself paints them near 2.6:1); primary body
  *      text keeps 4.5:1 on all of those surfaces.
  *
+ * The always-on workspace active-session surface (src/active-session.js) adds
+ * gate 17 for the six variants:
+ *  17. the active-row fill (palette `bg_blue`, pushed toward the accent as far
+ *      as the text gate allows) is a legal #RRGGBB, keeps label-primary >=
+ *      4.5:1 (the row carries text) and stays at least 0.02 L* away from the
+ *      sidebar fill (it must not collapse back into the column).
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -63,7 +70,8 @@ import { fileURLToPath } from 'node:url'
 
 import { tokensFor, TOKEN_COVERAGE } from '../src/tokens.js'
 import { colorModeRoles } from '../src/color-mode.js'
-import { contrastRatio, hexToRgb, isHex, mix } from '../src/color.js'
+import { activeSessionRoles } from '../src/active-session.js'
+import { contrastRatio, hexToRgb, isHex, labLightness, mix } from '../src/color.js'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(SCRIPT_DIR, '..')
@@ -186,7 +194,7 @@ const REPORT_PAIRS = [
 
 /**
  * Real DSH pairings of `--dsw-alias-label-primary-inverted`, taken from the
- * installed 0.2.1-rc.2 client CSS. This token is a contrast ink (it must invert
+ * installed 0.2.1-rc.2 / rc.3 client CSS. This token is a contrast ink (it must invert
  * against the scheme ink), so it is hard-gated against its real partners instead
  * of being paired with the dark toast/tooltip surfaces.
  * [label, foreground token, background token, threshold]
@@ -409,7 +417,7 @@ const COLOR_MODE_HEADING_KEYS = ['h1', 'h2', 'h3', 'h4']
 const COLOR_MODE_ACCENT_TEXT_KEYS = ['h5', 'h6', 'emphasis', 'linkInternal']
 const COLOR_MODE_DECORATION_KEYS = ['marker', 'quote', 'hr', 'check']
 const COLOR_MODE_SURFACE_KEYS = ['band', 'zebra', 'tableHover', 'quoteBg']
-const COLOR_MODE_ROW_KEYS = ['rowWarn', 'rowDone', 'rowWarnHover', 'rowDoneHover']
+const COLOR_MODE_ROW_KEYS = ['rowWarn', 'rowWarnHover', 'rowDone', 'rowDoneHover']
 const COLOR_MODE_DOT_KEYS = ['dotWarnBase', 'dotWarnSidebar', 'dotDoneBase', 'dotDoneSidebar']
 const COLOR_MODE_DOT_LABELS = {
   dotWarnBase: 'dot-warn on bg-base',
@@ -438,8 +446,8 @@ const COLOR_MODE_ROLE_LABELS = [
   ['tableHover', 'table-hover'],
   ['quoteBg', 'quote-bg'],
   ['rowWarn', 'row-warn'],
-  ['rowDone', 'row-done'],
   ['rowWarnHover', 'row-warn-hover'],
+  ['rowDone', 'row-done'],
   ['rowDoneHover', 'row-done-hover'],
   ['dotWarn', 'dot-warn'],
   ['dotDone', 'dot-done']
@@ -463,9 +471,9 @@ const COLOR_MODE_CHECKS = [
   ['zebra / label-primary', 'zebra', COLOR_MODE_SURFACE_MIN],
   ['table-hover / label-primary', 'tableHover', COLOR_MODE_SURFACE_MIN],
   ['quote-bg / label-primary', 'quoteBg', COLOR_MODE_SURFACE_MIN],
-  ['row-warn / label-primary', 'rowWarn', COLOR_MODE_SURFACE_MIN],
+  ['row-warn / 行文字色（light label-primary，dark inverted）', 'rowWarn', COLOR_MODE_SURFACE_MIN],
+  ['row-warn-hover / 行文字色（light label-primary，dark inverted）', 'rowWarnHover', COLOR_MODE_SURFACE_MIN],
   ['row-done / label-primary', 'rowDone', COLOR_MODE_SURFACE_MIN],
-  ['row-warn-hover / label-primary', 'rowWarnHover', COLOR_MODE_SURFACE_MIN],
   ['row-done-hover / label-primary', 'rowDoneHover', COLOR_MODE_SURFACE_MIN],
   ['dot-warn / bg-base', 'dotWarnBase', COLOR_MODE_DOT_MIN],
   ['dot-warn / sidebar-fill', 'dotWarnSidebar', COLOR_MODE_DOT_MIN],
@@ -487,6 +495,10 @@ for (const variant of states) {
   const bg = variant.get('--dsw-alias-bg-base')
   const sidebar = variant.get('--dsw-specific-sidebar-fill')
   const ink = variant.get('--dsw-alias-label-primary')
+  // The dark waiting row is a bright amber surface that carries the deep
+  // contrast ink instead of `label-primary` (design doc §13.8.1); the light
+  // waiting rows and the done rows keep `label-primary`.
+  const warnInk = variant.scheme === 'dark' ? variant.get('--dsw-alias-label-primary-inverted') : ink
   const inlineCodeSurface = variant.get('--dsw-alias-markdown-inline-code')
   // Every surface a piece of markdown text can sit on (h5/h6, emphasis, links).
   const textSurfaces = [bg, roles.band, roles.zebra, roles.tableHover, roles.quoteBg]
@@ -514,9 +526,9 @@ for (const variant of states) {
       zebra: contrastRatio(ink, roles.zebra),
       tableHover: contrastRatio(ink, roles.tableHover),
       quoteBg: contrastRatio(ink, roles.quoteBg),
-      rowWarn: contrastRatio(ink, roles.rowWarn),
+      rowWarn: contrastRatio(warnInk, roles.rowWarn),
+      rowWarnHover: contrastRatio(warnInk, roles.rowWarnHover),
       rowDone: contrastRatio(ink, roles.rowDone),
-      rowWarnHover: contrastRatio(ink, roles.rowWarnHover),
       rowDoneHover: contrastRatio(ink, roles.rowDoneHover),
       dotWarnBase: contrastRatio(roles.dotWarn, bg),
       dotWarnSidebar: contrastRatio(roles.dotWarn, sidebar),
@@ -547,6 +559,40 @@ for (const variant of states) {
     if (!LEGAL_ROLE_COLOR.test(value)) {
       recordFailure(`g15:${variant.variant}:${role}`, `${variant.variant}: color mode role ${role} is not a #RRGGBB colour: ${value}`)
     }
+  }
+}
+
+/* ---- Gate 17: workspace active-session row (always-on navigation surface) -- */
+/**
+ * Minimum CIE L* step between the active-row fill and the sidebar. It only has
+ * to catch a fill that collapsed back into the sidebar: the light·soft variant
+ * cannot go further (its canvas already sits on the 4.5:1 text gate — see
+ * `src/active-session.js` and §2g), while the other five variants run at several
+ * L* units and are pinned by `tests/active-session.test.mjs`.
+ */
+const ACTIVE_SESSION_MIN_STEP = 0.02
+const ACTIVE_SESSION_ROLES = activeSessionRoles()
+const activeSessionRows = []
+for (const variant of states) {
+  const roles = ACTIVE_SESSION_ROLES[variant.variant]
+  if (!roles) {
+    recordFailure(`g17:${variant.variant}`, `${variant.variant}: src/active-session.js has no fill for this variant`)
+    continue
+  }
+  const fill = roles.fill
+  const ink = variant.get('--dsw-alias-label-primary')
+  const sidebar = variant.get('--dsw-specific-sidebar-fill')
+  const ratio = contrastRatio(ink, fill)
+  const step = Math.abs(labLightness(fill) - labLightness(sidebar))
+  activeSessionRows.push({ variant: variant.variant, fill, sidebar, ratio, step })
+  if (!LEGAL_ROLE_COLOR.test(fill)) {
+    recordFailure(`g17:${variant.variant}:legal`, `${variant.variant}: active-session fill is not a #RRGGBB colour: ${fill}`)
+  }
+  if (ratio < PRIMARY_THRESHOLD) {
+    recordFailure(`g17:${variant.variant}:ink`, `${variant.variant}: label-primary on the active-session row = ${ratio.toFixed(2)} < ${PRIMARY_THRESHOLD}`)
+  }
+  if (step < ACTIVE_SESSION_MIN_STEP) {
+    recordFailure(`g17:${variant.variant}:step`, `${variant.variant}: active-session fill collapsed into the sidebar (L* step ${step.toFixed(2)} < ${ACTIVE_SESSION_MIN_STEP})`)
   }
 }
 
@@ -614,6 +660,7 @@ function renderMarkdown () {
     '14. 色彩模式（中彩）状态点（待确认 / 已完成）对 `bg-base` 与 `sidebar-fill` 都 ≥ 3.0:1（6 档）；',
     '15. 色彩模式（中彩）全部 24 个角色色值是合法 `#RRGGBB`（6 档）；',
     '16. 色彩模式（中彩）强调文字（h5 / h6 / emphasis / 内部链接 / 行内 code）对其可能落到的每个 markdown 表面 ≥ 3.0:1（6 档）：浅色档调色板强调色本身达不到 4.5:1（Enchanted 同类文本约 2.6:1），本实现抬到 3.0:1 并保留色相，正文 `label-primary` 仍保持 4.5:1；',
+    '17. 工作区当前会话行（`src/active-session.js`，常驻、与色彩模式无关）：底色是合法 `#RRGGBB`、`label-primary` 在其上 ≥ 4.5:1（文本承载表面），且底色相对侧栏至少有 0.02 L* 的可见步长（不退化为侧栏同色）；6 档实测值见 §2g；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -638,7 +685,7 @@ function renderMarkdown () {
     '',
     '## 2b. 反色前景真实配对（硬门槛）',
     '',
-    '`--dsw-alias-label-primary-inverted` 在 DSH 0.2.1-rc.2 中不是 toast/tooltip 深色底的文字色，而是与 `label-primary` / `button-contrast-fill` 配对的「对比墨色」（安装包 CSS：侧栏 build 徽标、附件删除按钮、brand wordmark 在当前 ink 上的反色镂空）。实现按真实配对硬门槛：',
+    '`--dsw-alias-label-primary-inverted` 在 DSH 0.2.1-rc.2 / rc.3 中不是 toast/tooltip 深色底的文字色，而是与 `label-primary` / `button-contrast-fill` 配对的「对比墨色」（安装包 CSS：侧栏 build 徽标、附件删除按钮、brand wordmark 在当前 ink 上的反色镂空）。实现按真实配对硬门槛：',
     '',
     '| 真实配对 | light-hard | light-medium | light-soft | dark-hard | dark-medium | dark-soft | 阈值 | 结果 |',
     '|---|---:|---:|---:|---:|---:|---:|---:|---|'
@@ -727,7 +774,7 @@ function renderMarkdown () {
     '',
     '## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G16）',
     '',
-    '`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，只在用户打开色彩模式时生效。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框蓝；列表 marker / 引用条 / 分隔线 aqua；会话行与状态点沿用 0.4.0。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头，关闭时零匹配（与基线零差异）。',
+    '`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，自 2026-10-24 起作为默认功能始终生效（设置页开关已移除）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框蓝；列表 marker / 引用条 / 分隔线 aqua；会话行保持 0.4.0 的整行实色底，2026-10-24 重制版把行底换成 Everforest palette1 的 `bg_green`（已完成）与 `bg_yellow`（待确认 / 待审批；用户反馈红色像报错，当日后续由 `bg_red` 改黄），浅色档的黄色再向 `fg.yellow` 加深到 3.5 L* 或 4.5:1 门槛为止（超过 4.5:1 的 soft 档沿 `bg0` 方向微调）；深色档因为 palette 的 `bg_yellow` 在浅色墨水下只能读作橄榄灰，改为「亮琥珀底 + 深色对比墨」（`--dsw-alias-label-primary-inverted`，标题 / 尾标 / 状态点一起继承，2026-10-24 第二轮反馈「深色档再亮/更黄一点」）。hover 向对应 `fg` 强调色混 16% 后重新守卫；完成行状态点颜色不变。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头——该属性恒为 `on`，只作作用域锚点；token 层零差异（与基线一致）。',
     '',
     '角色色值（自定义属性均为 `--everforest-color-<角色>`，6 档）：',
     '',
@@ -752,7 +799,37 @@ function renderMarkdown () {
   }
   push(
     '',
-    'G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）与 Enchanted 的 markdown 角色映射，由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式默认开启、可在设置页关闭；关闭时选择器零匹配，开关只改 `html` 上的 `data-everforest-*` 属性，不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。',
+    'G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）、Enchanted 的 markdown 角色映射与 2026-10-24 的状态行重制（行底取 palette1 的 `bg_yellow` / `bg_green`，浅色档黄色按可见性下限加深，hover 重新守卫），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式自 2026-10-24 起默认提供、没有设置开关（0.4.x 的开关已随设置页区块移除）；`html` 上的 `data-everforest-color-mode` 恒为 `on`，仅作作用域锚点，只改 `data-everforest-*` 属性、不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。',
+  )
+  push(
+    '',
+    '## 2g. 工作区当前会话行（active-session，硬门槛 G17）',
+    '',
+    'DSH 把「当前打开的会话」和 hover 画成同一条规则（`ui-workspace` 的 `Rows` 模块：' +
+      '`.wnFoaW_sessionRow:hover,.wnFoaW_sessionRow.wnFoaW_selected{background:var(--dsw-alias-interactive-bg-hover)}`），' +
+      '而该 token 只是 `bg5` 的 16% alpha —— 在 Everforest 的压缩 ramp 里对侧栏只有约 2.6 L*，' +
+      '深 / 浅两档都很难找到当前会话（2026-10-24 用户反馈）。上游没有独立的「选中行」token，' +
+      '`src/active-session.js` 因此用一行常驻规则（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）' +
+      '把选中行画成 palette1 的 `bg_blue`，再按「先保证可读、再尽量可见」的顺序守卫：' +
+      '① 向 `bg0` 微调到 `label-primary` ≥ 4.5:1；② 若离侧栏仍不足 4.5 L*，向 `fg.blue` 混合到 4.5 L* 或文本门槛先到为止。' +
+      '蓝色与色彩模式给「待确认 / 已完成」行的 `bg_yellow` / `bg_green` 属于不同色相，语义上又和 DSH 的 business primary 一致。' +
+      '该样式常驻、与色彩模式无关（导航可见性，不是内容着色；色彩模式自 2026-10-24 起也没有开关）。',
+    '',
+    '| 变体 | active fill | sidebar-fill | L* 步长 | label-primary | 阈值 | 结果 |',
+    '|---|---|---|---:|---:|---:|---|'
+  )
+  for (const row of activeSessionRows) {
+    const ok = row.ratio >= PRIMARY_THRESHOLD && row.step >= ACTIVE_SESSION_MIN_STEP
+    push(
+      `| ${row.variant} | \`${row.fill}\` | \`${row.sidebar}\` | ${format(row.step)} | ${format(row.ratio)} | ${PRIMARY_THRESHOLD} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '已知上限：light·soft 的画布本身已卡在 4.5:1 文本门槛（`bg0` 对 ink 约 4.59:1），侧栏与画布只差约 2 L*，' +
+      '任何更深的行底都会把正文压到 4.5:1 以下，所以该档只保留 palette 色相、明度步长接近 0 —— ' +
+      '与色彩模式会话行的 light·soft 限制同源（§2f / design doc §13.7）。light·medium 走到文本门槛上限约 3.35 L*，' +
+      'light·hard 4.55、dark 三档 7.47–8.76（均为 palette 原值）。',
   )
   push(
     '',
