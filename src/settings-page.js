@@ -35,6 +35,12 @@
  */
 export const SETTINGS_STYLES = `
 .everforest-page {
+  /* One hairline width for every border in this page, matching DSH's own
+   * .5px solid settings cards / inputs / outline buttons. Selection changes the
+   * border colour only — it must never thicken the outline (2026-10-24: the
+   * selected strength cards used a 1px inset ring on top of the 1px border and
+   * read as 2px next to the appearance cubes' 1px). */
+  --everforest-border-width: .5px;
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -85,7 +91,7 @@ export const SETTINGS_STYLES = `
   gap: 4px;
   margin: 0;
   padding: 20px 32px;
-  border: .5px solid var(--dsw-alias-border-l4);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-xl);
   background: none;
   color: var(--dsw-alias-label-primary);
@@ -137,7 +143,7 @@ export const SETTINGS_STYLES = `
   width: 100%;
   margin: 0;
   padding: 12px;
-  border: 1px solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l2));
+  border: var(--everforest-border-width) solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l2));
   border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-settings-card-fill, var(--dsw-alias-bg-layer-2));
   color: var(--dsw-alias-label-primary);
@@ -152,7 +158,6 @@ export const SETTINGS_STYLES = `
 }
 .everforest-card[aria-pressed='true'] {
   border-color: var(--dsw-alias-brand-primary);
-  box-shadow: inset 0 0 0 1px var(--dsw-alias-brand-primary);
 }
 .everforest-card:focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
@@ -162,7 +167,7 @@ export const SETTINGS_STYLES = `
   display: flex;
   height: 30px;
   overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l1);
   border-radius: var(--dsw-radius-sm);
 }
 .everforest-swatch-segment {
@@ -201,7 +206,7 @@ export const SETTINGS_STYLES = `
 .everforest-color-mode-swatch {
   width: 12px;
   height: 12px;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l1);
   border-radius: 50%;
 }
 .everforest-color-mode-note {
@@ -216,7 +221,7 @@ export const SETTINGS_STYLES = `
   gap: 8px;
   margin: 0;
   padding: 5px 12px 5px 6px;
-  border: 1px solid var(--dsw-alias-border-l3);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-sm);
   background: none;
   color: var(--dsw-alias-label-primary);
@@ -270,8 +275,8 @@ export const SETTINGS_STYLES = `
   align-items: center;
   gap: 8px 16px;
   padding: 14px 0;
-  border-top: .5px solid var(--dsw-alias-border-l2);
-  border-bottom: .5px solid var(--dsw-alias-border-l2);
+  border-top: var(--everforest-border-width) solid var(--dsw-alias-border-l2);
+  border-bottom: var(--everforest-border-width) solid var(--dsw-alias-border-l2);
 }
 .everforest-current-text {
   display: flex;
@@ -295,7 +300,7 @@ export const SETTINGS_STYLES = `
   flex: none;
   margin: 0;
   padding: 6px 14px;
-  border: 1px solid var(--dsw-alias-border-l3);
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-sm);
   background: none;
   color: var(--dsw-alias-label-primary);

@@ -7,6 +7,13 @@
 
 ### Changed
 
+- **设置页边框宽度统一（2026-10-24 用户截图反馈「everforest 里面的 border 宽度没有统一」）**：
+  选中强度卡的描边实际是 2px（1px `border` + 1px inset `box-shadow`），而外观三卡、未选中卡片、
+  色卡条、开关、恢复按钮都是 1px。现在 `.everforest-page` 只声明一个 `--everforest-border-width: .5px`
+  （DSH 自带 `.5px solid` 卡片 / 输入框口径，DPR 1 下渲染为 1px 实色），页面内 8 处 `border` 全部引用它；
+  选中态只改 `border-color`、删除 inset box-shadow。`tests/settings-page.test.mjs` 新增「所有 solid 边框
+  引用同一变量 / 只声明一次宽度 / 禁止 box-shadow」三项断言，`docs/design.md` 新增 §6.2 记录。
+
 - **深色模式边框可见度修正（2026-10-24 用户反馈「设置界面里面的各种边框线条有点不明显」）**：
   DSH 的设置卡片 / 行 / 输入框统一用 `.5px solid` 画在 `bg2` 填充上，而 Everforest 深色 ramp 压缩
   （`bg0` → `bg5` 仅约 2.0:1），上游 45/60/75/90% 的 `bg5` alpha 落在自己的填充上只有 1.29:1，卡片描边

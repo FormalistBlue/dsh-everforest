@@ -430,6 +430,14 @@ export function apply(ctx) {
 - **验证**：`tests/settings-page.test.mjs` 覆盖新顺序、图标 path 数、`aria-pressed`、被删文案不再渲染；`.tmp/settings-preview/` 用真实 `SETTINGS_STYLES` + `tokensFor()` 渲染 dark-soft / light-hard 两档截图目检（选中态在浅色档可见）。
 - **未改**：README（用户要求保持原文案）、色彩模式的行为与持久化路径、Host `Config` 字段。
 
+### 6.2 2026-10-24 边框宽度统一
+
+用户截图反馈「everforest 里面的 border 宽度没有统一」。窗口截图逐像素实测：选中强度卡的描边是 **2px** —— 1px `border` 之外又叠了一层 `box-shadow: inset 0 0 0 1px var(--dsw-alias-brand-primary)`；未选中卡片、外观三卡、色卡条、开关、恢复按钮都是 1px（`.5px` 在 DPR 1 上像素对齐成 1px 实色，与 1px 同宽）。
+
+- 修正：`.everforest-page` 定义唯一宽度变量 `--everforest-border-width: .5px`，页面内 8 处 `border` 全部引用它（与 DSH 自带的 `.5px solid` 设置卡片 / 输入框 / 描边按钮一致）；选中态只改 `border-color`，删除 inset box-shadow。
+- 回归：`tests/settings-page.test.mjs` 新增断言——所有 solid 边框必须引用该变量、页面只声明一次宽度、禁止 `box-shadow`。
+- 未改：颜色层级（外观卡 `border-l4`、强度卡 `settings-card-stroke` / `l2`、hover `l3`、选中 `brand-primary`）、圆角与焦点环。
+
 ## 7. 持久化（0.3.0 起：Host 侧持久化；0.4.0 增加 `colorMode`）
 
 强度选择与实验性色彩模式的真源是**当前 profile 的 Host 配置**；`localStorage` 降级为「首帧缓存 + 旧宿主兜底」。Appearance（light / dark / system）仍归 DSH 自己的全局偏好，不在本节范围。

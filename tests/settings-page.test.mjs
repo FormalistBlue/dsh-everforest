@@ -290,6 +290,24 @@ test('settings-page stylesheet does not reference Harness internals', () => {
   assert.deepEqual(foreign, [], `unexpected class names: ${foreign.join(', ')}`)
 })
 
+test('every settings-page border uses the same hairline width', () => {
+  // 2026-10-24 user report: the strength cards' selected ring (1px border plus a
+  // 1px inset box-shadow) read as 2px next to the 1px appearance cubes. One
+  // width for the whole page, and selection may only change the border colour.
+  const solidBorders = SETTINGS_STYLES.match(/border(?:-(?:top|bottom|left|right))?:\s*[^;}]*solid/g) ?? []
+  assert.ok(solidBorders.length >= 8, `expected the page borders, found ${solidBorders.length}`)
+  for (const declaration of solidBorders) {
+    assert.match(declaration, /var\(--everforest-border-width\)/, `border without the shared width: ${declaration}`)
+  }
+  const widthDeclarations = SETTINGS_STYLES.match(/--everforest-border-width:\s*[^;]+;/g) ?? []
+  assert.deepEqual(
+    widthDeclarations.map((value) => value.replace(/\s+/g, ' ').trim()),
+    ['--everforest-border-width: .5px;'],
+    'the page must declare exactly one border width'
+  )
+  assert.doesNotMatch(SETTINGS_STYLES, /box-shadow:/, 'selection must not thicken the outline')
+})
+
 test('locale dictionaries are complete and mirrored', () => {
   assert.equal(NS, 'settings.everforest')
   const enKeys = Object.keys(EN).sort()
