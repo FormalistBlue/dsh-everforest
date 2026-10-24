@@ -3,7 +3,9 @@
 `dsh-everforest` 的所有重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)：补丁版本只做配色修正、工程与文档修复，不改变 token/API 契约。
 
-## [Unreleased]
+## [1.0.0] - 2026-10-25
+
+1.0 是第一个稳定版：色彩模式改为默认提供，新增当前会话行、文本选区、聚光灯切换与开发调试面板；README、市场截图与插件图标全部重做。
 
 ### Added
 
@@ -509,7 +511,8 @@ DSH 自己的全局偏好，本插件不另存。
 - **文档**：`docs/design.md`（方案）、`docs/reference/palette.md`（色阶）、`docs/reference/token-inventory.md`
   （206 token 清单）、`docs/releasing.md`（发布与上架 runbook）、`THIRD_PARTY_NOTICES.md`。
 
-[Unreleased]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.3.0...HEAD
+[1.0.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.4.0...v1.0.0
+[0.4.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.1.2...v0.2.0
