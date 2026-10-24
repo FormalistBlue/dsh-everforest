@@ -1500,6 +1500,7 @@ test('contrast gate script passes for all six palettes', () => {
 
 test('READMEs document the implemented state in both languages', () => {
   const previews = ['.github/assets/everforest-dark-soft.png', '.github/assets/everforest-light-hard.png'].sort()
+  const icon = '.github/assets/everforest-icon.png'
 
   for (const file of ['README.md', 'README.en.md']) {
     const readme = read(file)
@@ -1508,11 +1509,12 @@ test('READMEs document the implemented state in both languages', () => {
     assert.match(readme, /Settings → Everforest/)
 
     // Each language carries the two real preview screenshots (the plugin's
-    // default Dark Soft / Light Hard pair); every referenced image must exist in
-    // the repository (the URLs are absolute for the npm page).
+    // default Dark Soft / Light Hard pair) plus the header icon; every
+    // referenced image must exist in the repository (the URLs are absolute for
+    // the npm page).
     const referenced = [...readme.matchAll(/raw\.githubusercontent\.com\/FormalistBlue\/dsh-everforest\/[^/]+\/(\.github\/assets\/[^)\s]+\.png)/g)]
-    assert.deepEqual([...new Set(referenced.map(([, path]) => path))].sort(), previews)
-    for (const path of previews) assert.ok(existsSync(join(ROOT, path)), `missing preview in ${file}: ${path}`)
+    assert.deepEqual([...new Set(referenced.map(([, path]) => path))].sort(), [...previews, icon].sort())
+    for (const path of [...previews, icon]) assert.ok(existsSync(join(ROOT, path)), `missing image in ${file}: ${path}`)
   }
 
   // The market reads the repository-root screenshots.json (1-8 entries); it must
