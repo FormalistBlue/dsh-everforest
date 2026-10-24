@@ -173,6 +173,13 @@ tokensFor(state) → {
 > - 修正分两步：先取 Enchanted 的行内代码底 `bg_dim`（dark·soft `#293136`），真机目检偏深（用户二次反馈「有点太深」）；最终以 `bg_dim` 为起点向 `bg0` 提亮 30%（`DARK_INLINE_CHIP_LIFT = 0.3`），dark·soft 芯片变为 `#2C343A`，比画布 `#333C43` 只略深（1.13:1），仍是凹陷的代码底，但不再和代码块同底。
 > - 蓝色语义由色彩模式的行内 code 前景（`--everforest-color-inline-code`）承担；浅色档保持 `bg_blue`（淡薄荷）。`label-primary` 对芯片 6 档仍 ≥ 4.5:1、色彩模式 `inlineCode` 蓝字对芯片 ≥ 3:1，数值由 `docs/reference/contrast.md` 重新生成。
 
+> **2026-10-24 视觉修正（深色边框可见度）**（用户反馈「深色模式下设置界面里面的各种边框线条有点不明显」；证据：`@deepseek-ai/dsh-client-ui-settings-*` 的 `client.js` 内联 CSS —— `.qgYWUG_card` / `.jrmgQW_rowCard` / `_6qcDqa_card` 都是 `border:.5px solid var(--dsw-alias-settings-card-stroke)` + `background:var(--dsw-alias-settings-card-fill)`，设置页出现最多的边框 token 依次是 `border-l2` 13 处 / `border-l3` 10 / `border-l4` 5 / `settings-card-stroke` 4）：
+>
+> - 两层原因：① Everforest 深色 ramp 压缩，`bg0` → `bg5` 只有约 2.0:1（浅色 1.56:1），同一 alpha 在深色下天生更弱；② DSH 深色表面比 Obsidian 浅、层次更平，卡片描边（`bg5` 60%）压在自己的 `bg2` 填充上只有 **1.29:1**，融进卡片。
+> - 修正：深色边框墨色由 `bg5` 向 `grey1` 提亮 20%（`DARK_BORDER_LIFT = 0.2`），并把每档 alpha 抬高一档 —— `l1/l2/l3/l4` = **60/78/90/100%**、`border-l2-darkmode-thin` 30→45%；浅色档保持 Enchanted 的 45/60/75/90% 不动（用户只反馈深色）。
+> - 效果（dark·soft）：`border-l2` 对 `bg0` 1.52 → **1.91:1**、对 `bg1` 1.40 → **1.70:1**；设置卡片描边对自己的填充 1.29 → **1.52:1**、对页面底 1.73 → **2.08:1**；`border-l4` 到 100%（Enchanted 的边框本来就接近不透明的 `bg5`）。
+> - 连带：`settings-card-stroke` / `button-ghost-active-border` / `onboarding-checkbox-border` 改为复用 `l2` / `l3` / `l1` 档位，避免三套数值漂移；`tests/tokens.test.mjs` 钉住 6 档色值，并新增「卡片描边 / 填充 ≥ 1.45:1、描边 / 页面 ≥ 1.8:1」两道回归下限。
+
 > **2026-10-18 视觉走查修正（侧栏边界）**（证据：`@deepseek-ai/dsh-client-ui-layout` 的 `AppFrame.module.css`、`dsh-client-ui-sidebar` 的 `SidebarRoot.module.css`；用户截图对比）：
 >
 > - DSH 用 `--dsw-specific-sidebar-fill` 画三处：侧栏列（`.sidebarCol`）、Windows 标题栏条（`[data-windows-titlebar] .frame:before`）以及内容卡背后的 frame；内容卡本身是 `--dsw-alias-bg-base`（bg0）+ 16px 左上圆角（`[data-windows-titlebar] .centerCol`）。native 两侧本就不同（light 侧栏 `#f9fafb` / 内容 `#fff`，dark `#1b1b1c` / `#151517`），所以能看出边界。
@@ -201,8 +208,8 @@ export const TOKEN_MAP = {
   '--dsw-alias-label-primary':         r => r.fg,
   '--dsw-alias-label-secondary':       r => r.grey1,
   '--dsw-alias-label-tertiary':        r => r.grey2,
-  '--dsw-alias-border-l1':             r => alpha(r.bg5, 0.45),
-  '--dsw-alias-border-l3':             r => alpha(r.bg5, 0.80),
+  '--dsw-alias-border-l1':             r => border(r, 'l1'),
+  '--dsw-alias-border-l3':             r => border(r, 'l3'),
   // 强调 / 状态（Enchanted 语义）
   '--dsw-alias-brand-primary':         r => r.headerAqua,
   '--dsw-alias-link':                  r => r.headerBlue,
@@ -228,7 +235,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `markdown-code-block` | `bg_dim` | Enchanted 代码底 |
 | `markdown-inline-code` | 深色 `bg_dim` 向 `bg0` 提亮 30% / 浅色 `bg_blue`（芯片表面） | DSH 用作 inline code 的**背景**（文字继承 `label-primary`）；Enchanted `--code-inline` 是前景色，不可复用；深色 2026-10-24 先由 `bg_blue` 改为 `bg_dim`、再向 `bg0` 提亮 30%（芯片对画布 1.11–1.13:1 的凹陷，见上方修正） |
 | `label-primary/secondary/tertiary` | `fg` / `grey1` / `grey2` | — |
-| `border-l1..l4` | `bg5` 的 45/60/75/90% alpha | Enchanted 边框 = `bg5` |
+| `border-l1..l4` | 浅色 `bg5` 的 45/60/75/90% alpha；深色 `bg5` 向 `grey1` 提亮 20% 后 60/78/90/100%（2026-10-24，见上方修正） | Enchanted 边框 = `bg5`；深色因 ramp 压缩 + DSH 表面更平而抬高 |
 | `brand-primary`（主按钮、选中） | `header-aqua` | Enchanted `interactive-accent` |
 | `link` | `header-blue` | Enchanted 外部链接 / `text-accent` |
 | `state-success / warn / error / business / idle` | `green` / `yellow` / `red` / `blue` / `grey2` | Enchanted 语义 + 状态可读性 |
@@ -254,7 +261,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 
 | 分类 | 例子 | 处理 |
 |---|---|---|
-| 边框透明度 | `border-l1/l2/l3/l4`、`border-l2-darkmode-thin`、`interactive-bg-hover*` | 用 `bg5` 的 alpha 重算（`color-mix` 或 8 位 hex），保持「边框 = bg5、hover 边框 = bg3」的 Enchanted 语义 |
+| 边框透明度 | `border-l1/l2/l3/l4`、`border-l2-darkmode-thin`、`interactive-bg-hover*` | 用 `bg5` 的 alpha 重算（`color-mix` 或 8 位 hex），保持「边框 = bg5、hover 边框 = bg3」的 Enchanted 语义；深色档墨色向 `grey1` 提亮 20%、每档 alpha 抬高一档（2026-10-24，见上方修正） |
 | 反向边框 | `border-inverted`、`border-inverted2`（旧文档漏） | `bg5` alpha：浅色低透明度、深色约白 6% |
 | 遮罩 | `bg-mask-1/2/3`、`bg-mask-photo`、`bg-mask-drop`、`bg-skeleton` | 保持黑色/白色高透明，仅按变体微调 |
 | 菜单 / 浮层材质 | `menu-surface-fill`、`alias-menu-group-header-fill`、`button-tool-bar-*` | `bg2` + 45%–94% alpha，保持原不透明度语义 |
@@ -523,7 +530,7 @@ export function apply(ctx) {
 | 聊天气泡 | 浅色（hard / medium）为 sage tint、light·soft 为淡鼠尾草纸抬起卡片，与画布边界 ≥ 1.10:1（light·soft 1.05:1，见 `reference/contrast.md` §2d）；深色保持 `bg1`；气泡内文字 4.5:1（2026-10-19 / 2026-10-21 修正，见 §12） |
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失；patch 里的 `config` 保留，重新启用后继续生效 |
 | 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧，spinner 环与进度弧同色系）；强度分别验证「有缓存」「无缓存但 Host 有值」「两者都缺」三条路径与 `window.__EVERFOREST_BOOT__` 的值；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的 spinner / 边框随 boot token 一起着色（2026-10-21） |
-| 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；记录已知缺口 |
+| 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；深色边框可见度（设置卡片 / 行 / 输入框的 `.5px` 描边对自己的填充 ≥ 1.45:1、对页面底 ≥ 1.8:1，2026-10-24）；记录已知缺口 |
 | 色彩模式（0.4.0，实验性） | 设置页开关出现且可切换；开启后聊天 h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接 aqua、删除线 / 已完成任务淡化、引用块淡底、列表 marker / 引用条 / 分隔线、表头色带 / 斑马纹 / 行 hover、checkbox，以及会话列表「待确认 / 已完成未查看」行底与状态点变色；**关闭后与 0.3.0 视觉逐字节一致**（所有色彩模式选择器不匹配）；`<html>` 上出现 `data-everforest-color-mode="on"` 与两个强度属性，切换强度 / 深浅色时四组变量自动切换；选中行不覆盖选中态、hover 有加深；浅色档特别是 light·soft 的表格色带 / 会话行底会被压成极淡甚至不可辨（见 §13.3），属已接受的「淡彩」取舍；DSH 升级后若选择器失效，模式静默退回单色且控制台无报错 |
 | 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效；包名 `dsh-everforest` 仍可用 |
 

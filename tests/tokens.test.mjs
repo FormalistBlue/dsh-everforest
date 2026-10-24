@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from '../src/palette.js'
-import { alpha, contrastRatio, isHex, relativeLuminance } from '../src/color.js'
+import { alpha, contrastRatio, hexToRgb, isHex, mix, relativeLuminance } from '../src/color.js'
 import { SELF_CHECK_TOKENS, TOKEN_COVERAGE, tokensFor, AUXILIARY_TOKEN_NAMES } from '../src/tokens.js'
 
 const inventory = JSON.parse(
@@ -290,13 +290,55 @@ test('chat bubble separates from bg-base while keeping primary text readable', (
   }
 })
 
-test('borders use bg5 alpha, not literal grey', () => {
+/** Composite a translucent hex colour over an opaque one (sRGB, like the browser). */
+function over (foreground, background) {
+  const f = hexToRgb(foreground)
+  const b = hexToRgb(background)
+  const channel = (x, y) => Math.round(x * f.a + y * (1 - f.a))
+  return `#${channel(f.r, b.r).toString(16).padStart(2, '0')}${channel(f.g, b.g).toString(16).padStart(2, '0')}${channel(f.b, b.b).toString(16).padStart(2, '0')}`
+}
+
+test('borders keep the Enchanted bg5 scale in light and lift it in dark', () => {
   const overlay = tokensFor(DEFAULT_STATE)
+  // Light: unchanged Enchanted 45/60/75/90% alpha on the raw bg5 ink.
   assert.equal(overlay['--dsw-alias-border-l1'].light, alpha(RAMPS.light.hard.bg5, 0.45))
   assert.equal(overlay['--dsw-alias-border-l2'].light, alpha(RAMPS.light.hard.bg5, 0.6))
   assert.equal(overlay['--dsw-alias-border-l3'].light, alpha(RAMPS.light.hard.bg5, 0.75))
   assert.equal(overlay['--dsw-alias-border-l4'].light, alpha(RAMPS.light.hard.bg5, 0.9))
-  assert.equal(overlay['--dsw-alias-border-l2'].dark, alpha(RAMPS.dark.soft.bg5, 0.6))
+  assert.equal(overlay['--dsw-alias-border-l2-darkmode-thin'].light, alpha(RAMPS.light.hard.bg5, 0.45))
+  // Dark: ink lifted 20% toward grey1 + one notch higher (2026-10-24 settings report).
+  const ink = mix(RAMPS.dark.soft.bg5, FOREGROUNDS.dark.grey1, 0.2)
+  assert.equal(overlay['--dsw-alias-border-l1'].dark, alpha(ink, 0.6))
+  assert.equal(overlay['--dsw-alias-border-l2'].dark, alpha(ink, 0.78))
+  assert.equal(overlay['--dsw-alias-border-l3'].dark, alpha(ink, 0.9))
+  assert.equal(overlay['--dsw-alias-border-l4'].dark, alpha(ink, 1))
+  assert.equal(overlay['--dsw-alias-border-l2-darkmode-thin'].dark, alpha(ink, 0.45))
+  // Settings cards / rows reuse level 2 in both schemes.
+  assert.equal(overlay['--dsw-alias-settings-card-stroke'].light, overlay['--dsw-alias-border-l2'].light)
+  assert.equal(overlay['--dsw-alias-settings-card-stroke'].dark, overlay['--dsw-alias-border-l2'].dark)
+  // Direction: every dark level is strictly more opaque than its light twin.
+  for (const level of ['l1', 'l2', 'l3', 'l4']) {
+    const lightAlpha = hexToRgb(overlay[`--dsw-alias-border-${level}`].light).a
+    const darkAlpha = hexToRgb(overlay[`--dsw-alias-border-${level}`].dark).a
+    assert.ok(darkAlpha > lightAlpha, `${level}: dark alpha ${darkAlpha} must exceed light ${lightAlpha}`)
+  }
+})
+
+test('dark settings card outline clears its fill and the page behind it', () => {
+  // 2026-10-24 user report: in dark mode the settings card / row / input outlines
+  // were hard to see. DSH paints them `.5px solid settings-card-stroke` on
+  // `settings-card-fill` (= bg2), sitting on the settings page. Gate both steps so
+  // a later palette tweak cannot silently flatten them again.
+  for (const strength of STRENGTHS) {
+    const overlay = tokensFor({ light: 'hard', dark: strength })
+    const fill = overlay['--dsw-alias-settings-card-fill'].dark
+    const page = overlay['--dsw-alias-bg-base'].dark
+    const stroke = over(overlay['--dsw-alias-settings-card-stroke'].dark, fill)
+    const onFill = contrastRatio(stroke, fill)
+    const onPage = contrastRatio(stroke, page)
+    assert.ok(onFill >= 1.45, `dark-${strength}: card stroke on its fill = ${onFill.toFixed(2)} < 1.45`)
+    assert.ok(onPage >= 1.8, `dark-${strength}: card stroke on the page = ${onPage.toFixed(2)} < 1.8`)
+  }
 })
 
 test('semantic state mapping follows Enchanted', () => {

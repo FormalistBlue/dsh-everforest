@@ -7,6 +7,17 @@
 
 ### Changed
 
+- **深色模式边框可见度修正（2026-10-24 用户反馈「设置界面里面的各种边框线条有点不明显」）**：
+  DSH 的设置卡片 / 行 / 输入框统一用 `.5px solid` 画在 `bg2` 填充上，而 Everforest 深色 ramp 压缩
+  （`bg0` → `bg5` 仅约 2.0:1），上游 45/60/75/90% 的 `bg5` alpha 落在自己的填充上只有 1.29:1，卡片描边
+  融进页面。修正两处：深色边框墨色由 `bg5` 向 `grey1` 提亮 20%（`DARK_BORDER_LIFT = 0.2`），每档 alpha
+  抬高一档（`l1/l2/l3/l4` = 60/78/90/100%，`border-l2-darkmode-thin` 30→45%）；浅色档完全不变（仍是
+  Enchanted 的 45/60/75/90%）。`settings-card-stroke` / `button-ghost-active-border` /
+  `onboarding-checkbox-border` 复用同一档位，设置页卡片、分隔线、输入框描边一起变清楚：dark·soft 卡片
+  描边对自己的填充 1.29 → 1.52:1、对页面底 1.73 → 2.08:1。`tests/tokens.test.mjs` 钉住新色值并新增两道
+  下限（卡片描边 / 填充 ≥ 1.45:1、描边 / 页面 ≥ 1.8:1），`docs/design.md`（§4 映射表 / 视觉修正记录 /
+  §9 走查项）同步。
+
 - **深色模式行内 code 芯片底色调整（2026-10-24 用户截图要求，参考 Everforest Enchanted）**：
   `--dsw-alias-markdown-inline-code` 在 dark 侧由 `bg_blue`（比 `bg0` 高一档的灰蓝，读成抬起的色块）
   改为以 `bg_dim` 为起点、向 `bg0` 提亮 30%（`DARK_INLINE_CHIP_LIFT = 0.3`；dark·soft 芯片

@@ -810,9 +810,46 @@ function diffGutter (p, surface) {
   return p.scheme === 'light' ? lift(p, surface, 0.35) : deepen(p, surface, 0.35)
 }
 
-/** Border colour: Enchanted semantics = `bg5` + alpha (docs/design.md §4). */
-function border (p, ratio) {
-  return alpha(p.ramp.bg5, ratio)
+/**
+ * How far the dark border ink is lifted from `bg5` toward `grey1`.
+ * Enchanted paints Obsidian's borders as (nearly) opaque `bg5`; DSH instead uses
+ * four translucent levels on much lighter, flatter dark surfaces. Measured on the
+ * real window (2026-10-24 settings report): a settings card is
+ * `.5px solid settings-card-stroke` over `settings-card-fill` (= `bg2`), and at
+ * the upstream alphas that stroke sat only 1.29:1 above its own fill — the cards
+ * dissolved into the page. See `borderInk` / `BORDER_ALPHAS`.
+ */
+const DARK_BORDER_LIFT = 0.2
+
+/**
+ * Border ink: Enchanted semantics = `bg5` (docs/design.md §4). The dark scheme
+ * lifts that ink toward `grey1` because the Everforest dark ramp is compressed
+ * (bg0 → bg5 spans only ~2.0:1) while the dark DSH surfaces are light enough that
+ * the same alpha reads weaker than in light mode.
+ */
+function borderInk (p) {
+  return p.scheme === 'light' ? p.ramp.bg5 : mix(p.ramp.bg5, p.fg.grey1, DARK_BORDER_LIFT)
+}
+
+/**
+ * Border alpha per DSH level. Light keeps the Enchanted 45/60/75/90% scale; dark
+ * runs one notch higher (2026-10-24, see `DARK_BORDER_LIFT`) so every border keeps
+ * a visible step on `bg1` / `bg2` fills instead of only on `bg0`.
+ * @type {Readonly<Record<'light' | 'dark', Readonly<Record<'l1' | 'l2' | 'l3' | 'l4' | 'thin', number>>>>}
+ */
+const BORDER_ALPHAS = Object.freeze({
+  light: Object.freeze({ l1: 0.45, l2: 0.6, l3: 0.75, l4: 0.9, thin: 0.45 }),
+  dark: Object.freeze({ l1: 0.6, l2: 0.78, l3: 0.9, l4: 1, thin: 0.45 })
+})
+
+/** Border colour for one DSH level (`l1`..`l4`, `thin`). */
+function border (p, level) {
+  return alpha(borderInk(p), BORDER_ALPHAS[p.scheme][level])
+}
+
+/** Border colour at an explicit alpha (the two inverted tokens). */
+function borderTint (p, ratio) {
+  return alpha(borderInk(p), ratio)
 }
 
 /** Menu / floating-panel material fill: `bg2` + 94% opacity. */
@@ -998,14 +1035,15 @@ const ALIAS_TOKENS = {
   '--dsw-alias-bg-overlay': (p) => surface(p, 2),
   '--dsw-alias-bg-skeleton': (p) => (p.scheme === 'light' ? alpha('#000000', 0.04) : alpha('#ffffff', 0.06)),
 
-  // Borders (Enchanted: border = bg5 alpha, hover = bg3) ----------------------
-  '--dsw-alias-border-inverted': (p) => border(p, p.scheme === 'light' ? 0.28 : 0.1),
-  '--dsw-alias-border-inverted2': (p) => border(p, p.scheme === 'light' ? 0.2 : 0.06),
-  '--dsw-alias-border-l1': (p) => border(p, 0.45),
-  '--dsw-alias-border-l2': (p) => border(p, 0.6),
-  '--dsw-alias-border-l2-darkmode-thin': (p) => border(p, p.scheme === 'light' ? 0.45 : 0.3),
-  '--dsw-alias-border-l3': (p) => border(p, 0.75),
-  '--dsw-alias-border-l4': (p) => border(p, 0.9),
+  // Borders (Enchanted: border = bg5 alpha, hover = bg3; dark lifts the ink and
+  // runs one level higher — 2026-10-24 settings visual report) ----------------
+  '--dsw-alias-border-inverted': (p) => borderTint(p, p.scheme === 'light' ? 0.28 : 0.1),
+  '--dsw-alias-border-inverted2': (p) => borderTint(p, p.scheme === 'light' ? 0.2 : 0.06),
+  '--dsw-alias-border-l1': (p) => border(p, 'l1'),
+  '--dsw-alias-border-l2': (p) => border(p, 'l2'),
+  '--dsw-alias-border-l2-darkmode-thin': (p) => border(p, 'thin'),
+  '--dsw-alias-border-l3': (p) => border(p, 'l3'),
+  '--dsw-alias-border-l4': (p) => border(p, 'l4'),
 
   // Brand / primary buttons (Enchanted: interactive-accent = header-aqua) -----
   '--dsw-alias-brand-primary': (p) => p.fg.headerAqua,
@@ -1017,7 +1055,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-button-elevated-fill': (p) => surface(p, 2),
   '--dsw-alias-button-floating-fill': (p) => surface(p, 2),
   '--dsw-alias-button-floating-hover': (p) => surface(p, 3),
-  '--dsw-alias-button-ghost-active-border': (p) => border(p, 0.75),
+  '--dsw-alias-button-ghost-active-border': (p) => border(p, 'l3'),
   '--dsw-alias-button-ghost-active-fill': (p) => surface(p, 2),
   '--dsw-alias-button-ghost-active-hover': (p) => surface(p, 3),
   '--dsw-alias-button-info-fill': (p) => p.fg.headerBlue,
@@ -1087,7 +1125,7 @@ const ALIAS_TOKENS = {
   // Onboarding (accent + 3 gradient stops + 3 fills = 7 tokens) --------------
   '--dsw-alias-onboarding-accent': (p) => p.fg.headerAqua,
   '--dsw-alias-onboarding-card-fill': (p) => alpha(surface(p, 2), 0.8),
-  '--dsw-alias-onboarding-checkbox-border': (p) => border(p, 0.45),
+  '--dsw-alias-onboarding-checkbox-border': (p) => border(p, 'l1'),
   '--dsw-alias-onboarding-secondary-fill': (p) => surface(p, 1),
 
   // Scrollbar ----------------------------------------------------------------
@@ -1098,7 +1136,7 @@ const ALIAS_TOKENS = {
 
   // Settings cards -----------------------------------------------------------
   '--dsw-alias-settings-card-fill': (p) => surface(p, 2),
-  '--dsw-alias-settings-card-stroke': (p) => border(p, 0.6),
+  '--dsw-alias-settings-card-stroke': (p) => border(p, 'l2'),
 
   // States (Enchanted semantics; semantic colours keep the upstream low-contrast
   // character and are reported, not "fixed", in docs/reference/contrast.md) -----
