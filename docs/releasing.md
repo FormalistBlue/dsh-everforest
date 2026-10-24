@@ -15,11 +15,12 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 | 0.2.1 | 2026-10-21 | GitHub Actions + Trusted Publishing（tag `v0.2.1`，run `39557780421`） | `latest` | `7538200c1e13a6a37a76e9cb446e63cc8f511fb1` | 有（SLSA v1） |
 | 0.3.0 | 2026-10-22 | GitHub Actions + Trusted Publishing（tag `v0.3.0`，run `39721766551`） | `latest` | `e08fe50add7f16c479cc766973e1e8e92b747cce` | 有（SLSA v1） |
 | 0.4.0 | 2026-10-23 | GitHub Actions + Trusted Publishing（tag `v0.4.0`，run `39910070876`） | `latest` | `96fbeac4516ad0baf63ac43141c8da239a1d1bcf` | 有（SLSA v1） |
+| 1.0.0 | 2026-10-25 | GitHub Actions + Trusted Publishing（tag `v1.0.0`，run `40116912287`） | `latest` | `162d8c5946e862b809b6c473bcc28f68fc97686f` | 有（SLSA v1） |
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
 - 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.2.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。本机 npm 默认 registry 是 `registry.npmmirror.com`（镜像同步有延迟），验证时务必显式指定 npmjs.org。
 - **发布后 registry 有分层传播**（0.2.0 实测）：版本元数据先出现（`https://registry.npmjs.org/dsh-everforest/0.2.0` 200），npm 命令在约 2 分钟内仍可能对 tarball 返回 404；直接 `GET .../-/dsh-everforest-0.2.0.tgz` 成功后再用空缓存安装即可。workflow 里的 `npm view` 校验步骤同理可能仍显示上一版，以 run 日志里的 `+ dsh-everforest@x.y.z` 为准。
-- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.4.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
+- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.3.0 / 0.4.0 / 1.0.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
 
 > **0.3.0 发布注意**（首个把强度偏好迁到 Host 配置的版本）
 >
@@ -40,6 +41,14 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 >
 > - 新版本的 Host `Config` 回到 `light` / `dark` 两个 volatile 字段，设置页不再有色彩模式开关；旧 profile patch 里由 0.4.0 发布版残留的 `colorMode` 键会被 schema **容忍并忽略**（schemastery 忽略未知键：校验照常通过、值不生效），**不需要手动删除**，插件也不会主动 unset；0.4.x 浏览器缓存里残留的 `colorMode` 字段同样被忽略、下次写入自然丢弃。
 > - Host 半部的 schema 变化仍在 DSH 启动时装载，但旧键兼容——**不存在「为了兼容必须重启」的用例**，也不需要为这次变更改任何 patch。刷新页面即可看到新设置页；Host 侧新 schema 在下一次 DSH 启动后生效，两种状态下功能与主题都正常。
+
+> **1.0.0 发布注意（已发布，2026-10-25）**
+>
+> - **升级 0.4.0 → 1.0.0 需要重启一次 DSH**：Host `Config` 从三个 volatile 字段（`light` / `dark` / `colorMode`）回到 `light` / `dark`，Host 半部在 DSH 启动时装载；只刷新页面时新 Client 立即生效（主题、设置页、6 档都正常），Host 侧新 schema 在下次启动后接管。旧 profile patch 里 0.4.0 残留的 `colorMode` 键被 schemastery 忽略，**不需要手改 patch**。
+> - **回滚不需要清理 patch**：1.0.0 只写 `light` / `dark`，回滚到 0.4.0 / 0.3.0 时旧 schema 不会遇到未知键，无需按「0.4.0 → 0.3.0」那套步骤手动删 `colorMode`。
+> - **首个稳定版口径**：1.0.0 把 0.4.0 之后未发布的改动（色彩模式改为默认提供、工作区当前会话行、原生文本选区、深浅切换聚光灯、开发调试面板，以及 README / 市场截图 / 插件图标重做）作为稳定行为发布；`engines.dsh` 仍为 `>=0.2.1-rc.2 <0.3.0-0`，目标 DSH 0.2.1-rc.3 不变。
+> - **2026-10-25 已发布**：tag `v1.0.0`（commit `aa3781f`）→ publish run `40116912287` → npm `latest` = `1.0.0`（`dist.shasum` `162d8c5946e862b809b6c473bcc28f68fc97686f`，SLSA provenance，由 GitHub Actions trusted publishing 完成），GitHub Release `v1.0.0` 已由 workflow 自动创建；发布前门禁 `node --test` 220/220 + `npm run check` 全绿。
+> - **市场冷静期**：npm 发布后 24 小时内市场仍可能装到 0.4.0（§8.6），不要当成发布失败。
 
 ## 0. 发布前必须确认
 
