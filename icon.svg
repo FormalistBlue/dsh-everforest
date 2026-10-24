@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Everforest">
   <title>Everforest</title>
-  <desc>Everforest mountains and pines under a warm moon, above a five-band palette strip.</desc>
+  <desc>An Everforest whale over the forest mountains and pines.</desc>
   <defs>
     <clipPath id="everforest-frame">
       <rect width="64" height="64" rx="14" ry="14"/>
@@ -9,24 +9,21 @@
   <g clip-path="url(#everforest-frame)">
     <!-- dark · soft background -->
     <rect width="64" height="64" fill="#333C43"/>
-    <!-- moon / sun -->
-    <circle cx="45" cy="17" r="7" fill="#DBBC7F"/>
-    <!-- distant ridge -->
-    <path d="M0 41 L9 30 L17 37 L27 27 L37 37 L46 30 L54 37 L64 31 L64 52 L0 52 Z" fill="#4D5960"/>
-    <!-- forest ridge -->
-    <path d="M0 47 L8 39 L16 45 L26 36 L35 44 L43 37 L52 45 L58 41 L64 45 L64 52 L0 52 Z" fill="#A7C080"/>
-    <!-- pines -->
-    <path d="M18 31 L11 48 L25 48 Z" fill="#293136"/>
-    <path d="M18 26 L13 37 L23 37 Z" fill="#293136"/>
-    <rect x="17" y="48" width="2" height="4" fill="#293136"/>
-    <path d="M44 36 L38 50 L50 50 Z" fill="#293136"/>
-    <path d="M44 32 L40 41 L48 41 Z" fill="#293136"/>
-    <rect x="43" y="50" width="2" height="2" fill="#293136"/>
-    <!-- palette strip: bg0, bg2, fg, green, header-aqua -->
-    <rect x="0" y="52" width="12.8" height="12" fill="#333C43"/>
-    <rect x="12.8" y="52" width="12.8" height="12" fill="#434F55"/>
-    <rect x="25.6" y="52" width="12.8" height="12" fill="#D3C6AA"/>
-    <rect x="38.4" y="52" width="12.8" height="12" fill="#A7C080"/>
-    <rect x="51.2" y="52" width="12.8" height="12" fill="#569D79"/>
+    <!-- whale, traced from the Everforest whale illustration and simplified to icon scale -->
+    <g transform="translate(-7.163 -0.095) scale(0.29932)"><path d="M0 0 C1 0 2 0 3 0 C3.3 1.1 3.6 2.1 3.9 3.2 C5.8 7.5 8.7 8.9 12.8 10.8 C15.3 12.2 16.5 13.6 18 16 C18 16.7 18 17.3 18 18 C18.7 17.5 19.4 17 20.1 16.6 C24.4 14.2 28.8 14.2 33.6 13.7 C37.4 12.9 39.1 11.4 42 9 C43 9.3 44 9.7 45 10 C44.5 16.7 43.4 20.8 38.3 25.6 C33.5 29.6 29.1 31.2 23 32 C22.7 33 22.4 34 22.1 35 C22 35.7 21.8 36.3 21.6 37 C21 38.9 20.5 40.9 19.9 42.8 C16.6 54.1 11.8 68.2 0.8 74.2 C0.2 74.5 -0.4 74.7 -1 75 C-1.2 74.8 -1.2 74.8 -2.5 73.8 C-7.2 70.1 -11.3 67.8 -17 66 C-17 66.7 -17 67.3 -17 68 C-16.3 68.1 -15.5 68.2 -14.8 68.3 C-11.5 69.1 -10 70.5 -7.4 72.8 C-2.7 76.7 1.8 78.8 7.6 80.8 C10 82 10 82 10.8 84.1 C10.9 84.8 10.9 85.4 11 86 C4.1 88.8 -2 88.6 -9.1 86.7 C-13.4 85.7 -13.4 85.7 -15.8 86.8 C-17.1 87.7 -18.3 88.6 -19.6 89.6 C-31.5 96.6 -47 96.2 -60 93 C-75.3 89 -87.8 80.2 -96.9 67.2 C-102.3 57.6 -105.1 45.2 -102.3 34.5 C-100.2 29 -97.2 24.9 -92 22 C-78.9 16.8 -64.8 17.8 -52 23 C-44.6 26.2 -37.9 29.9 -31.3 34.7 C-24 39.9 -16.4 43.9 -7.1 43.4 C-1.7 42.4 1.9 40.3 5.4 36.1 C6.8 33.4 8 30.8 9 28 C8.7 27.9 8.7 27.9 7.2 27.2 C2.7 24.8 -0.2 20.6 -2.4 16.1 C-3.5 10.4 -2.8 5.1 0 0 Z M-92.9 32.2 C-95.5 36.4 -93.4 42 -92.5 46.5 C-89.2 59.1 -80.9 70.5 -69.9 77.6 C-65.5 80 -62 80.9 -57 81 C-56 80.7 -55 80.3 -54 80 C-52.6 75.8 -54.2 73.9 -56 70 C-49.3 70.3 -45.3 73.1 -39.9 76.9 C-33.3 81.6 -28 85.4 -19.6 85.1 C-18.8 85.1 -17.9 85.1 -17 85.1 C-16.3 85 -15.7 85 -15 85 C-15 84.3 -15 83.7 -15 83 C-16.4 81.8 -16.4 81.8 -18.4 80.5 C-26.2 74.8 -31.8 67.6 -36.9 59.5 C-46.3 45.1 -58.4 35.5 -75.3 31.4 C-78.5 30.9 -81.5 30.8 -84.6 30.8 C-85.8 30.7 -86.9 30.7 -88 30.7 C-91 31 -91 31 -92.9 32.2 Z" fill="#A7C080" transform="translate(157,7)"/></g>
+    <!-- mountains and pines kept from the previous icon, lowered 12 to fill the frame after the palette strip was removed -->
+    <g transform="translate(0 12)">
+      <!-- distant ridge -->
+      <path d="M0 41 L9 30 L17 37 L27 27 L37 37 L46 30 L54 37 L64 31 L64 52 L0 52 Z" fill="#4D5960"/>
+      <!-- forest ridge -->
+      <path d="M0 47 L8 39 L16 45 L26 36 L35 44 L43 37 L52 45 L58 41 L64 45 L64 52 L0 52 Z" fill="#A7C080"/>
+      <!-- pines -->
+      <path d="M18 31 L11 48 L25 48 Z" fill="#293136"/>
+      <path d="M18 26 L13 37 L23 37 Z" fill="#293136"/>
+      <rect x="17" y="48" width="2" height="4" fill="#293136"/>
+      <path d="M44 36 L38 50 L50 50 Z" fill="#293136"/>
+      <path d="M44 32 L40 41 L48 41 Z" fill="#293136"/>
+      <rect x="43" y="50" width="2" height="2" fill="#293136"/>
+    </g>
   </g>
 </svg>
