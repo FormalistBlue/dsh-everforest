@@ -3,6 +3,18 @@
 `dsh-everforest` 的所有重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)：补丁版本只做配色修正、工程与文档修复，不改变 token/API 契约。
 
+## [Unreleased]
+
+### Changed
+
+- **深色模式行内 code 芯片底色调整（2026-10-24 用户截图要求，参考 Everforest Enchanted）**：
+  `--dsw-alias-markdown-inline-code` 在 dark 侧由 `bg_blue`（比 `bg0` 高一档的灰蓝，读成抬起的色块）
+  改为以 `bg_dim` 为起点、向 `bg0` 提亮 30%（`DARK_INLINE_CHIP_LIFT = 0.3`；dark·soft 芯片
+  `#2C343A` on 画布 `#333C43`，1.13:1），呈「比画布略深的凹陷代码底」；纯 `bg_dim` 的中间版本经
+  真机目检偏深（用户二次反馈），故保留 30% 提亮。浅色档保持 `bg_blue`（淡薄荷）。色值仍由
+  `src/tokens.js` 的 `inlineCodeSurface` 派生，`label-primary` 4.5:1 与色彩模式 `inlineCode` 3:1
+  两道门槛重算后均通过；`docs/reference/contrast.md` 与 `docs/design.md`（§4 映射表 / 视觉修正记录）同步。
+
 ## [0.4.0] - 2026-10-23
 
 次版本：新增**实验性「色彩模式」**（默认开启，可在设置页关闭）。开启后把 Everforest 调色板里此前未上场的强调色用到聊天

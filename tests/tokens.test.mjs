@@ -206,11 +206,21 @@ test('inline code is a background chip, not a foreground accent', () => {
     // Inherited label-primary text on the chip must reach WCAG AA.
     const ratio = contrastRatio(FOREGROUNDS[scheme].fg, chip[scheme])
     assert.ok(ratio >= 4.5, `${scheme}: label-primary on inline code = ${ratio.toFixed(2)} < 4.5`)
-    // The chip is a light surface: darker than bg0 in light, lighter than bg0 in dark.
+    // The chip is a recessed surface in both schemes: darker than bg0. The dark
+    // scheme follows Enchanted's inline-code canvas (`bgDim`, #293136 in
+    // dark·soft) instead of the slate-blue `bgBlue`, which sat a ramp step ABOVE
+    // bg0 and read as a raised block (2026-10-24 user report).
     const chipLuminance = relativeLuminance(chip[scheme])
     const bgLuminance = relativeLuminance(RAMPS[scheme][DEFAULT_STATE[scheme]].bg0)
-    assert.equal(chipLuminance < bgLuminance, scheme === 'light', `${scheme}: chip luminance direction`)
+    assert.ok(chipLuminance < bgLuminance, `${scheme}: chip must sit below bg0`)
   }
+  assert.equal(chip.light, RAMPS.light[DEFAULT_STATE.light].bgBlue, 'light chip keeps the pale-mint bg_blue')
+  // Dark starts at the deep bg_dim code surface and lifts slightly toward bg0
+  // (2026-10-24 follow-up: plain bg_dim read a little too deep).
+  const darkRamp = RAMPS.dark[DEFAULT_STATE.dark]
+  const darkChipLuminance = relativeLuminance(chip.dark)
+  assert.ok(relativeLuminance(darkRamp.bgDim) < darkChipLuminance, 'dark chip must be lighter than bg_dim')
+  assert.ok(darkChipLuminance < relativeLuminance(darkRamp.bg0), 'dark chip must stay darker than bg0')
 })
 
 test('sidebar surface is one ramp step off bg-base so the column edge stays visible', () => {

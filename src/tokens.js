@@ -248,13 +248,27 @@ function codeSurface (p) {
  * `fg.blue` therefore produced a saturated blue block with dark text
  * (1.65:1 in light, 1.29:1 in dark) — the visible "loud chip" defect.
  *
- * The Everforest analogue of a code tint is `bg_blue`, the palette's dedicated
- * background for blue-coded content (pale mint in light, muted slate-blue in
- * dark). The contrast guard keeps the inherited primary text at WCAG AA; the
- * light/dark values differ per strength because `bgBlue` moves with the ramp.
+ * The Everforest analogue of a code tint is `bg_blue` in the light scheme
+ * (pale mint, the palette's dedicated background for blue-coded content). The
+ * contrast guard keeps the inherited primary text at WCAG AA; the light value
+ * differs per strength because `bgBlue` moves with the ramp.
+ *
+ * The dark scheme starts from `bgDim` (2026-10-24 user report, compared with
+ * Enchanted's rendered inline code): `bgBlue` sits a ramp step *above* the dark
+ * canvas, so the chip read as a raised slate block instead of a recess. Plain
+ * `bgDim` (the palette's deep code surface, below `bg0`) matched the Enchanted
+ * look but then read a little too deep on screen, so it is lifted slightly
+ * toward `bg0`: close enough to the canvas to stay a subtle recess, still
+ * clearly below it. Enchanted supplies the blue cue through the color-mode
+ * foreground (`--everforest-color-inline-code`), so the chip needs no blue tint.
  */
+const DARK_INLINE_CHIP_LIFT = 0.3
+
 function inlineCodeSurface (p) {
-  return readableSurface(p, p.ramp.bgBlue)
+  const upstream = p.scheme === 'dark'
+    ? mix(p.ramp.bgDim, p.ramp.bg0, DARK_INLINE_CHIP_LIFT)
+    : p.ramp.bgBlue
+  return readableSurface(p, upstream)
 }
 
 /**

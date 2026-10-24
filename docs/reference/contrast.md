@@ -136,7 +136,7 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 | h6 / markdown 表面（取最弱） | 3 | 3.00 ✅ | 3.00 ✅ | 3.01 ✅ | 4.49 ✅ | 4.10 ✅ | 3.74 ✅ | ✅ |
 | emphasis / markdown 表面（取最弱） | 3 | 3.00 ✅ | 3.00 ✅ | 3.01 ✅ | 4.49 ✅ | 4.10 ✅ | 3.74 ✅ | ✅ |
 | link-internal / markdown 表面（取最弱） | 3 | 3.01 ✅ | 3.03 ✅ | 3.02 ✅ | 3.21 ✅ | 3.02 ✅ | 3.03 ✅ | ✅ |
-| inline-code / inline-code 底色 | 3 | 3.03 ✅ | 3.02 ✅ | 3.00 ✅ | 4.19 ✅ | 3.84 ✅ | 3.50 ✅ | ✅ |
+| inline-code / inline-code 底色 | 3 | 3.03 ✅ | 3.02 ✅ | 3.00 ✅ | 7.02 ✅ | 6.42 ✅ | 5.82 ✅ | ✅ |
 | marker / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
 | quote / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
 | hr / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
@@ -175,7 +175,7 @@ G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式
 | `--dsw-alias-markdown-code-block-banner` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 9.39 ✅ | 8.62 ✅ | 7.83 ✅ |
 | `--dsw-alias-markdown-code-segment-selected` | 5.34 ✅ | 5.12 ✅ | 4.61 ✅ | 7.11 ✅ | 6.40 ✅ | 5.75 ✅ |
 | `--dsw-alias-markdown-code-segment-unselected` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 9.39 ✅ | 8.62 ✅ | 7.83 ✅ |
-| `--dsw-alias-markdown-inline-code` | 5.01 ✅ | 4.82 ✅ | 4.50 ✅ | 5.39 ✅ | 4.94 ✅ | 4.51 ✅ |
+| `--dsw-alias-markdown-inline-code` | 5.01 ✅ | 4.82 ✅ | 4.50 ✅ | 9.04 ✅ | 8.26 ✅ | 7.49 ✅ |
 | `--dsw-alias-markdown-citation` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.20 ✅ | 5.57 ✅ | 4.99 ✅ |
 | `--dsw-alias-markdown-placeholder` | 5.26 ✅ | 5.04 ✅ | 4.53 ✅ | 6.20 ✅ | 5.57 ✅ | 4.99 ✅ |
 | `--dsw-alias-markdown-tag` | 5.21 ✅ | 4.94 ✅ | 4.52 ✅ | 5.30 ✅ | 4.75 ✅ | 4.54 ✅ |
