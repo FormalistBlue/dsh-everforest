@@ -275,16 +275,12 @@ description:
 
 ### 8.4 截图（仓库根 `screenshots.json`）
 
-市场优先读插件仓库根的 `screenshots.json`：1–8 张，路径相对该文件、不能跳出插件目录，或 GitHub 托管的 https 绝对地址（第三方图床被拒）；仓库没有声明时才回退到 README 里的图片。当前 6 张：
+市场优先读插件仓库根的 `screenshots.json`：1–8 张，路径相对该文件、不能跳出插件目录，或 GitHub 托管的 https 绝对地址（第三方图床被拒）；仓库没有声明时才回退到 README 里的图片。当前 2 张（真机完整窗口截图，默认深色 Soft / 浅色 Hard）：
 
 ```json
 [
   ".github/assets/everforest-dark-soft.png",
-  ".github/assets/everforest-light-hard.png",
-  ".github/assets/everforest-dark-hard.png",
-  ".github/assets/everforest-dark-medium.png",
-  ".github/assets/everforest-light-medium.png",
-  ".github/assets/everforest-light-soft.png"
+  ".github/assets/everforest-light-hard.png"
 ]
 ```
 

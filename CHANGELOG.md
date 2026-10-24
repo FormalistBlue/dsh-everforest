@@ -66,6 +66,13 @@
 
 ### Changed
 
+- **README / 市场预览换成 2 张真机截图（2026-10-24 用户决定「就用2张真实的就行了，不需要用整纵横6张」「不用裁剪，直接使用原图」）**：
+  `README.md` / `README.en.md` 的预览从 6 张分档示意图表格改为 2 张真机完整窗口截图——深色 Soft（默认）与浅色 Hard（默认），
+  对应 `.github/assets/everforest-dark-soft.png` / `everforest-light-hard.png`（1263×981，未裁剪）；删除其余 4 档旧示意图。
+  仓库根 `screenshots.json` 同步由 6 项减为这 2 项（市场允许 1–8 张）；`tests/integration.test.mjs` 的 README 断言改为这 2 张，
+  并新增 `screenshots.json` 与仓库图一致的校验；`docs/releasing.md` §8.4 同步。其余 4 档强度仍可在 Settings → Everforest 切换，
+  README 说明保留。
+
 - **色彩模式改为默认提供、移除设置页开关（2026-10-24 用户要求「把设置中的色彩模式这个选项去掉，作为默认提供的功能」）**：
   设置页不再有色彩模式区块（标题 / 说明 / `role="switch"` 开关 / 5 个强调色装饰片全部删除），
   中英 locale 键由 23 减到 18（删 `colorMode.title/desc/on/off/switch`，中英同步）。状态与持久化回到两个强度：

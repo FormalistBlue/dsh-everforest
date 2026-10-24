@@ -23,13 +23,15 @@
 
 ## 预览
 
-| | 深色 Dark | 浅色 Light |
-|:-:|:-:|:-:|
-| **硬 Hard** | ![Everforest Dark Hard](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-hard.png) | ![Everforest Light Hard](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png) |
-| **中 Medium** | ![Everforest Dark Medium](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-medium.png) | ![Everforest Light Medium](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-medium.png) |
-| **软 Soft** | ![Everforest Dark Soft](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png) | ![Everforest Light Soft](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-soft.png) |
+**深色 · Soft（默认）**
 
-> 预览图按各档实际配色渲染的界面示意。默认：深色 Soft / 浅色 Hard。
+![Everforest Dark Soft](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png)
+
+**浅色 · Hard（默认）**
+
+![Everforest Light Hard](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png)
+
+> 两张均为真机完整窗口截图。默认：深色 Soft / 浅色 Hard；其余 4 档强度可在 Settings → Everforest 中切换。
 
 ## 安装
 
