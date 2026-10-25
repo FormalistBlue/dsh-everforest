@@ -32,23 +32,24 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > **0.4.0 发布注意（已发布，2026-10-23）**
 >
 > - **升级后必须重启 DSH**：0.4.0 的 Host `Config` 增加第三个 volatile 字段 `colorMode`；Host 半部在启动时装载，刷新页面不会重载 `index.js`。重启后设置页的色彩模式开关才写进当前 profile 的 `cordis.patch.yml`。未重启时新 Client 退回 localStorage-only（开关仍生效、只是暂不写 Host）。
-> - **回滚必须先清理配置**：0.4.0 → 0.3.0 前从 profile patch 删除 `everforest` 行的 `colorMode` 字段，否则 0.3.0 的 schema 校验失败、entry 不激活（无主题）。0.2.1 无 `Config`，不受影响。
+> - **回滚配置（2026-10-25 修正）**：0.4.0 → 0.3.0 **不需要**手动删 `everforest` 行的 `colorMode`——schemastery 的对象 schema 默认非 strict，未知键会被保留并忽略（源码 `Schema.extend("object", …)` 里 `if (!strict) merge(result, data)`；本机 1.0.0 的 profile patch 至今仍带 `colorMode: true`，插件正常工作）。2026-10-23 当时的「先删再回滚」是保守做法，不是校验硬要求。0.2.1 无 `Config`，本来就不受影响。
 > - **真机验收**：2026-10-23 用户在本机 DSH（重启后）目检设置页、色彩模式开关与 6 套配色下的聊天富文本 / 会话行，确认「这次调整没什么问题了」并要求发布；release 前最后一次自动化门禁为 `node --test` 170/170 + `npm run check` 全绿。
-> - **实验性口径**：市场条目文案按 2026-10-22 定稿的短文案，不随本功能追加（见 §8.6 / 仓库约定「插件功能迭代后不追加市场描述」）；CHANGELOG / design 已注明实验性、默认开启可关闭、DSH 升级需回归。README 按用户要求保持发布版原文案不动。
+> - **实验性口径**：市场条目文案按 2026-10-22 定稿的短文案，不随本功能追加（见 §8.6 / 仓库约定「插件功能迭代后不追加市场描述」；线上条目仍是 2026-10-19 的旧长文案，见 §8.2）；CHANGELOG / design 已注明实验性、默认开启可关闭、DSH 升级需回归。README 按用户要求保持发布版原文案不动。
 > - **2026-10-23 已发布**：tag `v0.4.0`（commit `af4ec47`）→ publish run `39910070876` → npm `latest` = `0.3.0` 传播中 / 最终 `0.4.0`（`dist.shasum` `96fbeac4516ad0baf63ac43141c8da239a1d1bcf`，带 SLSA provenance，transparency log index `3412457040`），GitHub Release `v0.4.0` 已由 workflow 自动创建（2026-10-23T06:12:33Z）。registry 传播期以 `+ dsh-everforest@0.4.0` 与 tarball URL 为准。
 >
-> **2026-10-24 起的兼容说明（色彩模式改为默认提供、无设置开关；版本号仍记 0.4.0、尚未发布）**
+> **2026-10-24 起的兼容说明（色彩模式改为默认提供、无设置开关；该批次后随 1.0.0 发布）**
 >
 > - 新版本的 Host `Config` 回到 `light` / `dark` 两个 volatile 字段，设置页不再有色彩模式开关；旧 profile patch 里由 0.4.0 发布版残留的 `colorMode` 键会被 schema **容忍并忽略**（schemastery 忽略未知键：校验照常通过、值不生效），**不需要手动删除**，插件也不会主动 unset；0.4.x 浏览器缓存里残留的 `colorMode` 字段同样被忽略、下次写入自然丢弃。
 > - Host 半部的 schema 变化仍在 DSH 启动时装载，但旧键兼容——**不存在「为了兼容必须重启」的用例**，也不需要为这次变更改任何 patch。刷新页面即可看到新设置页；Host 侧新 schema 在下一次 DSH 启动后生效，两种状态下功能与主题都正常。
 
 > **1.0.0 发布注意（已发布，2026-10-25）**
 >
-> - **升级 0.4.0 → 1.0.0 需要重启一次 DSH**：Host `Config` 从三个 volatile 字段（`light` / `dark` / `colorMode`）回到 `light` / `dark`，Host 半部在 DSH 启动时装载；只刷新页面时新 Client 立即生效（主题、设置页、6 档都正常），Host 侧新 schema 在下次启动后接管。旧 profile patch 里 0.4.0 残留的 `colorMode` 键被 schemastery 忽略，**不需要手改 patch**。
-> - **回滚不需要清理 patch**：1.0.0 只写 `light` / `dark`，回滚到 0.4.0 / 0.3.0 时旧 schema 不会遇到未知键，无需按「0.4.0 → 0.3.0」那套步骤手动删 `colorMode`。
+> - **升级 0.4.0 → 1.0.0：重启一次 DSH 让 Host 侧换成两字段 schema**（不是兼容硬要求——不重启也能用，只是 Host 仍是旧的 `light` / `dark` / `colorMode` schema）。Host `Config` 从三个 volatile 字段回到 `light` / `dark`，Host 半部在 DSH 启动时装载；只刷新页面时新 Client 立即生效（主题、设置页、6 档都正常），Host 侧新 schema 在下次启动后接管。旧 profile patch 里 0.4.0 残留的 `colorMode` 键被 schemastery 忽略，**不需要手改 patch**（本机 `desktop` profile 到 2026-10-25 仍留着 `colorMode: true`，功能正常）。
+> - **回滚不需要清理 patch**：1.0.0 只写 `light` / `dark`；回滚到 0.4.0 / 0.3.0 时，旧 schema 对 profile patch 里可能残留的 `colorMode` 一律忽略（schemastery 非 strict，见上方 0.4.0 回滚配置的修正），不会导致 entry 不激活。
 > - **首个稳定版口径**：1.0.0 把 0.4.0 之后未发布的改动（色彩模式改为默认提供、工作区当前会话行、原生文本选区、深浅切换聚光灯、开发调试面板，以及 README / 市场截图 / 插件图标重做）作为稳定行为发布；`engines.dsh` 仍为 `>=0.2.1-rc.2 <0.3.0-0`，目标 DSH 0.2.1-rc.3 不变。
 > - **2026-10-25 已发布**：tag `v1.0.0`（commit `aa3781f`）→ publish run `40116912287` → npm `latest` = `1.0.0`（`dist.shasum` `162d8c5946e862b809b6c473bcc28f68fc97686f`，SLSA provenance，由 GitHub Actions trusted publishing 完成），GitHub Release `v1.0.0` 已由 workflow 自动创建；发布前门禁 `node --test` 220/220 + `npm run check` 全绿。
-> - **市场冷静期**：npm 发布后 24 小时内市场仍可能装到 0.4.0（§8.6），不要当成发布失败。
+> - **市场冷静期**：npm 发布后 24 小时内市场仍可能装到上一版（本次为 0.4.0，§8.6），不要当成发布失败。
+> - **市场「更新内容」会被截断**：1.0.0 小节 20937 字节 / 12462 字符，市场只取前 4096 字符（实测断在「插件图标改为…」那条中间），详见 §5；下个版本可把摘要压进 4096 字符。
 
 ## 0. 发布前必须确认
 
@@ -119,7 +120,7 @@ repository: FormalistBlue/dsh-everforest
 permissions: publish, stage publish
 ```
 
-配置方式（CLI，需 npm >= 11.15；本机用 npm 12.2.0 的 `npm trust` 完成）：
+配置方式（CLI，需 npm >= 11.15；本机 fnm 自带的 npm 11.13.0 低于该版本，配置时临时用 npm 12.2.0 执行）：
 
 ```powershell
 npm trust github dsh-everforest `
@@ -131,7 +132,7 @@ npm trust github dsh-everforest `
 
 - 旧版 npm（<= 11.14.x）的 `npm trust` 不发送 permissions 字段，registry 会返回无 body 的 `400 Bad Request`；npm 11.15+ 要求显式 `--allow-publish`（允许正式发布）或 `--allow-stage-publish`（允许 staged 发布）。
 - 网页等价路径：`https://www.npmjs.com/package/dsh-everforest/access` → Trusted publishers → Add a publisher（GitHub Actions；Workflow filename 只写 `publish.yml`；Environment 留空）。
-- 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write` + `npm publish --provenance`，不需要任何 npm token；发布前会先安装 devDependency（`npm install --no-package-lock --ignore-scripts --no-audit --no-fund`，只有 `@deepseek-ai/schemastery`，运行时零依赖）再跑 `node --test` 与 `npm run check`（与 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 相同），任一失败即中止；`workflow_dispatch` 手动发布只允许在 `v<version>` 标签对应的提交上运行（`fetch-depth: 0` + `git tag --points-at HEAD` 校验）；
+- 仓库里已有 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)，它用 `permissions: id-token: write`（provenance）+ `contents: write`（建 GitHub Release）并跑 `npm publish --provenance`，不需要任何 npm token；发布前会先安装 devDependency（`npm install --no-package-lock --ignore-scripts --no-audit --no-fund`，只有 `@deepseek-ai/schemastery`，运行时零依赖）再跑 `node --test` 与 `npm run check`（与 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) 相同），任一失败即中止；`workflow_dispatch` 手动发布只允许在 `v<version>` 标签对应的提交上运行（`fetch-depth: 0` + `git tag --points-at HEAD` 校验）；
 - 之后发布：改版本 → 提交 → 在 `CHANGELOG.md` 写当前版本的小节 `## [X.Y.Z]` → 打 tag `vX.Y.Z` → `git push origin main --tags`，CI 自动发布并生成 provenance；发布前会先跑 `node scripts/release-notes.mjs --version X.Y.Z --check`，该版本小节缺失或为空即中止（此时 npm 尚未发布）；发布成功后按 tag 自动创建 GitHub Release，正文就是该小节（`gh release create --notes-file`，预发布版本自动加 `--prerelease`，已存在的 Release 会跳过）。市场「更新内容」读的正是这个正文，所以小节要写成能独立阅读的版本说明（见 §5）。
 
 以 [npm Trusted publishing 文档](https://docs.npmjs.com/trusted-publishers) 为准。
@@ -148,7 +149,7 @@ npm trust github dsh-everforest `
   import；缺一个 Host 半部会加载失败，首帧注入与插件行一起消失）
 - `cordis.patch.yml`（bundle patch；entry id `everforest` 同时是 Client `ctx.configForms.get('everforest')` 的键）
 - `locale/*.json`（插件管理页标题/描述，`meta.title` / `meta.description`）
-- `icon.svg`、`README.md`、`LICENSE`、`THIRD_PARTY_NOTICES.md`
+- `icon.svg`、`README.md`、`LICENSE`、`THIRD_PARTY_NOTICES.md`（`README.en.md` 不在 `files` 里，但 npm 会自动打包所有 `README*`，1.0.0 的 tarball 里就有）
 
 > `@deepseek-ai/schemastery` 只写在 `devDependencies`：Host 半部在 DSH 进程里 import 时由宿主从自己的安装解析，
 > 若写进 `dependencies` 会装出第二份实例；它进不了 tarball（`files` 白名单不含 `node_modules`），测试前用
@@ -162,7 +163,7 @@ npm trust github dsh-everforest `
 & "$node\npm.cmd" pack --dry-run
 ```
 
-要看到上述文件，且**不**包含 `src/`、`scripts/`、`docs/`、`.github/`、`node_modules/` 等开发文件（由 `files` 控制）。重点确认 `client.js` 在清单里——缺它插件能装上但 Client 半部加载失败。
+要看到上述文件，外加 npm 自动带入的 `package.json`、`README.md` / `README.en.md`、`LICENSE`（1.0.0 共 16 个文件）；`src/` 下**只**出现白名单里的 5 个文件——`src/client-entry.js`、`src/color-mode.js`、`src/settings-page.js`、`src/dev-panel.js` 等 Client 侧模块已打进 `client.js`，`scripts/`、`docs/`、`.github/`、`node_modules/` 不得出现（由 `files` 控制）。重点确认 `client.js` 在清单里——缺它插件能装上但 Client 半部加载失败。
 
 另外核对：
 
@@ -192,19 +193,19 @@ GitHub / CI 侧：
 # 已发布但 Release 缺失：用同一份 CHANGELOG 小节补建（tag 换成实际版本）
 node scripts/release-notes.mjs --version 0.4.0 --out notes.md
 gh release create v0.4.0 --verify-tag --notes-file notes.md
-# Release 已存在、只是正文不对（例如 0.4.0 的旧 --generate-notes 产物）：
+# Release 已存在、只是正文不对（例如 0.4.0 的旧 --generate-notes 产物；0.4.0 截至 2026-10-25 仍未回填）：
 # gh release edit v0.4.0 --notes-file notes.md
 ```
 
-> **市场「更新内容」的链路**（dsh-market 1.66.x）：市场不读 `CHANGELOG.md`、也不读 README。awesome-dsh-plugin 每天探测一次每个仓库**最新一个正式 Release 的正文**（跳过 draft / prerelease），发布成 npm 包 `dsh-plugin-updates` 与 <https://awesome-dsh-plugin.com/updates.json>；dsh-market 拉取后显示在更新行的「更新内容」弹窗里，**最多渲染前 4 KB**。没有 Release 才退到最近 5 条 commit 的首行，纯 npm 安装退到版本发布时间。所以：小节要写成能独立阅读的版本说明，最重要的改动放开头；标题用 `###`（Release 正文不含 `##` 标题）；改完 Release 后市场最多约 1 天（探测每日 + 市场缓存 1 小时）才刷新。
+> **市场「更新内容」的链路**（dsh-market 1.66.x）：市场不读 `CHANGELOG.md`、也不读 README。awesome-dsh-plugin 每天探测一次每个仓库**最新一个正式 Release 的正文**（跳过 draft / prerelease），发布成 npm 包 `dsh-plugin-updates` 与 <https://awesome-dsh-plugin.com/updates.json>；dsh-market 拉取后显示在更新行的「更新内容」弹窗里，**最多取前 4096 个字符**（探测脚本 `probe-updates.mjs` 用 `body.length` 截断——变量名虽叫 `MAX_BODY_BYTES`，实际按 UTF-16 code unit 计，中文约合 12 KB 字节，截断处补 `…`）。没有 Release 才退到最近 5 条 commit 的首行（每条最多 200 字符），纯 npm 安装退到版本发布时间。1.0.0 实测：正文 20937 字节 / 12462 字符，市场弹窗在 4096 字符处断在「插件图标改为…」那条中间；`scripts/release-notes.mjs` 的「4 KB」提醒按字节算，会比实际截断更早触发。所以：小节要写成能独立阅读的版本说明，最重要的改动放开头、正文尽量压进 4096 字符；标题用 `###`（Release 正文不含 `##` 标题）；改完 Release 后市场最多约 1 天（探测每日 + 市场缓存 1 小时）才刷新。
 
 DSH 侧（本机 profile = `desktop`）：
 
-1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@0.3.0`）；
+1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@1.0.0`）；
 2. 期望：`application: applied`；插件列表出现标题/描述/图标（来自 `locale/*.json` 与 `icon.svg`）；
 3. `cordis_inspect_query`（Client `Theme.listTokens`）出现覆盖 token；`Slots.listSubTree` 根 `settings.section` 出现 `id: everforest`；
 4. Settings → Everforest 可见，切换即时生效。**0.3.0 起强度写进当前 profile 的 `cordis.patch.yml`（`everforest` 行的 `config.light` / `config.dark`），同一 profile 换浏览器 / 重启 DSH 后仍在**；清掉本浏览器 localStorage 也不影响强度（localStorage 只是首帧缓存）。
-5. **升级 / 回滚后必须重启 DSH**：Host 半部（`index.js` / `src/host-config.js`）在 Host 启动时装载，刷新页面不会重载。只更新 npm 包但没重启时，新 Client 会退回 localStorage-only（选择仍生效、只是暂不写 Host），重启 DSH 后第一次加载会把本地缓存一次性播种到 Host。0.2.1 → 0.3.0 的首次启动会自动把旧 localStorage 的非默认强度一次性播种到 Host（前提是 Host 尚无用户配置），升级验收请用旧版本留下非默认强度后重启确认。
+5. **升级 / 回滚涉及 Host 半部时要重启 DSH**：Host 半部（`index.js` / `src/host-config.js`）在 Host 启动时装载，刷新页面不会重载。只更新 npm 包但没重启时，若 Host 半部仍是**没有 `Config` 的旧版**（≤0.2.1），新 Client 会退回 localStorage-only（选择仍生效、只是暂不写 Host），重启 DSH 后第一次加载会把本地缓存一次性播种到 Host；若旧 Host 已有 `Config`（0.3.0+），写入照常落 patch，只是 schema 版本要等重启后才换（1.0.0 的 0.4.0 → 1.0.0 即属此类）。0.2.1 → 0.3.0 的首次启动会自动把旧 localStorage 的非默认强度一次性播种到 Host（前提是 Host 尚无用户配置），升级验收请用旧版本留下非默认强度后重启确认。
 6. **写入被拒时回读 Host**：home patch / `--patch` 覆盖等场景以 `mutate` 返回 `false`（`response.ok=false`）表现——settings 服务回读，Client 以 Host 值为准并 warn 一次，设置页不弹错；旧宿主（无 settings 服务 / schemastery 无 `volatile()`）下表单不出现，强度退回 localStorage（按 origin），设置页不报错。正常 profile 不应出现该降级。
 7. 停用插件后 `body` 内联 `--dsw-*` 消失，回到原生配色；profile patch 里的 `everforest` 行 `config` 会随卸载/停用保留（下次启用继续用）。
 8. 首帧：Web 刷新 / 新开标签时 loading 页（含 spinner 环与进度弧）即为当前配色（本浏览器缓存优先、Host 值兜底，见 `design.md` §5）；Desktop 完全退出后重启，原生色最多 1 帧。**Host 半部（`index.js`）改动必须重启 Host 进程**——Web 每次 index 渲染都会重新收集首帧 row（运行中改强度对新打开的页面即时生效），Desktop 则只在 Host ready 时采集一次、之后窗口重载沿用冻结副本（靠 localStorage 缓存兜底）；单纯刷新页面不会重载 `index.js`，只换 `client.js` 也不会更新它。
@@ -213,14 +214,14 @@ DSH 侧（本机 profile = `desktop`）：
 
 ## 6. 撤销与回滚
 
-- npm 24 小时内可 `npm unpublish dsh-everforest@版本`（**不能重发同版本号**，要改版本重发）；超过 24 小时用 `npm deprecate dsh-everforest@版本 "message"` 标记。
+- npm 政策允许在发布后 **72 小时**内 `npm unpublish dsh-everforest@版本`（整个包 unpublish 后包名 24 小时内不能再发布）；**用过的 `package@version` 永久不可复用**，撤稿后也要改版本号重发；超过 72 小时用 `npm deprecate dsh-everforest@版本 "message"` 标记。
 - 发布内容错误优先“发新补丁版本 + deprecate 旧版本”，不要依赖 unpublish。
 - 回滚到 Host 半部不同的版本（0.2.1 ↔ 0.3.0）**同样需要重启 DSH** 才生效；0.3.0 写入 profile patch 的
   `config` 对 0.2.1 无害（0.2.1 没有 `Config` 导出、`apply` 不读第二个参数），但会被忽略、强度退回 localStorage；
   需要时可手动删除该行 `config`。
 - **2026-10-24 起（色彩模式已无设置开关）**：本版本不再声明 `colorMode`，profile patch 里残留的旧键无需处理
-  （schema 容忍并忽略，见上方「0.4.0 发布注意」的兼容说明）；只有回滚到 0.3.0 时才需要按 0.4.0 发布时的历史
-  口径先清理该字段。
+  （schema 容忍并忽略，见上方「0.4.0 发布注意」的兼容说明）；回滚到 0.3.0 也不需要先清理该字段——同一条
+  schemastery 规则，未知键被保留并忽略，不会让 entry 不激活（2026-10-25 复核）。
 - CI 失败时先看 npm 的错误码：`EPUBLISHCONFLICT`（版本已存在）、`404 PUT`（trusted publisher 配置与 workflow/仓库不匹配）、`OTP required`（账号 2FA 但未用 OIDC/automation token）。
 
 ## 7. 常见坑
@@ -230,20 +231,19 @@ DSH 侧（本机 profile = `desktop`）：
 | `E404` 首次配置 trusted publisher 找不到包 | 新包必须先发布一次（路线 A 或 B），之后才能配置 |
 | `npm trust github` 返回无 body 的 `400 Bad Request` | npm <= 11.14.x 不发送 trusted-publishing permissions 字段；升级到 npm >= 11.15（本机用 12.2.0）并加 `--allow-publish`（或 `--allow-stage-publish`） |
 | `404 PUT` / `is not in this registry` | trusted publisher 的 owner/repo/workflow 文件名与运行时 OIDC claims 不一致；workflow 只写 basename |
-| `404 PUT` / `is not in this registry` | trusted publisher 的 owner/repo/workflow 文件名与运行时 OIDC claims 不一致；workflow 只写 basename |
 | `OTP required` | 账号开了 2FA 但没用 OIDC 或 automation token；本地交互发布需要 OTP |
 | 包名冲突 | 发布前 `npm view dsh-everforest version`；发布后不能改名，只能新包名 + 同步改 `dsh.client` id |
 | 安装后主题不生效 | tarball 里缺 `client.js`、`exports["./client"]` 错误，或 `dsh.client.platform` 不是 `web` |
 | DSH 提示不兼容 | `engines.dsh` 与运行时版本不匹配（本机 0.2.1-rc.3；兼容区间自 rc.2 起） |
 | 发布后本地仍装旧版 | 插件管理器安装会锁定版本；升级用 `plugin_manager` update/重装，替换已运行的包需重启 |
-| 升级后强度只在当前浏览器生效、patch 里没有 `config` | 只更新了 npm 包但没重启 DSH：Host 半部仍是旧版，新 Client 退回 localStorage-only；重启 DSH 后首启会把本地缓存一次性播种到 Host |
+| 升级后强度只在当前浏览器生效、patch 里没有 `config` | 只更新了 npm 包但没重启 DSH，且 Host 半部仍是**没有 `Config` 的旧版**（≤0.2.1）：新 Client 退回 localStorage-only；重启 DSH 后首启会把本地缓存一次性播种到 Host。旧 Host 已有 `Config` 时（0.3.0+）写入照常落 patch，不属此类（见「1.0.0 发布注意」） |
 | 手改 profile patch 成非法强度 | 运行中：volatile-only 更新解析失败被捕获 → Host warning、entry 保持 ACTIVE（旧配色不丢），改回合法值热恢复；冷启动 / 重挂：entry 不激活（无主题），改回合法值或删除 `config` 后重启恢复 |
 | publish 停在 `Prepare release notes from CHANGELOG.md` | `CHANGELOG.md` 缺当前版本 `## [X.Y.Z]` 小节，或小节为空；补写后重新提交再发。tag 已推时：`git tag -f vX.Y.Z` + `git push --force origin vX.Y.Z` 重跑——该检查在 `npm publish` 之前，此时还没发版，不会撞版本号 |
-| 市场「更新内容」只有一条 `Full Changelog` 链接 / 显示「该插件未提供更新说明」 | 该 Release 是旧的 `--generate-notes` 产物（0.4.0 及更早）；用 §5 的 `gh release edit --notes-file` 回填；市场每日探测，约 1 天内生效（弹窗只显示前 4 KB） |
+| 市场「更新内容」只有一条 `Full Changelog` 链接 / 显示「该插件未提供更新说明」 | 该 Release 是旧的 `--generate-notes` 产物（如 v0.4.0 / v0.2.1；v0.2.0 / v0.3.0 是手写的正常说明）；用 §5 的 `gh release edit --notes-file` 回填；市场每日探测，约 1 天内生效（弹窗只取前 4096 字符） |
 
 ## 8. DSH 生态上架：awesome-dsh-plugin 目录（dshmarket.com 的数据源）
 
-npm 发布只解决“可安装”。[dshmarket.com](https://dshmarket.com/)、[awesome-dsh-plugin.com](https://awesome-dsh-plugin.com/)、dsh-market 插件市场的 **Themes Tab**，以及 dsh 0.2.1+ 的 **Plugins → Discover** 索引，读的都是同一个策展目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)。**上架 = 向该仓库提一个只新增一个 YAML 文件的 PR**；`dsh-market` 仓库只收市场 App 代码，不收插件条目（见其 README 的 “Submit your plugin”）。
+npm 发布只解决“可安装”。[dshmarket.com](https://dshmarket.com/)、[awesome-dsh-plugin.com](https://awesome-dsh-plugin.com/)、dsh-market 插件市场的 **Themes Tab**，以及 dsh 0.2.1+ 的 **Plugins → Discover** 索引，读的都是同一个策展目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)。**上架 = 向该仓库提一个只新增一个 YAML 文件的 PR**；`dsh-market` 仓库只收市场 App 代码，不收插件条目（见其 README 的 “Submit your plugin”）。本插件已于 **2026-10-19 上架**（PR #8096），§8.3 / §8.5 保留当时的流程供以后改条目参考。
 
 ### 8.1 一次 PR 覆盖的入口
 
@@ -269,18 +269,30 @@ description:
 > 功能迭代（Host 持久化、accent 等）之后**不要**更新或追加描述内容，也不要顺手把它改回长版。英文槽位是中文
 > 文案的同义直译。改动代码/README 时不需要同步这段文案。
 
-字段白名单只有 `url` / `name` / `category` / `description`（可选 `tarball`）；多写 `npm:` / `author:` / `screenshots:` 会被校验直接拒。`description.en` 必须、单行、以句号结尾、**必须与代码相符**（评审会数描述里的数字与 API 名），`zh` 可选。描述里含 `: ` 时必须加引号。
+**线上现状（2026-10-25 核对）**：catalog 的 `data/plugins/FormalistBlue__dsh-everforest.yml` 仍是 2026-10-19
+合并（PR #8096）时的**旧长文案**（含「设置页可选择色板与跟随系统外观」等旧说法），本仓库冻结的短文案尚未上线；
+切到短文案需对 awesome-dsh-plugin 单独提一个只改这一行的 PR，不影响本仓库发版。
 
-### 8.3 现状与前置条件
+条目字段白名单是 `url` / `name` / `category` / `description`（必填 `url` / `name` / `category` / `description.en`），
+可选 `icon` 与 `tarball`；`file` 由加载器注入、不要手写。`icon` 必须是 GitHub 托管的位图
+（`png` / `jpg` / `jpeg` / `webp`，约 96px 方形最稳），SVG 与第三方图床会被拒；不写则市场回退作者头像
+（当前条目未设置）。多写 `npm:` / `author:` / `screenshots:` 会被校验直接拒——截图只走仓库根的
+`screenshots.json`（§8.4）。`description.en` 必须、单行、以句号结尾、**必须与代码相符**（评审会数描述里的数字与 API 名），`zh` 可选。描述里含 `: ` 时必须加引号。
+
+### 8.3 上架状态与前置条件
+
+**已上架（2026-10-19）**：PR [#8096](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/8096) 只新增
+`data/plugins/FormalistBlue__dsh-everforest.yml` 一个文件，2026-10-19 17:21 UTC 合并（merge commit `5304455`）。
+下表是当时的上架门槛与 2026-10-25 的复核状态，留作以后重审 / 新条目参考：
 
 | 条件 | 状态 |
 |---|---|
 | `package.json#dsh.bundle` + 根 `cordis.patch.yml`（只声明 `dsh.client` 是第一大被拒原因） | 已有 |
 | 仓库公开、LICENSE | MIT，public |
-| 仓库创建满 1 天（CI 自动检查） | 创建于 `2026-10-18 07:07 UTC` → **最早 2026-10-19 15:07（HK）提 PR** |
-| GitHub topic `dsh-plugin` | **需在仓库 Settings 添加**（当前 topics 为空） |
+| 仓库创建满 1 天（CI 自动检查） | 创建于 `2026-10-18 07:07 UTC`，最早 2026-10-19 15:07（HK）可提 PR；实际 PR 于 2026-10-19 17:21 UTC 合并 |
+| GitHub topic `dsh-plugin` | 已添加（当前 topics：`deepseek-harness` / `dsh-plugin` / `everforest` / `theme`） |
 | `screenshots.json` | 已加（仓库根，见 §8.4） |
-| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；`dsh-everforest@0.3.0` 已发布（2026-10-22），满足，**不要**在 yml 里写包名 |
+| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；`dsh-everforest@1.0.0` 已发布（2026-10-25）且 `repository` 指向本仓库，满足，**不要**在 yml 里写包名 |
 
 ### 8.4 截图（仓库根 `screenshots.json`）
 
@@ -295,19 +307,19 @@ description:
 
 换图推本仓库即可，下一轮构建生效，不用回目录仓库改。`screenshots.json` 不进 npm `files` 白名单（市场从仓库读，不随包安装）。
 
-### 8.5 提交步骤
+### 8.5 上架经过与维护
 
-1. PR 前：给仓库加 `dsh-plugin` topic；`git status` 干净；先 `npm install --no-package-lock --ignore-scripts --no-audit --no-fund`，再跑 `node --test` 与 `npm run check` 全绿（sandbox 下 `node --test` 会因 `spawn EPERM` 失败，需在普通终端跑）。
-2. 提交：fork 与分支已在 2026-10-18 预置——`FormalistBlue/awesome-dsh-plugin` 的分支 `add-dsh-everforest` 已包含该条目文件（相对上游 `main` 只新增 1 个文件）。仓库满 1 天后打开 <https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/compare/main...FormalistBlue:add-dsh-everforest?expand=1> 点 **Create pull request**（标题 `Add FormalistBlue/dsh-everforest`）。需要重做时：fork → 只新增 `data/plugins/FormalistBlue__dsh-everforest.yml` → 开 PR。一个 PR 最多 3 条、别动别人的条目、别手改两个 README。
-3. CI 顺序检查：条目数 ≤3 → 仓库 HEAD 的 `package.json#dsh.bundle` → 仓库年龄 ≥1 天 → `awesome-lint` + README 重生成。
+1. **已完成（2026-10-19）**：PR [#8096](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/8096) 只新增 `data/plugins/FormalistBlue__dsh-everforest.yml` 一个文件，2026-10-19 17:21 UTC 合并；fork 分支 `FormalistBlue/add-dsh-everforest` 保留作以后改条目用。
+2. 当时的 PR 前检查：给仓库加 `dsh-plugin` topic；本仓库 `git status` 干净；先 `npm install --no-package-lock --ignore-scripts --no-audit --no-fund`，再跑 `node --test` 与 `npm run check` 全绿（本 sandbox 下 `node --test` 会因 `spawn EPERM` 失败，需在普通终端跑）。
+3. CI 检查（按当前 `contributing.md`）：条目数 ≤3 → 仓库 HEAD 的 `package.json#dsh.bundle` → 仓库年龄 ≥1 天 → `awesome-lint` + README 一致性 + 站点构建（含截图校验）。只提交 yml、不跑 README 生成也可以（合并后由 `sync-readme.yml` 在 main 上重新生成）；若一起提交生成的 README，必须与数据源一致。
 4. 合并后站点自动重建；`dsh-plugin-catalog` 每日发 npm；市场 App 下次打开即拉到最新目录（通常 1 天内出现）。
-5. 以后更新条目只改这一个 yml。
+5. **以后更新条目**：只改 catalog 侧那一个 yml（描述、分类、`icon` 等）并开新 PR；别动别人的条目、别手改两个 README。本仓库代码 / README 改动不需要同步该条目（§8.2）。
 
 ### 8.6 常见打回 / 注意
 
 - 描述夸大（数字、命令名、API 名会被逐条核对）是“本来合格却被拒”的首要原因——只写能力；
 - 缺 `dsh.bundle`、仓库年龄不足、缺 `dsh-plugin` topic、占位/空壳仓库；
 - 收录不等于安全审查；
-- 刚发 npm 版本 24 小时内，pnpm 的 `minimumReleaseAge` 会让市场静默装到上一个成熟版本——上架前先发最终版并过一个冷静期；
-- 市场更新弹窗的「更新内容」= **最新 GitHub Release 的正文**（每日探测、前 4 KB、跳过 prerelease），也就是 `CHANGELOG.md` 对应小节；发版时漏写小节会先被 publish 门禁拦下（§4 / §5）；
+- 刚发 npm 版本 24 小时内，pnpm 的 `minimumReleaseAge` 会让市场静默装到上一个成熟版本——上架时先发最终版并过一个冷静期（2026-10-19 上架时的经验，仍适用）；
+- 市场更新弹窗的「更新内容」= **最新 GitHub Release 的正文**（每日探测、只取前 4096 个字符、跳过 prerelease），也就是 `CHANGELOG.md` 对应小节；发版时漏写小节会先被 publish 门禁拦下（§4 / §5）；
 - `engines.dsh`（当前 `>=0.2.1-rc.2 <0.3.0-0`）决定市场卡片的“宿主要求”与兼容过滤：低于它的用户可能被隐藏，放宽前需在旧宿主验证 token 覆盖；0.2.1-rc.3 已满足该区间（2026-10-24 复核），不抬高下限以免隐藏仍用 rc.2 的用户。
