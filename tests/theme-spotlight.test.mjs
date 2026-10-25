@@ -1,10 +1,11 @@
 /**
  * Unit tests for `src/theme-spotlight.js`: the pseudo-element stylesheet, the
- * preference resolver, and the View Transitions controller (reveal start,
- * origin tracking, z-order attribute, fallbacks and cleanup).
+ * preference resolver, the OS-flip gate, and the View Transitions controller
+ * (reveal start, origin tracking — pointer or forced centre — z-order
+ * attribute, fallbacks and cleanup).
  *
- * The real DSH integration (wrapping `theme.setTheme`, the settings page path)
- * is covered by `tests/integration.test.mjs`.
+ * The real DSH integration (wrapping `theme.setTheme` and `theme.publish`, the
+ * settings page path) is covered by `tests/integration.test.mjs`.
  */
 
 import { test } from 'node:test'
@@ -14,6 +15,7 @@ import {
   SPOTLIGHT_DURATION_MS,
   createThemeSpotlight,
   resolveSchemePreference,
+  shouldRevealSystemFlip,
   themeSpotlightStyles,
 } from '../src/theme-spotlight.js'
 
@@ -120,6 +122,29 @@ test('resolveSchemePreference follows light/dark/system', () => {
   assert.equal(resolveSchemePreference('unknown'), null)
 })
 
+test('shouldRevealSystemFlip accepts only an OS flip under an existing system preference', () => {
+  const previous = { preference: 'system', active: { colorScheme: 'dark' } }
+  const osLight = { matchMedia: () => ({ matches: false }) }
+  const osDark = { matchMedia: () => ({ matches: true }) }
+
+  // The OS flipped while the preference was already `system`: the old frame is
+  // still on screen here, so this publish must go through the reveal.
+  assert.equal(shouldRevealSystemFlip(previous, 'system', osLight), true)
+  // Same OS scheme: nothing to animate.
+  assert.equal(shouldRevealSystemFlip(previous, 'system', osDark), false)
+  // A Host broadcast changing the preference reports a new resolved scheme too,
+  // but its old preference was fixed, so it keeps the documented instant path.
+  assert.equal(shouldRevealSystemFlip({ preference: 'dark', active: { colorScheme: 'dark' } }, 'system', osLight), false)
+  // Not following the system after the change: never our animation.
+  assert.equal(shouldRevealSystemFlip(previous, 'light', osLight), false)
+  // The host cannot answer the media query: stay instant.
+  assert.equal(shouldRevealSystemFlip(previous, 'system', {}), false)
+  assert.equal(shouldRevealSystemFlip(previous, 'system', { matchMedia: () => { throw new Error('blocked') } }), false)
+  // Defensive: no previous snapshot / no resolvable scheme.
+  assert.equal(shouldRevealSystemFlip(null, 'system', osLight), false)
+  assert.equal(shouldRevealSystemFlip({ preference: 'system' }, 'system', osLight), false)
+})
+
 test('run() falls back to a synchronous switch when View Transitions are unavailable', () => {
   const doc = createFakeDocument()
   delete doc.startViewTransition // pre-Chromium-111 / unsupported host
@@ -196,6 +221,28 @@ test('run() grows the new frame from the pointer position in both directions', a
   assert.match(String(animation.keyframes.clipPath[0]), /^circle\(0px at 120px 80px\)$/)
   assert.match(String(animation.keyframes.clipPath[1]), /^circle\(1137\.01\d*px at 120px 80px\)$/)
   assert.equal(animation.options.pseudoElement, '::view-transition-new(root)')
+
+  stopTracking()
+  doc.transitions[0].resolveFinished()
+  await flushMicrotasks()
+})
+
+test('run() can ignore a stale pointer for changes that are not a click', async () => {
+  const doc = createFakeDocument()
+  const clock = createClock()
+  const controller = createThemeSpotlight({ document: doc, schedule: clock.schedule, cancel: clock.cancel })
+  const stopTracking = controller.trackOrigin()
+  doc.fire('pointerdown', { clientX: 120, clientY: 80 })
+
+  // The OS scheme flip is not a click: the pointer position may be minutes old,
+  // so the reveal grows from the viewport centre instead.
+  controller.run(() => {}, { origin: 'center' })
+  doc.transitions[0].callback()
+  doc.transitions[0].resolveReady()
+  await flushMicrotasks()
+  const [animation] = doc.animations
+  assert.match(String(animation.keyframes.clipPath[0]), /^circle\(0px at 500px 400px\)$/)
+  assert.match(String(animation.keyframes.clipPath[1]), /^circle\(640\.31\d*px at 500px 400px\)$/)
 
   stopTracking()
   doc.transitions[0].resolveFinished()

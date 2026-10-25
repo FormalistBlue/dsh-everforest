@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.3（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.3（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -74,7 +74,7 @@
 
 - **覆盖层必须由插件自己的 effect 持有**：`overrideTokens` 返回的 disposer 不会随插件 fiber 自动调用（层存在 root 级 `ThemeRuntime` 里），所以必须 `ctx.effect(() => ctx.theme.overrideTokens(...))` 或把返回的 disposer 挂进 effect；否则插件停用后会残留到页面重载。`ctx.locale.register` 同理需要 `ctx.effect`；`ctx.slots.register` / `ctx.slots.inject` 由 slot service 代挂调用者 fiber，可省略。
 - 选强度不重建插件，只替换同一 source 的覆盖层（`overrideTokens` 语义：同 source 整体替换并重新置顶，旧 disposer 变为 no-op）；替换后发 `theme/change`，presenter 同步重新应用。
-- 深浅色切换不需要插件做任何事：覆盖层里每个 token 同时带 `light` 与 `dark`，presenter 按当前 `active.colorScheme` 取值。**1.0.0 起有例外**：跨深浅切换由 `src/theme-spotlight.js` 包住 `ctx.theme.setTheme`，以 View Transition 圆形揭示过渡（见 §17）；同深浅内的强度切换、OS 翻转、跨窗口广播仍是瞬切。
+- 深浅色切换不需要插件做任何事：覆盖层里每个 token 同时带 `light` 与 `dark`，presenter 按当前 `active.colorScheme` 取值。**1.0.0 起有例外**：跨深浅切换由 `src/theme-spotlight.js` 包住 `ctx.theme.setTheme`，以 View Transition 圆形揭示过渡（见 §17）；**2026-10-25 追加**：`system` 跟随下 OS 翻深/翻浅也走同一揭示（包 `ThemeRuntime.publish`，见 §17.1）；同深浅内的强度切换、会改变偏好的跨窗口广播仍是瞬切。
 - **强度真源是 Host 文档**（0.3.0）：Client 不直接写 `cordis.patch.yml`，只调用配置表单的写操作（选择 = 一次 `mutate` 里 set 两个字段，恢复默认 = 一次 `mutate` 里 unset 两个字段）；settings 服务负责落盘并在同一 profile 的所有浏览器间广播。表单通过**软注入** `ctx.inject(['configForms'], …)` 等待（不写进模块级 `inject`，否则旧宿主会把整个 Client 插件挂起）；Client 拿到 Host 快照后以它收敛内存与首帧缓存，本机缓存只在首帧与旧宿主降级时被读取（§7）。
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
@@ -564,14 +564,14 @@ export function apply(ctx) {
 | 迁移 | 从 0.2.1 升级：旧 localStorage 留非默认强度、Host 无用户层 → 首次启动后 Host 出现该值（一次播种），之后清 localStorage 仍在；Host 已有用户层时以 Host 为准、不会被本地缓存覆盖 |
 | Host 写入失败 | home patch / `--patch` 覆盖等场景 → `mutate` 返回 `false`（`response.ok=false`），Client 以回读的 Host 值为准并 warn 一次，设置页不弹错、主题正常；旧宿主 / 无表单时退回 localStorage（按 origin） |
 | 非法配置 | 分两种情况验证：①**运行中**把 patch 的 `config.light` 改成 `nope` → Host 记 warning、entry 保持 ACTIVE、旧配色不丢，改回合法值热恢复（不必重启）；②**冷启动**时 patch 已是非法值 → entry 不激活（无主题、启动诊断可见），改回合法值 / 删除 `config` 后重启恢复 |
-| 深浅色 | 用 DSH 自带 Appearance、设置页外观控制或插件色卡切到 light/dark/system，主题自动使用对应调色板；**跨深浅切换走聚光灯**：新主题从最后一次 `pointerdown` 位置以 `circle()` 扩张揭示 400ms（无指针记录时从视口中心），旧主题快照留底层，浅→深结束不闪白；同深浅内的强度切换、OS 翻转与跨窗口广播为瞬切；`prefers-reduced-motion: reduce` / 无 View Transitions 一律瞬切（§17）；`system` 下改 OS 深浅色应实时跟随（聊天区、设置页「当前」行、Windows 标题栏都要变）；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复；点同侧色卡不得改偏好 |
+| 深浅色 | 用 DSH 自带 Appearance、设置页外观控制或插件色卡切到 light/dark/system，主题自动使用对应调色板；**跨深浅切换走聚光灯**：新主题从最后一次 `pointerdown` 位置以 `circle()` 扩张揭示 400ms（无指针记录时从视口中心），旧主题快照留底层，浅→深结束不闪白；同深浅内的强度切换与跨窗口广播为瞬切；`system` 跟随下 OS 翻深/翻浅同样走揭示（无点击位置，从视口中心扩张）；`prefers-reduced-motion: reduce` / 无 View Transitions 一律瞬切（§17）；`system` 下改 OS 深浅色应实时跟随（聊天区、设置页「当前」行、Windows 标题栏都要变）；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复；点同侧色卡不得改偏好 |
 | 代码高亮 | 三处代码块（聊天气泡 fenced code / 工具输出 / 右侧文件预览）的 token 色与块底正确；diff 的 add/del 底色与 marker 来自 `--dsw-alias-file-diff-*` / `code-diff-*`（diff 没有语法高亮，**不要**按 shiki 验收） |
 | 聊天气泡 | 浅色（hard / medium）为 sage tint、light·soft 为淡鼠尾草纸抬起卡片，与画布边界 ≥ 1.10:1（light·soft 1.05:1，见 `reference/contrast.md` §2d）；深色保持 `bg1`；气泡内文字 4.5:1（2026-10-19 / 2026-10-21 修正，见 §12） |
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失；patch 里的 `config` 保留，重新启用后继续生效 |
 | 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧，spinner 环与进度弧同色系）；强度分别验证「有缓存」「无缓存但 Host 有值」「两者都缺」三条路径与 `window.__EVERFOREST_BOOT__` 的值；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的 spinner / 边框随 boot token 一起着色（2026-10-21） |
 | 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；深色边框可见度（设置卡片 / 行 / 输入框的 `.5px` 描边对自己的填充 ≥ 1.45:1、对页面底 ≥ 1.8:1，2026-10-24）；1.0.0 新增层：选中会话行 vs hover vs 待确认黄底 / 已完成绿底三色可辨（§15）、文本选区六档底色（§16.2）、跨深浅聚光灯无闪色（§17）；记录已知缺口 |
 | 色彩模式（0.4.0 引入；2026-10-24 起默认提供、无设置开关） | 设置页**没有**色彩模式区块（无标题 / 说明 / 开关 / 色片）；默认即生效：聊天 h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接 aqua、删除线 / 已完成任务淡化、引用块淡底、列表 marker / 引用条 / 分隔线、表头色带 / 斑马纹 / 行 hover、checkbox，以及会话列表「待确认 / 已完成未查看」行底色与状态点变色（行底取 palette1 自带的状态背景色，见 §13.8 / §13.8.1；hover 再深一档）；`<html>` 上恒有 `data-everforest-color-mode="on"`（作用域锚点，不再表示开关状态）与两个强度属性，切换强度 / 深浅色时按 6 个变体块 × 24 个变量自动切换；token 层与 0.3.0 逐字节一致；选中行不覆盖选中态、hover 有加深；浅色档特别是 light·soft 的表格色带 / 会话行底会被压成极淡甚至不可辨（见 §13.3），属已接受的「淡彩」取舍；DSH 升级后若选择器失效，模式静默退回单色且控制台无报错 |
-| 聚光灯（1.0.0，§17） | 跨深浅切换：新主题从点击点圆形扩张 400ms，无灰峰（颜色插值中途仅 1.01:1）、浅→深结束无闪白；DSH Appearance 行 / 插件色卡 / 设置页外观控件三个入口都走揭示；OS 翻转、跨窗口广播、同深浅强度切换、reduced-motion、无 View Transitions 均瞬切；插件卸载后 `ctx.theme.setTheme` 恢复原方法；常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），`<html>` 上无 `data-everforest-transition` |
+| 聚光灯（1.0.0，§17；2026-10-25 追加跟随系统 OS 翻转） | 跨深浅切换：新主题从点击点圆形扩张 400ms，无灰峰（颜色插值中途仅 1.01:1）、浅→深结束无闪白；DSH Appearance 行 / 插件色卡 / 设置页外观控件三个入口都走揭示；`system` 偏好下 OS 翻转也走揭示（从视口中心扩张、不建立第二段过渡）；跨窗口广播、同深浅强度切换、reduced-motion、无 View Transitions 均瞬切；插件卸载后 `ctx.theme.setTheme` 与 `publish` 都恢复原方法；常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），`<html>` 上无 `data-everforest-transition` |
 | 当前会话行（1.0.0，§15） | 选中会话行（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）恒为 palette `bg_blue` 蓝底，与「待确认」黄底 /「已完成」绿底并排可一眼区分；6 档取值见 §15 表格（light-hard `#DCECE9` 4.58:1、dark-soft `#3F5764` 4.51:1 等）；hover 其他行不再与选中态混淆；卸载后样式表移除；light·soft 行底贴 4.5:1 门槛属已知上限 |
 | 文本选区（1.0.0，§16.2） | 六档 `::selection` 底色 = 各变体 `bg_visual`（light 统一 `#DED8DB`；dark `#4C3743` / `#543A48` / `#5C3F4F`），`color: inherit` 保留元素自身颜色（h2 / strong / 行内 code 选中后仍是原色）；与色彩模式解耦、常驻；不改变 `user-select` 与复制行为 |
 | dev 调试面板（1.0.0，§14） | `npm run build:dev` 后主界面出现浮动面板，可切换外观与两套强度、拖动、折叠成 38×38 圆钮且折叠 / 展开态都保留样式与内联兜底；`npm run build` 后消失；`--check` / CI / `prepack` 拒绝停留在开发产物；生产 `client.js` 无面板代码 |
@@ -1128,7 +1128,7 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 
 ## 17. 2026-10-24/25 深浅切换聚光灯（theme-spotlight）
 
-> 触发：2026-10-24 用户要求「先做一个出来看看效果」；同日四轮收敛——①先交付可目检原型、②改为聚光灯式圆形揭示、③修掉浅→深结束闪白、④去掉同色系软/硬切换的渐变。原型阶段按用户要求只记 `CHANGELOG.md`，本节是验收后补的正式记录（`CHANGELOG.md` 1.0.0 段）。
+> 触发：2026-10-24 用户要求「先做一个出来看看效果」；同日四轮收敛——①先交付可目检原型、②改为聚光灯式圆形揭示、③修掉浅→深结束闪白、④去掉同色系软/硬切换的渐变。**2026-10-25 追加第⑤轮**：用户问「跟随系统自动切换时会有这个效果吗」，于是把 `system` 跟随下的 OS 翻转也接进同一揭示（§17.1）。原型阶段按用户要求只记 `CHANGELOG.md`，本节是验收后补的正式记录（`CHANGELOG.md` 的 1.0.0 / Unreleased 段）。
 
 **问题**
 
@@ -1139,7 +1139,7 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 
 **方案：View Transitions + `clip-path: circle()`，「新主题在上层」**
 
-- 控制器 `createThemeSpotlight()`（`src/theme-spotlight.js` L120–267）：在 `document.startViewTransition(change)` 内执行真正的换色；`transition.ready` 后对 `documentElement` 做 Web Animations 的 `clip-path` 动画，从点击点 `circle(0px at X Y)` 扩张到覆盖最远角的半径 `hypot(max(x, W-x), max(y, H-y))`。
+- 控制器 `createThemeSpotlight()`（`src/theme-spotlight.js` L149–300）：在 `document.startViewTransition(change)` 内执行真正的换色；`transition.ready` 后对 `documentElement` 做 Web Animations 的 `clip-path` 动画，从点击点 `circle(0px at X Y)` 扩张到覆盖最远角的半径 `hypot(max(x, W-x), max(y, H-y))`。
 - **只裁新快照**：动画挂在 `pseudoElement: '::view-transition-new(root)'`。旧快照留在底层且永不参与动画——即使结束掉一帧裁剪，露出的也是目标主题，结构上不会闪错色。
 - 一张常驻样式表关掉 UA 默认 cross-fade（cross-fade 同样经过灰色中点）：`::view-transition-old/new(root){animation:none; mix-blend-mode:normal}`，层级固定 `old: z-index 1` / `new: z-index 9999`；由 `src/client-entry.js` 在 token 层之前注入，`data-plugin-css="dsh-everforest/theme-spotlight"`（`src/client-entry.js` L218–229）。
 - 实现同 rspress 的外观切换（`web-infra-dev/rspress#1270`）。
@@ -1154,12 +1154,21 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 
 | 入口 | 接线 | 证据 |
 |---|---|---|
-| 插件自己的色卡（跨深浅切换） | `select()` 在 `spotlight.run()` 里同时做 token 重栈与 `ctx.theme.setTheme(scheme)`，一次过渡覆盖换色与 Appearance 写入 | `src/client-entry.js` L602–621 |
-| 设置页外观控制（浅色/深色/跟随系统） | `setPreference()` → `ctx.theme.setTheme(preference)`，命中下面包装后的服务方法 | 同文件 L654–665 |
-| DSH 自带 Appearance 行 | 在 ThemeRuntime 实例上包装 `setTheme`：仅 `light/dark/system` 且目标 scheme ≠ 当前 scheme 时进 `spotlight.run`，其余原样透传；同 scheme 写偏好短路、不建过渡；卸载时按「原方法是否自有属性」还原或删除 | 同文件 L235–274；`tests/integration.test.mjs` |
-| OS 深浅色翻转（`system` 跟随） | 变更无法在发生前拦截 → 保持瞬切 | `src/theme-spotlight.js` L30–38 |
-| 跨窗口广播（Host 配置变更） | 同上，瞬切 | 同上 |
-| 同深浅内的强度切换（soft/medium/hard） | **瞬切**：原地 `applyLayer()`，不建过渡 | `src/client-entry.js` L622–626 |
+| 插件自己的色卡（跨深浅切换） | `select()` 在 `spotlight.run()` 里同时做 token 重栈与 `ctx.theme.setTheme(scheme)`，一次过渡覆盖换色与 Appearance 写入 | `src/client-entry.js` L651–683 |
+| 设置页外观控制（浅色/深色/跟随系统） | `setPreference()` → `ctx.theme.setTheme(preference)`，命中下面包装后的服务方法 | 同文件 L703–714 |
+| DSH 自带 Appearance 行 | 在 ThemeRuntime 实例上包装 `setTheme`：仅 `light/dark/system` 且目标 scheme ≠ 当前 scheme 时进 `spotlight.run`，其余原样透传；同 scheme 写偏好短路、不建过渡；卸载时按「原方法是否自有属性」还原或删除 | 同文件 L244–279；`tests/integration.test.mjs` |
+| OS 深浅色翻转（`system` 跟随） | 包装实例上的 `publish`：仅「旧快照偏好与新偏好都是 `system`、且解析出的 scheme 与当前不同」时进 `spotlight.run`（原点固定视口中心）；其余 publish（字体/字号、token 重栈、广播改偏好）原样透传；`spotlight.running` 时直通，不叠第二段过渡；卸载时同样还原 | 同文件 L281–323；`src/theme-spotlight.js` L123–139；`tests/integration.test.mjs` |
+| 跨窗口广播（Host 配置变更） | 会改偏好（如 `dark → system`）的广播不满足「旧快照偏好也是 `system`」，保持瞬切 | 同上 |
+| 同深浅内的强度切换（soft/medium/hard） | **瞬切**：原地 `applyLayer()`，不建过渡 | `src/client-entry.js` L671–675 |
+
+**17.1 `system` 跟随下的 OS 翻转（2026-10-25 追加）**
+
+- **为什么必须换钩子**：OS 深浅翻转不经过 `setTheme`。当前安装的 DSH 0.2.1-rc.3 里，`ThemeRuntime` 在构造期持有 `matchMedia('(prefers-color-scheme: dark)')`，其 `change` 监听在偏好为 `system` 时直接调 `this.publish()`（`dsh-client-ui-theme/lib/client.js` 的监听 L1666–1680、`publish` L1877–1881，bundle 内）。包装 `setTheme` 看不到这次变更；等 `theme/change` 到达时旧帧已被 presenter 抹掉，无法再拍快照。
+- **接缝 = 包装 `publish`**：`publish()` 内部才重建快照并同步 `emit('theme/change')`，而 `ThemePresenter.apply()` 就挂在这个 emit 上（`dsh-client-ui-layout/lib/client.js` L700–710）。把 `publish` 包进 `startViewTransition` 回调，就把整次重绘放进「旧帧已拍、新帧未拍」的窗口里——这是唯一够深的接缝。包装/还原手法与 `setTheme` 相同（类方法在原型上，删实例属性即恢复）。
+- **窄门**：`shouldRevealSystemFlip(previous, preference)` 只在「偏好是 `system`、旧快照偏好也是 `system`、且解析出的 scheme 与旧帧不同」时放行；`spotlight.running` 时直通。于是字体/字号 publish、同深浅 token 重栈、以及**会改偏好**的 Host 广播（`dark → system`）都保持瞬切——与 1.0.0 的口径一致。点「跟随系统」若真的换色本来就由 `setTheme` 包装负责，`publish` 在 `running` 中不会再包一层。
+- **原点**：OS 翻转没有点击，最后一次 `pointerdown` 可能是几分钟前的，因此显式 `run(change, { origin: 'center' })` 从视口中心扩张；`run()` 默认仍是指针原点，原有入口不受影响。
+- **兜底与边界**：`prefers-reduced-motion` / 无 View Transitions / `resolveSchemePreference` 无法回答时 `run()` 同步执行，和原来一样瞬切；揭示进行中再翻一次 OS 会直通（与连点行为一致），结束后直接落在最新状态。
+- **风险**：`publish` 是 DSH 内部方法（不在文档化 API 里），比 `setTheme` 更贴实现；DSH 升级若改名或改结构，`typeof` 守卫会让包装装不上 → 只有 OS 翻转退回瞬切，其余三个入口不受影响，也不会报错。
 
 **瞬切兜底口径**（任何情况下都不丢用户操作）
 
@@ -1172,22 +1181,24 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 
 - 时长 `SPOTLIGHT_DURATION_MS = 400`，缓动 `ease-in`；收尾定时器 400+240ms。
 - 原点 = 最后一次 `pointerdown` 的 client 坐标，document 捕获阶段监听，插件自己的控件与 DSH Appearance 行都自动覆盖；无指针记录时从视口中心出发。
+- OS 翻转没有点击位置（上一次 `pointerdown` 可能已过去很久），显式 `run(change, { origin: 'center' })` 忽略指针、从视口中心扩张。
 - 终点半径取「点击点到最远角」的距离，保证整页覆盖。
 
 **已知取舍**
 
 1. 设置弹窗也参与快照；弹窗内的选中描边要等揭示结束后随 React 重渲染才更新。
 2. Windows 原生标题栏 / 终端由页面快照覆盖，但原生窗口框架在揭示**开始**时就切色。
-3. 只有「跨深浅」有动画；同深浅强度切换、OS 翻转、跨窗口广播、reduced-motion、无 View Transitions 全部瞬切。
+3. 只有「跨深浅」有动画：插件色卡、设置页外观控制、DSH 自带 Appearance 行，以及 `system` 跟随下的 OS 翻转；同深浅强度切换、会改偏好的跨窗口广播、reduced-motion、无 View Transitions 全部瞬切。
 4. 旧的颜色渐变实现已整体删除：`src/theme-transition.js` 及其样式表、prepended `theme/change` 监听器、结束后的同值 token 重放、首屏动画守卫；`src/` 下已无该文件，`tests/integration.test.mjs` 断言只剩一个非 prepend 的 `theme/change` 监听器、`<html>` 上无 `data-everforest-transition`。
 5. 键盘 / 无指针路径没有真实点击位置，揭示从视口中心开始。
+6. OS 翻转的真机验收要手动切系统深浅色；自动化只能验证到「`publish` 被包住 → `startViewTransition` 启动 → 换色发生在回调内 → 从中心扩张」（§17.1、两个测试文件）。
 
 **文件与测试清单**
 
-- 新增 `src/theme-spotlight.js`（267 行：样式表 + 控制器 + 指针原点 + `resolveSchemePreference`）。
-- `src/client-entry.js`：import 与 4 段接线（卸载 `spotlight.dispose()`、样式表、原点跟踪、服务包装还原）、`select()`、`setPreference()`。
-- `scripts/build.mjs` 的 `SOURCES` 增 `theme-spotlight.js`；`client.js` 已构建入库。
-- `tests/theme-spotlight.test.mjs`（9 项：样式表禁用 cross-fade 与 z-order、`resolveSchemePreference`、无 View Transitions 兜底、reduced motion、快照→换色→揭示顺序与中心原点/半径、两方向都从指针点扩张、重入、dispose、无 DOM）；`tests/integration.test.mjs` 覆盖同深浅瞬切、无 prepend 监听、无 `data-everforest-transition`、服务包装在无 View Transitions 时瞬切与卸载还原。
+- 新增 `src/theme-spotlight.js`（301 行：样式表 + 控制器 + `run()` 的 `origin` 选项 + 指针原点 + `resolveSchemePreference` + `shouldRevealSystemFlip`）。
+- `src/client-entry.js`：import 与 5 段接线（卸载 `spotlight.dispose()`、样式表、原点跟踪、`setTheme` 包装与 `publish` 包装各自还原）、`select()`、`setPreference()`。
+- `scripts/build.mjs` 的 `SOURCES` 已含 `theme-spotlight.js`（本轮未改）；`client.js` 已重新构建入库。
+- `tests/theme-spotlight.test.mjs`（11 项：样式表禁用 cross-fade 与 z-order、`resolveSchemePreference`、`shouldRevealSystemFlip` 的窄门六分支、无 View Transitions 兜底、reduced motion、快照→换色→揭示顺序与中心原点/半径、两方向都从指针点扩张、`origin: 'center'` 忽略旧指针、重入、dispose、无 DOM）；`tests/integration.test.mjs` 覆盖同深浅瞬切、无 prepend 监听、无 `data-everforest-transition`、服务包装在无 View Transitions 时瞬切与卸载还原，以及本轮新增的「OS 翻转走揭示」与「其他 publish 仍瞬切 / setTheme 只揭示一次」两项。
 - 常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），含设置页样式共 5 张。
 
-**门禁**：`node --test` 全量 **220/220** 与 `npm run check`（palette / build / contrast）全绿；本功能只加一张样式表与过渡控制器，token 层、24 个角色色值与 6 档强度均未改动。
+**门禁**：`node --test` 全量 **224/224**（2026-10-25 追加跟随系统 OS 翻转后）与 `npm run check`（palette / build / contrast）全绿；本轮只动 Client 侧接线，token 层、24 个角色色值与 6 档强度均未改动。

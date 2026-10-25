@@ -29,11 +29,13 @@
 // The old frame can only be captured while the change happens inside the
 // `startViewTransition` callback, so every switch that should animate has to be
 // wrapped at the call site. `client-entry.js` wraps its own palette/Appearance
-// actions and wraps `ctx.theme.setTheme` on the service instance, which is how
-// DSH's own Appearance row is covered too. Changes that DSH applies without such
-// a call (OS scheme flip while following the system, Host broadcasts) cannot be
-// wrapped after the fact and stay instant — that is the deliberate fallback:
-// no grey, just no animation.
+// actions, wraps `ctx.theme.setTheme` on the service instance (DSH's own
+// Appearance row), and wraps `ThemeRuntime.publish` for the one scheme change
+// that never passes through `setTheme`: the OS flip while the preference is
+// `system` (ThemeRuntime's own `prefers-color-scheme` listener calls `publish()`
+// directly). Any other publish — font changes, token restacks, a Host broadcast
+// that changes the preference — is let through untouched, and a change that
+// cannot be wrapped in time still stays instant: no grey, just no animation.
 //
 // The controller is DOM-light and injectable so `node --test` can drive it.
 
@@ -98,6 +100,33 @@ export function resolveSchemePreference(preference, scope = globalThis) {
   } catch {
     return null
   }
+}
+
+/**
+ * Whether one `ThemeRuntime.publish()` is the OS color-scheme flip that has to
+ * animate: the preference was *already* `system` before the publish, it still
+ * is, and the scheme the runtime will now resolve actually differs from the one
+ * on screen.
+ *
+ * The preference check on both sides is what keeps every other publish on the
+ * instant path: a Host broadcast changing the preference (`dark` -> `system`)
+ * also reports a different resolved scheme, but its old preference is not
+ * `system`, so it stays a cut like it always was.
+ *
+ * @param {object | null} previous - snapshot returned by `getTheme()` before
+ *   the publish (the frame currently on screen).
+ * @param {string} preference - the runtime's preference *after* the change
+ *   (`ThemeRuntime.preference`, read from the instance).
+ * @param {object} [scope] - object carrying `matchMedia` (defaults to globalThis).
+ * @returns {boolean}
+ */
+export function shouldRevealSystemFlip(previous, preference, scope = globalThis) {
+  if (previous === null || typeof previous !== 'object') return false
+  if (preference !== 'system' || previous.preference !== 'system') return false
+  const current = previous.active?.colorScheme
+  if (current !== 'light' && current !== 'dark') return false
+  const target = resolveSchemePreference('system', scope)
+  return target !== null && target !== current
 }
 
 /**
@@ -191,9 +220,14 @@ export function createThemeSpotlight({
      * synchronously (instant switch), so callers never lose a user action.
      *
      * @param {() => void} change - the synchronous palette switch.
+     * @param {object} [options]
+     * @param {'pointer' | 'center'} [options.origin] - where the reveal grows
+     *   from. `pointer` (default) uses the last `pointerdown`; `center` ignores
+     *   it for changes that are not driven by a click (the OS scheme flip), so a
+     *   pointer position recorded minutes earlier cannot pick the animation.
      * @returns {boolean} whether a reveal was started.
      */
-    run(change) {
+    run(change, { origin: originMode = 'pointer' } = {}) {
       if (!canRun() || running) {
         // Re-entrant or unsupported: apply the change synchronously, but keep
         // `running` true for the duration so the colour-transition listener
@@ -209,7 +243,7 @@ export function createThemeSpotlight({
       }
       const width = view && Number.isFinite(view.innerWidth) ? view.innerWidth : 0
       const height = view && Number.isFinite(view.innerHeight) ? view.innerHeight : 0
-      const point = origin && origin.x >= 0 && origin.y >= 0
+      const point = originMode === 'pointer' && origin && origin.x >= 0 && origin.y >= 0
         ? origin
         : { x: Math.round(width / 2), y: Math.round(height / 2) }
       running = true

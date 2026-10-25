@@ -64,6 +64,7 @@ import { SETTINGS_STYLES, createSettingsComponent } from './settings-page.js'
 import {
   createThemeSpotlight,
   resolveSchemePreference,
+  shouldRevealSystemFlip,
   themeSpotlightStyles,
 } from './theme-spotlight.js'
 // @dev-only:start
@@ -202,11 +203,15 @@ export function apply(ctx) {
    * the old snapshot only exists inside the `startViewTransition` callback:
    *   - this plugin's own controls (`select` / `setPreference`) wrap the call;
    *   - DSH's own Appearance row calls `theme.setTheme(id)` on the ThemeRuntime
-   *     instance, so wrapping that instance method is the interception point.
-   * Changes DSH applies without such a call (OS scheme flip while following the
-   * system, Host broadcasts from another browser) cannot be wrapped after the
-   * fact; they stay instant. Instant is the fallback everywhere View Transitions
-   * or the clip-path animation is unavailable.
+   *     instance, so wrapping that instance method is the interception point;
+   *   - the one scheme change that never passes through `setTheme` — the OS flip
+   *     while the preference is `system` — is caught by wrapping the instance's
+   *     `publish()`, which ThemeRuntime's own `prefers-color-scheme` listener
+   *     calls directly; see 0d. It is the only hook deep enough to start the
+   *     transition before ThemePresenter repaints, and it lets every other
+   *     publish through untouched.
+   * Anything that still cannot be wrapped in time (a Host broadcast, a
+   * `prefers-reduced-motion` / no-View-Transitions host) stays instant.
    * ------------------------------------------------------------------ */
 
   const spotlight = createThemeSpotlight({
@@ -272,6 +277,50 @@ export function apply(ctx) {
       else delete themeService.setTheme
     }
   }, 'everforest: theme spotlight service wrap')
+
+  // 0d. Wrap `theme.publish` on the service instance so the OS scheme flip — the
+  // one scheme change that never passes through `setTheme` — gets the same
+  // reveal. ThemeRuntime holds its own `prefers-color-scheme` listener and calls
+  // `this.publish()` directly from it, and `publish` is also where
+  // ThemePresenter repaints, so this is the one seam where the change can still
+  // be wrapped in `startViewTransition` (wrapping it after the repaint is
+  // impossible: the old frame would already be gone). The gate is deliberately
+  // narrow: only a publish that keeps the `system` preference on both sides and
+  // resolves to a scheme different from the one on screen animates; font
+  // changes, token restacks, Host broadcasts that change the preference and the
+  // reduced-motion / no-View-Transitions hosts all keep their instant path. The
+  // reveal grows from the viewport centre: an OS flip has no click position.
+  ctx.effect(() => {
+    const themeService = ctx.theme
+    const original = themeService && themeService.publish
+    if (typeof original !== 'function') return undefined
+    const hadOwnMethod = Object.prototype.hasOwnProperty.call(themeService, 'publish')
+    function publishWithSystemSpotlight(...args) {
+      const receiver = this === undefined || this === null ? themeService : this
+      if (spotlight.running) return original.apply(receiver, args)
+      let previous = null
+      try {
+        previous = receiver.getTheme()
+      } catch {
+        previous = null
+      }
+      if (!shouldRevealSystemFlip(previous, receiver.preference)) {
+        return original.apply(receiver, args)
+      }
+      return spotlight.run(() => original.apply(receiver, args), { origin: 'center' })
+    }
+    try {
+      themeService.publish = publishWithSystemSpotlight
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} could not wrap the theme service publish; OS scheme flips stay instant`, error)
+      return undefined
+    }
+    return () => {
+      if (themeService.publish !== publishWithSystemSpotlight) return
+      if (hadOwnMethod) themeService.publish = original
+      else delete themeService.publish
+    }
+  }, 'everforest: theme system-flip spotlight')
 
   // 1. Token layer, created with the client module and owned by our effect.
   ctx.effect(() => {

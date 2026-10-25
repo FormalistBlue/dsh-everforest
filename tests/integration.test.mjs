@@ -3,7 +3,9 @@
  * manifest/patch/locale/icon shape, generated-artifact freshness, the real
  * `client.js` bundle evaluated in a VM with a fake module loader (including the
  * color-mode `<html>` attributes and the injected color-mode stylesheet), and
- * the full `apply()` lifecycle against a fake Client context.
+ * the full `apply()` lifecycle against a fake Client context — including the
+ * theme spotlight wrappers for `setTheme` and the `system`-follow OS flip
+ * (`publish`) and their teardown.
  *
  * Visual verification of the rendered page still needs the running Harness.
  */
@@ -163,7 +165,7 @@ function createConfigForm(options = {}) {
  * @param {ReturnType<typeof createConfigForm>} [options.form] - the form the
  *   service returns; defaults to a still-loading form.
  */
-function createHarness({ deferUiServices = false, configForms = true, deferConfigForms = false, form = null } = {}) {
+function createHarness({ deferUiServices = false, configForms = true, deferConfigForms = false, form = null, media = { matches: true } } = {}) {
   const recorded = {
     tokenLayers: [],
     tokenLayerDisposers: [],
@@ -188,12 +190,29 @@ function createHarness({ deferUiServices = false, configForms = true, deferConfi
     themes: [],
     revision: 1,
   }
+  // `prefers-color-scheme` double for the OS-flip path. The real ThemeRuntime
+  // owns the media query, exposes a writable `preference` field, and calls
+  // `this.publish()` from its own media listener (which then rebuilds the
+  // snapshot). The fake mirrors that split: the field changes first, the
+  // snapshot only moves inside `publish()`, exactly like the real runtime.
   const theme = {
+    media,
+    preference: themeSnapshot.preference,
     getTheme: () => themeSnapshot,
     setTheme: (id) => {
+      // Same early return as ThemeRuntime.setTheme: same preference, no event.
+      if (theme.preference === id) return
       recorded.setThemeCalls.push(id)
-      themeSnapshot.preference = id
-      themeSnapshot.active = { ...themeSnapshot.active, id, colorScheme: id === 'light' ? 'light' : 'dark' }
+      theme.preference = id
+      theme.publish()
+    },
+    publish: () => {
+      const resolved = theme.preference === 'system'
+        ? (media.matches ? 'dark' : 'light')
+        : theme.preference
+      themeSnapshot.preference = theme.preference
+      themeSnapshot.active = { ...themeSnapshot.active, id: resolved, colorScheme: resolved }
+      themeSnapshot.revision += 1
       for (const listener of [...recorded.themeListeners]) listener(themeSnapshot)
     },
     overrideTokens: (source, tokens) => {
@@ -289,6 +308,7 @@ function createHarness({ deferUiServices = false, configForms = true, deferConfi
     ctx,
     recorded,
     form: formController,
+    media,
     themeSnapshot,
     releaseUiServices: () => {
       servicesReady = true
@@ -338,10 +358,12 @@ function createMemoryStorage(entries = {}) {
  * `document.documentElement` records the color-mode data attributes the bundle
  * writes; the returned `htmlAttributes` map exposes them to assertions.
  */
-function loadBundle({ body, getComputedStyle, console: consoleStub, storage, bootHint, source, filename } = {}) {
+function loadBundle({ body, getComputedStyle, console: consoleStub, storage, bootHint, viewTransition = false, matchMedia, source, filename } = {}) {
   let definition = null
   const styleTags = []
   const htmlAttributes = new Map()
+  const transitions = []
+  const animations = []
   const listeners = new Map()
   const windowStub = {
     __ModuleLoader__: { load: (value) => { definition = value } },
@@ -370,6 +392,8 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage, boo
       },
     },
     createElement: () => ({ dataset: {}, textContent: '' }),
+    transitions,
+    animations,
     documentElement: {
       getAttribute: (name) => (htmlAttributes.has(name) ? htmlAttributes.get(name) : null),
       setAttribute: (name, value) => {
@@ -378,7 +402,37 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage, boo
       removeAttribute: (name) => {
         htmlAttributes.delete(name)
       },
+      ...(viewTransition
+        ? {
+            animate: (keyframes, options) => {
+              animations.push({ keyframes, options })
+              return { cancel() {}, finished: Promise.resolve() }
+            },
+          }
+        : {}),
     },
+    ...(viewTransition
+      ? {
+          defaultView: { innerWidth: 1280, innerHeight: 800 },
+          startViewTransition: (callback) => {
+            const transition = {
+              callback,
+              ready: null,
+              finished: null,
+              resolveReady: null,
+              resolveFinished: null,
+            }
+            transition.ready = new Promise((resolve) => {
+              transition.resolveReady = resolve
+            })
+            transition.finished = new Promise((resolve) => {
+              transition.resolveFinished = resolve
+            })
+            transitions.push(transition)
+            return transition
+          },
+        }
+      : {}),
     body,
   }
   const sandbox = {
@@ -388,6 +442,7 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage, boo
     clearTimeout,
     // Enough of the DOM for the plugin's `<style data-plugin>` lifecycle.
     document,
+    ...(matchMedia ? { matchMedia } : {}),
     ...(getComputedStyle ? { getComputedStyle } : {}),
     ...(consoleStub ? { console: consoleStub } : {}),
     ...(storage ? { localStorage: storage } : {}),
@@ -400,7 +455,7 @@ function loadBundle({ body, getComputedStyle, console: consoleStub, storage, boo
     assert.equal(request, 'react')
     return mockReact
   })
-  return { definition, module, styleTags, window: windowStub, htmlAttributes }
+  return { definition, module, styleTags, window: windowStub, htmlAttributes, document, transitions, animations }
 }
 
 /** Stylesheet tags by their `data-plugin-css` owner (Client bundles share `<style>`). */
@@ -1604,4 +1659,106 @@ test('a scheme switch through the theme service stays instant when View Transiti
     harness.disposeAll()
   }
   assert.equal(harness.ctx.theme.setTheme, original, 'the theme service wrapper was not restored on unload')
+})
+
+test('an OS scheme flip while following the system reveals through the spotlight', async () => {
+  const media = { matches: true }
+  const harness = createHarness({ media })
+  const loaded = loadBundle({
+    viewTransition: true,
+    // DSH's ThemeRuntime resolves `system` through this same media query, and
+    // the reveal gate reads it too; `prefers-reduced-motion` stays off.
+    matchMedia: (query) => ({
+      matches: query === '(prefers-color-scheme: dark)' ? media.matches : false,
+    }),
+  })
+  const theme = harness.ctx.theme
+  const original = theme.publish
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    loaded.module.apply(harness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  assert.notEqual(theme.publish, original, 'the theme service publish was not wrapped for OS flips')
+  try {
+    // The OS flips to light while the preference is `system`. ThemeRuntime's own
+    // media listener calls publish(), and the wrapper has to start the View
+    // Transition around that publish: the old frame is gone after it runs.
+    media.matches = false
+    theme.publish()
+    assert.equal(loaded.transitions.length, 1, 'no View Transition was started for the OS flip')
+    assert.equal(
+      theme.getTheme().active.colorScheme,
+      'dark',
+      'the palette changed before the old frame could be snapshotted',
+    )
+    loaded.transitions[0].callback()
+    assert.equal(theme.getTheme().active.colorScheme, 'light', 'the OS flip never reached the palette')
+
+    // An OS flip has no click position: the reveal grows from the viewport
+    // centre even though the pointer may have been recorded minutes ago.
+    loaded.transitions[0].resolveReady()
+    await flush()
+    assert.equal(loaded.animations.length, 1)
+    const [animation] = loaded.animations
+    assert.match(String(animation.keyframes.clipPath[0]), /^circle\(0px at 640px 400px\)$/)
+    assert.equal(animation.options.pseudoElement, '::view-transition-new(root)')
+    loaded.transitions[0].resolveFinished()
+    await flush()
+  } finally {
+    harness.disposeAll()
+  }
+  assert.equal(theme.publish, original, 'the publish wrapper was not restored on unload')
+})
+
+test('the OS-flip wrapper leaves every other theme publish on the instant path', async () => {
+  const media = { matches: true }
+  const harness = createHarness({ media })
+  const loaded = loadBundle({
+    viewTransition: true,
+    matchMedia: (query) => ({
+      matches: query === '(prefers-color-scheme: dark)' ? media.matches : false,
+    }),
+  })
+  const theme = harness.ctx.theme
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    loaded.module.apply(harness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  try {
+    // A publish that resolves the same scheme (strength / font change) is not an
+    // OS flip: no transition.
+    theme.publish()
+    assert.equal(loaded.transitions.length, 0, 'a same-scheme publish started a transition')
+
+    // A Host broadcast that changes the preference (dark -> system) reports a
+    // different resolved scheme too, but its old preference was fixed: documented
+    // instant path, no transition.
+    theme.setTheme('dark')
+    assert.deepEqual(harness.recorded.setThemeCalls, ['dark'])
+    media.matches = false
+    theme.preference = 'system' // adopt() by ThemeRuntime, not a setTheme call
+    theme.publish()
+    assert.equal(theme.getTheme().active.colorScheme, 'light')
+    assert.equal(loaded.transitions.length, 0, 'a preference broadcast was treated as an OS flip')
+
+    // The setTheme path still runs exactly one reveal: the publish it triggers
+    // runs inside the transition callback and is let through by the running
+    // guard instead of being wrapped a second time.
+    media.matches = true
+    theme.setTheme('dark')
+    assert.equal(loaded.transitions.length, 1, 'the Appearance-row path did not reveal exactly once')
+    assert.equal(theme.getTheme().active.colorScheme, 'light', 'the setTheme change ran before the old snapshot')
+    loaded.transitions[0].callback()
+    assert.equal(theme.getTheme().active.colorScheme, 'dark')
+    loaded.transitions[0].resolveFinished()
+    await flush()
+  } finally {
+    harness.disposeAll()
+  }
 })

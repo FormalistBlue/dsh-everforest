@@ -143,7 +143,7 @@
 | 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 0.2.0 已由 Host boot 注入覆盖：Web 首帧即 Everforest；Desktop 窗口在 load 后才 show、rows 由页面侧在 IPC 后应用，接受最多 1 帧原生色；loading 动效的 spinner / 边框自 0.2.1 起也随 boot token 着色 |
 | boot 注入残留 | 插件停用 / Client 半部加载失败时，页面保留启动调色板 | row 只写 presenter 也会写的 body 内联 token（Client 正常时首次 apply 必覆盖）；停用后 row 在 Host 重启 / 下次 index 渲染消失；Client 失败时保留到本页结束（可接受，README/design 已标注） |
 | 常驻样式表依赖 DSH DOM 锚点 | `aria-selected` / `data-row-key` / `::selection` / markdown 容器等锚点随 DSH 升级改名后，色彩模式 / 当前会话行 / 文本选区会静默失效（token 层与页面不受影响） | 只用 a11y / data 契约锚点；每次 DSH 升级回归（rc.3 已复核）；单项失效只影响对应样式，最坏可回退为停用插件（见 §19） |
-| 包装 DSH `ThemeRuntime.setTheme`（聚光灯） | 上游方法形态变化或其它插件也包装时行为叠加；OS 深浅色翻转与跨窗口广播无法在变更前拦截 | 仅跨深浅走过渡、其余原样透传；卸载按「原方法是否自有属性」还原；无 View Transitions / reduced-motion / 重入同步执行（见 §19） |
+| 包装 DSH `ThemeRuntime.setTheme` / `publish`（聚光灯） | 上游方法形态变化或其它插件也包装时行为叠加；跨窗口广播无法在变更前拦截 | 仅跨深浅走过渡、其余原样透传；`system` 跟随的 OS 翻转走 `publish` 包装（§20），广播仍瞬切；卸载按「原方法是否自有属性」还原；无 View Transitions / reduced-motion / 重入同步执行（见 §19 / §20） |
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
 | 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | **待做**（2026-10-22 用户拍板：等 DSH 官方给 `settings.section` 加 `icon` 字段）；0.x 不做 DOM 改写（`dshmarket` 的做法） |
@@ -444,7 +444,7 @@
 | 会话状态行（2026-10-24） | 「待确认 / 待审批」行底 `bg_red` → `bg_yellow`；行底不再由强调色推导，直接取 palette1 的 `bg_yellow` / `bg_green`；深色档反相为「`fg.yellow` 混 `bg_dim` 22% 的亮琥珀 + 深墨文字」；加 3.5 L* 可见性下限 | 用户两轮反馈：「红色像报错」→ 改黄；「深色档再亮 / 更黄一点」→ 深色反相。浅色档 `bg_yellow` 与画布近同明度（约 1 L*），靠 `liftWarnFill()` 压深到 3.5 L* 或文本 4.5:1 先到；light·soft 只保留色相。见 design §13.8 / §13.8.1 |
 | 当前会话行（2026-10-24） | 新增 `src/active-session.js` + 常驻样式表：`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]` 画 palette `bg_blue`，先保文本 4.5:1、再保对侧栏 ≥4.5 L* | 上游把选中与 hover 合画成同一 `interactive-bg-hover`（对侧栏约 2.6 L*），选中行等于找不到；蓝色是最后一个不与黄 / 绿状态行混淆的语义背景，也与 DSH business primary 一致。light·soft 画布已贴门槛、只留色相；与色彩模式无门控（常驻）。见 design §15 |
 | 文本选区（2026-10-24） | 新增 `src/selection.js` + 常驻 `::selection`：六档取 `bg_visual` 底色、`color: inherit` | DSH 声明了选区 token，但安装包 176 张样式表里没有 `::selection` 消费者，token 层改不到；第一版写死 `color: fg` 被用户否（「选中的文字颜色全部变成一样的」），改 `inherit` 后代码语法色 / 链接色 / 标题色保持。见 design §16.2 |
-| 深浅切换聚光灯（2026-10-24/25） | 跨深浅切换改为 View Transitions + `clip-path: circle()`：新主题快照在上层、从点击点扩张揭示，只裁新快照；时长 400ms、`ease-in`，原点取最后一次 `pointerdown`；包装 `ThemeRuntime.setTheme` 覆盖 DSH 自带 Appearance 行；同深浅强度切换 / OS 翻转 / 跨窗口广播瞬切 | 颜色插值在 50% 处文字与画布 1.01:1（整页发灰）；镜像揭示在快照拆除时整帧丢 clip，浅→深闪白（真机 5 次复现 4 次）。「只裁新快照」结构上不会闪错色。无 View Transitions / reduced-motion / 重入一律同步执行。Windows 原生窗口框架在揭示开始时切色、设置弹窗参与快照是已知取舍。见 design §17 |
+| 深浅切换聚光灯（2026-10-24/25） | 跨深浅切换改为 View Transitions + `clip-path: circle()`：新主题快照在上层、从点击点扩张揭示，只裁新快照；时长 400ms、`ease-in`，原点取最后一次 `pointerdown`；包装 `ThemeRuntime.setTheme` 覆盖 DSH 自带 Appearance 行；2026-10-25 起 `system` 跟随的 OS 翻转也走揭示（包装 `publish`、原点固定视口中心，见 §20）；同深浅强度切换 / 跨窗口广播瞬切 | 颜色插值在 50% 处文字与画布 1.01:1（整页发灰）；镜像揭示在快照拆除时整帧丢 clip，浅→深闪白（真机 5 次复现 4 次）。「只裁新快照」结构上不会闪错色。无 View Transitions / reduced-motion / 重入一律同步执行。Windows 原生窗口框架在揭示开始时切色、设置弹窗参与快照是已知取舍。见 design §17 / §17.1 |
 | dev 调试面板（2026-10-24） | `src/dev-panel.js` 挂在 `shell.overlay`，复用设置页同一个 store；只存在于 `npm run build:dev` 产物，`// @dev-only:` 段由构建剥离，`--check` / CI / `prepack` 拒绝开发产物 | 调 6 套配色不必反复开设置页；零新状态 / 零新持久化（写 Host、缓存、广播、Appearance 与设置页一致）。折叠态曾整块丢样式导致圆钮跑到左上角且不可点，已改为两种状态都渲染样式表 + 内联兜底。见 design §14 |
 | 同批视觉修正（2026-10-24） | 深色边框描边由 `bg5` 向 `grey1` 提亮 20% 且每档 alpha 抬档；深色行内 code 芯片由 `bg_blue` 改 `bg_dim` → `bg0` 提亮 30%；设置页所有 solid 边框统一 `.5px` 单一变量、选中态去掉 inset box-shadow | 均为用户截图 / 目检反馈（「边框线条不明显」「border 宽度没统一」「深色 code 芯片像抬起的色块」）。见 design §4 / §6.2 |
 | 图标与市场素材（2026-10-25） | `icon.svg` 改「跃起的绿色鲸鱼 + 山脊 / 松树」，去掉原有色带与天体元素；README / 市场预览由 6 张分档示意图改为 2 张真机完整窗口截图（dark-soft / light-hard，1263×981 未裁剪），`screenshots.json` 同步 2 项 | 用户要求；图标 3.1 KB 自包含 SVG，36px 目检可辨；市场允许 1–8 张，2 张即够。见 CHANGELOG 1.0.0 / design §10 |
@@ -469,8 +469,24 @@
 **风险与边界（补充 §7 / §14）**
 
 - 常驻样式表都依赖 DSH 的 DOM 锚点（markdown 容器 / `aria-selected` / `data-row-key` / `::selection` 优先级）；DSH 升级改名或改结构后可能静默失效，但 token 层与页面不受影响，回退办法是停用插件或单项回滚。
-- 聚光灯包装了 `ThemeRuntime.setTheme`：上游方法形态变化、或其它插件也做包装时行为会叠加；只跨深浅走过渡、其余透传，卸载时还原。
+- 聚光灯包装了 `ThemeRuntime.setTheme` 与 `ThemeRuntime.publish`：上游方法形态变化、或其它插件也做包装时行为会叠加；`publish` 是更内部的接缝，DSH 升级改名时只让 OS 翻转退回瞬切（其余入口不受影响）、卸载时都还原。
 - 已知视觉边界：light·soft 的当前会话行 / 色彩模式行底只能保留色相（画布已贴 4.5:1 门槛）；Windows 原生窗口框架在揭示开始时切色（页面快照覆盖标题栏 / 终端内容）；设置弹窗参与快照、弹窗内选中描边在揭示结束后随 React 重渲染更新；键盘 / 无指针路径从视口中心揭示。
 - dev 面板只存在开发构建；并行会话重建发布产物会把它热替换掉，需再 `npm run build:dev`。
 - 1.0.0 升级需重启一次 DSH 才装载两字段 schema；旧 patch 的 `colorMode` 键被忽略、无需手改；回滚到 0.4.0 / 0.3.0 不需要清理 patch。
 - 工作量未逐日统计（见 §8 注）；市场 24h 冷静期内的版本映射等发布注意见 [`releasing.md`](releasing.md) §8.6。
+
+## 20. 2026-10-25 追加：`system` 跟随下的 OS 翻转也走聚光灯（未发布）
+
+> 触发：用户问「现在做了白天和黑夜模式的切换动画，如果是触发跟随系统自动切换，会有这个效果吗」。1.0.0 的口径是**没有**（OS 翻转由 ThemeRuntime 自己的 `prefers-color-scheme` 监听直接 `publish()`，不经过包装的 `setTheme`，旧帧拍不到只能瞬切）；用户确认要实现，并要求不影响已有三个入口的效果。
+
+**决策**：把揭示接到 `ThemeRuntime.publish` 的实例包装上，且只在「OS 翻转」这一种 publish 放行；不改 token 层、不动已有接线。窄门条件是「新偏好与旧快照偏好都是 `system`、且解析出的 scheme 与旧帧不同」，它与 `spotlight.running` 一起把字体/字号、同深浅重栈、改偏好的 Host 广播、以及已有的 `setTheme` 路径全部保持原样（design §17.1）。
+
+**实现（快照）**：`src/theme-spotlight.js` 增 `shouldRevealSystemFlip()` 与 `run(change, { origin: 'center' })`；`src/client-entry.js` 增第 5 段接线（实例 `publish` 包装/还原）；`client.js` 重建。文档：design §17.1、CHANGELOG Unreleased。
+
+**验证与证据**
+
+- 自动化：`node --test` **224/224**（新增 4 项：`shouldRevealSystemFlip` 六分支、`origin: 'center'` 忽略旧指针、集成「OS 翻转走揭示」、集成「其他 publish 仍瞬切 + setTheme 只揭示一次」）；`npm run check` 全绿（palette / build / contrast）。
+- 真实浏览器验证（独立 Chrome + 真 `client.js` + 真 View Transition，最小 DSH runtime double）：`prefers-color-scheme` 翻转后 `startViewTransition` 调用 1 次，`::view-transition-new(root)` 的 `clip-path` 从 `circle(0px at 1280px 625px)`（2560×1249 视口的中心，忽略已记录的旧指针）扩张 400ms；中途截帧可见浅色页中央的深色圆形新帧。同一页面上「同 scheme publish」「改偏好的广播」均不建过渡，`setTheme` 跨深浅只建 1 次。
+- 已装进本机 `desktop` profile 并触发 DSH client HMR 热替换（观察到 5 张 everforest 样式表整体移除后重建、各剩 1 张，`<html>` 属性与主题保持，控制台无新增错误），运行中的窗口即为新实现。
+
+**残余（人工项）**：真实 OS 深浅切换的目检（Windows 设置里切「浅色 / 深色」、DSH 外观设为「跟随系统」）留给用户；自动化只能验到「publish 包装 → 过渡启动 → 换色发生在回调内 → 中心原点」。
