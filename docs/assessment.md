@@ -8,6 +8,7 @@
 > 2026-10-23 更新（设置页）：用户截图复核要求去掉解释性文案、外观改用 DSH 默认样式；已按 DSH `AppearanceRow` 对齐并删除 6 条文案，见 §17 与 [design.md](design.md) §6.1。
 > 2026-10-24 更新：DSH Desktop 已升级 **0.2.1-rc.3**；对照安装包与 `dsh-v0.2.1-rc.2...dsh-v0.2.1-rc.3` 源码 diff 复核 token（提取 SHA-256 相同）、boot spinner、markdown / 会话行锚点、settings / `configForms` 与 `includePrerelease` 行为均无变化；`engines.dsh` 不抬高下限，文档目标改为 rc.3（逐项证据见 [design.md](design.md) §12）。
 > 2026-10-24 更新（色彩模式）：用户要求把设置里的「色彩模式」选项去掉、作为默认提供的功能——设置页区块 / 开关 / 5 个色片与 5 个 locale 键移除，状态、Host `Config`、缓存回到两个强度，旧 `colorMode` 缓存字段与 profile patch 残留键兼容忽略。见新增 §18 与 [design.md](design.md) §13.9。
+> 2026-10-25 更新：**1.0.0 首个稳定版发布**（tag `v1.0.0` / npm `latest`）——0.4.0 之后未发布的批次作为稳定行为一起发布：UI 强调色改用官方 accent、会话状态行改 palette 原色、工作区当前会话行、原生文本选区、深浅切换聚光灯、dev-only 调试面板、图标与市场素材；token 计数与分类口径同日复核修正。见新增 §19 与 [design.md](design.md) §14–§17 / §10。
 
 ## 1. 结论
 
@@ -25,8 +26,8 @@
 2. **安装包解包**：DSH Desktop 的代码在 `resources/app.asar` 内，shell 工具无法直接读取。用零依赖 Node 脚本解析 asar 头（`uint32@4` = header pickle 大小，JSON 从 `{"files"` 起、数据区自 `8 + headerSize` 开始），导出 `@deepseek-ai/dsh-client-ui-theme`、`-ui-layout`、`-ui-chat`、`-ui-sidebar-terminal` 四个包后统计（2026-10-18 审计复核，口径修正）：
    - `--dsw-*` 变量声明：**403** 个**唯一名**是 ui-theme 单包 8 张 sheet 的合计（含字体 / 圆角 / 阴影；不是四个包的声明总数，按出现次数约 600+）；颜色类 **77 static + 107 alias + 11 specific = 195**，另有 **11** 个 shiki 变量（9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`）。
    - alias 107 的构成：101 条在 `design-platform.css`，2 条在 `base.css`（settings-card），4 条在 `onboarding.css`。
-   - light 侧 alias/specific 声明 **112** 条（101 alias + 11 specific）：**74 条直接 `var(--dsw-static-*)` + 5 条含 static 的 `color-mix`** 可自动跟随；**28 条字面量 + 5 条 alias 间引用**必须显式处理。
-   - `body[data-ds-dark-theme]` 重定义 **77 个 static + 101 个 alias**（旧文档写 105，属误记；onboarding 另有 3 条 dark 值）。
+   - light 侧 alias/specific 声明 **118** 条（其中 `design-platform.css` 单 sheet 112 条 = 101 alias + 11 specific）：**76 条直接 `var(--dsw-static-*)` + 7 条含 static 的 `color-mix`** 可自动跟随；**29 条字面量 + 6 条 alias 间引用（共 35 条）**必须显式处理（2026-10-25 复核修正；旧口径「74 + 5 + 28 + 5 = 112」按 design-platform 单 sheet 拆分，提取口径差 1 条分类边界、总数 112 一致，差 6 条来自 `base.css` 的 2 条 alias-ref 与 `onboarding.css` 的 4 条）。
+   - `body[data-ds-dark-theme]` 重定义 **77 个 static + 104 个 alias**（28 literal / 5 alias-ref / 65 var-static / 6 color-mix；3 个 alias 无 dark 覆盖——`onboarding-accent`、`settings-card-fill`、`settings-card-stroke`，按级联沿用 light 声明，插件两侧仍显式给值。旧文档的「101」是 2026-10-18 审计时数字，更早的「105」属误记）。
 3. **第三方插件先例**：`dshmarket`、`dsh-cost-meter`、`dsh-context`（安装于本机 profile）的清单与客户端代码，用于确认 `dsh.client.inject`、`settings.section`、`engines.dsh`、`dsh.compatibility` 的写法。
 4. **配色数据核对**（详见 [`reference/palette.md`](reference/palette.md)）：
    - 官方 [palette.md](https://github.com/sainnhe/everforest/blob/master/palette.md) @ `85a86eb`：6 套背景色阶（dark/light × hard/medium/soft）与两套前景/强调色；
@@ -74,7 +75,7 @@
 | 决策 | 结论 | 影响 |
 |---|---|---|
 | 变体数量 | **6 套**：Dark / Light × Hard / Medium / Soft | 深浅色两组各自保存强度；色卡分「深色 3 张 + 浅色 3 张」，点击即切到对应深浅色并应用该强度 |
-| 配色数据源 | **主参考 Everforest Enchanted**（默认配对 dark-soft / light-hard、`header-*` 色、UI 语义映射）；6 套背景色阶取自官方 `palette.md` | 默认观感与 Enchanted 一致；另外四档强度来自官方色阶。数据表、commit 快照与偏差记录见 [`reference/palette.md`](reference/palette.md) |
+| 配色数据源 | **主参考 Everforest Enchanted**（默认配对 dark-soft / light-hard、UI 语义映射；`header-*` 色自 2026-10-24 起只保留给 onboarding 渐变 / shiki link / 浅色气泡 / 色彩模式内部链接）；6 套背景色阶取自官方 `palette.md` | 默认观感与 Enchanted 一致；另外四档强度来自官方色阶；UI 强调色改用官方 accent（见 §19）。数据表、commit 快照与偏差记录见 [`reference/palette.md`](reference/palette.md) |
 | 配置入口 | **直接做设置页**（`settings.section`），不依赖 Appearance 改造 | 需要自建状态存储与组件；0.3.0 起强度另经 Host `Config` 持久化（见下），设置页仍是唯一编辑入口 |
 | 色卡交互（2026-10-18） | 点另一深浅色组的色卡时**同时调用 `ctx.theme.setTheme(scheme)`** 立即预览 | 会把用户 Appearance 偏好实打实写进 Host 设置（所有已认证浏览器共享，`system` → 固定深浅色）；设置页文案必须说明 |
 | 偏好持久化（2026-10-18，**2026-10-22 被 0.3.0 取代**） | ~~localStorage（key 带版本号）~~ → 真源改为当前 profile 的 Host 配置；localStorage 降为「首帧缓存 + 旧宿主兜底」 | 0.2.1 时逐 origin 生效（Desktop 固定 origin 可跨重启，浏览器打开 Host URL 因端口随机不跨重启，与 DSH「Host 偏好跨浏览器共享」不同）；0.3.0 起同一 profile 所有浏览器共享，见下与 §13 |
@@ -90,6 +91,11 @@
 | **设置页声明（2026-10-22）** | `settings.configure({ auto: false })` 声明自动表单由本插件渲染 | DSH 不会在 Plugins 页生成重复的强度表单；强度只能在本插件 Settings → Everforest 修改 |
 | **设置入口与导航图标（2026-10-22）** | 保留独立设置页，**不做** Appearance / General 快捷入口（`settings.general.item` 官方槽可用，但行内拿不到跳转设置分区的官方 API，只能做成重复控件）；导航图标**标为待做**，等 DSH 官方给 `settings.section` 加 `icon` 字段，0.x 不做 DOM 改写 | 用户确认；导航项沿用默认齿轮，功能不受影响；后续若上游加字段再补图标 |
 | shiki / diff 口径（2026-10-19） | 修正：shiki 只覆盖**代码块**三处（聊天气泡 / 工具输出 / 文件预览）；diff 走 `file-diff` / `code-diff` token | 文档与验收清单同步；不再按「diff 有语法高亮」验收 |
+| **UI 强调色（2026-10-24）** | 品牌 / 主按钮 / 链接 / 深潜标签 / 危险 hover 等 15 个 token 由 Enchanted `header-aqua` / `header-blue` 改为官方 palette `fg.aqua` / `fg.blue` / `fg.red`；`header-*` 收起为装饰用途 | 用户目检选定；浅色品牌前景 3.13 → 2.91 是唯一负向变化、用户接受；链接对比反而提高（见 §19） |
+| **会话状态行配色（2026-10-24）** | 「待确认 / 待审批」行底由 `bg_red` 改 `bg_yellow`（用户反馈红色像报错），行底直接取 palette1 的 `bg_yellow` / `bg_green`；深色档反相为亮琥珀 + 深墨文字 | 替换 §14 / §15 的强调色推导；浅色档 `bg_yellow` 与画布近同明度，加 3.5 L* 可见性下限（见 §19） |
+| **当前会话行 / 文本选区（2026-10-24）** | 两张**常驻**样式表：工作区选中会话行恒为 `bg_blue`（`[aria-selected]` 锚点 + 文本 / 可见性两步守卫）；`::selection` 取各档 `bg_visual` 且 `color: inherit` | 都属导航 / 选区可见性，与色彩模式解耦；「与 0.3.0 逐字节一致」的口径不再成立（见 §19） |
+| **深浅切换过渡（2026-10-24/25）** | 跨深浅切换用 View Transitions `clip-path` 圆形揭示，只裁**新**主题快照；同深浅强度切换 / OS 翻转 / 跨窗口广播瞬切；包装 DSH `ThemeRuntime.setTheme` 以覆盖自带 Appearance 行 | 颜色插值 50% 处 1.01:1 发灰、镜像揭示浅→深闪白均被否决（见 §19） |
+| **1.0.0 口径（2026-10-25）** | 0.4.0 之后未发布的批次作为**首个稳定版**发布；`engines.dsh` 维持 `>=0.2.1-rc.2 <0.3.0-0` | 升级 0.4.0 → 1.0.0 需重启一次 DSH；回滚无需清理 profile patch（见 §19 / [`releasing.md`](releasing.md)） |
 | 发布目标 | **npm 发布** | 需 display 元数据（`meta.title` / `meta.description` + 图标）、`engines.dsh`、`files`/`exports` 白名单、LICENSE + THIRD_PARTY_NOTICES、README 截图 |
 | 包名 | `dsh-everforest`（2026-10-18 查询 npm registry 未占用，发布前复核） | — |
 
@@ -102,7 +108,7 @@
 | 主背景 / 分层表面 / 浮层 | `--dsw-alias-bg-*`、`--dsw-static-neutral-bluish-*` | ✅ 设计覆盖 |
 | 文字三级 / 弱化 / 反色 | `--dsw-alias-label-*` | ✅ |
 | 边框 / 分隔 / 焦点环 | `--dsw-alias-border-l*`、`--dsw-alias-state-business-primary` | ✅（含 7 条边框类字面量，含旧文档漏掉的 `border-inverted*`） |
-| 品牌 / 主按钮 / 链接 | `--dsw-alias-brand-primary`（=`header-aqua`）、`--dsw-alias-link`（=`header-blue`） | ✅（另需显式覆盖 `label-primary-foreground` / `brand-text` / `button-primary-hover` / `-dimmed`） |
+| 品牌 / 主按钮 / 链接 | `--dsw-alias-brand-primary`（=`aqua`，官方 accent；2026-10-24 起，原 `header-aqua`）、`--dsw-alias-link`（=`blue`，原 `header-blue`） | ✅（另需显式覆盖 `label-primary-foreground` / `brand-text` / `button-primary-hover` / `-dimmed`） |
 | 状态色（成功 / 警告 / 错误 / 进行中） | `--dsw-alias-state-*`（`green` / `yellow` / `red` / `blue`） | ✅ |
 | 侧栏 / 气泡 / 输入框 / selector / settings 卡片 | `--dsw-specific-*`（侧栏 = `bg0` → `bg1` 80% 混合 + 对比度守卫，保留列边界；其余 Enchanted 平铺/层级风格）、`settings-card-*`（alias 引用，自动跟随） | ✅ |
 | 菜单 / 浮层材质 | `--dsw-menu-surface-fill`、`--dsw-alias-menu-group-header-fill`、`--dsw-menu-backdrop-filter`（非颜色，保持默认）；`--dsw-specific-menu` 是 alias 引用自动跟随 | ✅（字面量，需显式） |
@@ -112,6 +118,9 @@
 | 代码块语法高亮 | 9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`（共 11 个，全部显式）；作用于聊天气泡 / 工具输出 / 右侧文件预览三处 `CodeBlock` | ✅ |
 | 首帧 / loading 页 | Host 半部经 `webserver/index-inject` 追加 body script，在 Client 加载前把 boot 调色板写成 body 内联 token（scheme 读 ui-theme 已解析值；强度按 B 方案：本浏览器缓存优先 → Host 值兜底 → 默认，结果发布到 `window.__EVERFOREST_BOOT__`）；Web 首帧即 Everforest，Desktop 最多 1 帧原生色；loading spinner / 边框已由 boot token 覆盖（2026-10-21） | ✅ 0.2.0 覆盖（spinner/边框 0.2.1 补齐；强度 B 方案 0.3.0） |
 | 逐级标题颜色 | Enchanted 的 h1–h6 各一色；DSH 无逐级颜色 token | ⚠️ 默认层不覆盖（非目标）；0.4.0 起由色彩模式（作用域 CSS；2026-10-24 起默认提供、无开关）为 h1–h6 分级着色，见 §14 / §15 / §18 |
+| 原生文本选区 | DSH 声明了 `--dsw-alias-bg-document-selection` 但无 `::selection` 消费者；常驻 `::selection` 样式表按六档取 `bg_visual` 底色、`color: inherit` 保留元素自身颜色 | ✅ 2026-10-24（design.md §16.2） |
+| 工作区当前会话行 | 选中与 hover 合画成同一 token（对侧栏约 2.6 L*）；常驻样式表用 `[role="treeitem"][data-row-key^="session:"][aria-selected="true"]` 画 palette `bg_blue` + 文本 / 可见性两步守卫 | ✅ 2026-10-24（design.md §15；light·soft 只保留色相） |
+| 深浅切换过渡 | 跨深浅切换经 View Transitions `clip-path: circle()` 从点击点揭示（只裁新快照）；同深浅强度切换 / OS 翻转 / 跨窗口广播瞬切 | ✅ 2026-10-24/25（design.md §17；无 View Transitions / reduced-motion 瞬切） |
 | 终端 | 底色 / 字色 / 光标跟随 token；ANSI 16 色为 xterm 内置默认盘（DSH 只传 bg/fg/cursor，且 `minimumContrastRatio: 4.5` 会自行校正）；OSC 4/10/11 不受主题控制 | ⚠️ 部分 |
 | brand mark / 文件类型图标 / 图片 | 固定 artwork（含终端空态 SVG 字面色） | ⚠️ 不覆盖 |
 | macOS 侧栏 / 标题栏渐变 | `ui-layout` 内联硬编码（仅 darwin） | ⚠️ Windows 无影响 |
@@ -133,6 +142,8 @@
 | 覆盖层残留 | 插件停用后颜色不还原 | disposer 必须挂 `ctx.effect`（已写入 design §5）；验收项「停用后 body 内联变量消失」 |
 | 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 0.2.0 已由 Host boot 注入覆盖：Web 首帧即 Everforest；Desktop 窗口在 load 后才 show、rows 由页面侧在 IPC 后应用，接受最多 1 帧原生色；loading 动效的 spinner / 边框自 0.2.1 起也随 boot token 着色 |
 | boot 注入残留 | 插件停用 / Client 半部加载失败时，页面保留启动调色板 | row 只写 presenter 也会写的 body 内联 token（Client 正常时首次 apply 必覆盖）；停用后 row 在 Host 重启 / 下次 index 渲染消失；Client 失败时保留到本页结束（可接受，README/design 已标注） |
+| 常驻样式表依赖 DSH DOM 锚点 | `aria-selected` / `data-row-key` / `::selection` / markdown 容器等锚点随 DSH 升级改名后，色彩模式 / 当前会话行 / 文本选区会静默失效（token 层与页面不受影响） | 只用 a11y / data 契约锚点；每次 DSH 升级回归（rc.3 已复核）；单项失效只影响对应样式，最坏可回退为停用插件（见 §19） |
+| 包装 DSH `ThemeRuntime.setTheme`（聚光灯） | 上游方法形态变化或其它插件也包装时行为叠加；OS 深浅色翻转与跨窗口广播无法在变更前拦截 | 仅跨深浅走过渡、其余原样透传；卸载按「原方法是否自有属性」还原；无 View Transitions / reduced-motion / 重入同步执行（见 §19） |
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
 | 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | **待做**（2026-10-22 用户拍板：等 DSH 官方给 `settings.section` 加 `icon` 字段）；0.x 不做 DOM 改写（`dshmarket` 的做法） |
@@ -146,6 +157,8 @@
 | 0.1.0 | 包骨架 / 构建脚本 / 6 套调色板 / token 映射表 / 覆盖层应用 / 设置页 / 持久化 / 本地安装验证 | **2–2.5 天** |
 | 0.2.0 | 全页面对比度走查与修正 / shiki 调色与口径修正 / 中英文案 / 图标 / README 截图 / **首帧 boot 注入** / 系统跟随收尾 / npm 发布 / 兼容范围实测 | **2.5–3 天**（首帧注入约 1 天，含测试与双端实测） |
 | 0.3.0 | **Host 侧偏好持久化（`configForms`）**：Host `Config`（volatile light/dark）、Client 读写 / 采纳 / 迁移播种、首帧 B 方案、localStorage 降级为缓存、文案 / CI / 发布元数据 | **约 1 天**（不含跨浏览器 / 双端人工目检） |
+
+> 0.4.0 / 1.0.0 为多轮用户目检驱动的批次（2026-10-23 与 2026-10-24/25），未逐日统计工作量；范围与验证记录见 §14–§19。
 
 ## 9. 实现前待验证清单（2026-10-18 审计后状态）
 
@@ -163,6 +176,7 @@
 | 10 | `client.js` 改动后的生效路径 | 已由用户真机确认（2026-10-22）：Plugins 页停用→启用（Host 重新快照 bundle）或重启 Host；单纯刷新页面预计不会换 bundle 字节。**Host 半部（`index.js` / `src/host-config.js`）改动需要重启 Host 进程**才生效（`Config` 注册与首帧 row 在启动期装载）；运行中改强度走 settings 通道，不需要重启 |
 | 11 | Host boot row 的 JSON / HTML 安全与顺序 | **已由测试覆盖**：row 是纯 JSON、无 `</script`、脚本幂等、无 `!important`；Host 值再按枚举校验并做 JSON / U+2028 / U+2029 转义；顺序依赖 ui-theme 的 `{ prepend: true }`（源码已证） |
 | 12 | `settings` / `configForms` 对第三方 entry 可用性 | **已解决（2026-10-22，0.3.0）**：Host `Config` 的 volatile 字段被投影为表单、`ctx.configForms.get('everforest')` 提供读写与订阅（源码 + 集成测试契约）；`settings.configure({ auto: false })` 让 DSH 不再生成重复自动表单。剩真机「选强度 → patch 出现 config → 换浏览器 / 重启仍在」与写入被拒降级确认 |
+| 13 | 常驻样式表（色彩模式 / 当前会话行 / 文本选区 / 聚光灯）的注入、卸载与锚点 | **已由测试覆盖（1.0.0）**：`tests/integration.test.mjs` 断言常驻样式表共 4 张、含设置页 5 张且卸载后清空；锚点 / 取值由 `color-mode` / `active-session` / `selection` / `theme-spotlight` 各自单测钉住；真机目检见 §19 |
 
 > **2026-10-22 真机目检**：用户确认 0.3.0 真机目检通过（按 [`releasing.md`](releasing.md) §5 清单：导航与设置页、跨浏览器共享 / 重启保持、0.2.1 迁移播种、首帧与「Host 半部需重启」等）；上表各「剩真机 / 待真机」项视为已确认（未逐项记录细节）。
 
@@ -171,7 +185,8 @@
 - 配色数据：[sainnhe/everforest](https://github.com/sainnhe/everforest)（MIT）、[Everforest Enchanted](https://github.com/FireIsGood/obsidian-everforest-enchanted)（MIT，主参考）、[在线调色板](https://everforest.vercel.app/palette)（校色）
 - 本项目整理的数据表：[`reference/palette.md`](reference/palette.md)
 - 本机插件先例：`dshmarket`（`settings.section` + `ctx.theme` 用法）、`dsh-cost-meter`（`dsh.compatibility` 写法）、`dsh-context`（`engines.dsh` + 双半部结构）
-- DSH 实现：`@deepseek-ai/dsh-client-ui-theme`（`ThemeRuntime`、token 样式表、shiki）、`@deepseek-ai/dsh-client-ui-layout`（`ThemePresenter`）
+- DSH 实现：`@deepseek-ai/dsh-client-ui-theme`（`ThemeRuntime`、token 样式表、shiki）、`@deepseek-ai/dsh-client-ui-layout`（`ThemePresenter`）、`@deepseek-ai/dsh-client-ui-workspace`（会话行 `data-row-key` / `aria-selected` 锚点）
+- 深浅切换过渡：View Transitions API（`document.startViewTransition` + `clip-path` 圆形揭示），实现参考 [web-infra-dev/rspress#1270](https://github.com/web-infra-dev/rspress/pull/1270)（MIT）
 
 ## 11. 2026-10-18 实现前审计
 
@@ -412,3 +427,50 @@
 **验证**：`node scripts/check-contrast.mjs --check` 通过（报告重新生成）；设置页 / state / durable / host-boot / integration / dev 面板测试随代码同步覆盖本次变更（键集 18、旧缓存与旧 patch 的兼容读取、dev 面板无开关行）。版本号保持 0.4.0、不发布，变更记入 `CHANGELOG.md` `[Unreleased]`（Changed / Removed）。
 
 **边界**：移除开关后没有单独关闭色彩模式的入口——若用户想退回单色内容层，只能停用插件（会同时失去主题）；该取舍已写入 design §13.7 第 5 条与 §13.9。真机验收刷新页面即可看到新设置页与默认提供的色彩模式；Host 半部的 schema 变化在 Host 启动时装载，但旧 `colorMode` 键兼容，不存在「为了兼容必须重启」的用例。
+
+## 19. 2026-10-24/25 1.0.0：内容 / 交互层与首个稳定版
+
+> 本节补记 §14–§18 之后、随 **1.0.0**（2026-10-25）发布的批次。§18 当时版本号仍记 0.4.0、未发布；这批改动最终一起进入首个稳定版。逐项实现细节见 [design.md](design.md) §14–§17 / §10，发布记录见 [`releasing.md`](releasing.md) 的「发布记录」与「1.0.0 发布注意」。
+
+**背景（用户诉求的演进）**
+
+0.4.0 发布后，用户先后提出：设置里的色彩模式去掉、作为默认功能（§18 已记）；强调色换成官方 palette；会话状态行「红色像是在报错」；工作区选中的 tab 看不出来、且要与待回答 / 已完成区分；选中的文字仍是浏览器蓝底白字；深浅切换想要过渡；开发期不想反复打开设置页调色；最后要求发布首个稳定版并重做图标与市场素材。这些改动超出「6 套配色 + token 覆盖」的原始范围，进入内容层（聊天 markdown / 会话行）、交互层（选区 / 切换过渡）与工程层（dev 构建 / 发布素材）。
+
+**决策与落地**
+
+| 主题 | 结论 | 理由 / 边界 |
+|---|---|---|
+| UI 强调色（2026-10-24） | 15 个 token（品牌 / 主按钮 / 链接 / 深潜标签 / 危险 hover / onboarding accent）由 `header-aqua` / `header-blue` 改为官方 `fg.aqua` / `fg.blue` / `fg.red`；`header-*` 只留 onboarding 渐变、shiki link、浅色气泡染色与色彩模式内部链接 | 用户对照 5 组样张目检选定「官方 fg accent」；浅色品牌前景 3.13 → 2.91（G4 门槛 2.5）是唯一负向变化、用户接受；链接对比反而提高（dark blue on bg0 5.17，原 3.28）。见 design §16.1 |
+| 会话状态行（2026-10-24） | 「待确认 / 待审批」行底 `bg_red` → `bg_yellow`；行底不再由强调色推导，直接取 palette1 的 `bg_yellow` / `bg_green`；深色档反相为「`fg.yellow` 混 `bg_dim` 22% 的亮琥珀 + 深墨文字」；加 3.5 L* 可见性下限 | 用户两轮反馈：「红色像报错」→ 改黄；「深色档再亮 / 更黄一点」→ 深色反相。浅色档 `bg_yellow` 与画布近同明度（约 1 L*），靠 `liftWarnFill()` 压深到 3.5 L* 或文本 4.5:1 先到；light·soft 只保留色相。见 design §13.8 / §13.8.1 |
+| 当前会话行（2026-10-24） | 新增 `src/active-session.js` + 常驻样式表：`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]` 画 palette `bg_blue`，先保文本 4.5:1、再保对侧栏 ≥4.5 L* | 上游把选中与 hover 合画成同一 `interactive-bg-hover`（对侧栏约 2.6 L*），选中行等于找不到；蓝色是最后一个不与黄 / 绿状态行混淆的语义背景，也与 DSH business primary 一致。light·soft 画布已贴门槛、只留色相；与色彩模式无门控（常驻）。见 design §15 |
+| 文本选区（2026-10-24） | 新增 `src/selection.js` + 常驻 `::selection`：六档取 `bg_visual` 底色、`color: inherit` | DSH 声明了选区 token，但安装包 176 张样式表里没有 `::selection` 消费者，token 层改不到；第一版写死 `color: fg` 被用户否（「选中的文字颜色全部变成一样的」），改 `inherit` 后代码语法色 / 链接色 / 标题色保持。见 design §16.2 |
+| 深浅切换聚光灯（2026-10-24/25） | 跨深浅切换改为 View Transitions + `clip-path: circle()`：新主题快照在上层、从点击点扩张揭示，只裁新快照；时长 400ms、`ease-in`，原点取最后一次 `pointerdown`；包装 `ThemeRuntime.setTheme` 覆盖 DSH 自带 Appearance 行；同深浅强度切换 / OS 翻转 / 跨窗口广播瞬切 | 颜色插值在 50% 处文字与画布 1.01:1（整页发灰）；镜像揭示在快照拆除时整帧丢 clip，浅→深闪白（真机 5 次复现 4 次）。「只裁新快照」结构上不会闪错色。无 View Transitions / reduced-motion / 重入一律同步执行。Windows 原生窗口框架在揭示开始时切色、设置弹窗参与快照是已知取舍。见 design §17 |
+| dev 调试面板（2026-10-24） | `src/dev-panel.js` 挂在 `shell.overlay`，复用设置页同一个 store；只存在于 `npm run build:dev` 产物，`// @dev-only:` 段由构建剥离，`--check` / CI / `prepack` 拒绝开发产物 | 调 6 套配色不必反复开设置页；零新状态 / 零新持久化（写 Host、缓存、广播、Appearance 与设置页一致）。折叠态曾整块丢样式导致圆钮跑到左上角且不可点，已改为两种状态都渲染样式表 + 内联兜底。见 design §14 |
+| 同批视觉修正（2026-10-24） | 深色边框描边由 `bg5` 向 `grey1` 提亮 20% 且每档 alpha 抬档；深色行内 code 芯片由 `bg_blue` 改 `bg_dim` → `bg0` 提亮 30%；设置页所有 solid 边框统一 `.5px` 单一变量、选中态去掉 inset box-shadow | 均为用户截图 / 目检反馈（「边框线条不明显」「border 宽度没统一」「深色 code 芯片像抬起的色块」）。见 design §4 / §6.2 |
+| 图标与市场素材（2026-10-25） | `icon.svg` 改「跃起的绿色鲸鱼 + 山脊 / 松树」，去掉原有色带与天体元素；README / 市场预览由 6 张分档示意图改为 2 张真机完整窗口截图（dark-soft / light-hard，1263×981 未裁剪），`screenshots.json` 同步 2 项 | 用户要求；图标 3.1 KB 自包含 SVG，36px 目检可辨；市场允许 1–8 张，2 张即够。见 CHANGELOG 1.0.0 / design §10 |
+| 发布口径（2026-10-25） | 0.4.0 之后未发布的批次（含 §18 的「默认提供」）作为 **1.0.0 首个稳定版**发布；`engines.dsh` 维持 `>=0.2.1-rc.2 <0.3.0-0`；升级 0.4.0 → 1.0.0 需重启一次 DSH，回滚无需清理 profile patch | 0.4.0 的 `colorMode` 字段已从 schema 移除、旧 patch 残留键被忽略；Host 半部仍需重启才装载新 schema。见 [`releasing.md`](releasing.md)「1.0.0 发布注意」 |
+
+**与既有口径的修正（重要）**
+
+- **token 计数与分类**：2026-10-25 复核修正了 §2 的三处数字——alias / specific 共 **118** 条（76 var-static + 7 color-mix + 29 literal + 6 alias-ref；旧「112」是 design-platform 单 sheet）、dark 侧 **104** 个 alias 有重定义、**35 条**必须显式给值（29 literal + 6 alias-ref）。证据：`docs/reference/token-inventory.json` 的 `counts` 与逐 token 形态；design §4 同日修正。
+- **§6 品牌 / 链接映射**：由 `header-aqua` / `header-blue` 改为官方 `aqua` / `blue`（见上表）。
+- **§14 / §15 的会话行配色**：这两节记录的是初版（强调色推导 / 红绿）方案；2026-10-24 起改成 palette 原色 + 黄 + 深色反相，以 design §13.8 / §13.8.1 为准。
+- **「与 0.3.0 逐字节一致」不再成立**：色彩模式关闭时 token 层与 markdown 内容仍与基线一致，但当前会话行与文本选区是常驻样式，DOM 上恒有差异（design §15 已注明）。
+- **§18 的版本状态**：§18 结尾「版本号保持 0.4.0、不发布」是当时状态；该批改动最终随 1.0.0 发布，`CHANGELOG.md` 记为 `## [1.0.0]`。
+
+**验证与证据**
+
+- 自动化：`node --test` **220/220** 通过（14 个测试文件；`theme-spotlight` 9 / `active-session` 8 / `selection` 4 / `dev-panel` 16 / `color-mode` 19 / `integration` 41 等）；`npm run check` 全绿（palette / build / contrast，`docs/reference/contrast.md` 由脚本重新生成）；`npm pack --dry-run` 清单含 `icon.svg`（`tests/integration.test.mjs` 断言自包含与尺寸上限）。
+- 样式表：常驻 4 张（色彩模式 / 当前会话行 / 文本选区 / 聚光灯）+ 设置页 1 张 = 5 张；集成测试断言注入与卸载后清空。
+- 对比度：当前会话行新增 **G17**（合法色值 + 文本 ≥4.5:1 + 相对侧栏 ≥0.02 L*）写入报告 §2g；6 档实测 light-hard `#DCECE9`(4.58) / light-medium `#DDEAE6`(4.52) / light-soft `#E6E8DB`(4.50) / dark-hard `#384B55`(5.39) / dark-medium `#3A515D`(4.94) / dark-soft `#3F5764`(4.51)。
+- 真机验收（2026-10-24/25，Desktop 1294×857）记录见 design §14 / §15 / §16.2 / §17：当前会话行在 light·hard / dark·soft 下与黄 / 绿状态行并排可辨；文本选区在 h2 / strong / 行内 code 上保留各自颜色；聚光灯深浅两向、闪白修复、reduced-motion 兜底；dev 面板展开 / 折叠 / 拖动 / 写 Host 全部走通。
+- 发布：tag `v1.0.0`（commit `aa3781f`）→ publish run `40116912287` → npm `latest` = `1.0.0`（`dist.shasum` `162d8c59…`，SLSA provenance），GitHub Release 由 workflow 自动创建。见 [`releasing.md`](releasing.md)「发布记录」。
+
+**风险与边界（补充 §7 / §14）**
+
+- 常驻样式表都依赖 DSH 的 DOM 锚点（markdown 容器 / `aria-selected` / `data-row-key` / `::selection` 优先级）；DSH 升级改名或改结构后可能静默失效，但 token 层与页面不受影响，回退办法是停用插件或单项回滚。
+- 聚光灯包装了 `ThemeRuntime.setTheme`：上游方法形态变化、或其它插件也做包装时行为会叠加；只跨深浅走过渡、其余透传，卸载时还原。
+- 已知视觉边界：light·soft 的当前会话行 / 色彩模式行底只能保留色相（画布已贴 4.5:1 门槛）；Windows 原生窗口框架在揭示开始时切色（页面快照覆盖标题栏 / 终端内容）；设置弹窗参与快照、弹窗内选中描边在揭示结束后随 React 重渲染更新；键盘 / 无指针路径从视口中心揭示。
+- dev 面板只存在开发构建；并行会话重建发布产物会把它热替换掉，需再 `npm run build:dev`。
+- 1.0.0 升级需重启一次 DSH 才装载两字段 schema；旧 patch 的 `colorMode` 键被忽略、无需手改；回滚到 0.4.0 / 0.3.0 不需要清理 patch。
+- 工作量未逐日统计（见 §8 注）；市场 24h 冷静期内的版本映射等发布注意见 [`releasing.md`](releasing.md) §8.6。

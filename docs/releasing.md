@@ -169,7 +169,7 @@ npm trust github dsh-everforest `
 
 - `engines.dsh` = `>=0.2.1-rc.2 <0.3.0-0`（安装前与装载 profile 时都会校验；2026-10-24 复核 0.2.1-rc.3 满足该区间，未抬高下限）；
 - 版本号与 git tag 一致（`v0.1.0` ↔ `0.1.0`）；预发布版本只能发到非 `latest` 的 dist-tag（例如 `--tag next`）；
-- `CHANGELOG.md` 有当前版本对应的 `## [<version>]` 小节且非空（`node scripts/release-notes.mjs --check`；`node --test` 与 publish 都会拦）。它是 GitHub Release 正文、也就是市场「更新内容」的唯一来源，不要再依赖 `--generate-notes` 从 commit/PR 自动生成；
+- `CHANGELOG.md` 有当前版本对应的 `## [<version>]` 小节且非空（`node scripts/release-notes.mjs --check`；`node --test` 与 publish 都会拦）。它是 GitHub Release 正文、也就是市场「更新内容」的唯一来源，不要再依赖 `--generate-notes` 从 commit/PR 自动生成；小节按「只写改了什么、有什么效果」的口径写（见 §5 的写法约定）；
 - `npm publish` 前工作区干净（`git status` 无输出），发布 commit 已推送。
 
 ## 5. 发布后验证
@@ -197,7 +197,9 @@ gh release create v0.4.0 --verify-tag --notes-file notes.md
 # gh release edit v0.4.0 --notes-file notes.md
 ```
 
-> **市场「更新内容」的链路**（dsh-market 1.66.x）：市场不读 `CHANGELOG.md`、也不读 README。awesome-dsh-plugin 每天探测一次每个仓库**最新一个正式 Release 的正文**（跳过 draft / prerelease），发布成 npm 包 `dsh-plugin-updates` 与 <https://awesome-dsh-plugin.com/updates.json>；dsh-market 拉取后显示在更新行的「更新内容」弹窗里，**最多取前 4096 个字符**（探测脚本 `probe-updates.mjs` 用 `body.length` 截断——变量名虽叫 `MAX_BODY_BYTES`，实际按 UTF-16 code unit 计，中文约合 12 KB 字节，截断处补 `…`）。没有 Release 才退到最近 5 条 commit 的首行（每条最多 200 字符），纯 npm 安装退到版本发布时间。1.0.0 实测：正文 20937 字节 / 12462 字符，市场弹窗在 4096 字符处断在「插件图标改为…」那条中间；`scripts/release-notes.mjs` 的「4 KB」提醒按字节算，会比实际截断更早触发。所以：小节要写成能独立阅读的版本说明，最重要的改动放开头、正文尽量压进 4096 字符；标题用 `###`（Release 正文不含 `##` 标题）；改完 Release 后市场最多约 1 天（探测每日 + 市场缓存 1 小时）才刷新。
+> **市场「更新内容」的链路**（dsh-market 1.66.x）：市场不读 `CHANGELOG.md`、也不读 README。awesome-dsh-plugin 每天探测一次每个仓库**最新一个正式 Release 的正文**（跳过 draft / prerelease），发布成 npm 包 `dsh-plugin-updates` 与 <https://awesome-dsh-plugin.com/updates.json>；dsh-market 拉取后显示在更新行的「更新内容」弹窗里，**最多取前 4096 个字符**（探测脚本 `probe-updates.mjs` 用 `body.length` 截断——变量名虽叫 `MAX_BODY_BYTES`，实际按 UTF-16 code unit 计，中文约合 12 KB 字节，截断处补 `…`）。没有 Release 才退到最近 5 条 commit 的首行（每条最多 200 字符），纯 npm 安装退到版本发布时间。1.0.0 的旧正文实测 20937 字节 / 12462 字符，市场弹窗在 4096 字符处断在「插件图标改为…」那条中间（2026-10-25 已按精简口径回填为 1947 字节）；`scripts/release-notes.mjs` 的「4 KB」提醒按字节算，会比实际截断更早触发。所以：小节要写成能独立阅读的版本说明，最重要的改动放开头、正文尽量压进 4096 字符；标题用 `###`（Release 正文不含 `##` 标题）；改完 Release 后市场最多约 1 天（探测每日 + 市场缓存 1 小时）才刷新。
+
+> **CHANGELOG 写法（2026-10-25 起）**：每条只回答两个问题——改了什么、用户能感知到什么效果。不写文件名 / 函数 / token 值 / 测试数量 / 实现原理 / 原因与取舍（这些记 `docs/design.md`，验收记录记 `docs/assessment.md`）；同一次发布里的同类改动合并成一条，每版开头一句总述，最重要的放最前。整版小节控制在 4096 字符内，市场弹窗才能完整显示。2026-10-25 已按此口径重写全部历史小节（1.0.0 从 12462 字符压到 835 字符），原文留在 git 历史里；v1.0.0 的 Release 正文已同步回填为精简版，v0.4.0 仍是旧的 `--generate-notes` 产物。
 
 DSH 侧（本机 profile = `desktop`）：
 
