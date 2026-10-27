@@ -16,11 +16,12 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 | 0.3.0 | 2026-10-22 | GitHub Actions + Trusted Publishing（tag `v0.3.0`，run `39721766551`） | `latest` | `e08fe50add7f16c479cc766973e1e8e92b747cce` | 有（SLSA v1） |
 | 0.4.0 | 2026-10-23 | GitHub Actions + Trusted Publishing（tag `v0.4.0`，run `39910070876`） | `latest` | `96fbeac4516ad0baf63ac43141c8da239a1d1bcf` | 有（SLSA v1） |
 | 1.0.0 | 2026-10-25 | GitHub Actions + Trusted Publishing（tag `v1.0.0`，run `40116912287`） | `latest` | `162d8c5946e862b809b6c473bcc28f68fc97686f` | 有（SLSA v1） |
+| 1.1.0 | 2026-10-27 | GitHub Actions + Trusted Publishing（tag `v1.1.0`，run `40494550768`） | `latest` | `e0e4bae3ebc180f6e31150507404112ea5a44692` | 有（SLSA v1） |
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
 - 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.2.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。本机 npm 默认 registry 是 `registry.npmmirror.com`（镜像同步有延迟），验证时务必显式指定 npmjs.org。
 - **发布后 registry 有分层传播**（0.2.0 实测）：版本元数据先出现（`https://registry.npmjs.org/dsh-everforest/0.2.0` 200），npm 命令在约 2 分钟内仍可能对 tarball 返回 404；直接 `GET .../-/dsh-everforest-0.2.0.tgz` 成功后再用空缓存安装即可。workflow 里的 `npm view` 校验步骤同理可能仍显示上一版，以 run 日志里的 `+ dsh-everforest@x.y.z` 为准。
-- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.3.0 / 0.4.0 / 1.0.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
+- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.3.0 / 0.4.0 / 1.0.0 / 1.1.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
 
 > **0.3.0 发布注意**（首个把强度偏好迁到 Host 配置的版本）
 >
@@ -50,6 +51,14 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **2026-10-25 已发布**：tag `v1.0.0`（commit `aa3781f`）→ publish run `40116912287` → npm `latest` = `1.0.0`（`dist.shasum` `162d8c5946e862b809b6c473bcc28f68fc97686f`，SLSA provenance，由 GitHub Actions trusted publishing 完成），GitHub Release `v1.0.0` 已由 workflow 自动创建；发布前门禁 `node --test` 220/220 + `npm run check` 全绿。
 > - **市场冷静期**：npm 发布后 24 小时内市场仍可能装到上一版（本次为 0.4.0，§8.6），不要当成发布失败。
 > - **市场「更新内容」会被截断**：1.0.0 小节 20937 字节 / 12462 字符，市场只取前 4096 字符（实测断在「插件图标改为…」那条中间），详见 §5；下个版本可把摘要压进 4096 字符。
+
+> **1.1.0 发布注意（已发布，2026-10-27）**
+>
+> - **只改 Client 半部与文档，滚动升级不需要重启 DSH**：外观设为「跟随系统」时，系统自己翻深 / 翻浅也改为聚光灯揭示（从屏幕中心圆形扩张），其余入口与软 / 中 / 硬强度切换的瞬切行为不变；README 重写「特性」文案并新增「功能实现」清单。Host 半部与 `Config` schema 未变，只刷新页面即可。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释，只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交里重建）。
+> - **2026-10-27 已发布**：tag `v1.1.0`（commit `0a50324`）→ publish run `40494550768` → npm `latest` = `1.1.0`（`dist.shasum` `e0e4bae3ebc180f6e31150507404112ea5a44692`，SLSA provenance，transparency log `3514424283`），GitHub Release `v1.1.0` 已由 workflow 自动创建；发布前门禁 `node --test` 224/224 + `npm run check` 全绿。
+> - **registry 传播**：发布后约 4 分钟，裸 tarball URL（`.../-/dsh-everforest-1.1.0.tgz`）仍从 CDN 返回 404，加任意查询串（如 `?cb=…`）立即 200——是边缘缓存未刷新，不是发布失败；以 packument 的 `dist-tags` / `dist.shasum` 与 `?cb=` 取到的 tarball 为准。
+> - **市场冷静期**：npm 发布后 24 小时内市场仍可能装到 1.0.0（§8.6），不要当成发布失败；市场「更新内容」每日探测、约 1 天内显示本版说明（1.1.0 小节 612 字节，远低于 4096 字符截断线）。
 
 ## 0. 发布前必须确认
 
