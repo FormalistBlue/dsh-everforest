@@ -21,6 +21,8 @@
   <a href="https://github.com/FormalistBlue/dsh-everforest/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/dsh-everforest" alt="license"></a>
 </p>
 
+dsh-everforest 为 DeepSeek Harness 提供 Everforest 配色主题，同时支持网页和桌面端。以森林为色调，深色与浅色共 6 档配色。对聊天内容（标题、代码、链接、表格等）样式优化，独立着色，所有色调及饱和度都逐一调校，提供温暖柔和的护眼体验。
+
 ## ✨ 预览
 
 **深色 · Soft（默认）**

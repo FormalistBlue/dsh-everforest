@@ -21,6 +21,8 @@
   <a href="https://github.com/FormalistBlue/dsh-everforest/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/dsh-everforest" alt="license"></a>
 </p>
 
+dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both web and desktop. Forest tones, with six dark and light palettes. Chat content (headings, code, links, tables and more) is restyled with independent colours, and every tone and saturation level is tuned individually for a warm, gentle, easy-on-the-eyes experience.
+
 ## ✨ Previews
 
 **Dark · Soft (default)**
