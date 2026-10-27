@@ -40,11 +40,11 @@
 ## 🔥 特性
 
 - 🌳 颜色以柔和的鼠尾草绿与暖米色为主调，自然耐看。
-- 🎨 按 DSH 的颜色 token 逐项映射，深浅两套各自优化对比度。
-- 🖌️ 聊天内容着色：标题、强调、行内代码、链接、表格各用不同颜色，6 档配色各有自己的方案。
-- 🌓 深色 / 浅色 / 跟随系统，随意切换。
+- 👀 以护眼为设计的基础，对比度、饱和度对眼睛更友好。
+- 🎨 设计了深色和浅色两套主要基调颜色，按喜好选择。
+- 🖌️ 聊天内容着色：标题、文字、代码等都适配了 Everforest 配色，6 档配色采用 6 种不同的设计。
 - 📄 工作区会话列表按状态着色：待确认 / 已完成一眼分辨。
-- ⌛️ 首次加载页（loading 页与 spinner）已用当前配色，启动更自然。
+- ⌛️ 进入应用时的 loading 页面适配当前配色，启动更自然。
 - ⚙️ 打开 **Settings → Everforest**，可选 6 档强度：
   - 深色：
     - **Soft（默认）** 对比度最低、最柔和；
@@ -55,11 +55,50 @@
     - **Medium** 对比度适中；
     - **Hard（默认）** 对比度最高、阅读更清晰。
 
+## ✅ 功能实现
+
+
+**配色与覆盖**
+- ✅ 6 套 Everforest 配色：深色 / 浅色 × 软 / 中 / 硬
+- ✅ 默认配对对齐上游：深色 Soft、浅色 Hard
+- ✅ 全站颜色 token 覆盖（含 shiki 代码高亮、diff、侧栏、浮层、边框、状态色）
+- ✅ 六档配色分别校验对比度。
+
+**内容着色**
+- ✅ Markdown 富文本：h1–h6 六色标题、加粗 / 斜体、行内代码、内部文件链接、引用块、分隔线、任务列表、表格表头 / 斑马纹 / hover
+- ✅ 会话状态行：待确认（黄底）、已完成未查看（绿底），附状态点
+- ✅ 工作区当前会话行高亮
+- ✅ 原生文本选区配色，保留文字自身颜色
+- ✅ 首屏 loading 页、spinner 环与进度弧使用当前配色
+
+**设置与持久化**
+- ✅ 设置页：6 档强度 + 外观控制（浅色 / 深色 / 跟随系统）
+- ✅ 切换即时生效，无需重启
+- ✅ 偏好写入当前 profile 的 Host 配置：重启保持、同一 profile 多浏览器共享
+- ✅ 深浅切换聚光灯动画
+
+**发布与工程**
+- ✅ npm 安装、插件市场收录、真机截图与市场截图清单
+- ✅ 自动化测试覆盖配色、设置页、持久化与切换动画
+- ✅ 构建与对比度校验自动执行
+
+**待实现**
+- ⬜ 更多界面语言（当前中 / 英，其余语言回退英文）
+- ⬜ 更细粒度的自定义配色选项
+- ⬜ 思考过程中的内容与工具调用的差异化着色
+- ⬜ 首屏页面显示效果丰富化优化
+- ⬜ 下拉选项的着色优化
+- ⬜ 内置白天黑夜模式自动切换配置
+- ⬜ 其他第三方插件页面兼容性优化
+- ⬜ 聊天内容中表格样式优化
+
+
+
 ## 📚 参考
 
 - 整体配色基于 <a href="https://github.com/sainnhe">sainnhe</a> 原创的 <a href="https://github.com/sainnhe/everforest">Everforest</a> 方案。
 - 部分配色参考 <a href="https://github.com/FireIsGood/obsidian-everforest-enchanted">Everforest Enchanted</a>。
 
-## License
+## 📜 License
 
-[MIT 许可证](https://github.com/FormalistBlue/dsh-everforest/blob/main/LICENSE)（本插件）。配色数据来自 Everforest 与 Everforest Enchanted（均 MIT），署名见 [THIRD_PARTY_NOTICES.md](https://github.com/FormalistBlue/dsh-everforest/blob/main/THIRD_PARTY_NOTICES.md)。
+[MIT 许可证](https://github.com/FormalistBlue/dsh-everforest/blob/main/LICENSE)。
