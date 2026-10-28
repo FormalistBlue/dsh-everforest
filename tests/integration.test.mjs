@@ -688,6 +688,13 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(activeSessionStylesheets[0].textContent.includes('[aria-selected="true"]'))
   assert.ok(activeSessionStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
+  // The table column-resize stylesheet and its DOM interaction are mounted with
+  // the token layer, not with the Settings UI.
+  const tableResizeStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize')
+  assert.equal(tableResizeStylesheets.length, 1, 'table-resize stylesheet was not injected')
+  assert.ok(tableResizeStylesheets[0].textContent.includes('data-everforest-resizable'))
+  assert.ok(tableResizeStylesheets[0].textContent.includes('--everforest-col-1'))
+
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
@@ -696,7 +703,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 5, 'exactly five <style> elements (color mode + selection + active session + theme spotlight + settings)')
+  assert.equal(styleTags.length, 6, 'exactly six <style> elements (color mode + table resize + selection + active session + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 1)
   const { options, component } = recorded.slotRegistrations[0]
   assert.equal(options.name, 'settings.section')
@@ -794,8 +801,9 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/theme-spotlight').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/selection').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 4)
+  assert.equal(styleTags.length, 5)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -807,7 +815,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[0].options.id, 'everforest')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 5)
+  assert.equal(styleTags.length, 6)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1362,8 +1370,9 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/theme-spotlight').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/selection').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 5)
+  assert.equal(styleTags.length, 6)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

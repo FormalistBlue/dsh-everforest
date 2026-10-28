@@ -30,7 +30,11 @@
 //       del + done task items   label-tertiary (intentionally faint)
 //       marker / quote / hr     aqua
 //       checkbox accent         blue
-//       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%)
+//       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%);
+//                            the frame / column hairlines around and inside the
+//                            table come from the neutral border ramp instead of
+//                            a colour (a coloured 3:1 border desaturates into
+//                            grey-green, so the ramp is the honest choice)
 //       blockquote fill         aqua tint into bg-base (8%)
 //       session row warn / done   solid fill from the palette's own bg_yellow /
 //                            bg_green. The waiting row is the one status surface
@@ -56,7 +60,8 @@
 //   - `colorModeStyles()` — the complete static stylesheet for those roles: six
 //     custom-property blocks (light scheme = `body:not([data-ds-dark-theme])`,
 //     dark scheme = `body[data-ds-dark-theme]`, the attribute DSH's ui-theme boot
-//     row puts on `<body>`) plus the element rules that consume the variables.
+//     row puts on `<body>`) plus the element rules that consume the variables and
+//     the literal rules (heading emphasis, blockquote shape, table frame/grid).
 //
 // The formulas and expected values are the ones validated by the 2026-10-23
 // "中彩" preview (`.tmp/color-mode-preview`); the role colours are pinned by
@@ -441,7 +446,14 @@ function cssVariable (role) {
 const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 
 /** Markdown content container (DSH hashes the class, `markdown` stays a substring). */
-const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-markdown-variant="compact"])`
+export const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-markdown-variant="compact"])`
+
+/**
+ * The horizontal-scroll wrapper DSH wraps around every markdown table. It is
+ * the frame that carries the table's outer border (a collapsed table cannot
+ * paint a rounded outer border itself) and keeps the scroller's clipping.
+ */
+const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
 
 /**
  * Session-tree row selector for one state, keyed by the status dot it contains.
@@ -517,6 +529,46 @@ const ELEMENT_RULES = [
 const LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
   [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  // Table frame and column rules. DSH's table only draws horizontal cell rules,
+  // so without them a table reads as a list of loose rows. Fill tables are 100%
+  // wide, so their scroll wrapper can carry the outer border (and clip it to a
+  // rounded rectangle). Wide tables are different: DSH deliberately "bleeds"
+  // `.md-table-wide` over the chat scroll area (`width: 100% + lead + spare`,
+  // negative margin-left plus an equal padding-left so the table content stays
+  // aligned with the text column) and hides the horizontal scrollbar until the
+  // pointer hovers the wrapper. Re-box the wrapper onto the table so it becomes
+  // a plain `overflow-x: auto` viewport of the text column: `width: max-content`
+  // hugs a fitting table, `max-width: 100%` pins the right edge to the text
+  // column's right edge, `margin-left: 0` / `padding-left: 0` drop the bleed
+  // padding, and `overflow-x: auto` / `padding-bottom: 0` replace DSH's
+  // hover-only scrollbar with one that appears exactly when the table is wider
+  // than the column. The columns keep their natural widths and the wrapper
+  // scrolls instead of wrapping them (2026-10-28 report: Element-style fixed
+  // columns with a horizontal scrollbar). Width, margin-left and padding-left
+  // move together; overriding any of them alone slides the table off the text
+  // column (2026-10-27 misalignment report). The frame stays on the `<table>`: a
+  // wrapper border would draw around the bleed area, not around the table.
+  // The frame takes the stronger `l3` step and the inner column rules the `l2`
+  // step so the outer edge stays readable over the header band and zebra fills;
+  // both are hairlines, like DSH's own cell rules. The first / last cell padding
+  // that DSH zeroes for its borderless look is restored so text does not touch
+  // the frame, and the last row drops its bottom rule because the frame already
+  // draws it.
+  [`${TABLE_FRAME}.md-table-wide`, [
+    ['width', 'max-content'],
+    ['max-width', '100%'],
+    ['margin-left', '0'],
+    ['padding-left', '0'],
+    ['overflow-x', 'auto'],
+    ['padding-bottom', '0']
+  ]],
+  [`${TABLE_FRAME}:not(.md-table-wide)`, [['border', '.5px solid var(--dsw-alias-border-l3)'], ['border-radius', 'var(--dsw-radius-sm)']]],
+  [`${TABLE_FRAME}.md-table-wide > table`, [['border', '.5px solid var(--dsw-alias-border-l3)']]],
+  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
+  [`${TABLE_FRAME} th:last-child, ${TABLE_FRAME} td:last-child`, [['border-right', '0']]],
+  [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
+  [`${TABLE_FRAME} th:first-child, ${TABLE_FRAME} td:first-child`, [['padding-left', '16px']]],
+  [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
   // Dark waiting rows: deep contrast ink on the amber surface (design §13.8.1).
   // The row actions that appear on hover (the "…" menu, archive, pin) carry
   // `label-tertiary` / `label-primary` and would vanish on the amber fill, so

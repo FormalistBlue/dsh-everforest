@@ -29,6 +29,12 @@
  *    browser text selection with the current variant's `bg_visual` colour while
  *    keeping each element's own text colour; DSH declares the document-selection
  *    token but never reads it (2026-10-24).
+ *  - the markdown **table treatment**: the frame / column hairlines live in the
+ *    color-mode sheet (they are content styling built from the border ramp) and
+ *    the draggable-column interaction lives in `src/table-resize.js`, which
+ *    tags a table with explicit column widths only once the user drags a header
+ *    edge (DSH's memoized markdown renderer exposes no table extension point,
+ *    so the interaction is document-level DOM wiring, not a React component).
  *
  * The override disposer returned by `overrideTokens` is NOT tied to the plugin
  * fiber (the layer lives on the root ThemeRuntime), so the layer is created
@@ -45,6 +51,7 @@
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 import { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } from './color-mode.js'
+import { installColumnResize, tableResizeStyles } from './table-resize.js'
 import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
 import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
@@ -380,6 +387,35 @@ export function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: active session styles')
+
+  // 1e. Table column resize: stylesheet + the DOM interaction. DSH renders a
+  // markdown table as a scroll wrapper around a bare table with no React
+  // extension point (MarkdownText is a memoized mdast switch), so a table gets
+  // explicit per-column widths and a drag handle on the header-cell right
+  // edges only through DOM-level events. The module owns its listeners and
+  // restores the renderer's automatic layout on unload; the stylesheet is
+  // installed first so a drag started in the same tick already has its rules.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/table-resize'
+    tag.textContent = tableResizeStyles()
+    document.head.appendChild(tag)
+    let dispose = null
+    try {
+      dispose = installColumnResize({
+        document,
+        window: typeof window === 'undefined' ? undefined : window,
+      })
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} table column resize could not be installed; tables keep the renderer's layout`, error)
+    }
+    return () => {
+      if (typeof dispose === 'function') dispose()
+      tag.remove()
+    }
+  }, 'everforest: table column resize')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must

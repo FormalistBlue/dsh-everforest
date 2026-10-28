@@ -10,6 +10,7 @@ import {
 import { contrastRatio, hexToRgb, labLightness } from '../src/color.js'
 import { DEFAULT_STATE, STRENGTHS, VARIANT_NAMES, resolvePalette } from '../src/palette.js'
 import { tokensFor } from '../src/tokens.js'
+import { declarationsOf, styleRules } from './support/css.mjs'
 
 const HEX = /^#[0-9a-f]{6}$/i
 
@@ -88,10 +89,28 @@ const EXPECTED_RULES = [
 /** The dark waiting row that switches to the deep contrast ink (design §13.8.1). */
 const DARK_WARN_ROW = `${STYLE_SCOPE} body[data-ds-dark-theme] [role="treeitem"][data-row-key^="session:"]:has([data-state="warning"]):not([aria-selected="true"])`
 
+/** The horizontal-scroll wrapper around every markdown table. */
+const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
+
 /** Rules that are not a single role variable (checked verbatim). */
 const EXPECTED_LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
   [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  [`${TABLE_FRAME}.md-table-wide`, [
+    ['width', 'max-content'],
+    ['max-width', '100%'],
+    ['margin-left', '0'],
+    ['padding-left', '0'],
+    ['overflow-x', 'auto'],
+    ['padding-bottom', '0']
+  ]],
+  [`${TABLE_FRAME}:not(.md-table-wide)`, [['border', '.5px solid var(--dsw-alias-border-l3)'], ['border-radius', 'var(--dsw-radius-sm)']]],
+  [`${TABLE_FRAME}.md-table-wide > table`, [['border', '.5px solid var(--dsw-alias-border-l3)']]],
+  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
+  [`${TABLE_FRAME} th:last-child, ${TABLE_FRAME} td:last-child`, [['border-right', '0']]],
+  [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
+  [`${TABLE_FRAME} th:first-child, ${TABLE_FRAME} td:first-child`, [['padding-left', '16px']]],
+  [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
   [DARK_WARN_ROW, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
   [`${DARK_WARN_ROW} [class*="_time"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
   [`${DARK_WARN_ROW} [data-state="warning"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
@@ -101,7 +120,13 @@ const EXPECTED_LITERAL_RULES = [
 ]
 
 /** DSH tokens a literal rule may read without declaring them on the sheet. */
-const ALLOWED_EXTERNAL_VARIABLES = new Set(['--dsw-alias-label-primary-inverted'])
+const ALLOWED_EXTERNAL_VARIABLES = new Set([
+  '--dsw-alias-label-primary-inverted',
+  '--dsw-alias-border-l1',
+  '--dsw-alias-border-l2',
+  '--dsw-alias-border-l3',
+  '--dsw-radius-sm'
+])
 
 /**
  * The token values a variant's roles are derived from.
@@ -120,26 +145,6 @@ function surfacesOf (variant) {
     tertiary: pick('--dsw-alias-label-tertiary'),
     inlineChip: pick('--dsw-alias-markdown-inline-code')
   }
-}
-
-/** Split a stylesheet into `{ selector, body }` rules (the CSS has no nesting). */
-function styleRules (css) {
-  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => ({
-    selector: match[1].trim(),
-    body: match[2].trim()
-  }))
-}
-
-/** Parse one rule body into a `name → value` map. */
-function declarationsOf (body) {
-  const declarations = new Map()
-  for (const part of body.split(';')) {
-    const declaration = part.trim()
-    if (declaration === '') continue
-    const colon = declaration.indexOf(':')
-    declarations.set(declaration.slice(0, colon).trim(), declaration.slice(colon + 1).trim())
-  }
-  return declarations
 }
 
 /** Find the rule for `selector` that declares `property`. */
@@ -461,6 +466,56 @@ test('colorModeStyles carries the literal rules (heading emphasis, quote fill sh
   const inheritAt = selectors.indexOf(`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`)
   assert.ok(inheritAt > selectors.indexOf(`${MARKDOWN_SCOPE} strong`), 'heading emphasis rule must follow the strong rule')
   assert.ok(inheritAt > selectors.indexOf(`${MARKDOWN_SCOPE} em`), 'heading emphasis rule must follow the em rule')
+})
+
+test('colorModeStyles re-boxes the wide-table scroller into a fixed viewport', () => {
+  const rules = styleRules(colorModeStyles())
+  const wideRules = rules.filter((rule) => rule.selector.includes('.md-table-wide'))
+  const rebox = wideRules.find((rule) => rule.selector === `${TABLE_FRAME}.md-table-wide`)
+  assert.ok(rebox, 'expected the wide-table scroll-wrapper rule')
+  const declarations = declarationsOf(rebox.body)
+  // DSH's bleed wrapper starts at the transcript's left edge and pads the table
+  // back to the text column; the wrapper is also the scroll container, so the
+  // hover scrollbar used to start left of the table frame (2026-10-27 report).
+  // The re-box moves the wrapper onto the table: no margin / padding, the text
+  // column as the width bound (2026-10-27 report: the table ran past the text
+  // column's right edge), and an `overflow-x: auto` viewport whose scrollbar is
+  // always shown when the table is wider (2026-10-28 report: keep the columns at
+  // their natural widths and scroll, Element-table style, instead of wrapping).
+  assert.equal(declarations.get('width'), 'max-content')
+  assert.equal(declarations.get('max-width'), '100%')
+  assert.equal(declarations.get('margin-left'), '0')
+  assert.equal(declarations.get('padding-left'), '0')
+  assert.equal(declarations.get('overflow-x'), 'auto')
+  assert.equal(declarations.get('padding-bottom'), '0')
+  // No other *wrapper* rule may touch these properties: a width / margin /
+  // padding override without the matching re-box shifts the wrapper or clips
+  // the table (2026-10-27 misalignment report). The `> table` rule is exempt:
+  // it sizes the table, not the wrapper.
+  for (const rule of wideRules) {
+    if (rule === rebox || rule.selector.endsWith('> table')) continue
+    for (const property of ['width', 'max-width', 'margin-left', 'padding-left', 'overflow-x']) {
+      assert.equal(declarationsOf(rule.body).has(property), false, `${rule.selector} overrides DSH's ${property}`)
+    }
+  }
+  // Fill tables (< 4 columns, blockquote tables) keep DSH's in-column wrapper.
+  for (const rule of rules) {
+    if (!rule.selector.includes(':not(.md-table-wide)')) continue
+    for (const property of ['width', 'max-width', 'margin-left', 'padding-left', 'overflow-x']) {
+      assert.equal(declarationsOf(rule.body).has(property), false, `${rule.selector} moves DSH's fill wrapper`)
+    }
+  }
+  const frame = wideRules.find((rule) => rule.selector.endsWith('.md-table-wide > table'))
+  assert.ok(frame, 'wide tables must take the frame on the table itself')
+  const frameDeclarations = declarationsOf(frame.body)
+  assert.equal(frameDeclarations.get('border'), '.5px solid var(--dsw-alias-border-l3)')
+  // The columns keep DSH's natural widths: neither the table nor its cells may
+  // be clamped or shrunk, or the wrapper would wrap instead of scroll.
+  assert.equal(frameDeclarations.has('max-width'), false, 'the table must keep its max-content width')
+  for (const rule of rules) {
+    if (!rule.selector.includes('.md-table-wide')) continue
+    assert.equal(declarationsOf(rule.body).has('min-width'), false, `${rule.selector} overrides DSH's cell floor`)
+  }
 })
 
 test('colorModeStyles only contains valid #RRGGBB colours and declared variables', () => {

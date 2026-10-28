@@ -45,6 +45,7 @@ const SOURCES = [
   'color.js',
   'tokens.js',
   'color-mode.js',
+  'table-resize.js',
   'selection.js',
   'active-session.js',
   'state.js',
