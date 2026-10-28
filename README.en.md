@@ -45,6 +45,7 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - 👀 Built around eye comfort: contrast and saturation are gentler on the eyes.
 - 🎨 Two main palettes, dark and light, to pick from as you like.
 - 🖌️ Chat content is colourised: headings, text, code and more all follow the Everforest palette, and each of the six strengths has its own design.
+- 📐 Chat tables show borders; drag a header border to adjust column widths.
 - 📄 The workspace session list is colour-coded by state: waiting for you / done at a glance.
 - ⌛️ The loading page shown when the app opens matches the active palette, so startup feels natural.
 - ⚙️ Open **Settings → Everforest** to choose one of six strengths:
@@ -65,12 +66,13 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - ✅ Full colour-token coverage (incl. shiki code highlighting, diff, sidebar, overlays, borders and state colours)
 - ✅ Contrast checked for every one of the six palettes
 
-**Content colouring**
-- ✅ Markdown rich text: h1–h6 six-colour headings, bold / italic, inline code, internal file links, blockquotes, horizontal rules, task lists, table headers / zebra stripes / hover
+**Content colouring and styling**
+- ✅ Markdown rich text: h1–h6 six-colour headings, bold / italic, inline code, internal file links, blockquotes, horizontal rules, task lists, tables (headers / zebra stripes / hover)
 - ✅ Session status rows: waiting for confirmation (yellow fill) and done-unread (green fill), with status dots
 - ✅ Workspace active-session row highlight
 - ✅ Native text-selection colours, preserving each element's own text colour
 - ✅ First-paint loading page, spinner ring and progress arc
+- ✅ Table styling, with column width adjustment
 
 **Settings and persistence**
 - ✅ Settings page: six strengths plus the appearance control (light / dark / follow system)
@@ -80,7 +82,7 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 
 **Release and engineering**
 - ✅ npm installation, plugin-market listing, real-window screenshots and the market screenshot manifest
-- ✅ Automated tests cover colours, settings, persistence and the transition
+- ✅ Automated tests cover colours, settings, persistence, the transition and the table column interaction
 - ✅ Build and contrast checks run automatically
 
 **Planned**
@@ -91,7 +93,7 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - ⬜ Refined colouring for dropdown options
 - ⬜ Built-in automatic light/dark schedule
 - ⬜ Compatibility polish for other third-party plugin pages
-- ⬜ Refined table styling in chat content
+- ⬜ Remembering column widths across reloads / sessions, and touch support
 
 ## 📚 References
 

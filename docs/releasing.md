@@ -60,6 +60,14 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **registry 传播**：发布后约 4 分钟，裸 tarball URL（`.../-/dsh-everforest-1.1.0.tgz`）仍从 CDN 返回 404，加任意查询串（如 `?cb=…`）立即 200——是边缘缓存未刷新，不是发布失败；以 packument 的 `dist-tags` / `dist.shasum` 与 `?cb=` 取到的 tarball 为准。
 > - **市场冷静期**：npm 发布后 24 小时内市场仍可能装到 1.0.0（§8.6），不要当成发布失败；市场「更新内容」每日探测、约 1 天内显示本版说明（1.1.0 小节 612 字节，远低于 4096 字符截断线）。
 
+> **1.2.0 发布注意（待发布，2026-10-28 准备）**
+>
+> - **只改 Client 半部，滚动升级不需要重启 DSH**：表格边框与列宽拖动都是 `src/client-entry.js` 注入的样式表 + document 级 pointer 监听器，Host 半部与 `Config` schema 未变；插件升级后刷新页面即可（HMR 会热替换模块）。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交里重建）。
+> - **验收口径**：`node --test` **239/239**；`npm run check` 全绿；`docs/design.md` §18.4 的 `scenarios.mjs` 全场景矩阵 **106/106**（真实 CDP 鼠标输入，深 / 浅两套主题，覆盖 fill / wide / 异常表 / 生命周期）+ 真机 fill / wide 复测。表格交互只在鼠标 / 触控笔上启用，触摸端不支持（§18.5）。
+> - **市场「更新内容」**：1.2.0 小节 1347 字符 / 3515 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.1.0，§8.6）。
+> - **发布后回填**：tag `v1.2.0` → publish run、`dist.shasum`、transparency log 补到本文件顶部发布记录与 `design.md` §10。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。
