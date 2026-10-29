@@ -41,7 +41,7 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 
 ## 🔥 Features
 
-- 🌳 Soft sage green and warm cream tones; natural and easy on the eyes.
+- 🌳 Forest greens and warm creams; natural and easy on the eyes.
 - 👀 Built around eye comfort: contrast and saturation are gentler on the eyes.
 - 🎨 Two main palettes, dark and light, to pick from as you like.
 - 🖌️ Chat content is colourised: headings, text, code and more all follow the Everforest palette, and each of the six strengths has its own design.
