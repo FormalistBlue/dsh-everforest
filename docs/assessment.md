@@ -9,6 +9,8 @@
 > 2026-10-24 更新：DSH Desktop 已升级 **0.2.1-rc.3**；对照安装包与 `dsh-v0.2.1-rc.2...dsh-v0.2.1-rc.3` 源码 diff 复核 token（提取 SHA-256 相同）、boot spinner、markdown / 会话行锚点、settings / `configForms` 与 `includePrerelease` 行为均无变化；`engines.dsh` 不抬高下限，文档目标改为 rc.3（逐项证据见 [design.md](design.md) §12）。
 > 2026-10-24 更新（色彩模式）：用户要求把设置里的「色彩模式」选项去掉、作为默认提供的功能——设置页区块 / 开关 / 5 个色片与 5 个 locale 键移除，状态、Host `Config`、缓存回到两个强度，旧 `colorMode` 缓存字段与 profile patch 残留键兼容忽略。见新增 §18 与 [design.md](design.md) §13.9。
 > 2026-10-25 更新：**1.0.0 首个稳定版发布**（tag `v1.0.0` / npm `latest`）——0.4.0 之后未发布的批次作为稳定行为一起发布：UI 强调色改用官方 accent、会话状态行改 palette 原色、工作区当前会话行、原生文本选区、深浅切换聚光灯、dev-only 调试面板、图标与市场素材；token 计数与分类口径同日复核修正。见新增 §19 与 [design.md](design.md) §14–§17 / §10。
+> 2026-10-27 更新：**1.1.0 发布**（tag `v1.1.0`）——「跟随系统」下 OS 深浅翻转也走聚光灯；README 重写「特性」并新增「功能实现」清单。见 §20。
+> 2026-10-28 更新：**1.2.0 发布**（tag `v1.2.0`）——聊天表格边框与拖拽列宽（fill 表相邻两列重分配、宽表 Element 表格式滚动、最后一列可拖窄）。见新增 §21 与 [design.md](design.md) §18。
 
 ## 1. 结论
 
@@ -271,7 +273,7 @@
 
 **残余与后续**
 
-- 0.3.0 已发布（npm latest=0.3.0，2026-10-22）且真机目检由用户确认通过；市场版本由 npm 自动映射，无需为新版本改条目；描述文案自 2026-10-22 起固定为用户指定短文案、不随功能追加（线上条目若仍是旧长文案，需单独 PR），并等 24h `minimumReleaseAge` 冷静期再验收市场安装。
+- 0.3.0 已发布（npm latest=0.3.0，2026-10-22）且真机目检由用户确认通过；市场版本由 npm 自动映射，无需为新版本改条目；描述文案不随功能追加——2026-10-22 的短文案沿用至 2026-10-27，随后由用户重写并经 PR #9853（2026-10-28 合并）上线，当前文案见 [`releasing.md`](releasing.md) §8.2；市场安装验收仍需等 24h `minimumReleaseAge` 冷静期过去。
 - 已知取舍「一次性迁移与跨浏览器重置」（浏览器 B 的旧缓存会再播种一次）见 §7 风险表 / [design.md](design.md) §7 / §11 #12；0.3.0 接受，将来若消除需要 per-browser 一次性标记或版本 / 时间戳判定。
 
 ## 14. 2026-10-23 0.4.0：色彩模式（中彩，实验性）决策记录
@@ -475,13 +477,13 @@
 - 1.0.0 升级需重启一次 DSH 才装载两字段 schema；旧 patch 的 `colorMode` 键被忽略、无需手改；回滚到 0.4.0 / 0.3.0 不需要清理 patch。
 - 工作量未逐日统计（见 §8 注）；市场 24h 冷静期内的版本映射等发布注意见 [`releasing.md`](releasing.md) §8.6。
 
-## 20. 2026-10-25 追加：`system` 跟随下的 OS 翻转也走聚光灯（未发布）
+## 20. 2026-10-25 追加：`system` 跟随下的 OS 翻转也走聚光灯（已随 1.1.0 发布）
 
 > 触发：用户问「现在做了白天和黑夜模式的切换动画，如果是触发跟随系统自动切换，会有这个效果吗」。1.0.0 的口径是**没有**（OS 翻转由 ThemeRuntime 自己的 `prefers-color-scheme` 监听直接 `publish()`，不经过包装的 `setTheme`，旧帧拍不到只能瞬切）；用户确认要实现，并要求不影响已有三个入口的效果。
 
 **决策**：把揭示接到 `ThemeRuntime.publish` 的实例包装上，且只在「OS 翻转」这一种 publish 放行；不改 token 层、不动已有接线。窄门条件是「新偏好与旧快照偏好都是 `system`、且解析出的 scheme 与旧帧不同」，它与 `spotlight.running` 一起把字体/字号、同深浅重栈、改偏好的 Host 广播、以及已有的 `setTheme` 路径全部保持原样（design §17.1）。
 
-**实现（快照）**：`src/theme-spotlight.js` 增 `shouldRevealSystemFlip()` 与 `run(change, { origin: 'center' })`；`src/client-entry.js` 增第 5 段接线（实例 `publish` 包装/还原）；`client.js` 重建。文档：design §17.1、CHANGELOG Unreleased。
+**实现（快照）**：`src/theme-spotlight.js` 增 `shouldRevealSystemFlip()` 与 `run(change, { origin: 'center' })`；`src/client-entry.js` 增第 5 段接线（实例 `publish` 包装/还原）；`client.js` 重建。文档：design §17.1、CHANGELOG 的 1.1.0 小节。
 
 **验证与证据**
 
@@ -490,3 +492,25 @@
 - 已装进本机 `desktop` profile 并触发 DSH client HMR 热替换（观察到 5 张 everforest 样式表整体移除后重建、各剩 1 张，`<html>` 属性与主题保持，控制台无新增错误），运行中的窗口即为新实现。
 
 **残余（人工项）**：真实 OS 深浅切换的目检（Windows 设置里切「浅色 / 深色」、DSH 外观设为「跟随系统」）留给用户；自动化只能验到「publish 包装 → 过渡启动 → 换色发生在回调内 → 中心原点」。
+
+**发布（2026-10-27）**：该实现随 **1.1.0** 发布（tag `v1.1.0`，publish run `40494550768`，npm `latest` = 1.1.0）；只改 Client 半部，升级后刷新页面即可生效。
+
+## 21. 2026-10-27/28 1.2.0：聊天表格边框与拖拽列宽
+
+> 触发：用户 2026-10-27 提出「优化一下聊天内容中的表格样式，比如加上边框，提供拖动表头边框控制列宽度的功能」。实现细节、多轮现场修正与真机读数见 [design.md](design.md) §18；发布记录见 [`releasing.md`](releasing.md)「1.2.0 发布注意」。
+
+**决策与落地**
+
+| 主题 | 结论 | 理由 / 边界 |
+|---|---|---|
+| 表格边框（2026-10-27） | 外框 `border-l3` + 列线 `border-l2`（`.5px`）；fill 表框画在滚动包装层，宽表框画在 `<table>`；首 / 末列补 16px 内边距、末行去掉叠加下边框 | 用户要「加边框」；彩色边框要 3:1 会被压成灰绿（§13.1 旧口径仍成立），中性色阶与 DSH 自己的 cell 分隔线同源 |
+| 列宽拖动（2026-10-27） | 表头右缘 6px 命中 + `document` 级 pointer 事件，首次按下才锁定 `table-layout: fixed`；fill 表（<4 列）重分配相邻两列且总宽不变，宽表逐列独立改宽、表格总宽 = 列宽之和 | DSH 的 Markdown 渲染器是 memo 化 mdast switch、没有表格扩展点，交互只能走 DOM 侧接线；不加 DOM 节点 |
+| 宽表布局（2026-10-28） | 撤掉「收窄换行」修法，改为 Element 表格式：容器收在正文列内、列宽保持自然长度、放不下时底部常驻 5px 横向滚动条；最后一列右边框也是拖动柄 | 用户三次反馈（错位 / 右侧越界 / 要 Element 表格式滚动）；前两版分别把表格裁掉或压成换行，最终方案保留 DSH 的 bleed 布局、只重新装箱包装层 |
+| 复位与边界 | 双击边缘（两次 press 检测，不用 `dblclick`）复位；拖动中 Esc 取消；单列最小 64px；>12 列与触摸端不响应；列宽只在当前页面会话内有效 | `pointerdown` 的 `preventDefault()` 会抑制兼容鼠标事件、`dblclick` 不保证送达；触摸会与横向滚动打架 |
+
+**验证与证据**
+
+- 自动化：`node --test` **239/239**（1.1.0 的 224 项 + 本批 15 项：`table-resize` 14 项与公共 CSS 解析器）；`npm run check` 全绿（palette / build / contrast）；color-mode 样式表 48 条、resize 样式表 19 条规则由测试逐条钉住。
+- 全场景矩阵：离线高保真页 `scenarios.mjs` 走真实 CDP 鼠标输入 **106/106**（深 / 浅两套主题，覆盖 fill / wide / 异常表 / 生命周期）；真机 fill 表 `203.64 / 541.8 → 243.64 / 501.8`、表格 745.44px 不变；宽表最后一列 `353 → 232.5`、表格 `1192.47 → 1072px`、逐列拖窄到 511px 后滚动条消失、双击复位。
+- 发布：tag `v1.2.0`（commit `626671a`）→ publish run `40713360126` → npm `latest` = 1.2.0（`dist.shasum` `480aadf8…`，SLSA provenance），GitHub Release 自动创建；verify run `40713342591`（Linux / Windows × Node 20/22/24）全绿。只改 Client 半部，滚动升级刷新页面即可。
+- 已知边界：列宽不持久化、触摸端不支持、宽表没有圆角（collapsed table）、选择器依赖 `.md-table-wide` / `[class*="tableScroll"]` 等 DSH 字面工具类（升级需回归）。

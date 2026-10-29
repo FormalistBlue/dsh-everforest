@@ -36,7 +36,7 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **升级后必须重启 DSH**：0.4.0 的 Host `Config` 增加第三个 volatile 字段 `colorMode`；Host 半部在启动时装载，刷新页面不会重载 `index.js`。重启后设置页的色彩模式开关才写进当前 profile 的 `cordis.patch.yml`。未重启时新 Client 退回 localStorage-only（开关仍生效、只是暂不写 Host）。
 > - **回滚配置（2026-10-25 修正）**：0.4.0 → 0.3.0 **不需要**手动删 `everforest` 行的 `colorMode`——schemastery 的对象 schema 默认非 strict，未知键会被保留并忽略（源码 `Schema.extend("object", …)` 里 `if (!strict) merge(result, data)`；本机 1.0.0 的 profile patch 至今仍带 `colorMode: true`，插件正常工作）。2026-10-23 当时的「先删再回滚」是保守做法，不是校验硬要求。0.2.1 无 `Config`，本来就不受影响。
 > - **真机验收**：2026-10-23 用户在本机 DSH（重启后）目检设置页、色彩模式开关与 6 套配色下的聊天富文本 / 会话行，确认「这次调整没什么问题了」并要求发布；release 前最后一次自动化门禁为 `node --test` 170/170 + `npm run check` 全绿。
-> - **实验性口径**：市场条目文案按 2026-10-22 定稿的短文案，不随本功能追加（见 §8.6 / 仓库约定「插件功能迭代后不追加市场描述」；线上条目仍是 2026-10-19 的旧长文案，见 §8.2）；CHANGELOG / design 已注明实验性、默认开启可关闭、DSH 升级需回归。README 按用户要求保持发布版原文案不动。
+> - **实验性口径**：市场条目文案以 2026-10-22 定稿的短文案为基础，2026-10-27 由用户重写并经 PR #9853 于 2026-10-28 上线（当前文案见 §8.2），此后功能迭代仍不追加描述；CHANGELOG / design 已注明实验性、默认开启可关闭、DSH 升级需回归。README 按用户要求保持发布版原文案不动。
 > - **2026-10-23 已发布**：tag `v0.4.0`（commit `af4ec47`）→ publish run `39910070876` → npm `latest` = `0.3.0` 传播中 / 最终 `0.4.0`（`dist.shasum` `96fbeac4516ad0baf63ac43141c8da239a1d1bcf`，带 SLSA provenance，transparency log index `3412457040`），GitHub Release `v0.4.0` 已由 workflow 自动创建（2026-10-23T06:12:33Z）。registry 传播期以 `+ dsh-everforest@0.4.0` 与 tarball URL 为准。
 >
 > **2026-10-24 起的兼容说明（色彩模式改为默认提供、无设置开关；该批次后随 1.0.0 发布）**
@@ -181,7 +181,7 @@ npm trust github dsh-everforest `
 & "$node\npm.cmd" pack --dry-run
 ```
 
-要看到上述文件，外加 npm 自动带入的 `package.json`、`README.md` / `README.en.md`、`LICENSE`（1.0.0 共 16 个文件）；`src/` 下**只**出现白名单里的 5 个文件——`src/client-entry.js`、`src/color-mode.js`、`src/settings-page.js`、`src/dev-panel.js` 等 Client 侧模块已打进 `client.js`，`scripts/`、`docs/`、`.github/`、`node_modules/` 不得出现（由 `files` 控制）。重点确认 `client.js` 在清单里——缺它插件能装上但 Client 半部加载失败。
+要看到上述文件，外加 npm 自动带入的 `package.json`、`README.md` / `README.en.md`、`LICENSE`（当前版本共 16 个文件）；`src/` 下**只**出现白名单里的 5 个文件——`src/client-entry.js`、`src/color-mode.js`、`src/settings-page.js`、`src/dev-panel.js` 等 Client 侧模块已打进 `client.js`，`scripts/`、`docs/`、`.github/`、`node_modules/` 不得出现（由 `files` 控制）。重点确认 `client.js` 在清单里——缺它插件能装上但 Client 半部加载失败。
 
 另外核对：
 
@@ -221,7 +221,7 @@ gh release create v0.4.0 --verify-tag --notes-file notes.md
 
 DSH 侧（本机 profile = `desktop`）：
 
-1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@1.0.0`）；
+1. 插件管理页搜 `dsh-everforest` 安装，或由 Agent 调用 `plugin_manager` 的 `install_bundle`（target 为 `dsh-everforest` / `dsh-everforest@1.2.0`）；
 2. 期望：`application: applied`；插件列表出现标题/描述/图标（来自 `locale/*.json` 与 `icon.svg`）；
 3. `cordis_inspect_query`（Client `Theme.listTokens`）出现覆盖 token；`Slots.listSubTree` 根 `settings.section` 出现 `id: everforest`；
 4. Settings → Everforest 可见，切换即时生效。**0.3.0 起强度写进当前 profile 的 `cordis.patch.yml`（`everforest` 行的 `config.light` / `config.dark`），同一 profile 换浏览器 / 重启 DSH 后仍在**；清掉本浏览器 localStorage 也不影响强度（localStorage 只是首帧缓存）。
@@ -272,7 +272,7 @@ npm 发布只解决“可安装”。[dshmarket.com](https://dshmarket.com/)、[
 - npm 包 `dsh-plugin-catalog`（每日 CI 发布）：dsh 0.2.1+ Discover 索引 / `plugin_market` 工具；
 - dsh-market App：`category: theme` 的条目自动进入 **Themes Tab**（一键安装 / 切换 / 卸载）。
 
-### 8.2 条目文件（2026-10-18 起草；2026-10-22 起描述文案由用户固定，此后不随功能更新）
+### 8.2 条目文件（2026-10-18 起草；2026-10-27 用户重写描述，2026-10-28 上线；此后功能迭代不追加描述）
 
 路径 `data/plugins/FormalistBlue__dsh-everforest.yml`（文件名 = owner__repo）：
 
@@ -281,17 +281,19 @@ url: https://github.com/FormalistBlue/dsh-everforest
 name: FormalistBlue/dsh-everforest
 category: theme
 description:
-  en: 'Everforest color themes for DeepSeek Harness Web/Desktop: six schemes (dark and light, each in hard, medium and soft).'
-  zh: '为 DeepSeek Harness Web/Desktop 提供 Everforest 配色。深色 / 浅色各硬 / 中 / 软共 6 套。'
+  en: 'An Everforest colour theme for DeepSeek Harness, for both web and desktop. Forest tones, with six dark and light palettes. Chat content (headings, code, links, tables and more) is restyled with independent colours, and every tone and saturation level is tuned individually for a warm, gentle, easy-on-the-eyes experience.'
+  zh: '为 DeepSeek Harness 提供 Everforest 配色主题，同时支持网页和桌面端。以森林为色调，深色与浅色共 6 档配色。对聊天内容（标题、代码、链接、表格等）样式优化，独立着色，所有色调及饱和度都已逐一调校，提供温暖柔和的护眼体验。'
 ```
 
-> **描述文案已冻结（2026-10-22 用户指定）**：市场条目一律使用上面这段文案；除非用户明确要求修改，否则插件
-> 功能迭代（Host 持久化、accent 等）之后**不要**更新或追加描述内容，也不要顺手把它改回长版。英文槽位是中文
-> 文案的同义直译。改动代码/README 时不需要同步这段文案。
+> **描述文案以 2026-10-27 用户重写版为准（PR #9853，2026-10-28 01:03 合并上线）**：市场条目一律使用上面这段文案；
+> 除非用户明确要求修改，否则插件功能迭代（Host 持久化、accent、表格列宽等）之后**不要**更新或追加描述内容，
+> 也不要顺手改回 2026-10-19 的长版或 2026-10-22 的旧短版。英文槽位是中文文案的同义直译；改动代码 / README 时
+> 不需要同步这段文案。
 
-**线上现状（2026-10-25 核对）**：catalog 的 `data/plugins/FormalistBlue__dsh-everforest.yml` 仍是 2026-10-19
-合并（PR #8096）时的**旧长文案**（含「设置页可选择色板与跟随系统外观」等旧说法），本仓库冻结的短文案尚未上线；
-切到短文案需对 awesome-dsh-plugin 单独提一个只改这一行的 PR，不影响本仓库发版。
+**线上现状（2026-10-28 核对）**：catalog 的 `data/plugins/FormalistBlue__dsh-everforest.yml` 已由 PR
+[#9853](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/9853) 改为上面这条文案（2026-10-28 01:03
+合并），站点、`plugins.json` 与 npm 目录包 `dsh-plugin-catalog` 均已带上新文案；市场 App（中国区优先读 npm
+目录包）在夜间构建发布 + 镜像收敛后可见。以后再改描述仍走「只改这一行的 PR」，不影响本仓库发版。
 
 条目字段白名单是 `url` / `name` / `category` / `description`（必填 `url` / `name` / `category` / `description.en`），
 可选 `icon` 与 `tarball`；`file` 由加载器注入、不要手写。`icon` 必须是 GitHub 托管的位图
@@ -312,7 +314,7 @@ description:
 | 仓库创建满 1 天（CI 自动检查） | 创建于 `2026-10-18 07:07 UTC`，最早 2026-10-19 15:07（HK）可提 PR；实际 PR 于 2026-10-19 17:21 UTC 合并 |
 | GitHub topic `dsh-plugin` | 已添加（当前 topics：`deepseek-harness` / `dsh-plugin` / `everforest` / `theme`） |
 | `screenshots.json` | 已加（仓库根，见 §8.4） |
-| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；`dsh-everforest@1.0.0` 已发布（2026-10-25）且 `repository` 指向本仓库，满足，**不要**在 yml 里写包名 |
+| npm 映射（市场快速安装 / 下载量） | 自动：读仓库 HEAD 的 `package.json#name`，并要求已发布包的 `repository` 指回本仓库；`dsh-everforest@1.2.0` 已发布（2026-10-28）且 `repository` 指向本仓库，满足，**不要**在 yml 里写包名 |
 
 ### 8.4 截图（仓库根 `screenshots.json`）
 
