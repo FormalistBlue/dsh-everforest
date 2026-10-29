@@ -35,6 +35,10 @@
  *    tags a table with explicit column widths only once the user drags a header
  *    edge (DSH's memoized markdown renderer exposes no table extension point,
  *    so the interaction is document-level DOM wiring, not a React component).
+ *    The wide table's horizontal scrollbar grows from a 5px to a 10px pill on
+ *    hover; the color-mode sheet reserves the track and the transition is
+ *    driven from `src/table-scrollbar.js` (Chromium never animates scrollbar
+ *    pseudo-elements with CSS).
  *
  * The override disposer returned by `overrideTokens` is NOT tied to the plugin
  * fiber (the layer lives on the root ThemeRuntime), so the layer is created
@@ -52,6 +56,7 @@
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 import { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } from './color-mode.js'
 import { installColumnResize, tableResizeStyles } from './table-resize.js'
+import { installTableScrollbarHover } from './table-scrollbar.js'
 import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
 import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
@@ -416,6 +421,31 @@ export function apply(ctx) {
       tag.remove()
     }
   }, 'everforest: table column resize')
+
+  // 1f. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // scrollbar track and paints a 5px inset pill; this controller grows the pill
+  // to the full track while the pointer is on the bar. Chromium never runs CSS
+  // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset
+  // is animated from pointer events — which the scroll wrapper receives while
+  // the pointer is over its native scrollbar — with requestAnimationFrame. The
+  // module owns no stylesheet: the resting look is entirely the color-mode
+  // sheet, so an unloaded or failed module leaves every table exactly as the
+  // theme paints it.
+  ctx.effect(() => {
+    if (typeof document === 'undefined') return undefined
+    let dispose = null
+    try {
+      dispose = installTableScrollbarHover({
+        document,
+        window: typeof window === 'undefined' ? undefined : window,
+      })
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} table scrollbar hover animation could not be installed; the thumb keeps its resting 5px inset`, error)
+    }
+    return () => {
+      if (typeof dispose === 'function') dispose()
+    }
+  }, 'everforest: table scrollbar hover')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must

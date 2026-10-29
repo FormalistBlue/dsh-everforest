@@ -569,6 +569,25 @@ const LITERAL_RULES = [
   [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
   [`${TABLE_FRAME} th:first-child, ${TABLE_FRAME} td:first-child`, [['padding-left', '16px']]],
   [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
+  // Horizontal scrollbar of a scrolled table (2026-10-29 request: "make it
+  // thicker on hover, easier to grab", then "add a transition animation").
+  // The visible thumb stays the same 5px pill DSH paints, sitting directly under
+  // the table, but the reserved track is 10px: the thumb box (and with it the
+  // grab target) spans the whole track, and a transparent bottom border insets
+  // the painted pill to 5px at the top of the track. The track height never
+  // changes, so the pill grows downward without moving the table or the content
+  // below it. The inset is a custom property because the hover transition is
+  // driven by `src/table-scrollbar.js`: Chromium never runs a CSS transition or
+  // animation on a scrollbar pseudo-element (a 10s `transition` is parsed but no
+  // Web Animation starts and the paint jumps to the end state, verified
+  // 2026-10-29), while pointer events over the native scrollbar are delivered to
+  // this element and this property is inherited by the scrollbar
+  // pseudo-element — so the module animates the inset frame by frame. Colours
+  // stay DSH's (`--dsh-scrollbar-thumb` / `--dsh-scrollbar-thumb-hover` through
+  // the theme token layer), and `background-clip: content-box` is re-asserted so
+  // the transparent border is not painted over.
+  [`${TABLE_FRAME}::-webkit-scrollbar`, [['height', '10px']]],
+  [`${TABLE_FRAME}::-webkit-scrollbar-thumb`, [['border-top', '0'], ['border-bottom', 'var(--everforest-table-scrollbar-inset, 5px) solid transparent'], ['background-clip', 'content-box']]],
   // Dark waiting rows: deep contrast ink on the amber surface (design §13.8.1).
   // The row actions that appear on hover (the "…" menu, archive, pin) carry
   // `label-tertiary` / `label-primary` and would vanish on the amber fill, so

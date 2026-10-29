@@ -695,6 +695,15 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(tableResizeStylesheets[0].textContent.includes('data-everforest-resizable'))
   assert.ok(tableResizeStylesheets[0].textContent.includes('--everforest-col-1'))
 
+  // The scrollbar hover transition has no stylesheet of its own — it animates
+  // the color-mode sheet's `--everforest-table-scrollbar-inset` — but its
+  // controller must be wired in the same always-on layer.
+  const effectLabels = recorded.effects.map((entry) => entry.label)
+  assert.ok(
+    effectLabels.includes('everforest: table scrollbar hover'),
+    'the table scrollbar hover controller must be mounted with the token layer'
+  )
+
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')

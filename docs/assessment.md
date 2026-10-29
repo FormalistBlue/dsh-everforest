@@ -514,3 +514,24 @@
 - 全场景矩阵：离线高保真页 `scenarios.mjs` 走真实 CDP 鼠标输入 **106/106**（深 / 浅两套主题，覆盖 fill / wide / 异常表 / 生命周期）；真机 fill 表 `203.64 / 541.8 → 243.64 / 501.8`、表格 745.44px 不变；宽表最后一列 `353 → 232.5`、表格 `1192.47 → 1072px`、逐列拖窄到 511px 后滚动条消失、双击复位。
 - 发布：tag `v1.2.0`（commit `626671a`）→ publish run `40713360126` → npm `latest` = 1.2.0（`dist.shasum` `480aadf8…`，SLSA provenance），GitHub Release 自动创建；verify run `40713342591`（Linux / Windows × Node 20/22/24）全绿。只改 Client 半部，滚动升级刷新页面即可。
 - 已知边界：列宽不持久化、触摸端不支持、宽表没有圆角（collapsed table）、选择器依赖 `.md-table-wide` / `[class*="tableScroll"]` 等 DSH 字面工具类（升级需回归）。
+
+## 22. 2026-10-29 表格横向滚动条 hover 加粗 + 过渡动画（未发布）
+
+> 触发：用户 2026-10-29 提出「之前修改了默认的表格样式，现在能不能优化一下，当 hover 滚动条的时候，让滚动条稍微变粗一点，让用户更容易选中」，随后追加「加上变化的时候的过渡动画效果」。实现与逐条读数见 [design.md](design.md) §18.1 / §18.3 / §18.4。
+
+**决策与落地**
+
+| 主题 | 结论 | 理由 / 边界 |
+|---|---|---|
+| hover 加粗形态 | 条位固定 10px；thumb 静止画 5px（透明下边框 + `background-clip: content-box` 内缩，位置与 1.2.0 一致），hover 画满 10px 并切到 DSH 的 hover 色 | 直接改条高会让包装层与表格后的正文在 hover 时跳 5px；固定轨道 + 内缩画法做到「变粗但零布局位移」，静止视觉逐像素不变 |
+| 过渡方式 | 由新模块 `src/table-scrollbar.js` 用 `pointermove` + `requestAnimationFrame` 逐帧缓动 inset（ease-out cubic，160ms），**不写 CSS transition / `:hover` 规则** | Chromium 不会在滚动条伪元素上运行 CSS 过渡 / 动画（10s transition 也 `getAnimations()` 为空、像素直接是终态）；指针在原生滚动条上时事件仍派发给所属包装层，且包装层的自定义属性能被子滚动条伪元素继承，逐帧写 inset 就能真实重绘 |
+| 否决的替代 | ① `::-webkit-scrollbar:hover`；② 包装层 `:hover::-webkit-scrollbar`；③ 保留 `::-webkit-scrollbar-thumb:hover` 改 border | ① Chromium 不匹配（指针在条上条高仍 5px）；② 经过表格任意位置就会加粗并跳 5px；③ 会瞬间跳变、把动画掐掉。`prefers-reduced-motion: reduce` 时控制器直接跳到终态 |
+| 颜色与尺寸来源 | 颜色不动，仍取 DSH 主题滚动条 token（`--dsh-scrollbar-thumb` / `--dsh-scrollbar-thumb-hover`）；尺寸写死 10px / 5px 并由测试钉住 | 配色归主题层（§18.1 的既有口径）；尺寸是本功能的设计值，不引入新的外部变量依赖；Blink 把滚动条部件边框取整到整 CSS 像素，DPR 1 下过渡只有 5 → 4 → 3 → 2 → 1 → 0 六个绘制态（平台上限） |
+
+**验证与证据**
+
+- 自动化：`node --test` **252/252**（1.2.0 的 239 项 + 本轮样式 1 项 + 动画控制器 12 项）；`npm run check` 全绿（palette / build / contrast）；color-mode 样式表 48 → 50 条、字面规则 16 → 18 条，动画的命中几何与逐帧序列由 `tests/table-scrollbar.test.mjs` 钉住。
+- 探针 + 离线高保真预览 + 过渡实测：design.md §18.4 的三条（Chromium 伪元素 / 事件 / 自定义属性继承行为、before / after 几何与逐行像素、真实控制器内联页的 4s 慢放采样：inline inset `4.88 → 4.70 → 4.52 → …`、computed border `5 → 4 → 3 → 2 → 1px`，hover 全程零布局位移）。
+- 残余（人工项）：共享调试 Chrome 打不开需要 token 的 Web GUI，本会话也没有桌面 app 的 MCP 通道，真实窗口的 hover 手感目检留给用户；改的是 Client 半部（样式表 + 控制器），`client.js` 重建后刷新页面即生效。
+
+**边界**：仅 Chromium / Electron 生效（Firefox 走 DSH 的 `scrollbar-width: thin` 兜底，不加粗）；过渡依赖「指针在原生滚动条上的事件仍派发到所属元素」这一 Blink 行为，若某版本改变则 hover 不再加粗（静止 5px 不受影响），rAF 不可用 / reduced-motion 时退化为瞬切；可滚动表格下方多 5px 透明条位、表格后正文下移 5px，不可滚动 / fill 表不受影响；依赖 `::-webkit-scrollbar*` 私有伪元素与主题的 thumb 绘制方式（DSH 升级需回归）。

@@ -1969,6 +1969,25 @@ const LITERAL_RULES = [
   [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
   [`${TABLE_FRAME} th:first-child, ${TABLE_FRAME} td:first-child`, [['padding-left', '16px']]],
   [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
+  // Horizontal scrollbar of a scrolled table (2026-10-29 request: "make it
+  // thicker on hover, easier to grab", then "add a transition animation").
+  // The visible thumb stays the same 5px pill DSH paints, sitting directly under
+  // the table, but the reserved track is 10px: the thumb box (and with it the
+  // grab target) spans the whole track, and a transparent bottom border insets
+  // the painted pill to 5px at the top of the track. The track height never
+  // changes, so the pill grows downward without moving the table or the content
+  // below it. The inset is a custom property because the hover transition is
+  // driven by `src/table-scrollbar.js`: Chromium never runs a CSS transition or
+  // animation on a scrollbar pseudo-element (a 10s `transition` is parsed but no
+  // Web Animation starts and the paint jumps to the end state, verified
+  // 2026-10-29), while pointer events over the native scrollbar are delivered to
+  // this element and this property is inherited by the scrollbar
+  // pseudo-element — so the module animates the inset frame by frame. Colours
+  // stay DSH's (`--dsh-scrollbar-thumb` / `--dsh-scrollbar-thumb-hover` through
+  // the theme token layer), and `background-clip: content-box` is re-asserted so
+  // the transparent border is not painted over.
+  [`${TABLE_FRAME}::-webkit-scrollbar`, [['height', '10px']]],
+  [`${TABLE_FRAME}::-webkit-scrollbar-thumb`, [['border-top', '0'], ['border-bottom', 'var(--everforest-table-scrollbar-inset, 5px) solid transparent'], ['background-clip', 'content-box']]],
   // Dark waiting rows: deep contrast ink on the amber surface (design §13.8.1).
   // The row actions that appear on hover (the "…" menu, archive, pin) carry
   // `label-tertiary` / `label-primary` and would vanish on the amber fill, so
@@ -2544,8 +2563,279 @@ function installColumnResize (options = {}) {
   return { RESIZABLE_ATTR, EDGE_ATTR, DRAG_ATTR, COLUMN_VARIABLE, MIN_COLUMN_WIDTH, MAX_COLUMNS, EDGE_ZONE, clampSpan, resizeColumn, nextColumnWidths, normalizeWidths, tableResizeStyles, isResizeBoundary, installColumnResize }
 })()
 
+// ---------------------------------------------------------------- src/table-scrollbar.js
+const __mod_5_table_scrollbar_js = (() => {
+// Animated hover growth for the chat table's horizontal scrollbar.
+//
+// The color-mode stylesheet reserves a 10px track and paints the resting thumb
+// as a 5px pill by insetting a transparent bottom border
+// (`border-bottom: var(--everforest-table-scrollbar-inset, 5px)`). The pill
+// should grow to the full 10px while the pointer is on the scrollbar, but
+// Chromium never runs a CSS transition or animation on a scrollbar
+// pseudo-element: a 10s `transition` on `::-webkit-scrollbar-thumb` is parsed
+// (the computed `transition` property shows it) yet no Web Animation starts and
+// the paint jumps straight to the end state (verified 2026-10-29). So the
+// transition has to be driven frame by frame from here:
+//
+//   - pointer events over the *native* scrollbar are delivered to the scrollbar's
+//     element, so a document-level `pointermove` can tell that the pointer sits
+//     on a table's horizontal bar (hit = bottom `offsetHeight - clientHeight` px),
+//   - a custom property set inline on the wrapper is inherited by its scrollbar
+//     pseudo-element, so writing the inset every frame repaints the thumb at an
+//     intermediate height.
+//
+// Blink rounds a scrollbar part's border width to whole CSS pixels, so at DPR 1
+// the growth is the six paint states 5 → 4 → … → 0 px (pill 5 → 10px); that is
+// the smoothest this platform renders, and the duration only spreads those six
+// states over time. The animation never touches layout: the track height is
+// constant, so the table and the content below it do not move.
+
+/** Custom property the color-mode sheet reads for the thumb's bottom inset. */
+const SCROLLBAR_INSET_VARIABLE = '--everforest-table-scrollbar-inset'
+
+/** Inset (px) of the resting 5px pill inside the 10px track. */
+const REST_SCROLLBAR_INSET = 5
+
+/** Inset (px) while the pointer is on the scrollbar: the pill fills the track. */
+const HOVER_SCROLLBAR_INSET = 0
+
+/** One animation leg (grow or shrink), in ms. */
+const SCROLLBAR_GROW_MS = 160
+
+/** The table scroll wrapper, the same selector the color-mode sheet uses. */
+const FRAME_SELECTOR = '[class*="tableScroll"]'
+
+/** The markdown content container, the scope the color-mode sheet applies in. */
+const MARKDOWN_SELECTOR = '[class*="markdown"]'
+
+/**
+ * Ease-out cubic: a quick start and a gentle settle, so the growth reads as a
+ * reaction to the pointer instead of a linear slide.
+ * @param {number} t - clamped progress 0..1
+ * @returns {number}
+ */
+function easeOutCubic (t) {
+  const inverse = 1 - t
+  return 1 - inverse * inverse * inverse
+}
+
+/**
+ * The inset at `progress` of a move from `from` to `to`, eased and clamped.
+ * Exposed for tests; the controller only feeds it the animation clock.
+ * @param {number} from - inset at progress 0, in px
+ * @param {number} to - inset at progress 1, in px
+ * @param {number} progress - 0..1 (values outside are clamped)
+ * @returns {number}
+ */
+function scrollbarInsetAt (from, to, progress) {
+  const clamped = progress < 0 ? 0 : progress > 1 ? 1 : progress
+  return from + (to - from) * easeOutCubic(clamped)
+}
+
+/**
+ * Whether a viewport point lies on a wrapper's horizontal scrollbar.
+ * Exposed for tests.
+ * @param {{ left: number, right: number, bottom: number }} rect - wrapper box
+ * @param {number} thickness - `offsetHeight - clientHeight` (0 without a bar)
+ * @param {number} clientX - pointer viewport x
+ * @param {number} clientY - pointer viewport y
+ * @returns {boolean}
+ */
+function isScrollbarPoint (rect, thickness, clientX, clientY) {
+  if (!(thickness > 0)) return false
+  if (clientX < rect.left || clientX > rect.right) return false
+  return clientY >= rect.bottom - thickness && clientY <= rect.bottom
+}
+
+/**
+ * Install the animated scrollbar hover on a document.
+ *
+ * The returned disposer removes every listener and the inline inset, leaving
+ * every table on the stylesheet's resting 5px pill. A fresh call after a plugin
+ * reload starts from empty state, exactly like the first install.
+ *
+ * @param {{ document?: Document, window?: Window }} [options]
+ * @returns {() => void}
+ */
+function installTableScrollbarHover (options = {}) {
+  const doc = options.document
+  if (!doc || typeof doc.addEventListener !== 'function') return () => {}
+  const win = options.window || (typeof window === 'undefined' ? undefined : window)
+
+  const requestFrame = win && typeof win.requestAnimationFrame === 'function'
+    ? (callback) => win.requestAnimationFrame(callback)
+    : null
+  const cancelFrame = win && typeof win.cancelAnimationFrame === 'function'
+    ? (handle) => win.cancelAnimationFrame(handle)
+    : null
+  const clock = win && win.performance && typeof win.performance.now === 'function'
+    ? () => win.performance.now()
+    : () => Date.now()
+  const prefersReducedMotion = () => {
+    if (!win || typeof win.matchMedia !== 'function') return false
+    try {
+      return win.matchMedia('(prefers-reduced-motion: reduce)').matches === true
+    } catch {
+      return false
+    }
+  }
+
+  /** Wrapper carrying the inline inset (also the one being animated). */
+  let shown = null
+  /** Inset currently painted on `shown`, in px. */
+  let shownInset = REST_SCROLLBAR_INSET
+  /** Inset the controller is aiming at, in px (resting unless hovered). */
+  let goal = REST_SCROLLBAR_INSET
+  /** The leg in flight: `{ from, to, startedAt }`, or null when settled. */
+  let leg = null
+  let frame = 0
+
+  /**
+   * Write the inset onto `element`; the resting value is expressed by removing
+   * the property, so an untouched table carries no inline style at all.
+   * @param {Element} element
+   * @param {number} value - inset in px
+   */
+  function paint (element, value) {
+    if (value >= REST_SCROLLBAR_INSET) {
+      element.style.removeProperty(SCROLLBAR_INSET_VARIABLE)
+      return
+    }
+    element.style.setProperty(SCROLLBAR_INSET_VARIABLE, `${Math.round(value * 100) / 100}px`)
+  }
+
+  /** Cancel a pending frame, if any. */
+  function stopFrame () {
+    if (frame !== 0) {
+      if (cancelFrame !== null) cancelFrame(frame)
+      frame = 0
+    }
+  }
+
+  /** Settle on the leg's target and drop the animation. */
+  function finishLeg () {
+    if (leg === null) return
+    const target = leg.to
+    leg = null
+    goal = target
+    shownInset = target
+    paint(shown, target)
+    if (target >= REST_SCROLLBAR_INSET) shown = null
+  }
+
+  /** One animation frame: paint the eased inset or settle. */
+  function tick () {
+    frame = 0
+    if (leg === null || shown === null) return
+    const progress = (clock() - leg.startedAt) / SCROLLBAR_GROW_MS
+    if (progress >= 1) {
+      finishLeg()
+      return
+    }
+    shownInset = scrollbarInsetAt(leg.from, leg.to, progress)
+    paint(shown, shownInset)
+    frame = requestFrame(tick)
+  }
+
+  /**
+   * Aim `element` at `inset`. Repeating the same goal (every pointer move over
+   * the bar does) is a no-op, so continuous movement cannot restart the leg; a
+   * *different* target starts from the currently painted value, so reversing
+   * mid-grow is smooth.
+   * @param {Element} element - wrapper to paint on
+   * @param {number} inset - target inset in px
+   */
+  function moveTo (element, inset) {
+    if (element !== shown) {
+      if (shown !== null) paint(shown, REST_SCROLLBAR_INSET)
+      stopFrame()
+      shown = element
+      shownInset = REST_SCROLLBAR_INSET
+      goal = REST_SCROLLBAR_INSET
+    }
+    if (inset === goal) return
+    goal = inset
+    stopFrame()
+    if (requestFrame === null || prefersReducedMotion()) {
+      leg = null
+      shownInset = inset
+      paint(shown, inset)
+      if (inset >= REST_SCROLLBAR_INSET) {
+        shown = null
+        goal = REST_SCROLLBAR_INSET
+      }
+      return
+    }
+    leg = { from: shownInset, to: inset, startedAt: clock() }
+    frame = requestFrame(tick)
+  }
+
+  /** Full collapse of whatever is expanded. */
+  function collapse () {
+    if (shown === null) return
+    moveTo(shown, REST_SCROLLBAR_INSET)
+  }
+
+  /**
+   * The table wrapper under the pointer, if the pointer is on its horizontal
+   * scrollbar. Requires real horizontal overflow: fractional layout can make
+   * `offsetHeight - clientHeight` 1–2px even without a bar, and a fill table
+   * must never react.
+   * @param {PointerEvent} event
+   * @returns {Element | null}
+   */
+  function hitWrapper (event) {
+    const target = event.target
+    if (!target || typeof target.closest !== 'function') return null
+    const element = target.closest(FRAME_SELECTOR)
+    if (element === null) return null
+    const markdown = element.closest(MARKDOWN_SELECTOR)
+    if (markdown === null || markdown.getAttribute('data-markdown-variant') === 'compact') return null
+    if (!(element.scrollWidth > element.clientWidth)) return null
+    const thickness = element.offsetHeight - element.clientHeight
+    const rect = element.getBoundingClientRect()
+    return isScrollbarPoint(rect, thickness, event.clientX, event.clientY) ? element : null
+  }
+
+  function onPointerMove (event) {
+    if (event.pointerType === 'touch') return
+    const hit = hitWrapper(event)
+    if (hit === null) collapse()
+    else moveTo(hit, HOVER_SCROLLBAR_INSET)
+  }
+
+  function onPointerLeave () {
+    collapse()
+  }
+
+  function onWindowBlur () {
+    collapse()
+  }
+
+  const listened = [
+    ['pointermove', onPointerMove, { passive: true }],
+    ['pointerleave', onPointerLeave, { passive: true }]
+  ]
+  for (const [type, listener, listenerOptions] of listened) doc.addEventListener(type, listener, listenerOptions)
+  if (win && typeof win.addEventListener === 'function') win.addEventListener('blur', onWindowBlur)
+
+  return function dispose () {
+    for (const [type, listener, listenerOptions] of listened) doc.removeEventListener(type, listener, listenerOptions)
+    if (win && typeof win.removeEventListener === 'function') win.removeEventListener('blur', onWindowBlur)
+    stopFrame()
+    leg = null
+    if (shown !== null) shown.style.removeProperty(SCROLLBAR_INSET_VARIABLE)
+    shown = null
+    shownInset = REST_SCROLLBAR_INSET
+    goal = REST_SCROLLBAR_INSET
+  }
+}
+
+  return { SCROLLBAR_INSET_VARIABLE, REST_SCROLLBAR_INSET, HOVER_SCROLLBAR_INSET, SCROLLBAR_GROW_MS, scrollbarInsetAt, isScrollbarPoint, installTableScrollbarHover }
+})()
+
 // ---------------------------------------------------------------- src/selection.js
-const __mod_5_selection_js = (() => {
+const __mod_6_selection_js = (() => {
   const { RAMPS, SCHEMES, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -2600,7 +2890,7 @@ function selectionStyles() {
 })()
 
 // ---------------------------------------------------------------- src/active-session.js
-const __mod_6_active_session_js = (() => {
+const __mod_7_active_session_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { contrastRatio, labLightness, mix } = __mod_1_color_js
   const { tokensFor } = __mod_2_tokens_js
@@ -2781,7 +3071,7 @@ function activeSessionStyles () {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_7_state_js = (() => {
+const __mod_8_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -3075,9 +3365,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_8_durable_js = (() => {
+const __mod_9_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_7_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_8_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -3242,7 +3532,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_9_locale_js = (() => {
+const __mod_10_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -3325,7 +3615,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_10_settings_page_js = (() => {
+const __mod_11_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -3965,7 +4255,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_11_theme_spotlight_js = (() => {
+const __mod_12_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -4272,18 +4562,19 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_12_client_entry_js = (() => {
+const __mod_13_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { installColumnResize, tableResizeStyles } = __mod_4_table_resize_js
-  const { selectionStyles } = __mod_5_selection_js
-  const { activeSessionStyles } = __mod_6_active_session_js
+  const { installTableScrollbarHover } = __mod_5_table_scrollbar_js
+  const { selectionStyles } = __mod_6_selection_js
+  const { activeSessionStyles } = __mod_7_active_session_js
   const { SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_7_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_8_durable_js
-  const { EN, NS, ZH } = __mod_9_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_10_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_11_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_8_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_9_durable_js
+  const { EN, NS, ZH } = __mod_10_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_11_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_12_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -4322,6 +4613,10 @@ const __mod_12_client_entry_js = (() => {
  *    tags a table with explicit column widths only once the user drags a header
  *    edge (DSH's memoized markdown renderer exposes no table extension point,
  *    so the interaction is document-level DOM wiring, not a React component).
+ *    The wide table's horizontal scrollbar grows from a 5px to a 10px pill on
+ *    hover; the color-mode sheet reserves the track and the transition is
+ *    driven from `src/table-scrollbar.js` (Chromium never animates scrollbar
+ *    pseudo-elements with CSS).
  *
  * The override disposer returned by `overrideTokens` is NOT tied to the plugin
  * fiber (the layer lives on the root ThemeRuntime), so the layer is created
@@ -4675,6 +4970,31 @@ function apply(ctx) {
       tag.remove()
     }
   }, 'everforest: table column resize')
+
+  // 1f. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // scrollbar track and paints a 5px inset pill; this controller grows the pill
+  // to the full track while the pointer is on the bar. Chromium never runs CSS
+  // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset
+  // is animated from pointer events — which the scroll wrapper receives while
+  // the pointer is over its native scrollbar — with requestAnimationFrame. The
+  // module owns no stylesheet: the resting look is entirely the color-mode
+  // sheet, so an unloaded or failed module leaves every table exactly as the
+  // theme paints it.
+  ctx.effect(() => {
+    if (typeof document === 'undefined') return undefined
+    let dispose = null
+    try {
+      dispose = installTableScrollbarHover({
+        document,
+        window: typeof window === 'undefined' ? undefined : window,
+      })
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} table scrollbar hover animation could not be installed; the thumb keeps its resting 5px inset`, error)
+    }
+    return () => {
+      if (typeof dispose === 'function') dispose()
+    }
+  }, 'everforest: table scrollbar hover')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
@@ -5120,6 +5440,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_12_client_entry_js
+    return __mod_13_client_entry_js
   },
 })

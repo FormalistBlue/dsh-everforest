@@ -6,6 +6,16 @@
 这里只写「改了什么、能感知到什么效果」；实现方式、原因与实测数据见
 [`docs/design.md`](docs/design.md)、[`docs/assessment.md`](docs/assessment.md) 或 git 历史。
 
+## [Unreleased]
+
+### Changed
+
+- 优化表格横向滚动条样式
+
+### Notes
+
+- 只改了 Client 半部，重新加载页面即可生效，无需重启 DSH。
+
 ## [1.2.0] - 2026-10-28
 
 聊天表格有了细边框与可拖动的列宽：拖动表头边缘即可调整列宽，宽表按 Element 表格式滚动，最后一列也能拖窄；双击边缘恢复自动列宽。

@@ -111,6 +111,12 @@ const EXPECTED_LITERAL_RULES = [
   [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
   [`${TABLE_FRAME} th:first-child, ${TABLE_FRAME} td:first-child`, [['padding-left', '16px']]],
   [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
+  [`${TABLE_FRAME}::-webkit-scrollbar`, [['height', '10px']]],
+  [`${TABLE_FRAME}::-webkit-scrollbar-thumb`, [
+    ['border-top', '0'],
+    ['border-bottom', 'var(--everforest-table-scrollbar-inset, 5px) solid transparent'],
+    ['background-clip', 'content-box']
+  ]],
   [DARK_WARN_ROW, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
   [`${DARK_WARN_ROW} [class*="_time"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
   [`${DARK_WARN_ROW} [data-state="warning"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
@@ -516,6 +522,44 @@ test('colorModeStyles re-boxes the wide-table scroller into a fixed viewport', (
     if (!rule.selector.includes('.md-table-wide')) continue
     assert.equal(declarationsOf(rule.body).has('min-width'), false, `${rule.selector} overrides DSH's cell floor`)
   }
+})
+
+test('colorModeStyles reserves a 10px table scrollbar track for a 5px inset pill', () => {
+  const rules = styleRules(colorModeStyles())
+  // 2026-10-29 request: the table's horizontal scrollbar should get thicker on
+  // hover so it is easier to grab. The track is a constant 10px (double DSH's
+  // 5px), the thumb paints only the top 5px of it at rest — the same pill DSH
+  // paints, right under the table — and the inset is a custom property so
+  // `src/table-scrollbar.js` can animate the growth to 10px. Chromium never runs
+  // CSS transitions on scrollbar pseudo-elements, so no `:hover` rule lives in
+  // this stylesheet; the module (and its tests) own the transition.
+  const track = findRule(rules, `${TABLE_FRAME}::-webkit-scrollbar`, 'height')
+  assert.ok(track, 'expected the table scrollbar track rule')
+  assert.equal(declarationsOf(track.body).get('height'), '10px')
+  const thumb = findRule(rules, `${TABLE_FRAME}::-webkit-scrollbar-thumb`, 'border-bottom')
+  assert.ok(thumb, 'expected the table scrollbar thumb rule')
+  assert.equal(
+    declarationsOf(thumb.body).get('border-bottom'),
+    'var(--everforest-table-scrollbar-inset, 5px) solid transparent',
+    'the inset that keeps the pill thin and lets the module animate it'
+  )
+  assert.equal(declarationsOf(thumb.body).get('border-top'), '0')
+  assert.equal(declarationsOf(thumb.body).get('background-clip'), 'content-box', 'the inset is transparent, not painted over')
+  // Nothing else may style these scrollbar parts: an unscoped or conflicting
+  // `::-webkit-scrollbar` rule would move every scrollbar in the app.
+  const scrollbarRules = rules.filter((rule) => rule.selector.includes('::-webkit-scrollbar'))
+  assert.deepEqual(
+    scrollbarRules.map((rule) => rule.selector).sort(),
+    [
+      `${TABLE_FRAME}::-webkit-scrollbar`,
+      `${TABLE_FRAME}::-webkit-scrollbar-thumb`
+    ].sort()
+  )
+  assert.equal(
+    rules.some((rule) => rule.selector.includes('::-webkit-scrollbar') && rule.selector.includes(':hover')),
+    false,
+    'the hover state is animated from JS, not switched by a CSS :hover rule'
+  )
 })
 
 test('colorModeStyles only contains valid #RRGGBB colours and declared variables', () => {
