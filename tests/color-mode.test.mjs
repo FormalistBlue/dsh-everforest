@@ -95,7 +95,7 @@ const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
 /** Rules that are not a single role variable (checked verbatim). */
 const EXPECTED_LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
-  [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  [`${MARKDOWN_SCOPE} blockquote`, [['padding-top', '2px'], ['padding-bottom', '2px'], ['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
   [`${TABLE_FRAME}.md-table-wide`, [
     ['width', 'max-content'],
     ['max-width', '100%'],

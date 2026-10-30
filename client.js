@@ -1922,13 +1922,18 @@ const ELEMENT_RULES = [
 /**
  * Rules that are not a single colour variable: they either re-assert the
  * heading colour inside emphasis, or reshape the blockquote fill so the tinted
- * box does not press against the right edge. They follow the colour rules so
+ * box does not press against its text. They follow the colour rules so
  * the `inherit` wins over `strong` / `em`.
  * @type {Array<[string, Array<[string, string]>]>}
  */
 const LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
-  [`${MARKDOWN_SCOPE} blockquote`, [['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  // The tinted quote fill should not start and end on the text line: DSH gives
+  // a blockquote a left rule and left padding only, so without vertical padding
+  // the aqua fill hugs the first and last line. 2px top/bottom (2026-10-30
+  // request: "上下稍微加 2px padding") plus the right padding / rounded right
+  // corners keep the fill off the text on every side.
+  [`${MARKDOWN_SCOPE} blockquote`, [['padding-top', '2px'], ['padding-bottom', '2px'], ['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
   // Table frame and column rules. DSH's table only draws horizontal cell rules,
   // so without them a table reads as a list of loose rows. Fill tables are 100%
   // wide, so their scroll wrapper can carry the outer border (and clip it to a
