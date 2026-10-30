@@ -74,7 +74,10 @@ test('tableResizeStyles overrides the renderer cell caps and paints the edge gui
 
   const guide = rules.find((rule) => rule.selector === `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}]::after`)
   assert.ok(guide, 'missing edge guide rule')
-  assert.equal(declarationsOf(guide.body).get('background-color'), 'var(--dsw-alias-brand-primary)')
+  // The handle colour is a color-mode role (2026-10-30: the accent aqua was too
+  // bright); the plain-token brand is only the fallback for a document without
+  // the color-mode sheet.
+  assert.equal(declarationsOf(guide.body).get('background-color'), 'var(--everforest-color-table-handle, var(--dsw-alias-brand-primary))')
   assert.equal(declarationsOf(guide.body).get('pointer-events'), 'none')
 
   // The wide table's last-column handle sits on the outer border, which the
@@ -84,11 +87,29 @@ test('tableResizeStyles overrides the renderer cell caps and paints the edge gui
   assert.equal(declarationsOf(outerGuide.body).get('right'), '0')
 })
 
+test('tableResizeStyles keeps the guide inside the header row in every state', () => {
+  const rules = styleRules(tableResizeStyles())
+  // 2026-10-30 request: the handle is one header cell tall on hover and while
+  // dragging — a drag highlights only the header row's border line, not the
+  // whole column edge. The guide is the header cell's `::after`, so the only
+  // geometry it needs is "fill the cell box".
+  const guide = rules.find((rule) => rule.selector === `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}]::after`)
+  assert.ok(guide, 'missing edge guide rule')
+  const declarations = declarationsOf(guide.body)
+  assert.equal(declarations.get('top'), '0')
+  assert.equal(declarations.get('bottom'), '0')
+  // No state (drag included) may add a height to the guide or a second guide
+  // rule that reaches past the header row.
+  assert.equal(rules.some((rule) => rule.selector.includes('::after') && declarationsOf(rule.body).has('height')), false, 'no guide height override')
+  assert.equal(rules.some((rule) => rule.selector.includes(`[class*="tableScroll"][${DRAG_ATTR}] thead th[${EDGE_ATTR}]::after`)), false, 'no drag-state guide rule')
+})
+
 test('tableResizeStyles suppresses selection while dragging on the table wrapper', () => {
   const rules = styleRules(tableResizeStyles())
-  const drag = rules.find((rule) => rule.selector.includes(`[class*="tableScroll"][${DRAG_ATTR}]`))
+  // The drag state owns several rules now (cursor/selection, full-height
+  // guide); the selection one is the rule that also covers the descendants.
+  const drag = rules.find((rule) => rule.selector.endsWith('] *') && rule.selector.includes(`[class*="tableScroll"][${DRAG_ATTR}]`))
   assert.ok(drag, 'missing drag-state rule')
-  assert.ok(drag.selector.endsWith('] *'), 'drag rule must also cover the wrapper descendants')
   assert.equal(declarationsOf(drag.body).get('cursor'), 'col-resize !important')
   assert.equal(declarationsOf(drag.body).get('user-select'), 'none !important')
   // A document-wide attribute selector would invalidate every element's style

@@ -1305,6 +1305,119 @@ const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort()
 const COVERED_NAMES = TOKEN_ENTRIES.map(([name]) => name).sort()
 
 /* ------------------------------------------------------------------ *
+ * Third-party compatibility aliases (P0 static alias bridge)
+ *
+ * DSH exposes its colours as `--dsw-*` custom properties and third-party plugin
+ * pages inherit them from `<body>`, so a plugin that uses the real token names
+ * follows any theme automatically. Many published UI plugins instead guess the
+ * alias naming grammar (`--dsw-alias-text-primary`, `--dsw-alias-bg-primary`,
+ * `--dsw-alias-separator-primary`, …). Those names are not declared by DSH, so
+ * the plugin's own light-mode fallback literals win
+ * (`var(--dsw-alias-bg-primary, #fff)` → white cards on the dark theme) and the
+ * page silently stays light.
+ *
+ * This bridge defines the guessed names with the value of the closest real
+ * token. It is deliberately NOT part of `tokensFor`/`TOKEN_COVERAGE.covered`:
+ * the official 206-token contract stays untouched, and the aliases are layered
+ * on only where the override layer is built (the Client entry), so the bridge
+ * can be removed in one place once upstream plugin fixes land.
+ *
+ * Rules for an entry:
+ * - the alias must NOT be a real DSH token (a test pins this against
+ *   `docs/reference/token-inventory.json`); if a future DSH version declares
+ *   one, the startup probe in the Client entry drops it instead of shadowing
+ *   the host's own value;
+ * - the target must be emitted by `tokensFor` — values are copied, never
+ *   `var()` indirection, so light/dark and the 6 palette strengths follow the
+ *   theme exactly;
+ * - only add names observed in the wild (2026-10-30 evaluation + market
+ *   sample), and prefer an upstream plugin fix over widening this table.
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+const COMPAT_ALIASES = Object.freeze({
+  // Text roles: DSH calls them `label-*`.
+  '--dsw-alias-text-primary': '--dsw-alias-label-primary',
+  '--dsw-alias-text-secondary': '--dsw-alias-label-secondary',
+  '--dsw-alias-text-tertiary': '--dsw-alias-label-tertiary',
+  '--dsw-alias-text-quaternary': '--dsw-alias-label-dimmed',
+  '--dsw-alias-text-danger': '--dsw-alias-state-error-primary',
+  '--dsw-alias-label': '--dsw-alias-label-primary',
+  '--dsw-alias-label-error': '--dsw-alias-state-error-primary',
+  '--dsw-alias-label-inverse': '--dsw-alias-label-primary-inverted',
+  '--dsw-alias-label-quaternary': '--dsw-alias-label-dimmed',
+
+  // Surfaces.
+  '--dsw-alias-bg-primary': '--dsw-alias-bg-layer-1',
+  '--dsw-alias-bg-subtle': '--dsw-alias-interactive-bg-hover',
+  '--dsw-alias-bg-l2': '--dsw-alias-bg-layer-2',
+  '--dsw-alias-bg-hover': '--dsw-alias-interactive-bg-hover',
+  '--dsw-alias-bg-page-primary': '--dsw-alias-bg-base',
+  '--dsw-alias-surface-overlay': '--dsw-alias-bg-overlay',
+  '--dsw-alias-input-bg': '--dsw-alias-bg-layer-1',
+
+  // Borders and separators.
+  '--dsw-alias-hairline': '--dsw-alias-border-l1',
+  '--dsw-alias-border': '--dsw-alias-border-l1',
+  '--dsw-alias-border-subtle': '--dsw-alias-border-l1',
+  '--dsw-alias-border-strong': '--dsw-alias-border-l2',
+  '--dsw-alias-input-border': '--dsw-alias-border-l1',
+  '--dsw-alias-separator': '--dsw-alias-border-l2',
+  '--dsw-alias-separator-primary': '--dsw-alias-border-l2',
+
+  // Interaction states.
+  '--dsw-alias-interactive-bg-selected': '--dsw-alias-interactive-bg-active',
+  '--dsw-alias-interactive-text-hover': '--dsw-alias-link',
+  '--dsw-interactive-bg-hover': '--dsw-alias-interactive-bg-hover',
+  '--dsw-specific-menu-item-hover': '--dsw-alias-interactive-bg-hover',
+
+  // Brand / accent roles.
+  '--dsw-alias-accent': '--dsw-alias-brand-primary',
+  '--dsw-alias-accent-ink': '--dsw-alias-label-primary-foreground',
+  '--dsw-alias-accent-soft': '--dsw-alias-bg-layer-2',
+  '--dsw-alias-button-info-label': '--dsw-alias-label-primary-foreground',
+
+  // Semantic states: DSH's names are `error` / `warn` / `business` / `success`.
+  '--dsw-alias-danger': '--dsw-alias-state-error-primary',
+  '--dsw-alias-state-danger-primary': '--dsw-alias-state-error-primary',
+  '--dsw-alias-state-error': '--dsw-alias-state-error-primary',
+  '--dsw-alias-state-error-tertiary': '--dsw-alias-state-error-secondary',
+  '--dsw-alias-state-warning-primary': '--dsw-alias-state-warn-primary',
+  '--dsw-alias-state-info-primary': '--dsw-alias-state-business-primary',
+  '--dsw-alias-state-info-soft': '--dsw-alias-state-business-tertiary',
+  '--dsw-alias-state-ok-primary': '--dsw-alias-state-success-primary',
+  '--dsw-alias-state-business-secondary': '--dsw-alias-state-business-tertiary',
+  '--dsw-alias-state-focus-ring': '--dsw-alias-state-business-primary'
+})
+
+/** Compatibility alias names, sorted (diagnostics and startup probing). */
+const COMPAT_ALIAS_NAMES = Object.freeze(Object.keys(COMPAT_ALIASES).sort())
+
+/**
+ * Build the compatibility half of the token overlay from an official overlay.
+ * Each alias copies its target's `{ light, dark }` pair, so aliases follow the
+ * active strength and scheme exactly like the real token does.
+ *
+ * @param {Record<string, { light: string, dark: string }>} overlay - result of `tokensFor`.
+ * @param {(name: string) => boolean} [isDeclared] - return true to drop an alias
+ *   the host already declares (the Client entry probes DSH's computed values;
+ *   tests can pass a set).
+ * @returns {Record<string, { light: string, dark: string }>}
+ */
+function compatAliasesFor (overlay, isDeclared = () => false) {
+  const aliases = {}
+  for (const [name, target] of Object.entries(COMPAT_ALIASES)) {
+    if (isDeclared(name)) continue
+    const pair = overlay[target]
+    if (pair === undefined || typeof pair.light !== 'string' || typeof pair.dark !== 'string') {
+      throw new Error(`compat alias ${name} points at ${target}, which tokensFor() does not emit`)
+    }
+    aliases[name] = { light: pair.light, dark: pair.dark }
+  }
+  return aliases
+}
+
+/* ------------------------------------------------------------------ *
  * Public API
  * ------------------------------------------------------------------ */
 
@@ -1343,6 +1456,10 @@ function tokensFor (state = DEFAULT_STATE) {
  * Token coverage bookkeeping for docs / startup diagnostics.
  * - `covered`: every CSS variable emitted by `tokensFor` (206 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
+ *
+ * The third-party compatibility aliases (`compatAliasesFor`) are layered on by
+ * the Client entry and are deliberately NOT counted here: they are not DSH
+ * tokens, and this list is the authoritative "what Everforest covers".
  * @type {{ covered: string[], uncovered: string[] }}
  */
 const TOKEN_COVERAGE = Object.freeze({
@@ -1392,7 +1509,7 @@ const SELF_CHECK_TOKENS = Object.freeze([
   '--dsw-elevation-stroke-color'
 ])
 
-  return { AUXILIARY_TOKEN_NAMES, tokensFor, TOKEN_COVERAGE, SELF_CHECK_TOKENS }
+  return { AUXILIARY_TOKEN_NAMES, COMPAT_ALIAS_NAMES, compatAliasesFor, tokensFor, TOKEN_COVERAGE, SELF_CHECK_TOKENS }
 })()
 
 // ---------------------------------------------------------------- src/color-mode.js
@@ -1432,7 +1549,12 @@ const __mod_3_color_mode_js = (() => {
 //       internal file links     aqua (external links keep the link token)
 //       del + done task items   label-tertiary (intentionally faint)
 //       marker / quote / hr     aqua
-//       checkbox accent         blue
+//       checkbox                 light = green (`aqua`, the marker family),
+//                            dark = blue (`#7FBBB3`); both are a solid fill
+//                            carrying a canvas-colour check mark. DSH marks every
+//                            task-list box `disabled` and Chromium greys a
+//                            disabled native control, so the box is drawn instead
+//                            of accent-coloured
 //       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%);
 //                            the frame / column hairlines around and inside the
 //                            table come from the neutral border ramp instead of
@@ -1476,6 +1598,15 @@ const __mod_3_color_mode_js = (() => {
 // 2026-10-24 follow-up: the user read the waiting row's red as an error, so the
 // waiting fill is now `bg_yellow` (dots stay orange; "warn" keeps its hue family
 // between the yellow dot ring and the warm canvas). See design doc §13.8 / §13.9.
+// 2026-10-30: the task-list checkbox stopped being a native `accent-color` box.
+// DSH renders every task-list item's checkbox `disabled`, and Chromium ignores
+// `accent-color` on a disabled control (native grey), so the user's report
+// ("复选框的样式可以优化一下，不需要做成灰色，可以带上颜色") could not be met by a
+// colour token: the box is redrawn with the accent hue and the redundant list
+// marker is dropped. The first pass coloured every variant blue; the same-day
+// review accepted the dark boxes and asked the light ones to try green, so
+// `check` now takes `fg.aqua` (the list-marker emerald) in light and `fg.blue`
+// in dark. See `TASK_CHECKBOX`.
 //
 // The module is a pure ESM source: no DOM, no storage, no state. `node --test`
 // imports it directly and `scripts/build.mjs` bundles it into `client.js`
@@ -1511,10 +1642,18 @@ const COLOR_MODE_ATTRS = Object.freeze({
  * @property {string} marker - list bullet marker (aqua).
  * @property {string} quote - blockquote left border (aqua).
  * @property {string} hr - horizontal-rule fill (aqua).
- * @property {string} check - task-list checkbox accent (blue).
+ * @property {string} check - task-list checkbox accent: light = Everforest green
+ *   (`aqua`, `#3f9779` at light·hard), dark = blue (`#7FBBB3`). The checked box's
+ *   fill and the idle box's outline. DSH's box is always `disabled`, so Chromium
+ *   ignores `accent-color` and the control is drawn by the stylesheet instead.
  * @property {string} band - table-header background band (green tint).
  * @property {string} zebra - even table-row stripe (lighter green tint).
  * @property {string} tableHover - hovered table row (green tint).
+ * @property {string} tableHandle - chat-table column-resize handle, i.e. the 2px
+ *   guide drawn on a draggable column boundary. The palette's `header_aqua`:
+ *   one step deeper than the `fg.aqua` accent, so the line reads as a calm green
+ *   on the header band in both schemes (2026-10-30: the accent aqua was too
+ *   bright on the dark header band and too vivid on the light one).
  * @property {string} quoteBg - blockquote fill (aqua tint).
  * @property {string} rowWarn - session row waiting for the user: solid fill from
  *   the palette's `bg_yellow`, deepened toward `fg.yellow` on the light
@@ -1735,6 +1874,13 @@ function buildColorModeRoles () {
     const textSurfaces = [bg, band, zebra, tableHover, quoteBg]
 
     const marker = guardTo(fg.aqua, [bg], DECORATION_CONTRAST, ink)
+    // The column-resize handle takes the palette's `header_aqua` instead of the
+    // accent `aqua`: same hue, one step deeper (`#569D79` in both schemes), so
+    // the 2px guide stays a calm green on the header band instead of the bright
+    // accent (2026-10-30 request). Deliberately not guarded — lifting it toward
+    // the ink would restore the brightness this role exists to remove, and a
+    // 2px line is outside the text gates.
+    const tableHandle = fg.headerAqua
     // Status dots sit on both the canvas and the sidebar.
     const dotWarn = guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink)
     const dotDone = guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
@@ -1785,7 +1931,13 @@ function buildColorModeRoles () {
       marker,
       quote: marker,
       hr: marker,
-      check: guardTo(fg.blue, textSurfaces, DECORATION_CONTRAST, ink),
+      tableHandle,
+      // Task-list checkbox: light takes Everforest's green (the `aqua` accent —
+      // the same hue as the list marker / quote / hr family, `#37a47c` at
+      // light·hard), the dark variants keep the blue accent (`#7FBBB3`, the
+      // aqua-toned dark blue). 2026-10-30: the user accepted the dark scheme and
+      // asked the light one to try green.
+      check: guardTo(scheme === 'light' ? fg.aqua : fg.blue, textSurfaces, DECORATION_CONTRAST, ink),
       // Tinted fills.
       band,
       zebra,
@@ -1845,7 +1997,9 @@ function cssVariable (role) {
  */
 const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 
-/** Markdown content container (DSH hashes the class, `markdown` stays a substring). */
+/**
+ * Markdown content container (DSH hashes the class, `markdown` stays a substring).
+ */
 const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-markdown-variant="compact"])`
 
 /**
@@ -1854,6 +2008,18 @@ const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-markdown-
  * paint a rounded outer border itself) and keeps the scroller's clipping.
  */
 const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
+
+/**
+ * The task-list checkbox. DSH renders every task-list item's box as
+ * `<input type="checkbox" disabled>` (web-frontend bundle, list-item renderer),
+ * and Chromium ignores `accent-color` on a disabled control: the box is painted
+ * with the native grey instead of the accent (verified 2026-10-30 in the shared
+ * debug Chrome — an accent-coloured disabled checkbox still rendered grey). The
+ * colour therefore has to be drawn, not delegated: the native appearance is
+ * removed and the box takes an accent-tinted border / fill, with the check mark
+ * as an `::after` border pair in the canvas colour.
+ */
+const TASK_CHECKBOX = `${MARKDOWN_SCOPE} input[type="checkbox"]`
 
 /**
  * Session-tree row selector for one state, keyed by the status dot it contains.
@@ -1909,7 +2075,8 @@ const ELEMENT_RULES = [
   [`${MARKDOWN_SCOPE} thead th`, 'background-color', 'band'],
   [`${MARKDOWN_SCOPE} tbody tr:nth-child(even) > td`, 'background-color', 'zebra'],
   [`${MARKDOWN_SCOPE} tbody tr:hover > td`, 'background-color', 'tableHover'],
-  [`${MARKDOWN_SCOPE} input[type="checkbox"]`, 'accent-color', 'check'],
+  [`${TASK_CHECKBOX}:checked`, 'background-color', 'check'],
+  [`${TASK_CHECKBOX}:checked`, 'border-color', 'check'],
   [`${MARKDOWN_SCOPE} li.task-list-item:has(input[type="checkbox"]:checked)`, 'color', 'faint'],
   [`${COLOR_MODE_ON} [data-state="warning"]`, 'color', 'dotWarn'],
   [`${COLOR_MODE_ON} [data-state="done"]`, 'color', 'dotDone'],
@@ -1934,6 +2101,42 @@ const LITERAL_RULES = [
   // request: "上下稍微加 2px padding") plus the right padding / rounded right
   // corners keep the fill off the text on every side.
   [`${MARKDOWN_SCOPE} blockquote`, [['padding-top', '2px'], ['padding-bottom', '2px'], ['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  // Task-list checkbox (2026-10-30 request: "复选框的样式可以优化一下，不需要做成
+  // 灰色，可以带上颜色"). DSH keeps the list marker *and* the checkbox, so a task
+  // list showed a stray bullet next to every box — the checkbox is the marker, so
+  // the marker is dropped. The box itself is redrawn (see `TASK_CHECKBOX`): a 14px
+  // square in the accent hue — the idle box gets a 68% accent outline and a 10%
+  // accent wash, the checked box the solid role colour — with the check mark drawn
+  // as an `::after` border pair in the canvas colour. The accent is mixed with
+  // `transparent` rather than with a surface token so the same declaration holds
+  // on the canvas, inside a blockquote fill and on a table cell; the disabled
+  // state keeps its full colour (no grey native control left to grey out).
+  [`${MARKDOWN_SCOPE} ul.contains-task-list > li.task-list-item`, [['list-style', 'none']]],
+  [TASK_CHECKBOX, [
+    ['-webkit-appearance', 'none'],
+    ['appearance', 'none'],
+    ['box-sizing', 'border-box'],
+    ['width', '14px'],
+    ['height', '14px'],
+    ['margin', '0 8px 0 0'],
+    ['border', '1px solid color-mix(in srgb, var(--everforest-color-check) 68%, transparent)'],
+    ['border-radius', '3px'],
+    ['background-color', 'color-mix(in srgb, var(--everforest-color-check) 10%, transparent)'],
+    ['vertical-align', '-2px'],
+    ['position', 'relative'],
+    ['cursor', 'default']
+  ]],
+  [`${TASK_CHECKBOX}:checked::after`, [
+    ['content', '""'],
+    ['position', 'absolute'],
+    ['left', '3.5px'],
+    ['top', '0.5px'],
+    ['width', '4px'],
+    ['height', '8px'],
+    ['border', 'solid var(--dsw-alias-bg-base)'],
+    ['border-width', '0 1.5px 1.5px 0'],
+    ['transform', 'rotate(42deg)']
+  ]],
   // Table frame and column rules. DSH's table only draws horizontal cell rules,
   // so without them a table reads as a list of loose rows. Fill tables are 100%
   // wide, so their scroll wrapper can carry the outer border (and clip it to a
@@ -2237,7 +2440,7 @@ function tableResizeStyles () {
   const rules = [
     `${MARKDOWN_SCOPE} thead th {\n  position: relative;\n}`,
     `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}] {\n  cursor: col-resize;\n}`,
-    `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}]::after {\n  content: "";\n  position: absolute;\n  top: 25%;\n  bottom: 25%;\n  right: -1px;\n  width: 2px;\n  border-radius: 1px;\n  background-color: var(--dsw-alias-brand-primary);\n  pointer-events: none;\n}`,
+    `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}]::after {\n  content: "";\n  position: absolute;\n  top: 0;\n  bottom: 0;\n  right: -1px;\n  width: 2px;\n  border-radius: 1px;\n  background-color: var(--everforest-color-table-handle, var(--dsw-alias-brand-primary));\n  pointer-events: none;\n}`,
     // The wide table's last column has its handle on the table's own right
     // border, which sits right against the clipping scroll wrapper: keep the
     // guide inside the cell so it does not lose its outer half.
@@ -3083,8 +3286,182 @@ function activeSessionStyles () {
   return { ACTIVE_SESSION_ROW, ACTIVE_SESSION_INK_CONTRAST, ACTIVE_SESSION_SEPARATION, activeSessionRoles, activeSessionStyles }
 })()
 
+// ---------------------------------------------------------------- src/nav-icon.js
+const __mod_8_nav_icon_js = (() => {
+// Everforest's own glyph in the Settings navigation.
+//
+// `settings.section` projects only `id` / `order` / `label`, and the settings
+// shell (`@deepseek-ai/dsh-client-ui-settings-general`) picks the nav glyph from
+// a closed table of section ids, handing every other section — every plugin
+// section, this one included — its own gear (`navIcon()` in `SettingsRoot`).
+// There is no icon field to pass, so the row is claimed after it renders: once
+// the dialog mounts, the button whose visible label is this plugin's own
+// localized section label is marked, and CSS hides the shell's gear and draws
+// the real glyph in the same 16px slot. `dshmarket` and `dsh-notify-me` solve
+// it the same way.
+//
+// Why a mask instead of replacing the `<svg>`: the glyph then inherits
+// `currentColor` from the row, so the normal / hover / active states and a
+// light↔dark theme switch need no extra code. The mark is a standalone SVG
+// painted opaque black — a mask reads its alpha only, so the colour always
+// comes from `background-color: currentColor`.
+//
+// Scope, deliberately narrow:
+//
+// - only the row whose visible text equals this plugin's own localized section
+//   label is marked; no shell structure is touched and an empty label matches
+//   nothing (a not-yet-resolved locale must not mark the whole nav);
+// - the marker attributes and the one stylesheet belong to the caller's
+//   `ctx.effect`, so unload removes them with the fiber;
+// - the label is re-read on every sync, so a locale switch re-claims the row and
+//   the glyph never disagrees with the row it belongs to;
+// - if a future DSH grows an `icon` field on `settings.section`, delete this
+//   module and its call in `src/client-entry.js`.
+//
+// The glyph is the pine from the package icon (`icon.svg`), reduced to a
+// single-colour mark so it stays legible at 16px.
+
+/** Marks the one nav row this plugin owns. */
+const NAV_ICON_MARKER = 'data-everforest-nav-icon'
+
+/**
+ * The nav rows of the settings dialog. The shell renders each
+ * `settings.section` entry as a `<button>` inside the panel's `<nav>`; the panel
+ * is the `[role="dialog"]` element in `SettingsPanel`.
+ */
+const NAV_ROW_SELECTOR = '[role="dialog"] nav button'
+
+/**
+ * The pine mark as a standalone SVG for a CSS `mask-image`.
+ *
+ * The same two-tier pine the package icon draws over its forest ridge, scaled
+ * to the navigation's 16px slot. Painted pure black on purpose: a mask reads
+ * alpha only, and the visible colour comes from `currentColor`.
+ */
+const NAV_GLYPH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#000">'
+  + '<path d="M8 1.2 3.4 7.6h2.1L2.2 12.4h4.4v2.4h2.8v-2.4h4.4L10.5 7.6h2.1z"/></svg>'
+
+/**
+ * The mask URL for the mark (encoded at runtime, never hand-escaped).
+ * @param {string} [svg] - standalone SVG source; defaults to `NAV_GLYPH_SVG`
+ * @returns {string} a `data:image/svg+xml,` URL usable in `mask-image`
+ */
+function navGlyphMaskUrl (svg = NAV_GLYPH_SVG) {
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+/**
+ * Stylesheet for the marked row: hide the shell's gear, draw the mark in its
+ * slot with the row's own colour.
+ * @param {string} [maskUrl] - mask URL; defaults to `navGlyphMaskUrl()`
+ * @returns {string}
+ */
+function navGlyphStyles (maskUrl = navGlyphMaskUrl()) {
+  return [
+    `[${NAV_ICON_MARKER}] > svg { display: none; }`,
+    `[${NAV_ICON_MARKER}]::before {`,
+    '  content: \'\';',
+    '  flex: none;',
+    '  width: 16px;',
+    '  height: 16px;',
+    '  background-color: currentColor;',
+    `  -webkit-mask-image: url("${maskUrl}");`,
+    `  mask-image: url("${maskUrl}");`,
+    '  -webkit-mask-repeat: no-repeat;',
+    '  mask-repeat: no-repeat;',
+    '  -webkit-mask-position: center;',
+    '  mask-position: center;',
+    '  -webkit-mask-size: 16px 16px;',
+    '  mask-size: 16px 16px;',
+    '}'
+  ].join('\n')
+}
+
+/**
+ * Whether a rendered nav row is this plugin's own.
+ *
+ * Pure, and the only decision this feature makes: the row whose visible text is
+ * the section label the shell is currently projecting. An empty label matches
+ * nothing — a locale that has not resolved yet must not mark the whole nav.
+ * @param {string | null | undefined} rowText - `textContent` of a nav button
+ * @param {string | null | undefined} wantedLabel - current section label
+ * @returns {boolean}
+ */
+function isOwnNavRow (rowText, wantedLabel) {
+  const wanted = String(wantedLabel ?? '').trim()
+  if (wanted.length === 0) return false
+  return String(rowText ?? '').trim() === wanted
+}
+
+/**
+ * Install the settings-nav glyph on a document.
+ *
+ * The returned disposer disconnects the observer, removes every marker
+ * attribute and the stylesheet, leaving the shell's gear exactly as it renders
+ * without this plugin. A missing DOM (`document`, `document.body`, or
+ * `MutationObserver` — e.g. a non-browser host or a bare test harness) makes
+ * this a no-op rather than a failure: the theme must keep working.
+ *
+ * @param {{ document?: Document, resolveLabel?: () => string }} [options]
+ *   `resolveLabel` is this plugin's current section label; it is re-read on
+ *   every sync so a locale switch re-claims the row.
+ * @returns {() => void}
+ */
+function installSettingsNavIcon (options = {}) {
+  const doc = options.document ?? (typeof document === 'undefined' ? undefined : document)
+  const resolveLabel = options.resolveLabel
+  if (!doc || typeof resolveLabel !== 'function') return () => {}
+  if (typeof doc.createElement !== 'function' || !doc.head || !doc.body) return () => {}
+  if (typeof doc.querySelectorAll !== 'function') return () => {}
+  if (typeof MutationObserver !== 'function') return () => {}
+  if (typeof queueMicrotask !== 'function') return () => {}
+
+  const tag = doc.createElement('style')
+  tag.dataset.plugin = 'dsh-everforest'
+  tag.dataset.pluginCss = 'everforest/settings-nav-icon'
+  tag.textContent = navGlyphStyles()
+  doc.head.appendChild(tag)
+
+  let disposed = false
+  let scheduled = false
+
+  /** Mark exactly the row carrying this plugin's current label. */
+  function sync () {
+    scheduled = false
+    if (disposed) return
+    const wanted = String(resolveLabel() ?? '').trim()
+    for (const row of doc.querySelectorAll(NAV_ROW_SELECTOR)) {
+      if (isOwnNavRow(row.textContent, wanted)) row.setAttribute(NAV_ICON_MARKER, '')
+      else row.removeAttribute(NAV_ICON_MARKER)
+    }
+  }
+
+  /** Coalesce a burst of mutations (a whole dialog mounts in one task). */
+  function schedule () {
+    if (scheduled || disposed) return
+    scheduled = true
+    queueMicrotask(sync)
+  }
+
+  sync()
+  const observer = new MutationObserver(schedule)
+  observer.observe(doc.body, { childList: true, subtree: true, characterData: true })
+
+  return function dispose () {
+    disposed = true
+    observer.disconnect()
+    for (const row of doc.querySelectorAll(`[${NAV_ICON_MARKER}]`)) {
+      row.removeAttribute(NAV_ICON_MARKER)
+    }
+    tag.remove()
+  }
+}
+
+  return { NAV_ICON_MARKER, NAV_ROW_SELECTOR, NAV_GLYPH_SVG, navGlyphMaskUrl, navGlyphStyles, isOwnNavRow, installSettingsNavIcon }
+})()
+
 // ---------------------------------------------------------------- src/state.js
-const __mod_8_state_js = (() => {
+const __mod_9_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -3378,9 +3755,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_9_durable_js = (() => {
+const __mod_10_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_8_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_9_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -3545,7 +3922,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_10_locale_js = (() => {
+const __mod_11_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -3628,7 +4005,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_11_settings_page_js = (() => {
+const __mod_12_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -4268,7 +4645,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_12_theme_spotlight_js = (() => {
+const __mod_13_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -4575,19 +4952,20 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_13_client_entry_js = (() => {
+const __mod_14_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { installColumnResize, tableResizeStyles } = __mod_4_table_resize_js
   const { installTableScrollbarHover } = __mod_5_table_scrollbar_js
   const { selectionStyles } = __mod_6_selection_js
   const { activeSessionStyles } = __mod_7_active_session_js
-  const { SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_8_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_9_durable_js
-  const { EN, NS, ZH } = __mod_10_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_11_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_12_theme_spotlight_js
+  const { installSettingsNavIcon } = __mod_8_nav_icon_js
+  const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_9_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_10_durable_js
+  const { EN, NS, ZH } = __mod_11_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_12_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_13_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -4746,6 +5124,47 @@ function apply(ctx) {
   let layerPair = null
 
   /**
+   * Compatibility aliases DSH already declares, resolved once on first apply.
+   * `null` = not probed yet; a `Set` keeps the result for later layer rebuilds
+   * (a strength change must not re-probe and pick up our own inline values).
+   * @type {Set<string> | null}
+   */
+  let declaredCompatAliases = null
+
+  /**
+   * Third-party compatibility aliases for the current palette (see
+   * `COMPAT_ALIASES` in tokens.js). Those names are guesses from plugin code,
+   * so they are only filled while DSH itself does not declare them: a future
+   * DSH version that adopts one of the names must win over this shim instead
+   * of being shadowed by our inline value.
+   *
+   * The probe reads the computed value once, before the first override layer
+   * is applied (all our own compat names are still empty then). Tests and
+   * non-DOM harnesses without `getComputedStyle` simply get every alias.
+   *
+   * @param {Record<string, { light: string, dark: string }>} tokens
+   * @returns {Record<string, { light: string, dark: string }>}
+   */
+  function compatAliasLayer(tokens) {
+    if (declaredCompatAliases === null) {
+      declaredCompatAliases = new Set()
+      const canProbe =
+        typeof getComputedStyle === 'function' &&
+        typeof document !== 'undefined' &&
+        document !== null &&
+        document.body !== undefined &&
+        document.body !== null
+      if (canProbe) {
+        const computed = getComputedStyle(document.body)
+        for (const name of COMPAT_ALIAS_NAMES) {
+          if (computed.getPropertyValue(name).trim() !== '') declaredCompatAliases.add(name)
+        }
+      }
+    }
+    return compatAliasesFor(tokens, (name) => declaredCompatAliases.has(name))
+  }
+
+  /**
    * Replace this plugin's override layer and the `<html>` attributes.
    *
    * `overrideTokens` treats a repeated call for the same source as a full
@@ -4754,11 +5173,19 @@ function apply(ctx) {
    * the strength pair, so a call that leaves the pair untouched still refreshes
    * the `<html>` attributes but does not re-stack the layer: the color mode is
    * selector-scoped CSS on top, never a token change.
+   *
+   * The layer is the official token map plus the third-party compatibility
+   * aliases; the aliases are derived from the same palette values, so they
+   * follow strengths and light/dark exactly.
    */
   function applyLayer() {
     if (layerPair === null || layerPair.light !== state.light || layerPair.dark !== state.dark) {
       layerPair = { light: state.light, dark: state.dark }
-      layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(layerPair))
+      const tokens = tokensFor(layerPair)
+      layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, {
+        ...tokens,
+        ...compatAliasLayer(tokens)
+      })
     }
     applyStateAttributes()
   }
@@ -5407,6 +5834,14 @@ function apply(ctx) {
     // mounted, so a throw keeps the retry path open.
     slots.inject('settings.section', () => slots.register(settingsUiSection.options, settingsUiSection.Section))
     settingsUiMounted = true
+
+    // The shell gives every plugin section the same gear; claim our row and
+    // draw the pine glyph instead (see `src/nav-icon.js`). Installed after the
+    // section exists, so the row can only appear with its icon already wired.
+    ctx.effect(
+      () => installSettingsNavIcon({ resolveLabel: settingsUiSection.options.label }),
+      'everforest: settings nav glyph',
+    )
   }
 
   try {
@@ -5453,6 +5888,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_13_client_entry_js
+    return __mod_14_client_entry_js
   },
 })

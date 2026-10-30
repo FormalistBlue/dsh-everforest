@@ -59,7 +59,8 @@ import { installColumnResize, tableResizeStyles } from './table-resize.js'
 import { installTableScrollbarHover } from './table-scrollbar.js'
 import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
-import { SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
+import { installSettingsNavIcon } from './nav-icon.js'
+import { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
 import {
   bootHintState,
@@ -184,6 +185,47 @@ export function apply(ctx) {
   let layerPair = null
 
   /**
+   * Compatibility aliases DSH already declares, resolved once on first apply.
+   * `null` = not probed yet; a `Set` keeps the result for later layer rebuilds
+   * (a strength change must not re-probe and pick up our own inline values).
+   * @type {Set<string> | null}
+   */
+  let declaredCompatAliases = null
+
+  /**
+   * Third-party compatibility aliases for the current palette (see
+   * `COMPAT_ALIASES` in tokens.js). Those names are guesses from plugin code,
+   * so they are only filled while DSH itself does not declare them: a future
+   * DSH version that adopts one of the names must win over this shim instead
+   * of being shadowed by our inline value.
+   *
+   * The probe reads the computed value once, before the first override layer
+   * is applied (all our own compat names are still empty then). Tests and
+   * non-DOM harnesses without `getComputedStyle` simply get every alias.
+   *
+   * @param {Record<string, { light: string, dark: string }>} tokens
+   * @returns {Record<string, { light: string, dark: string }>}
+   */
+  function compatAliasLayer(tokens) {
+    if (declaredCompatAliases === null) {
+      declaredCompatAliases = new Set()
+      const canProbe =
+        typeof getComputedStyle === 'function' &&
+        typeof document !== 'undefined' &&
+        document !== null &&
+        document.body !== undefined &&
+        document.body !== null
+      if (canProbe) {
+        const computed = getComputedStyle(document.body)
+        for (const name of COMPAT_ALIAS_NAMES) {
+          if (computed.getPropertyValue(name).trim() !== '') declaredCompatAliases.add(name)
+        }
+      }
+    }
+    return compatAliasesFor(tokens, (name) => declaredCompatAliases.has(name))
+  }
+
+  /**
    * Replace this plugin's override layer and the `<html>` attributes.
    *
    * `overrideTokens` treats a repeated call for the same source as a full
@@ -192,11 +234,19 @@ export function apply(ctx) {
    * the strength pair, so a call that leaves the pair untouched still refreshes
    * the `<html>` attributes but does not re-stack the layer: the color mode is
    * selector-scoped CSS on top, never a token change.
+   *
+   * The layer is the official token map plus the third-party compatibility
+   * aliases; the aliases are derived from the same palette values, so they
+   * follow strengths and light/dark exactly.
    */
   function applyLayer() {
     if (layerPair === null || layerPair.light !== state.light || layerPair.dark !== state.dark) {
       layerPair = { light: state.light, dark: state.dark }
-      layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, tokensFor(layerPair))
+      const tokens = tokensFor(layerPair)
+      layerDispose = ctx.theme.overrideTokens(PACKAGE_ID, {
+        ...tokens,
+        ...compatAliasLayer(tokens)
+      })
     }
     applyStateAttributes()
   }
@@ -845,6 +895,14 @@ export function apply(ctx) {
     // mounted, so a throw keeps the retry path open.
     slots.inject('settings.section', () => slots.register(settingsUiSection.options, settingsUiSection.Section))
     settingsUiMounted = true
+
+    // The shell gives every plugin section the same gear; claim our row and
+    // draw the pine glyph instead (see `src/nav-icon.js`). Installed after the
+    // section exists, so the row can only appear with its icon already wired.
+    ctx.effect(
+      () => installSettingsNavIcon({ resolveLabel: settingsUiSection.options.label }),
+      'everforest: settings nav glyph',
+    )
   }
 
   try {

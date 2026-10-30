@@ -49,6 +49,7 @@ const SOURCES = [
   'table-scrollbar.js',
   'selection.js',
   'active-session.js',
+  'nav-icon.js',
   'state.js',
   'durable.js',
   'locale.js',

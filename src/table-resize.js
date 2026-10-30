@@ -175,7 +175,7 @@ export function tableResizeStyles () {
   const rules = [
     `${MARKDOWN_SCOPE} thead th {\n  position: relative;\n}`,
     `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}] {\n  cursor: col-resize;\n}`,
-    `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}]::after {\n  content: "";\n  position: absolute;\n  top: 25%;\n  bottom: 25%;\n  right: -1px;\n  width: 2px;\n  border-radius: 1px;\n  background-color: var(--dsw-alias-brand-primary);\n  pointer-events: none;\n}`,
+    `${MARKDOWN_SCOPE} thead th[${EDGE_ATTR}]::after {\n  content: "";\n  position: absolute;\n  top: 0;\n  bottom: 0;\n  right: -1px;\n  width: 2px;\n  border-radius: 1px;\n  background-color: var(--everforest-color-table-handle, var(--dsw-alias-brand-primary));\n  pointer-events: none;\n}`,
     // The wide table's last column has its handle on the table's own right
     // border, which sits right against the clipping scroll wrapper: keep the
     // guide inside the cell so it does not lose its outer half.

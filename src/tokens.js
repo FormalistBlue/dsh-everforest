@@ -809,6 +809,119 @@ export const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS)
 const COVERED_NAMES = TOKEN_ENTRIES.map(([name]) => name).sort()
 
 /* ------------------------------------------------------------------ *
+ * Third-party compatibility aliases (P0 static alias bridge)
+ *
+ * DSH exposes its colours as `--dsw-*` custom properties and third-party plugin
+ * pages inherit them from `<body>`, so a plugin that uses the real token names
+ * follows any theme automatically. Many published UI plugins instead guess the
+ * alias naming grammar (`--dsw-alias-text-primary`, `--dsw-alias-bg-primary`,
+ * `--dsw-alias-separator-primary`, …). Those names are not declared by DSH, so
+ * the plugin's own light-mode fallback literals win
+ * (`var(--dsw-alias-bg-primary, #fff)` → white cards on the dark theme) and the
+ * page silently stays light.
+ *
+ * This bridge defines the guessed names with the value of the closest real
+ * token. It is deliberately NOT part of `tokensFor`/`TOKEN_COVERAGE.covered`:
+ * the official 206-token contract stays untouched, and the aliases are layered
+ * on only where the override layer is built (the Client entry), so the bridge
+ * can be removed in one place once upstream plugin fixes land.
+ *
+ * Rules for an entry:
+ * - the alias must NOT be a real DSH token (a test pins this against
+ *   `docs/reference/token-inventory.json`); if a future DSH version declares
+ *   one, the startup probe in the Client entry drops it instead of shadowing
+ *   the host's own value;
+ * - the target must be emitted by `tokensFor` — values are copied, never
+ *   `var()` indirection, so light/dark and the 6 palette strengths follow the
+ *   theme exactly;
+ * - only add names observed in the wild (2026-10-30 evaluation + market
+ *   sample), and prefer an upstream plugin fix over widening this table.
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+const COMPAT_ALIASES = Object.freeze({
+  // Text roles: DSH calls them `label-*`.
+  '--dsw-alias-text-primary': '--dsw-alias-label-primary',
+  '--dsw-alias-text-secondary': '--dsw-alias-label-secondary',
+  '--dsw-alias-text-tertiary': '--dsw-alias-label-tertiary',
+  '--dsw-alias-text-quaternary': '--dsw-alias-label-dimmed',
+  '--dsw-alias-text-danger': '--dsw-alias-state-error-primary',
+  '--dsw-alias-label': '--dsw-alias-label-primary',
+  '--dsw-alias-label-error': '--dsw-alias-state-error-primary',
+  '--dsw-alias-label-inverse': '--dsw-alias-label-primary-inverted',
+  '--dsw-alias-label-quaternary': '--dsw-alias-label-dimmed',
+
+  // Surfaces.
+  '--dsw-alias-bg-primary': '--dsw-alias-bg-layer-1',
+  '--dsw-alias-bg-subtle': '--dsw-alias-interactive-bg-hover',
+  '--dsw-alias-bg-l2': '--dsw-alias-bg-layer-2',
+  '--dsw-alias-bg-hover': '--dsw-alias-interactive-bg-hover',
+  '--dsw-alias-bg-page-primary': '--dsw-alias-bg-base',
+  '--dsw-alias-surface-overlay': '--dsw-alias-bg-overlay',
+  '--dsw-alias-input-bg': '--dsw-alias-bg-layer-1',
+
+  // Borders and separators.
+  '--dsw-alias-hairline': '--dsw-alias-border-l1',
+  '--dsw-alias-border': '--dsw-alias-border-l1',
+  '--dsw-alias-border-subtle': '--dsw-alias-border-l1',
+  '--dsw-alias-border-strong': '--dsw-alias-border-l2',
+  '--dsw-alias-input-border': '--dsw-alias-border-l1',
+  '--dsw-alias-separator': '--dsw-alias-border-l2',
+  '--dsw-alias-separator-primary': '--dsw-alias-border-l2',
+
+  // Interaction states.
+  '--dsw-alias-interactive-bg-selected': '--dsw-alias-interactive-bg-active',
+  '--dsw-alias-interactive-text-hover': '--dsw-alias-link',
+  '--dsw-interactive-bg-hover': '--dsw-alias-interactive-bg-hover',
+  '--dsw-specific-menu-item-hover': '--dsw-alias-interactive-bg-hover',
+
+  // Brand / accent roles.
+  '--dsw-alias-accent': '--dsw-alias-brand-primary',
+  '--dsw-alias-accent-ink': '--dsw-alias-label-primary-foreground',
+  '--dsw-alias-accent-soft': '--dsw-alias-bg-layer-2',
+  '--dsw-alias-button-info-label': '--dsw-alias-label-primary-foreground',
+
+  // Semantic states: DSH's names are `error` / `warn` / `business` / `success`.
+  '--dsw-alias-danger': '--dsw-alias-state-error-primary',
+  '--dsw-alias-state-danger-primary': '--dsw-alias-state-error-primary',
+  '--dsw-alias-state-error': '--dsw-alias-state-error-primary',
+  '--dsw-alias-state-error-tertiary': '--dsw-alias-state-error-secondary',
+  '--dsw-alias-state-warning-primary': '--dsw-alias-state-warn-primary',
+  '--dsw-alias-state-info-primary': '--dsw-alias-state-business-primary',
+  '--dsw-alias-state-info-soft': '--dsw-alias-state-business-tertiary',
+  '--dsw-alias-state-ok-primary': '--dsw-alias-state-success-primary',
+  '--dsw-alias-state-business-secondary': '--dsw-alias-state-business-tertiary',
+  '--dsw-alias-state-focus-ring': '--dsw-alias-state-business-primary'
+})
+
+/** Compatibility alias names, sorted (diagnostics and startup probing). */
+export const COMPAT_ALIAS_NAMES = Object.freeze(Object.keys(COMPAT_ALIASES).sort())
+
+/**
+ * Build the compatibility half of the token overlay from an official overlay.
+ * Each alias copies its target's `{ light, dark }` pair, so aliases follow the
+ * active strength and scheme exactly like the real token does.
+ *
+ * @param {Record<string, { light: string, dark: string }>} overlay - result of `tokensFor`.
+ * @param {(name: string) => boolean} [isDeclared] - return true to drop an alias
+ *   the host already declares (the Client entry probes DSH's computed values;
+ *   tests can pass a set).
+ * @returns {Record<string, { light: string, dark: string }>}
+ */
+export function compatAliasesFor (overlay, isDeclared = () => false) {
+  const aliases = {}
+  for (const [name, target] of Object.entries(COMPAT_ALIASES)) {
+    if (isDeclared(name)) continue
+    const pair = overlay[target]
+    if (pair === undefined || typeof pair.light !== 'string' || typeof pair.dark !== 'string') {
+      throw new Error(`compat alias ${name} points at ${target}, which tokensFor() does not emit`)
+    }
+    aliases[name] = { light: pair.light, dark: pair.dark }
+  }
+  return aliases
+}
+
+/* ------------------------------------------------------------------ *
  * Public API
  * ------------------------------------------------------------------ */
 
@@ -847,6 +960,10 @@ export function tokensFor (state = DEFAULT_STATE) {
  * Token coverage bookkeeping for docs / startup diagnostics.
  * - `covered`: every CSS variable emitted by `tokensFor` (206 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
+ *
+ * The third-party compatibility aliases (`compatAliasesFor`) are layered on by
+ * the Client entry and are deliberately NOT counted here: they are not DSH
+ * tokens, and this list is the authoritative "what Everforest covers".
  * @type {{ covered: string[], uncovered: string[] }}
  */
 export const TOKEN_COVERAGE = Object.freeze({

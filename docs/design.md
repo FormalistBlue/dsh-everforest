@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.5（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，无实现改动，见 §12）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.5（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -11,7 +11,7 @@
 3. 设置页可选强度，切换即时生效；强度保存在**当前 profile 的 Host 配置**，同一 profile 的所有浏览器共享、重启后保持（见 §7）。
 4. 可用 npm 安装。DSH 版本不匹配时给出可读结果：安装前被插件管理器拒绝（`engines.dsh`，可读错误）；已安装后升级 DSH 导致不兼容时，该 bundle 在装载 profile 时被跳过并在启动诊断里打印警告（不会白屏）。
 5. 冷启动首帧使用当前配色：Host 半部经 `webserver/index-inject` 在 Client 加载前写入 boot 调色板（loading 页底色、文字、spinner 环与进度弧）。强度按 **B 方案**解析：本浏览器缓存优先 → Host 配置兜底 → 默认最后；解析结果经 `window.__EVERFOREST_BOOT__` 交给 Client 首帧。Web 首帧即为 Everforest；Desktop 窗口在 load 后才显示、注入行由页面侧异步应用，最多残留 1 帧原生色（2026-10-19 决策接受）。
-6. **色彩模式**（0.4.0 引入；2026-10-24 起默认提供、没有设置开关，见 §13.9）：把调色板中尚未上场的强调色用到聊天 Markdown 内容与工作区会话记录状态行。首版（2026-10-23 用户目检后确认）为 h1–h3 标题、列表 marker、引用条 / 分隔线、表格表头色带 / 隔行斑马纹、任务列表 checkbox，以及会话记录「待确认 / 已完成未查看」的行底色与状态点（2026-10-24 重制：行底直接取 palette1 的 `bg_yellow` / `bg_green`；当日后续把待确认行改黄，见 §13.8.1）；用户验收初版后，参考 Obsidian Everforest Enchanted 的 markdown 配色扩展为完整富文本角色——h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接 aqua、删除线与已完成任务淡化、引用块淡底、表头色带 / 斑马纹 / 行 hover、复选框蓝。**token 层零差异**：模式只额外注入一段作用域 CSS，不改 token 层、色值固定；设置页不再有开关（见 §13 / §13.9）。
+6. **色彩模式**（0.4.0 引入；2026-10-24 起默认提供、没有设置开关，见 §13.9）：把调色板中尚未上场的强调色用到聊天 Markdown 内容与工作区会话记录状态行。首版（2026-10-23 用户目检后确认）为 h1–h3 标题、列表 marker、引用条 / 分隔线、表格表头色带 / 隔行斑马纹、任务列表 checkbox，以及会话记录「待确认 / 已完成未查看」的行底色与状态点（2026-10-24 重制：行底直接取 palette1 的 `bg_yellow` / `bg_green`；当日后续把待确认行改黄，见 §13.8.1）；用户验收初版后，参考 Obsidian Everforest Enchanted 的 markdown 配色扩展为完整富文本角色——h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接 aqua、删除线与已完成任务淡化、引用块淡底、表头色带 / 斑马纹 / 行 hover、复选框（浅色绿 / 深色蓝，见 §13.1）。**token 层零差异**：模式只额外注入一段作用域 CSS，不改 token 层、色值固定；设置页不再有开关（见 §13 / §13.9）。
 
 7. **内容 / 交互层（0.4.0 → 1.0.0）**：色彩模式默认提供（§13）；工作区当前会话行（§15）、原生文本选区（§16.2）、深浅切换聚光灯（§17）是 1.0.0 的稳定行为；dev 调试面板只存在于 `npm run build:dev` 的产物（§14）。
 
@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 起）**：token 层之外另有**五张**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、表格列宽交互（§18）四张**常驻**，以及聚光灯过渡样式表（§17）；全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与设置页 / `configForms` 解耦（设置 UI 不可用时仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**五张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、表格列宽交互（§18）、聚光灯过渡（§17）；设置 UI 挂载时再加设置页样式表与设置导航图标样式表（§19），共 7 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时前五张仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -438,7 +438,7 @@ export function apply(ctx) {
 - **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。强度卡外观参照 DSH 设置卡片；外观三张卡片直接对齐 DSH `AppearanceRow` 的 `themeCube` 规则（`docs/design.md` §6.1 记录唯一偏差：选中描边改用主题强调色 `--dsw-alias-brand-primary`，因为 DSH 原生的 `--dsw-static-neutral-bluish-400` 在 Everforest 浅色下与未选中边框几乎同色，会看不出选中）。
 - **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分；`aria-label` 只挂在有命名 role 的元素上（当前行 `role="group"`，裸 `<div>` 的 `aria-label` 不进无障碍树）。
 - **降级**：`ctx.get('slots'/'locale')` 立即不可用时用 `ctx.inject` 等待再挂载；等待也不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
-- **已知限制**：① `settings.section` 没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标（要换图标只能像 `dshmarket` 那样用 DOM 标记 + MutationObserver 改写，0.x 不做）；② DSH 不会在 Plugins 页给本插件再生成一份自动表单——Host 半部用 `settings.configure({ auto: false })` 声明设置页由本插件自己渲染，所以强度只能在本页修改（插件详情页没有可编辑的强度卡片）。
+- **已知限制**：① `settings.section` 仍没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标——2026-10-30 起本插件只给自己那一行改用 DOM 标记 + MutationObserver 画松树图标（同 `dshmarket` / `dsh-notify-me`，见 §19），其它第三方页不受影响；② DSH 不会在 Plugins 页给本插件再生成一份自动表单——Host 半部用 `settings.configure({ auto: false })` 声明设置页由本插件自己渲染，所以强度只能在本页修改（插件详情页没有可编辑的强度卡片）。
 
 ### 6.1 2026-10-23 设置页文案精简与外观控件对齐 DSH
 
@@ -615,7 +615,7 @@ export function apply(ctx) {
 4. 非默认的 4 个变体沿用 Enchanted 的 `header-*` 常量值：若硬/软档的对比度检查不通过，需要按背景亮度做小幅修正，并回写 `docs/reference/palette.md`。
 5. ~~侧栏是否要保留 Enchanted 的「平铺背景」~~ **已决策（2026-10-18 视觉走查）**：不保留 —— 侧栏改为 `bg0` → `bg1` 的 80% 混合 + 对比度守卫；平铺时 Windows 下侧栏 / 标题栏 / 内容卡同色，边界完全消失（并新增边界 ≥ 1.02:1 硬门槛）。
 6. ~~冷启动首帧（loading 页 / 首帧底色是 Host 字面 CSS）是否接受；若要消除，需要评估首帧注入在 Electron `dsh-app://` 窗口是否可用~~ **已解决（2026-10-19）**：官方 `webserver/index-inject` 结构化 rows 同时服务 Web（`renderIndex`）与 Desktop（Host ready 时 `collectIndexInjections()` → `DESKTOP_IPC.boot` → 页面侧 boot 内核在插件 roster 前应用），与 `tapIndex` 无关；Host 半部追加一条 body script row 即可。Desktop 上窗口在 load 后才 show、rows 在页面侧 IPC 后应用，因此接受「最多 1 帧原生色」；loading 动效的灰 spinner / 边框在 2026-10-21 由 boot token 6→8 覆盖（见 §5 / §12）。
-7. ~~是否值得为设置导航项做自定义图标~~ **已决策（2026-10-22 用户确认）：标为待做，等 DSH 官方给 `settings.section` 加 icon 字段**。现状核对：导航图标由 ui-settings-general 的 `navIcon(id)` 按 section id 硬编码（`account` / `models` / `agent-presets` / `plugins` / `archived-sessions`），未知 id 一律回退默认齿轮；注册项只有 `id` / `order` / `label`。0.x 不做 DOM 改写（`dshmarket` 的做法），导航沿用齿轮，功能不受影响。
+7. ~~是否值得为设置导航项做自定义图标~~ **已决策（2026-10-22 用户确认）：标为待做，等 DSH 官方给 `settings.section` 加 icon 字段**。现状核对：导航图标由 ui-settings-general 的 `navIcon(id)` 按 section id 硬编码（`account` / `models` / `agent-presets` / `plugins` / `archived-sessions`），未知 id 一律回退默认齿轮；注册项只有 `id` / `order` / `label`。**2026-10-30 更新：改为已实现**——DSH 仍没有 icon 字段，本插件改用 `dshmarket` / `dsh-notify-me` 的 DOM 标记 + MutationObserver 给自己那一行画松树图标（只认本插件 section label、不动 shell 结构；DSH 将来若加 icon 字段即删除该模块，见 §19）。
 8. `--dsw-token` 自检策略：启动时读取若干关键 token 的 computed 值判断是否缺失/改名；缺失时降级（保留原生值）并 console.warn，是否要暴露到设置页「诊断」区。
 9. ~~Host 侧强度持久化何时重启~~ **已解决（2026-10-22，0.3.0）**：确认第三方 Host entry 导出的 `Config`（volatile 叶子字段）会被 settings 服务投影为 `ctx.configForms.get('<entry id>')` 表单，写入落当前 profile 的 `cordis.patch.yml` 并跨浏览器广播；localStorage 已降级为「首帧缓存 + 旧宿主兜底」，0.2.1 旧值一次性播种。遗留：旧宿主（无 settings / schemastery 无 `volatile()`）降级路径与多 profile 边界见 §7。
 10. 首帧注入的降级边界：插件停用 / Client 半部加载失败时 boot 调色板保留到本页结束；本机缓存与 Host 值都不可用时回退默认配对。是否需要在设置页暴露「首帧注入是否生效」诊断（读取 index 里是否存在本插件 row / `window.__EVERFOREST_BOOT__`）——0.x 不做。
@@ -783,7 +783,7 @@ DSH Desktop 自动更新到 `0.2.1-rc.5`（`app.asar` 内 `dsh-desktop-runtime` 
 | 删除线 / 已完成任务 | `label-tertiary`（`del` 与 `li.task-list-item:has(input[type=checkbox]:checked)`）；刻意弱化，不参与对比度门槛 |
 | 引用块 | 左边框仍 aqua，另加 aqua 8% 淡底 + 右侧 12px padding / 右圆角（给淡底留白） |
 | 表格 | 表头绿色带 14%、斑马纹 6%、行 hover 10%，权重都按 `label-primary` ≥4.5:1 反推 |
-| 复选框 | accent 由初版的 aqua 改为 `blue`（与行内 code / h5 同色系） |
+| 复选框 | 深色档 `blue`（`#7FBBB3`，与行内 code / h5 同色系）；浅色档 `aqua` 绿（`#3f9779` 起，与列表 marker 同族；2026-10-30 用户目检后「深色的还行，浅色的用绿色试试」，试过「浅底深勾」后用户改口「还是用这种吧」，定回实心绿 + canvas 色勾）。DSH 的任务项复选框恒为 `disabled`，而 Chromium 对禁用控件忽略 `accent-color`、直接画原生灰框（2026-10-30 实测），所以改成重绘：选中为实心 accent + canvas 色勾，未选中为 accent 描边 + 淡底；同时去掉任务项多余的列表圆点（DSH 同时画 marker 与 checkbox） |
 | 未扩展 | fenced code 块与外部链接保持既有 token 颜色；「运行中」仍不上色 |
 | 定位 | 不变：实验性、默认开启（可关闭）、DSH 升级后需回归 |
 
@@ -795,13 +795,13 @@ DSH Desktop 自动更新到 `0.2.1-rc.5`（`app.asar` 内 `dsh-desktop-runtime` 
 
 - **`src/color-mode.js`**（纯 ESM，无 DOM / storage）：
   - `COLOR_MODE_ATTRS`：`data-everforest-color-mode`（本版恒为 `on`，只作样式表作用域锚点）、`data-everforest-light`、`data-everforest-dark`（各自 scheme 的强度）。
-  - `colorModeRoles()`：6 变体 × **24 个角色色值**，全部由 `tokensFor()` 的表面值（`bg-base`、`sidebar-fill`、`label-primary`、`label-tertiary`、行内 code 芯片、代码块表面）+ `resolvePalette()` 的强调色实算并做对比度守卫（见 13.3）。
+  - `colorModeRoles()`：6 变体 × **25 个角色色值**（2026-10-30 新增列宽提示线 `tableHandle`，直接取 `headerAqua`、不做文本守卫），全部由 `tokensFor()` 的表面值（`bg-base`、`sidebar-fill`、`label-primary`、`label-tertiary`、行内 code 芯片、代码块表面）+ `resolvePalette()` 的强调色实算并做对比度守卫（见 13.3）。
   - `colorModeDataset(state)`：Client 写到 `document.documentElement` 的属性映射。
-  - `colorModeStyles()`：静态样式表 = 6 个自定义属性块 + **44 条元素规则**（26 条变量驱动 + 18 条字面规则：标题内强调色 `inherit`、引用块右内边距 / 圆角、§13.8.1 的 6 条深色 warn 反相，2026-10-27 的 8 条表格框与 2026-10-29 的 2 条表格滚动条 literal 规则（§18.1 / §18.3）），共 **50 条**规则（0.4.0 时为 40 条），全部以 `html[data-everforest-color-mode="on"]` 开头；深浅色由 `body[data-ds-dark-theme]` 区分（DSH ui-theme 在 boot row 写 body 属性），强度由 `<html>` 上的两个 data 属性选择。
+  - `colorModeStyles()`：静态样式表 = 6 个自定义属性块 + **48 条元素规则**（27 条变量驱动 + 21 条字面规则：标题内强调色 `inherit`、引用块右内边距 / 圆角、§13.8.1 的 6 条深色 warn 反相，2026-10-27 的 8 条表格框与 2026-10-29 的 2 条表格滚动条 literal 规则（§18.1 / §18.3），以及 2026-10-30 的 3 条任务列表复选框字面规则：去圆点、重绘方框、`::after` 勾），共 **54 条**规则（0.4.0 时为 40 条），全部以 `html[data-everforest-color-mode="on"]` 开头；深浅色由 `body[data-ds-dark-theme]` 区分（DSH ui-theme 在 boot row 写 body 属性），强度由 `<html>` 上的两个 data 属性选择。
 - **`src/client-entry.js`**：`applyLayer()` 在 token 层之外同步 `<html>` 属性（色彩模式没有开关，不再有「切换模式」动作；CSS 与 token 层彻底解耦）；一个独立的 `ctx.effect` 注入 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/color-mode">`，与设置页样式 / slots / locale 完全解耦（设置 UI 不可用时色彩模式仍生效）。
 - **作用域选择器**：
   - 聊天 Markdown：`[class*="markdown"]:not([data-markdown-variant="compact"])`（DSH 的容器类名是 CSS modules 哈希，但 `markdown` 子串保留；排除 compact 推理变体）。DSH 0.2.1-rc.2 / rc.3 / rc.5 的 markdown 正文容器**没有稳定 data 锚点**（rc.3 / rc.5 构建类名仍含 `markdown` 子串），这是本功能最脆弱的依赖（见 13.7）。
-  - 富文本元素：h1–h6、`strong`、`em`、`del`、`:not(pre) > code`（行内 code）、`[class*="fileLink"]`（内部文件链接）、`li::marker`、`blockquote`（左边框 + 淡底）、`hr`、`thead th`、`tbody tr:nth-child(even) > td`（斑马纹）、`tbody tr:hover > td`（行 hover）、`input[type="checkbox"]`（accent-color）、`li.task-list-item:has(input[type=checkbox]:checked)`（已完成任务淡化）。
+  - 富文本元素：h1–h6、`strong`、`em`、`del`、`:not(pre) > code`（行内 code）、`[class*="fileLink"]`（内部文件链接）、`li::marker`、`blockquote`（左边框 + 淡底）、`hr`、`thead th`、`tbody tr:nth-child(even) > td`（斑马纹）、`tbody tr:hover > td`（行 hover）、`ul.contains-task-list > li.task-list-item`（去掉多余圆点）、`input[type="checkbox"]`（重绘的复选框：accent 描边 / 淡底 + canvas 色勾）、`li.task-list-item:has(input[type=checkbox]:checked)`（已完成任务淡化）。
   - 状态点：`[data-state="warning"]` / `[data-state="done"]`（StateDot 的语义属性，稳定）。
   - 会话行：`[role="treeitem"][data-row-key^="session:"]:has([data-state="warning"|"done"]):not([aria-selected="true"])`（`data-row-key` / `role` / `data-state` 都是稳定锚点；选中行不覆盖，hover 用单独规则加深）。**2026-10-24 晚更新**：选中行改由常驻的 `src/active-session.js` 上 `bg_blue` 底（不再「完全交还 DSH」），见 §15；本条 `:not([aria-selected="true"])` 保持不变，避免状态色盖掉当前行。
 
@@ -818,7 +818,8 @@ DSH Desktop 自动更新到 `0.2.1-rc.5`（`app.asar` 内 `dsh-desktop-runtime` 
 | 内部文件链接 | `guard(fg.headerAqua, markdown 文字面, 3)` | 强调文字 ≥ 3:1（G16） |
 | 删除线 / 已完成任务（faint） | 直接取 `label-tertiary` | 刻意弱化，不设门槛 |
 | marker / quote / hr | `guard(fg.aqua, bg, 3)` | 装饰（非文本）≥ 3:1（G10） |
-| checkbox accent | `guard(fg.blue, bg, 3)` | 装饰 ≥ 3:1（G10） |
+| checkbox accent | 深色档 `guard(fg.blue, 文字面, 3)`；浅色档 `guard(fg.aqua, 文字面, 3)` | 装饰 ≥ 3:1（G10） |
+| 列宽提示线（`tableHandle`） | 直接取 `headerAqua`（6 档同值 `#569D79`） | 不参与 G9–G16 文本门槛；`tests/color-mode.test.mjs` 钉住对表头色带 ≥ 2.5:1（2px 装饰线，见 §18.2） |
 | 表格表头色带 | `safeTint(bg, fg.green, 0.14)` | 表头上的 `label-primary` ≥ 4.5:1（G11） |
 | 隔行斑马纹 / 行 hover | `safeTint(bg, fg.green, 0.06 / 0.10)` | `label-primary` ≥ 4.5:1（G12） |
 | 引用块淡底 | `safeTint(bg, fg.aqua, 0.08)` | `label-primary` ≥ 4.5:1（G12） |
@@ -831,7 +832,7 @@ DSH Desktop 自动更新到 `0.2.1-rc.5`（`app.asar` 内 `dsh-desktop-runtime` 
 
 `safeTint` 从给定权重开始逐 1% 下调，直到表面上的 `label-primary` 满足 4.5:1；因此**浅色档的实际权重会低于深色档**。两个可观测后果（已知边界，非缺陷）：light·soft 的表格表头 / 斑马纹 / 行 hover 三种绿染收敛到同一档 `#efe7cb`；light·soft 的表格绿染仍接近画布。会话行底则**不再派生**：直接取 palette1 的 `bg_yellow` / `bg_green`（见 §13.8；待确认行的黄色加深见 §13.8.1），只有 soft 档会在 `label-primary` 不足 4.5:1 时沿 `bg0` 方向微调，因此 light·soft 保住了黄 / 绿底相；浅色档的明度差仍受 4.5:1 门槛压缩。light 三档的实测值全部贴着门槛（3.00–3.43），浅色档标题 / 强调文字因此明显偏 muted（h3 可能是橄榄色），属目检已接受的「淡彩」。
 
-对比度由 `scripts/check-contrast.mjs` 的 **G9–G16** 硬门槛逐变体锁定；`docs/reference/contrast.md` §2f 有完整色值表与逐项实测值（G16 最弱项实测 3.00–3.03）。样张与实现共用同一组公式：`tests/color-mode.test.mjs` 把 6 变体 × 24 角色 = 144 个色值逐字节钉住（初版 15 角色来自 `.tmp/color-mode-preview/spec.json` 快照，扩展的 9 个角色按上表公式固定；2026-10-24 的四个会话行角色按 §13.8 重算并重钉）。
+对比度由 `scripts/check-contrast.mjs` 的 **G9–G16** 硬门槛逐变体锁定；`docs/reference/contrast.md` §2f 有完整色值表与逐项实测值（G16 最弱项实测 3.00–3.03）。样张与实现共用同一组公式：`tests/color-mode.test.mjs` 把 6 变体 × 25 角色 = 150 个色值逐字节钉住（初版 15 角色来自 `.tmp/color-mode-preview/spec.json` 快照，扩展的 9 个角色按上表公式固定；2026-10-24 的四个会话行角色按 §13.8 重算并重钉）。
 
 ### 13.4 持久化与状态（2026-10-24 起：两字段口径）
 
@@ -858,6 +859,7 @@ DSH Desktop 自动更新到 `0.2.1-rc.5`（`app.asar` 内 `dsh-desktop-runtime` 
 - 自动化：`tests/color-mode.test.mjs` **19/19 通过**（初版 12 项 + 富文本 5 项 + 2026-10-24 行重制 2 项：24 角色快照、G16 多表面守卫、字面规则、规则总数、CSS 作用域）；`node scripts/check-contrast.mjs --check` 全绿（报告与 G9–G16 一致）。全量 `node --test`（0.4.0 时 170 项，现 240 项）与 `npm run check` 由最终门禁复核。
 - 样张一致性：初版 15 角色与方案 0 样张 `spec.json` 逐字节一致；扩展的 9 个角色（h4–h6、emphasis、inlineCode、linkInternal、faint、tableHover、quoteBg）按 13.3 公式固定并由测试逐值钉住。
 - 富文本预览目检（2026-10-23）：用 `colorModeStyles()` 的真实输出 + `tokensFor()` 的真实表面值渲染 6 个变体（`.tmp/color-mode-preview/rich.mjs`，截图在 `shots-rich/`）。dark 三档与 light·hard / light·medium 下 h1–h6、加粗 / 斜体、行内 code、内部链接、删除线、引用块淡底、表格三档、复选框、已完成任务淡化、会话行底与状态点均清晰可辨；light·soft 除已记录的「表格三档同色」外，标题与强调文字仍保留色相（会话行底在 2026-10-24 palette 版改为可见的淡黄 / 淡绿）。样张与实现同源，不能替代真机目检。
+- 复选框重绘目检（2026-10-30）：`.tmp/preview/` 用真实 DSH 样式 + `tokensFor()` token 层 + `colorModeStyles()` 输出同页渲染 6 个变体，确认六档下选中框为实心 accent + canvas 勾（浅色档绿、深色档蓝）、未选框为 accent 描边 / 淡底，任务项的列表圆点已去掉；`tests/color-mode.test.mjs` 21/21、`node scripts/build.mjs --check` 与 `check-contrast.mjs --check` 全绿。样张与实现同源，但**真机目检仍待用户确认**（点击一次的复选框在真机里同样是 `disabled`，样式表重绘，不需要交互态）。
 - 最低对比度实测（`contrast.md` §2f）：G9 大号标题 3.01（light·soft h1）、G10 装饰 3.00、G11–G13 彩色表面正文 4.50–4.51、G14 状态点 3.01、G16 强调文字 3.00–3.03——全部贴着门槛通过，浅色档没有余量。
 - 零匹配口径（0.4.0 当时的验证方式；2026-10-24 起属性恒为 `on`、开关已移除，规则与色值不变）：全部 **40 条** CSS 规则都以 `html[data-everforest-color-mode="on"]` 开头（无 `!important`）；token 层与 boot payload 未改。
 - **人工（0.4.0 发布时；后于 2026-10-23 由用户真机目检确认）**：真实 DSH 需要**重启**才能加载当时的 Host `Config`；重启后（当时需在设置页开启色彩模式）目检 6 套配色下的 h1–h6 / strong / em / 行内 code / 内部链接 / 删除线 / 引用块 / 表格色带与 hover / checkbox / 会话行；重点看 light·soft 的淡彩与「会话行底不可见」是否符合预期。本仓库测试环境无法替代这一步。
@@ -1216,7 +1218,7 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 - `src/client-entry.js`：import 与 5 段接线（卸载 `spotlight.dispose()`、样式表、原点跟踪、`setTheme` 包装与 `publish` 包装各自还原）、`select()`、`setPreference()`。
 - `scripts/build.mjs` 的 `SOURCES` 已含 `theme-spotlight.js`（本轮未改）；`client.js` 已重新构建入库。
 - `tests/theme-spotlight.test.mjs`（11 项：样式表禁用 cross-fade 与 z-order、`resolveSchemePreference`、`shouldRevealSystemFlip` 的窄门六分支、无 View Transitions 兜底、reduced motion、快照→换色→揭示顺序与中心原点/半径、两方向都从指针点扩张、`origin: 'center'` 忽略旧指针、重入、dispose、无 DOM）；`tests/integration.test.mjs` 覆盖同深浅瞬切、无 prepend 监听、无 `data-everforest-transition`、服务包装在无 View Transitions 时瞬切与卸载还原，以及本轮新增的「OS 翻转走揭示」与「其他 publish 仍瞬切 / setTheme 只揭示一次」两项。
-- 常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），含设置页样式共 5 张；2026-10-27 新增表格列宽样式表后为 5 / 6 张（§18）。
+- 常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），含设置页样式共 5 张；2026-10-27 新增表格列宽样式表后为 5 / 6 张（§18）；2026-10-30 新增设置导航图标样式表后为 5 / 7 张（§19）。
 
 **门禁**：`node --test` 全量 **224/224**（2026-10-25 追加跟随系统 OS 翻转后）与 `npm run check`（palette / build / contrast）全绿；本轮只动 Client 侧接线，token 层、24 个角色色值与 6 档强度均未改动。
 
@@ -1247,7 +1249,7 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 
 DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没有表格渲染扩展点（见 §17 之外的 2026-10-26 结论），所以交互不能做成 React 组件。`src/table-resize.js` 只做 DOM 侧接线：
 
-- **命中区**：表头单元格右缘 6px（`EDGE_ZONE`，`thead th` 内、≤12 列）。内部分界线始终响应；**最后一列的右缘只在宽表响应**——那是表格自身的右边框，拖它改最后一列的宽、表格总宽跟着变（fill 表的右边框属于 100% 宽的包装层，拖了没有效果，保持不响应，见 `isResizeBoundary`）。鼠标进入命中区时给 th 加 `data-everforest-edge`，右侧画 2px `brand-primary` 竖线，光标变 `col-resize`；离开即消失。**不加任何 DOM 节点**（命中区靠指针坐标算，提示线是 `th::after`）。宽表最后一列的提示线改成 `right: 0`，否则会被裁在滚动包装层外、只剩一半。
+- **命中区**：表头单元格右缘 6px（`EDGE_ZONE`，`thead th` 内、≤12 列）。内部分界线始终响应；**最后一列的右缘只在宽表响应**——那是表格自身的右边框，拖它改最后一列的宽、表格总宽跟着变（fill 表的右边框属于 100% 宽的包装层，拖了没有效果，保持不响应，见 `isResizeBoundary`）。鼠标进入命中区时给 th 加 `data-everforest-edge`，右侧画 2px 提示线（2026-10-30 起用 `--everforest-color-table-handle`，取调色板 `headerAqua` `#569D79`，不再是偏亮的强调色 `brand-primary`；提示线也从上下各让 25% 改为整列高 `top: 0; bottom: 0`，更容易看见），光标变 `col-resize`；离开即消失。**不加任何 DOM 节点**（命中区靠指针坐标算，提示线是 `th::after`）。宽表最后一列的提示线改成 `right: 0`，否则会被裁在滚动包装层外、只剩一半。
 - **首次拖动才锁定**：pointerdown 时才量各列 `getBoundingClientRect().width`，写 `data-everforest-resizable="N"` + `--everforest-col-1..N`（px），并切 `table-layout: fixed`。锁定同时给 cell 加 `box-sizing: border-box`——否则量到的 border-box 宽度会按 content-box 写回去，每列被 padding（10px 16px）撑宽 32px，表格整体变宽（离线验证实测 998→1096px，已修复并纳入回归）。
 - **锁定宽度向下取整到 0.5px 网格**：`normalizeWidths` 的目标宽度取 `floor(可用宽度 × 2) / 2`，保证各列 px 之和 **不超过** 容器内容宽。表格是 `width: 100%` + `table-layout: fixed`，列和一旦比内容宽多半像素，表格就被撑大、`scrollWidth` 取整 +1，底部会出现一条「能看见但滚不动」的横向滚动条（2026-10-27 用户反馈：内容宽 747.44px，列和 747.5px → `scrollWidth` 748）。向下取整后列和 747px，表格仍是 747.44px、`scrollWidth` 747，滚动条消失；0.5px 的对齐网格不变。
 - **拖动 = fill 表在相邻两列重分配、宽表只改被拖的那一列**：fill 表（`<4` 列，宽度 100%）用 `clampSpan` 保持两列宽度和不变，因此**表格总宽不变**；宽表（`md-table-wide`）宽度自由，用 `resizeColumn` 只改被拖的列、其余列不动，**表格总宽 = 列宽之和**，每次拖动都同步写 `table.style.width`。指针坐标从拖动起点算（不是累加），+60px 实测列宽 +60。两种表都保持单列最小 64px（`MIN_COLUMN_WIDTH`）。pointer 事件挂在 `document` 上，指针移出单元格甚至表格仍可继续拖。
@@ -1272,7 +1274,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - `scripts/build.mjs`：`SOURCES` 增 `table-resize.js`（`color-mode.js` 之后、`client-entry.js` 之前）；`client.js` 重建。
 - `src/table-resize.js`：`onWrapperResize` 只服务 fill 表（宽表保持列宽、由包装层滚动，不观察容器）。
 - `tests/color-mode.test.mjs`：literal 规则表更新为上面的 8 条并补 `border-l1..l3` 外部变量白名单；宽表回归测试钉住重新装箱的 6 条声明（`width/max-content`、`max-width/100%`、`margin-left/padding-left: 0`、`overflow-x/auto`、`padding-bottom/0`），并断言表格不得再被 `max-width` 收窄、单元格不得改 `min-width`、**其它**规则不得再碰重新装箱的属性、fill 表包装层不得改动、宽表框必须落在 `> table` 上。`tests/integration.test.mjs`：常驻样式表 5 → 6 张、新增 table-resize 样式表断言。
-- 常驻样式表 5 张（color-mode / table-resize / selection / active-session / theme-spotlight），含设置页样式共 6 张。
+- 常驻样式表 5 张（color-mode / table-resize / selection / active-session / theme-spotlight），含设置页样式共 6 张；2026-10-30 起设置 UI 挂载时另有导航图标样式表，共 7 张（§19）。
 
 ### 18.4 验证
 
@@ -1306,3 +1308,31 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 5. **触摸不支持**；>12 列不提供拖动；列宽只在当前页面会话内有效（刷新/切会话后回到自动布局）。
 6. **fill 表不能改总宽，宽表可以**：`<4` 列的 fill 表宽度必须等于容器宽，拖动只在相邻两列间重分配；宽表拖动改被拖的那一列、表格总宽 = 列宽之和（因此可以一路拖窄到放进正文列，也可以拖宽到溢出后横向滚动），但拖宽超过正文列后最后几列要横向滚动才能看到；最后一列的拖动柄在表格右边框上，表格溢出时它只在滚动到最右端时可见。
 7. **滚动条过渡依赖 Chromium 的事件与私有伪元素行为**：`::-webkit-scrollbar` / `::-webkit-scrollbar-thumb` 的尺寸、命中与「伪元素能否继承自定义属性」都是 Blink 行为（2026-10-29 在共享调试 Chromium 实测）；CSS 过渡 / 动画在滚动条伪元素上不会运行，因此过渡由 `src/table-scrollbar.js` 用 `pointermove` + `requestAnimationFrame` 驱动——若某版本不再把指针在原生滚动条上的事件派发给所属元素，hover 就不再加粗（静止 5px 不变，样式表本身不依赖 JS），若 rAF 不可用或 `prefers-reduced-motion: reduce` 则退化为瞬切。Blink 把滚动条部件的边框宽取整到整 CSS 像素，DPR 1 下只有 5 → 4 → 3 → 2 → 1 → 0 六个绘制态（DPR 2 有半像素档）。Firefox 等非 Chromium 引擎走 DSH 的 `scrollbar-width: thin` 兜底，条不会加粗。可滚动表格的包装层比 1.2.0 高 5px（多出来的是透明条位，位于可见条下方），表格之后的正文整体下移 5px，属预期；不可滚动 / fill 表不受影响。若 DSH / 主题改了全局 thumb 的 `background-clip` 或给 thumb 加边框，插件已重新声明 `background-clip: content-box`，但升级后仍建议目检一次条的形状。
+
+## 19. 2026-10-30 设置导航松树图标（settings-nav-icon）
+
+**触发**：用户要求「设置导航里 Everforest 有了自己的松树图标」。DSH 的 `settings.section` 注册项只有 `id` / `order` / `label`，没有 `icon` 字段（§11 第 7 条）：ui-settings-general 的 `navIcon(id)` 只认内置 section id，其它一律回退默认齿轮。2026-10-22 曾决策「等官方加字段、0.x 不做 DOM 改写」，2026-10-30 改为实现（与 `dshmarket` / `dsh-notify-me` 同法）。
+
+**做法**（`src/nav-icon.js`，168 行；接线在 `src/client-entry.js`）：
+
+- **认领自己的行**：设置页挂载后，`MutationObserver` 观察 `document.body`（`childList` / `subtree` / `characterData`，`queueMicrotask` 合并同一轮变更），在每个 `[role="dialog"] nav button` 里找可见文本**严格等于**本插件 `settings.section` 当前 label 的那一行，打 `data-everforest-nav-icon` 标记；label 每次 sync 重读，locale 切换后行跟着换。空 label 不匹配任何行——locale 尚未解析时不会把整个导航标脏。
+- **画图标**：一条 `<style data-plugin="dsh-everforest" data-plugin-css="everforest/settings-nav-icon">` 隐藏 shell 的 `<svg>` 齿轮，再用 `::before` 在原 16px 槽位画 glyph：`background-color: currentColor` + `mask-image`（glyph 是包图标 `icon.svg` 里的松树，缩成单色 16px、编码成 `data:image/svg+xml,` URL）。用 mask 而不是替换 `<svg>`：glyph 直接继承行的 `currentColor`，normal / hover / active / 深浅切换都不需要额外代码。
+- **生命周期**：marker 与样式表都由调用方的 `ctx.effect` 持有（`src/client-entry.js` 在 `slots.register` 成功后安装），卸载时移除全部 marker 和样式表，shell 齿轮原样恢复；没有可用 DOM / `MutationObserver` 时是 no-op（非浏览器宿主与测试 harness 不报错，主题照常）。
+- **边界**：只标记本插件自己那一行，不改 shell 结构；若 DSH 改设置导航的 DOM（`[role="dialog"] nav button` 或按钮文本），图标静默失效、回退默认齿轮（与 §18.5 同类选择器面风险）；DSH 将来给 `settings.section` 加 `icon` 字段就删掉本模块与它在 client-entry 的调用。
+- **验证**：`tests/nav-icon.test.mjs` 6 项（glyph 契约与 mask URL 编码、样式表隐藏齿轮并画在 16px 槽位、`isOwnNavRow` 只匹配完全相同的 label、挂载后标记本行 + label 切换后重认领、dispose 移除 marker / 样式表 / observer、无 DOM no-op）；接线在 `src/client-entry.js` 的 `setupSettingsUi()` 里——`slots.register` 成功后用 `ctx.effect(…, 'everforest: settings nav glyph')` 安装，因此只在设置页真正挂上后才会出现。样式表计数：设置 UI 挂载时共 7 张（§2）。
+
+## 20. 2026-10-30 第三方插件兼容别名桥（compat aliases）
+
+**触发**：用户要求「第三方插件页面跟随主题配色」。排查本机已安装的 UI 插件发现，不少插件不直接用 DSH 的真实 token（`--dsw-alias-label-primary` 等），而是**猜**别名命名（`--dsw-alias-text-primary`、`--dsw-alias-bg-primary`、`--dsw-alias-separator-primary`、`--dsw-alias-state-error-primary` …）。DSH 不声明这些名字，插件代码里的 fallback 字面量生效（`var(--dsw-alias-bg-primary, #fff)` → 深色主题下仍是白卡），页面就停在浅色。
+
+**方案**（`src/tokens.js` + `src/client-entry.js`）：
+
+- `COMPAT_ALIASES`：41 个观测到的猜测名 → 最接近的真实 token 的静态映射（文本 / 表面 / 边框 / 交互 / 品牌 / 语义状态六组，见源码注释）；`COMPAT_ALIAS_NAMES` 供启动探测。
+- `compatAliasesFor(overlay, isDeclared)`：每个别名**直接拷贝目标 token 的 `{ light, dark }` 值**（不是 `var()` 间接），因此别名与真实 token 一样跟随 6 档强度与深浅；目标必须由 `tokensFor()` 输出，否则抛错。
+- 叠加点只有一处：`src/client-entry.js` 的 `applyLayer()` 把 `tokensFor()` + `compatAliasesFor()` 一起交给 `ctx.theme.overrideTokens()`；**不进** `TOKEN_COVERAGE` / token-inventory / 官方 206 token 契约，便于上游修好后一处删除。
+- **宿主声明优先**：第一次 apply 时用 `getComputedStyle(document.body)` 探测每个别名 DSH 是否已声明（在我们的覆盖层生效之前），已声明的跳过——未来 DSH 采纳某个同名 token 时不会被我们的内联值遮蔽。
+- **准入规则**：别名必须是 DSH 未声明的名字（`tests/tokens.test.mjs` 用 `docs/reference/token-inventory.json` 钉住「不得与真实 token 重名」）；只收实际观测到的名字，优先推动上游插件修复，不主动扩大表。
+
+**边界**：这是猜测名桥，不是万能适配——插件若用别的猜名或硬编码颜色，页面仍不跟随；只影响使用这些自定义属性的第三方页面，DSH 自身 UI 与本插件不受影响；DSH 升级若新增同名 token，启动探测会自动让位。
+
+**验证**：`tests/tokens.test.mjs`（别名与真实 token 不冲突、目标存在、值跟随 6 档）、`tests/integration.test.mjs` 两项——`apply()` 的覆盖层包含别名且等于目标值、「compat alias layer drops names DSH already declares」（模拟宿主声明 `--dsw-alias-bg-primary` 时该别名被丢弃）。全量 `node --test` **262/262**，`npm run check`（palette / build / contrast）全绿。

@@ -18,7 +18,7 @@ const HEX = /^#[0-9a-f]{6}$/i
 const ROLE_KEYS = [
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'emphasis', 'inlineCode', 'linkInternal', 'faint',
-  'marker', 'quote', 'hr', 'check',
+  'marker', 'quote', 'hr', 'tableHandle', 'check',
   'band', 'zebra', 'tableHover', 'quoteBg',
   'rowWarn', 'rowWarnHover', 'rowDone', 'rowDoneHover',
   'dotWarn', 'dotDone'
@@ -35,12 +35,12 @@ const ROLE_KEYS = [
  * sidebar, design.md §13.9). Hover is one accent step stronger and re-guarded.
  */
 const EXPECTED_ROLES = {
-  'dark-hard': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#569D79', faint: '#9DA9A0', marker: '#83C092', check: '#7FBBB3', band: '#39423e', zebra: '#2f3738', tableHover: '#343d3b', quoteBg: '#2e3a3b', rowWarn: '#b19a6b', rowWarnHover: '#b89f6e', rowDone: '#3C4841', rowDoneHover: '#4a5749', dotWarn: '#E69875', dotDone: '#A7C080' },
-  'dark-medium': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#5b9f7b', faint: '#9DA9A0', marker: '#83C092', check: '#7FBBB3', band: '#3e4845', zebra: '#343d3f', tableHover: '#394342', quoteBg: '#344042', rowWarn: '#b39c6d', rowWarnHover: '#b9a170', rowDone: '#425047', rowDoneHover: '#49574b', dotWarn: '#E69875', dotDone: '#A7C080' },
-  'dark-soft': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#6ea582', faint: '#9DA9A0', marker: '#83C092', check: '#7FBBB3', band: '#434e4c', zebra: '#3a4447', tableHover: '#3f4949', quoteBg: '#394749', rowWarn: '#b49d6f', rowWarnHover: '#baa272', rowDone: '#48574e', rowDoneHover: '#49574f', dotWarn: '#E69875', dotDone: '#A7C080' },
-  'light-hard': { h1: '#F85552', h2: '#d87934', h3: '#b18d28', h4: '#889b0d', h5: '#3d90bd', h6: '#c369ab', emphasis: '#c369ab', inlineCode: '#3A94C5', linkInternal: '#579478', faint: '#829181', marker: '#37a47c', check: '#3d90bd', band: '#efeece', zebra: '#f8f6e1', tableHover: '#f4f2d7', quoteBg: '#eff4e6', rowWarn: '#fbeac0', rowWarnHover: '#f9e6b5', rowDone: '#F3F5D9', rowDoneHover: '#e7ebbe', dotWarn: '#d07838', dotDone: '#849715' },
-  'light-medium': { h1: '#F85552', h2: '#d07838', h3: '#ac8b2c', h4: '#849715', h5: '#3f8db8', h6: '#bc69a7', emphasis: '#bc69a7', inlineCode: '#3c91c0', linkInternal: '#589077', faint: '#829181', marker: '#39a07b', check: '#3f8db8', band: '#edeac3', zebra: '#f6f1d5', tableHover: '#f2eecc', quoteBg: '#edf0db', rowWarn: '#f8e6bb', rowWarnHover: '#f8e6b9', rowDone: '#F0F1D2', rowDoneHover: '#e9eac1', dotWarn: '#c7773d', dotDone: '#81931d' },
-  'light-soft': { h1: '#e45856', h2: '#bc7642', h3: '#9c843a', h4: '#7d8f25', h5: '#408cb6', h6: '#b969a5', emphasis: '#b969a5', inlineCode: '#408cb5', linkInternal: '#588f77', faint: '#829181', marker: '#409579', check: '#408cb6', band: '#efe7cb', zebra: '#efe7cb', tableHover: '#efe7cb', quoteBg: '#ede8d0', rowWarn: '#f2e6c9', rowWarnHover: '#f2e6c7', rowDone: '#ebe8cb', rowDoneHover: '#eee7ca', dotWarn: '#b67545', dotDone: '#7a8c2c' }
+  'dark-hard': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#569D79', faint: '#9DA9A0', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#39423e', zebra: '#2f3738', tableHover: '#343d3b', quoteBg: '#2e3a3b', rowWarn: '#b19a6b', rowWarnHover: '#b89f6e', rowDone: '#3C4841', rowDoneHover: '#4a5749', dotWarn: '#E69875', dotDone: '#A7C080' },
+  'dark-medium': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#5b9f7b', faint: '#9DA9A0', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#3e4845', zebra: '#343d3f', tableHover: '#394342', quoteBg: '#344042', rowWarn: '#b39c6d', rowWarnHover: '#b9a170', rowDone: '#425047', rowDoneHover: '#49574b', dotWarn: '#E69875', dotDone: '#A7C080' },
+  'dark-soft': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#6ea582', faint: '#9DA9A0', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#434e4c', zebra: '#3a4447', tableHover: '#3f4949', quoteBg: '#394749', rowWarn: '#b49d6f', rowWarnHover: '#baa272', rowDone: '#48574e', rowDoneHover: '#49574f', dotWarn: '#E69875', dotDone: '#A7C080' },
+  'light-hard': { h1: '#F85552', h2: '#d87934', h3: '#b18d28', h4: '#889b0d', h5: '#3d90bd', h6: '#c369ab', emphasis: '#c369ab', inlineCode: '#3A94C5', linkInternal: '#579478', faint: '#829181', marker: '#37a47c', tableHandle: '#569D79', check: '#3f9779', band: '#efeece', zebra: '#f8f6e1', tableHover: '#f4f2d7', quoteBg: '#eff4e6', rowWarn: '#fbeac0', rowWarnHover: '#f9e6b5', rowDone: '#F3F5D9', rowDoneHover: '#e7ebbe', dotWarn: '#d07838', dotDone: '#849715' },
+  'light-medium': { h1: '#F85552', h2: '#d07838', h3: '#ac8b2c', h4: '#849715', h5: '#3f8db8', h6: '#bc69a7', emphasis: '#bc69a7', inlineCode: '#3c91c0', linkInternal: '#589077', faint: '#829181', marker: '#39a07b', tableHandle: '#569D79', check: '#419379', band: '#edeac3', zebra: '#f6f1d5', tableHover: '#f2eecc', quoteBg: '#edf0db', rowWarn: '#f8e6bb', rowWarnHover: '#f8e6b9', rowDone: '#F0F1D2', rowDoneHover: '#e9eac1', dotWarn: '#c7773d', dotDone: '#81931d' },
+  'light-soft': { h1: '#e45856', h2: '#bc7642', h3: '#9c843a', h4: '#7d8f25', h5: '#408cb6', h6: '#b969a5', emphasis: '#b969a5', inlineCode: '#408cb5', linkInternal: '#588f77', faint: '#829181', marker: '#409579', tableHandle: '#569D79', check: '#429279', band: '#efe7cb', zebra: '#efe7cb', tableHover: '#efe7cb', quoteBg: '#ede8d0', rowWarn: '#f2e6c9', rowWarnHover: '#f2e6c7', rowDone: '#ebe8cb', rowDoneHover: '#eee7ca', dotWarn: '#b67545', dotDone: '#7a8c2c' }
 }
 
 /** Role key → CSS custom property name (camelCase → kebab-case). */
@@ -76,7 +76,8 @@ const EXPECTED_RULES = [
   [`${MARKDOWN_SCOPE} thead th`, 'background-color', '--everforest-color-band'],
   [`${MARKDOWN_SCOPE} tbody tr:nth-child(even) > td`, 'background-color', '--everforest-color-zebra'],
   [`${MARKDOWN_SCOPE} tbody tr:hover > td`, 'background-color', '--everforest-color-table-hover'],
-  [`${MARKDOWN_SCOPE} input[type="checkbox"]`, 'accent-color', '--everforest-color-check'],
+  [`${MARKDOWN_SCOPE} input[type="checkbox"]:checked`, 'background-color', '--everforest-color-check'],
+  [`${MARKDOWN_SCOPE} input[type="checkbox"]:checked`, 'border-color', '--everforest-color-check'],
   [`${MARKDOWN_SCOPE} li.task-list-item:has(input[type="checkbox"]:checked)`, 'color', '--everforest-color-faint'],
   [`${STYLE_SCOPE} [data-state="warning"]`, 'color', '--everforest-color-dot-warn'],
   [`${STYLE_SCOPE} [data-state="done"]`, 'color', '--everforest-color-dot-done'],
@@ -92,10 +93,43 @@ const DARK_WARN_ROW = `${STYLE_SCOPE} body[data-ds-dark-theme] [role="treeitem"]
 /** The horizontal-scroll wrapper around every markdown table. */
 const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
 
+/** The task-list checkbox DSH renders `disabled` (see the source comment). */
+const TASK_CHECKBOX = `${MARKDOWN_SCOPE} input[type="checkbox"]`
+
 /** Rules that are not a single role variable (checked verbatim). */
 const EXPECTED_LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
   [`${MARKDOWN_SCOPE} blockquote`, [['padding-top', '2px'], ['padding-bottom', '2px'], ['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  // A task-list box that is not redrawn would stay the grey native control:
+  // DSH marks it `disabled` and Chromium ignores `accent-color` there. The
+  // marker is dropped too — DSH keeps both, so every item would show a bullet
+  // next to its checkbox (2026-10-30 request: the box should carry colour).
+  [`${MARKDOWN_SCOPE} ul.contains-task-list > li.task-list-item`, [['list-style', 'none']]],
+  [TASK_CHECKBOX, [
+    ['-webkit-appearance', 'none'],
+    ['appearance', 'none'],
+    ['box-sizing', 'border-box'],
+    ['width', '14px'],
+    ['height', '14px'],
+    ['margin', '0 8px 0 0'],
+    ['border', '1px solid color-mix(in srgb, var(--everforest-color-check) 68%, transparent)'],
+    ['border-radius', '3px'],
+    ['background-color', 'color-mix(in srgb, var(--everforest-color-check) 10%, transparent)'],
+    ['vertical-align', '-2px'],
+    ['position', 'relative'],
+    ['cursor', 'default']
+  ]],
+  [`${TASK_CHECKBOX}:checked::after`, [
+    ['content', '""'],
+    ['position', 'absolute'],
+    ['left', '3.5px'],
+    ['top', '0.5px'],
+    ['width', '4px'],
+    ['height', '8px'],
+    ['border', 'solid var(--dsw-alias-bg-base)'],
+    ['border-width', '0 1.5px 1.5px 0'],
+    ['transform', 'rotate(42deg)']
+  ]],
   [`${TABLE_FRAME}.md-table-wide`, [
     ['width', 'max-content'],
     ['max-width', '100%'],
@@ -125,13 +159,21 @@ const EXPECTED_LITERAL_RULES = [
   [`${DARK_WARN_ROW} [class*="_pinIndicator"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]]
 ]
 
-/** DSH tokens a literal rule may read without declaring them on the sheet. */
+/**
+ * DSH / module tokens a literal rule may read without declaring them on the
+ * sheet: the DSH token layer supplies the `--dsw-*` names (the sheet only owns
+ * `--everforest-color-*`), `--dsh-content-font-size` rides DSH's Settings font
+ * size, and `--everforest-table-scrollbar-inset` is written by
+ * `src/table-scrollbar.js` on the wrapper at runtime.
+ */
 const ALLOWED_EXTERNAL_VARIABLES = new Set([
-  '--dsw-alias-label-primary-inverted',
-  '--dsw-alias-border-l1',
+  '--dsh-content-font-size',
+  '--dsw-alias-bg-base',
   '--dsw-alias-border-l2',
   '--dsw-alias-border-l3',
-  '--dsw-radius-sm'
+  '--dsw-alias-label-primary-inverted',
+  '--dsw-radius-sm',
+  '--everforest-table-scrollbar-inset'
 ])
 
 /**
@@ -244,7 +286,22 @@ test('colorModeRoles keeps accent text >= 3:1 on every markdown surface', () => 
   }
 })
 
+test('colorModeRoles paints the column-resize handle with the deeper header aqua', () => {
+  // 2026-10-30 request: the accent-aqua guide was too bright on the table header
+  // band in both schemes. `header_aqua` is the same hue one palette step deeper,
+  // so the handle is that value in every variant and never the brighter accent.
+  const roles = colorModeRoles()
+  for (const variant of VARIANT_NAMES) {
+    assert.equal(roles[variant].tableHandle, '#569D79', `${variant}.tableHandle`)
+    assert.notEqual(roles[variant].tableHandle, roles[variant].marker, `${variant}.tableHandle vs marker`)
+    const ratio = contrastRatio(roles[variant].tableHandle, roles[variant].band)
+    assert.ok(ratio >= 2.5, `${variant}.tableHandle on the header band = ${ratio.toFixed(2)} < 2.5`)
+  }
+})
+
 test('colorModeRoles keeps decorations and the checkbox accent >= 3:1 on bg-base', () => {
+  // `check` is both the checked box's fill and the ink (the canvas colour) of the
+  // drawn check mark, so this ratio is what keeps the mark legible on the box.
   const roles = colorModeRoles()
   for (const variant of VARIANT_NAMES) {
     const { bg } = surfacesOf(variant)
@@ -579,12 +636,14 @@ test('colorModeStyles only contains valid #RRGGBB colours and declared variables
 
   for (const rule of rules) {
     for (const value of declarationsOf(rule.body).values()) {
-      const usage = value.match(/^var\((--[a-z0-9-]+)\)$/)
-      if (!usage) continue
-      assert.ok(
-        declared.has(usage[1]) || ALLOWED_EXTERNAL_VARIABLES.has(usage[1]),
-        `undeclared variable ${usage[1]} in ${rule.selector}`
-      )
+      // Every reference counts, including the ones nested in `color-mix()` or a
+      // shorthand — otherwise a typo inside a composite value would ship.
+      for (const usage of value.matchAll(/var\((--[a-z0-9-]+)/g)) {
+        assert.ok(
+          declared.has(usage[1]) || ALLOWED_EXTERNAL_VARIABLES.has(usage[1]),
+          `undeclared variable ${usage[1]} in ${rule.selector}`
+        )
+      }
     }
   }
 })

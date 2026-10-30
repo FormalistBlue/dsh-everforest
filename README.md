@@ -16,6 +16,7 @@
   <a href="https://www.npmjs.com/package/dsh-everforest"><img src="https://img.shields.io/npm/v/dsh-everforest" alt="npm version"></a>
   <a href="https://dsh-plugin.org/plugins/formalistblue/dsh-everforest"><img src="https://dsh-plugin.org/badges/listed.svg" alt="Listed on dsh-plugin.org"></a>
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DSH%20Web-Plugin-a7c080?labelColor=333C43" alt="DSH Web plugin"></a>
+  <a href="https://github.com/neuromaancer/everforest_collection"><img src="https://img.shields.io/badge/Everforest-Collection-7fbbb3?labelColor=333C43" alt="Everforest Collection"></a>
   <a href="https://everforest.vercel.app/ports"><img src="https://img.shields.io/badge/Everforest-Ports-e69875?labelColor=333C43" alt="Everforest Ports"></a>
   <a href="https://github.com/FormalistBlue/dsh-everforest/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/dsh-everforest" alt="license"></a>
 </p>
@@ -44,7 +45,7 @@ dsh-everforest 为 DeepSeek Harness 提供 Everforest 配色主题，同时支�
 - 👀 以护眼为设计的基础，对比度、饱和度对眼睛更友好。
 - 🎨 设计了深色和浅色两套主要基调颜色，按喜好选择。
 - 🖌️ 聊天内容着色：标题、文字、代码等都适配了 Everforest 配色，6 档配色采用 6 种不同的设计。
-- 📐 聊天中表格显示边框，可拖动表头边框调整列宽。
+- 📐 聊天中表格显示边框，可拖动表头右边缘调整列宽。
 - 📄 工作区会话列表按状态着色：待确认 / 已完成一眼分辨。
 - ⌛️ 进入应用时的 loading 页面适配当前配色，启动更自然。
 - ⚙️ 打开 **Settings → Everforest**，可选 6 档强度：

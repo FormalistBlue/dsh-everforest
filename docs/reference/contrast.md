@@ -25,7 +25,7 @@
 12. 色彩模式（中彩）斑马纹 / 行 hover / 引用块淡底上的 `label-primary` ≥ 4.5:1（6 档）；
 13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档）；
 14. 色彩模式（中彩）状态点（待确认 / 已完成）对 `bg-base` 与 `sidebar-fill` 都 ≥ 3.0:1（6 档）；
-15. 色彩模式（中彩）全部 24 个角色色值是合法 `#RRGGBB`（6 档）；
+15. 色彩模式（中彩）全部 25 个角色色值是合法 `#RRGGBB`（6 档）；
 16. 色彩模式（中彩）强调文字（h5 / h6 / emphasis / 内部链接 / 行内 code）对其可能落到的每个 markdown 表面 ≥ 3.0:1（6 档）：浅色档调色板强调色本身达不到 4.5:1（Enchanted 同类文本约 2.6:1），本实现抬到 3.0:1 并保留色相，正文 `label-primary` 仍保持 4.5:1；
 17. 工作区当前会话行（`src/active-session.js`，常驻、与色彩模式无关）：底色是合法 `#RRGGBB`、`label-primary` 在其上 ≥ 4.5:1（文本承载表面），且底色相对侧栏至少有 0.02 L* 的可见步长（不退化为侧栏同色）；6 档实测值见 §2g；
 
@@ -94,7 +94,7 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 
 ## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G16）
 
-`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，自 2026-10-24 起作为默认功能始终生效（设置页开关已移除）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框蓝；列表 marker / 引用条 / 分隔线 aqua；会话行保持 0.4.0 的整行实色底，2026-10-24 重制版把行底换成 Everforest palette1 的 `bg_green`（已完成）与 `bg_yellow`（待确认 / 待审批；用户反馈红色像报错，当日后续由 `bg_red` 改黄），浅色档的黄色再向 `fg.yellow` 加深到 3.5 L* 或 4.5:1 门槛为止（超过 4.5:1 的 soft 档沿 `bg0` 方向微调）；深色档因为 palette 的 `bg_yellow` 在浅色墨水下只能读作橄榄灰，改为「亮琥珀底 + 深色对比墨」（`--dsw-alias-label-primary-inverted`，标题 / 尾标 / 状态点一起继承，2026-10-24 第二轮反馈「深色档再亮/更黄一点」）。hover 向对应 `fg` 强调色混 16% 后重新守卫；完成行状态点颜色不变。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头——该属性恒为 `on`，只作作用域锚点；token 层零差异（与基线一致）。
+`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，自 2026-10-24 起作为默认功能始终生效（设置页开关已移除）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框（浅色档绿、深色档蓝）；列表 marker / 引用条 / 分隔线 aqua；表格列宽提示线取 `headerAqua`（§18 的 2px 装饰线，不参与 G9–G16 文本门槛，由 `tests/color-mode.test.mjs` 钉住对表头色带 ≥ 2.5:1）；会话行保持 0.4.0 的整行实色底，2026-10-24 重制版把行底换成 Everforest palette1 的 `bg_green`（已完成）与 `bg_yellow`（待确认 / 待审批；用户反馈红色像报错，当日后续由 `bg_red` 改黄），浅色档的黄色再向 `fg.yellow` 加深到 3.5 L* 或 4.5:1 门槛为止（超过 4.5:1 的 soft 档沿 `bg0` 方向微调）；深色档因为 palette 的 `bg_yellow` 在浅色墨水下只能读作橄榄灰，改为「亮琥珀底 + 深色对比墨」（`--dsw-alias-label-primary-inverted`，标题 / 尾标 / 状态点一起继承，2026-10-24 第二轮反馈「深色档再亮/更黄一点」）。hover 向对应 `fg` 强调色混 16% 后重新守卫；完成行状态点颜色不变。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头——该属性恒为 `on`，只作作用域锚点；token 层零差异（与基线一致）。
 
 角色色值（自定义属性均为 `--everforest-color-<角色>`，6 档）：
 
@@ -113,7 +113,8 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 | marker | `#37a47c` | `#39a07b` | `#409579` | `#83C092` | `#83C092` | `#83C092` |
 | quote | `#37a47c` | `#39a07b` | `#409579` | `#83C092` | `#83C092` | `#83C092` |
 | hr | `#37a47c` | `#39a07b` | `#409579` | `#83C092` | `#83C092` | `#83C092` |
-| check | `#3d90bd` | `#3f8db8` | `#408cb6` | `#7FBBB3` | `#7FBBB3` | `#7FBBB3` |
+| 列宽提示线（table-handle） | `#569D79` | `#569D79` | `#569D79` | `#569D79` | `#569D79` | `#569D79` |
+| check | `#3f9779` | `#419379` | `#429279` | `#7FBBB3` | `#7FBBB3` | `#7FBBB3` |
 | band | `#efeece` | `#edeac3` | `#efe7cb` | `#39423e` | `#3e4845` | `#434e4c` |
 | zebra | `#f8f6e1` | `#f6f1d5` | `#efe7cb` | `#2f3738` | `#343d3f` | `#3a4447` |
 | table-hover | `#f4f2d7` | `#f2eecc` | `#efe7cb` | `#343d3b` | `#394342` | `#3f4949` |
@@ -141,7 +142,7 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 | marker / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
 | quote / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
 | hr / bg-base | 3 | 3.00 ✅ | 3.00 ✅ | 3.02 ✅ | 6.51 ✅ | 5.89 ✅ | 5.31 ✅ | ✅ |
-| check / bg-base | 3 | 3.43 ✅ | 3.41 ✅ | 3.10 ✅ | 6.34 ✅ | 5.74 ✅ | 5.17 ✅ | ✅ |
+| check / bg-base | 3 | 3.43 ✅ | 3.43 ✅ | 3.12 ✅ | 6.34 ✅ | 5.74 ✅ | 5.17 ✅ | ✅ |
 | band / label-primary | 4.5 | 4.73 ✅ | 4.56 ✅ | 4.51 ✅ | 6.14 ✅ | 5.60 ✅ | 5.11 ✅ | ✅ |
 | zebra / label-primary | 4.5 | 5.12 ✅ | 4.91 ✅ | 4.51 ✅ | 7.21 ✅ | 6.59 ✅ | 5.92 ✅ | ✅ |
 | table-hover / label-primary | 4.5 | 4.93 ✅ | 4.76 ✅ | 4.51 ✅ | 6.62 ✅ | 6.05 ✅ | 5.50 ✅ | ✅ |
@@ -155,7 +156,7 @@ light·hard / medium / soft 的 added 行底对代码画布明度差约 1.15 / 1
 | dot-done / bg-base | 3 | 3.16 ✅ | 3.18 ✅ | 3.12 ✅ | 6.88 ✅ | 6.23 ✅ | 5.62 ✅ | ✅ |
 | dot-done / sidebar-fill | 3 | 3.02 ✅ | 3.02 ✅ | 3.02 ✅ | 6.17 ✅ | 5.56 ✅ | 5.00 ✅ | ✅ |
 
-G15：以上 6 档 × 24 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）、Enchanted 的 markdown 角色映射与 2026-10-24 的状态行重制（行底取 palette1 的 `bg_yellow` / `bg_green`，浅色档黄色按可见性下限加深，hover 重新守卫），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式自 2026-10-24 起默认提供、没有设置开关（0.4.x 的开关已随设置页区块移除）；`html` 上的 `data-everforest-color-mode` 恒为 `on`，仅作作用域锚点，只改 `data-everforest-*` 属性、不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。
+G15：以上 6 档 × 25 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）、Enchanted 的 markdown 角色映射与 2026-10-24 的状态行重制（行底取 palette1 的 `bg_yellow` / `bg_green`，浅色档黄色按可见性下限加深，hover 重新守卫），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式自 2026-10-24 起默认提供、没有设置开关（0.4.x 的开关已随设置页区块移除）；`html` 上的 `data-everforest-color-mode` 恒为 `on`，仅作作用域锚点，只改 `data-everforest-*` 属性、不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。
 
 ## 2g. 工作区当前会话行（active-session，硬门槛 G17）
 

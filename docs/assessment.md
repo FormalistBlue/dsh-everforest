@@ -55,7 +55,7 @@
 | ui-theme 的 boot row 固定在前，且已解析外观 | Host 半部用 `{ prepend: true }` 监听；head style 写 `:root{color-scheme}` + `body{background-color:#fff/#151517;--dsh-boot-bg}`，body script 写 `data-ds-theme-source` / `data-ds-dark-theme`；boot 页 CSS `background:var(--dsw-alias-bg-base,var(--dsh-boot-bg,Canvas))`、文字 `var(--dsw-alias-label-*,fallback)` |
 | 系统跟随的客户端链路 | `ThemeRuntime` 持有 `prefers-color-scheme` 监听，仅 `preference === 'system'` 时 publish；`ThemePresenter.apply()` 重设 `color-scheme`、`data-ds-theme-source`、body dark 属性与全部内联 token；Electron preload 把 `data-ds-theme-source` 同步到 `nativeTheme.themeSource`，Windows caption 探针读 `--dsw-specific-sidebar-fill` / `--dsw-alias-label-primary` 后回传 `windowsAppearance` |
 | 设置页插槽可用，且三方插件已在用 | `Slots.listSubTree` 根 `settings.section` 的 occupants 含 `dsh-market`、`cost-meter`；注册项 `{ id, order, label }`，owner props `{ close }` |
-| 设置页导航项图标不可定制 | `settings.section` 注册项只有 `id` / `order` / `label`，没有 icon 字段；第三方页面在设置导航显示 DSH 默认齿轮（`dshmarket` 用 DOM 改写自行换图标） |
+| 设置页导航项图标不可定制 | `settings.section` 注册项只有 `id` / `order` / `label`，没有 icon 字段；第三方页面在设置导航显示 DSH 默认齿轮（`dshmarket` / `dsh-notify-me` 用 DOM 标记 + MutationObserver 自行换图标）；2026-10-30 起本插件同法只给自己那一行画松树图标（[design.md](design.md) §19） |
 | 主题包由 Client 半部按包名加载 | `@deepseek-ai/dsh-client-modules`：`dsh.client.platform: 'web'` + `exports["./client"]`；入口格式唯一 `window.__ModuleLoader__.load({ id, factory(require) })`，id 必须等于包名；`dsh.client.inject` 只影响 bundle 到达顺序，不是服务注入 |
 | `styles.insert` 不适用于已安装插件 | 它只是模型动态 Cordis 包 browser half 的闭包内建；npm 安装的 client bundle 需自己创建 `<style>`、打 `data-plugin` 标记，并在 `ctx.effect` cleanup 里移除 |
 | 第三方 Client 半部可直接用 `ctx.theme` / `theme/change` | `dshmarket` 的 `src/client/index.ts`：`inject = ['slots','locale','theme']`、`themeStore.getSnapshot: () => ctx.theme.getTheme()` |
@@ -145,11 +145,12 @@
 | 覆盖层残留 | 插件停用后颜色不还原 | disposer 必须挂 `ctx.effect`（已写入 design §5）；验收项「停用后 body 内联变量消失」 |
 | 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 0.2.0 已由 Host boot 注入覆盖：Web 首帧即 Everforest；Desktop 窗口在 load 后才 show、rows 由页面侧在 IPC 后应用，接受最多 1 帧原生色；loading 动效的 spinner / 边框自 0.2.1 起也随 boot token 着色 |
 | boot 注入残留 | 插件停用 / Client 半部加载失败时，页面保留启动调色板 | row 只写 presenter 也会写的 body 内联 token（Client 正常时首次 apply 必覆盖）；停用后 row 在 Host 重启 / 下次 index 渲染消失；Client 失败时保留到本页结束（可接受，README/design 已标注） |
-| 常驻样式表依赖 DSH DOM 锚点 | `aria-selected` / `data-row-key` / `::selection` / markdown 容器等锚点随 DSH 升级改名后，色彩模式 / 当前会话行 / 文本选区会静默失效（token 层与页面不受影响） | 只用 a11y / data 契约锚点；每次 DSH 升级回归（rc.3 / rc.5 已复核）；单项失效只影响对应样式，最坏可回退为停用插件（见 §19） |
+| 常驻样式表 / 导航图标依赖 DSH DOM 锚点 | `aria-selected` / `data-row-key` / `::selection` / markdown 容器、设置导航按钮的 `[role="dialog"] nav button` 与按钮文本等锚点随 DSH 升级改名后，色彩模式 / 当前会话行 / 文本选区 / 设置导航图标会静默失效（token 层与页面不受影响） | 只用 a11y / data 契约锚点；每次 DSH 升级回归（rc.3 / rc.5 已复核）；单项失效只影响对应样式（导航图标回退默认齿轮），最坏可回退为停用插件（见 §19） |
 | 包装 DSH `ThemeRuntime.setTheme` / `publish`（聚光灯） | 上游方法形态变化或其它插件也包装时行为叠加；跨窗口广播无法在变更前拦截 | 仅跨深浅走过渡、其余原样透传；`system` 跟随的 OS 翻转走 `publish` 包装（§20），广播仍瞬切；卸载按「原方法是否自有属性」还原；无 View Transitions / reduced-motion / 重入同步执行（见 §19 / §20） |
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
-| 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | **待做**（2026-10-22 用户拍板：等 DSH 官方给 `settings.section` 加 `icon` 字段）；0.x 不做 DOM 改写（`dshmarket` 的做法） |
+| 设置导航无图标 | 第三方页显示默认齿轮，观感不统一 | **2026-10-30 已解决（仅本插件行）**：DSH 仍无 `icon` 字段，改用 DOM 标记 + MutationObserver 给自己那一行画松树图标（同 `dshmarket` / `dsh-notify-me`），失效自动回退默认齿轮；其它第三方页仍显示默认齿轮（design.md §19） |
+| 第三方插件兼容别名桥基于猜测名 | 猜错的名字不生效；未来 DSH 采纳同名 token 时可能被我们的内联值遮蔽 | 只写 DSH 未声明的名字（首次 apply 用 `getComputedStyle` 探测并跳过）、别名不得与真实 token 重名（测试对齐 token-inventory）、值直接拷贝真实 token 跟随 6 档与深浅；失效只影响对应插件页面，上游修好后删条目（design.md §20） |
 | Enchanted 的平铺背景 | DSH 部分表面依赖明度差，平铺后可能层次不清（**已发生**：Windows 下侧栏 / 标题栏 / 内容卡同色，列边界消失） | 已按 `design.md` 开放问题 5 落地修正：保持 `bg0` 主底，侧栏单独取 `bg0` → `bg1` 80% 混合 + 对比度守卫，并新增「侧栏边界 ≥ 1.02:1」硬门槛；其余层级仍用 `bg1`/`bg2` |
 | `header-*` 色不随强度变化 | 硬/软档的背景亮度差较大时，Enchanted 的常量 header 色对比度可能不足 | 6 档逐页对比度检查；不达标则按背景亮度小幅修正并回写 `reference/palette.md` |
 

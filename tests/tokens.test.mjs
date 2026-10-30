@@ -4,7 +4,14 @@ import { test } from 'node:test'
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from '../src/palette.js'
 import { alpha, contrastRatio, hexToRgb, isHex, mix, relativeLuminance } from '../src/color.js'
-import { SELF_CHECK_TOKENS, TOKEN_COVERAGE, tokensFor, AUXILIARY_TOKEN_NAMES } from '../src/tokens.js'
+import {
+  AUXILIARY_TOKEN_NAMES,
+  COMPAT_ALIAS_NAMES,
+  SELF_CHECK_TOKENS,
+  TOKEN_COVERAGE,
+  compatAliasesFor,
+  tokensFor
+} from '../src/tokens.js'
 
 const inventory = JSON.parse(
   readFileSync(new URL('../docs/reference/token-inventory.json', import.meta.url), 'utf8')
@@ -75,6 +82,66 @@ test('TOKEN_COVERAGE is consistent with tokensFor', () => {
   ])
   for (const name of AUXILIARY_TOKEN_NAMES) assert.ok(covered.has(name), name)
   assert.ok(TOKEN_COVERAGE.uncovered.length > 0)
+})
+
+test('compat aliases fill guessed third-party token names without touching the official contract', () => {
+  const overlay = tokensFor(DEFAULT_STATE)
+  const aliases = compatAliasesFor(overlay)
+  const official = new Set(inventoryNames)
+  const covered = new Set(TOKEN_COVERAGE.covered)
+
+  // Every alias is a guessed name, never an official token and never counted
+  // as Everforest coverage; deleting the bridge cannot change the 206-token
+  // contract or the boot palette.
+  assert.deepEqual([...COMPAT_ALIAS_NAMES], Object.keys(aliases).sort())
+  for (const [name, pair] of Object.entries(aliases)) {
+    assert.ok(name.startsWith('--dsw-'), `${name} must stay a DSH-style variable`)
+    assert.ok(!official.has(name), `${name} must not be a declared DSH token`)
+    assert.ok(!covered.has(name), `${name} must stay outside TOKEN_COVERAGE.covered`)
+    assert.ok(!Object.prototype.hasOwnProperty.call(overlay, name), `${name} must not leak into tokensFor`)
+    assert.equal(typeof pair.light, 'string', name)
+    assert.equal(typeof pair.dark, 'string', name)
+    // Values are copied from a real token, so the pair exists in the official
+    // overlay verbatim (no var() indirection, no theme-specific literal).
+    assert.ok(
+      Object.values(overlay).some((target) => target.light === pair.light && target.dark === pair.dark),
+      `${name} does not match any emitted token pair`
+    )
+  }
+
+  // The names the reported dsh-overall-mcp page guesses are all covered: this
+  // is the case that motivated the bridge (white cards on the dark theme).
+  for (const name of [
+    '--dsw-alias-text-primary',
+    '--dsw-alias-text-secondary',
+    '--dsw-alias-text-tertiary',
+    '--dsw-alias-text-quaternary',
+    '--dsw-alias-bg-primary'
+  ]) {
+    assert.ok(name in aliases, `${name} must be bridged`)
+  }
+  assert.deepEqual(aliases['--dsw-alias-text-primary'], overlay['--dsw-alias-label-primary'])
+  assert.deepEqual(aliases['--dsw-alias-bg-primary'], overlay['--dsw-alias-bg-layer-1'])
+
+  // Aliases follow every palette strength / scheme pairing, not just defaults.
+  for (const light of STRENGTHS) {
+    for (const dark of STRENGTHS) {
+      const variant = tokensFor({ light, dark })
+      const variantAliases = compatAliasesFor(variant)
+      assert.deepEqual(variantAliases['--dsw-alias-text-primary'], variant['--dsw-alias-label-primary'])
+      assert.deepEqual(variantAliases['--dsw-alias-bg-primary'], variant['--dsw-alias-bg-layer-1'])
+      assert.deepEqual(variantAliases['--dsw-alias-separator-primary'], variant['--dsw-alias-border-l2'])
+    }
+  }
+
+  // A name DSH starts declaring itself is dropped instead of shadowed.
+  const declared = new Set(['--dsw-alias-bg-primary'])
+  const filtered = compatAliasesFor(overlay, (name) => declared.has(name))
+  assert.ok(!('--dsw-alias-bg-primary' in filtered))
+  assert.ok('--dsw-alias-text-primary' in filtered)
+
+  // A broken entry fails at the boundary instead of emitting an empty value.
+  assert.throws(() => compatAliasesFor({}), /compat alias .* points at .* which tokensFor\(\) does not emit/)
 })
 
 test('token name sets are identical across all palette states', () => {

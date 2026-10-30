@@ -29,7 +29,12 @@
 //       internal file links     aqua (external links keep the link token)
 //       del + done task items   label-tertiary (intentionally faint)
 //       marker / quote / hr     aqua
-//       checkbox accent         blue
+//       checkbox                 light = green (`aqua`, the marker family),
+//                            dark = blue (`#7FBBB3`); both are a solid fill
+//                            carrying a canvas-colour check mark. DSH marks every
+//                            task-list box `disabled` and Chromium greys a
+//                            disabled native control, so the box is drawn instead
+//                            of accent-coloured
 //       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%);
 //                            the frame / column hairlines around and inside the
 //                            table come from the neutral border ramp instead of
@@ -73,6 +78,15 @@
 // 2026-10-24 follow-up: the user read the waiting row's red as an error, so the
 // waiting fill is now `bg_yellow` (dots stay orange; "warn" keeps its hue family
 // between the yellow dot ring and the warm canvas). See design doc §13.8 / §13.9.
+// 2026-10-30: the task-list checkbox stopped being a native `accent-color` box.
+// DSH renders every task-list item's checkbox `disabled`, and Chromium ignores
+// `accent-color` on a disabled control (native grey), so the user's report
+// ("复选框的样式可以优化一下，不需要做成灰色，可以带上颜色") could not be met by a
+// colour token: the box is redrawn with the accent hue and the redundant list
+// marker is dropped. The first pass coloured every variant blue; the same-day
+// review accepted the dark boxes and asked the light ones to try green, so
+// `check` now takes `fg.aqua` (the list-marker emerald) in light and `fg.blue`
+// in dark. See `TASK_CHECKBOX`.
 //
 // The module is a pure ESM source: no DOM, no storage, no state. `node --test`
 // imports it directly and `scripts/build.mjs` bundles it into `client.js`
@@ -111,10 +125,18 @@ export const COLOR_MODE_ATTRS = Object.freeze({
  * @property {string} marker - list bullet marker (aqua).
  * @property {string} quote - blockquote left border (aqua).
  * @property {string} hr - horizontal-rule fill (aqua).
- * @property {string} check - task-list checkbox accent (blue).
+ * @property {string} check - task-list checkbox accent: light = Everforest green
+ *   (`aqua`, `#3f9779` at light·hard), dark = blue (`#7FBBB3`). The checked box's
+ *   fill and the idle box's outline. DSH's box is always `disabled`, so Chromium
+ *   ignores `accent-color` and the control is drawn by the stylesheet instead.
  * @property {string} band - table-header background band (green tint).
  * @property {string} zebra - even table-row stripe (lighter green tint).
  * @property {string} tableHover - hovered table row (green tint).
+ * @property {string} tableHandle - chat-table column-resize handle, i.e. the 2px
+ *   guide drawn on a draggable column boundary. The palette's `header_aqua`:
+ *   one step deeper than the `fg.aqua` accent, so the line reads as a calm green
+ *   on the header band in both schemes (2026-10-30: the accent aqua was too
+ *   bright on the dark header band and too vivid on the light one).
  * @property {string} quoteBg - blockquote fill (aqua tint).
  * @property {string} rowWarn - session row waiting for the user: solid fill from
  *   the palette's `bg_yellow`, deepened toward `fg.yellow` on the light
@@ -335,6 +357,13 @@ function buildColorModeRoles () {
     const textSurfaces = [bg, band, zebra, tableHover, quoteBg]
 
     const marker = guardTo(fg.aqua, [bg], DECORATION_CONTRAST, ink)
+    // The column-resize handle takes the palette's `header_aqua` instead of the
+    // accent `aqua`: same hue, one step deeper (`#569D79` in both schemes), so
+    // the 2px guide stays a calm green on the header band instead of the bright
+    // accent (2026-10-30 request). Deliberately not guarded — lifting it toward
+    // the ink would restore the brightness this role exists to remove, and a
+    // 2px line is outside the text gates.
+    const tableHandle = fg.headerAqua
     // Status dots sit on both the canvas and the sidebar.
     const dotWarn = guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink)
     const dotDone = guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
@@ -385,7 +414,13 @@ function buildColorModeRoles () {
       marker,
       quote: marker,
       hr: marker,
-      check: guardTo(fg.blue, textSurfaces, DECORATION_CONTRAST, ink),
+      tableHandle,
+      // Task-list checkbox: light takes Everforest's green (the `aqua` accent —
+      // the same hue as the list marker / quote / hr family, `#37a47c` at
+      // light·hard), the dark variants keep the blue accent (`#7FBBB3`, the
+      // aqua-toned dark blue). 2026-10-30: the user accepted the dark scheme and
+      // asked the light one to try green.
+      check: guardTo(scheme === 'light' ? fg.aqua : fg.blue, textSurfaces, DECORATION_CONTRAST, ink),
       // Tinted fills.
       band,
       zebra,
@@ -445,7 +480,9 @@ function cssVariable (role) {
  */
 const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 
-/** Markdown content container (DSH hashes the class, `markdown` stays a substring). */
+/**
+ * Markdown content container (DSH hashes the class, `markdown` stays a substring).
+ */
 export const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-markdown-variant="compact"])`
 
 /**
@@ -454,6 +491,18 @@ export const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-ma
  * paint a rounded outer border itself) and keeps the scroller's clipping.
  */
 const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
+
+/**
+ * The task-list checkbox. DSH renders every task-list item's box as
+ * `<input type="checkbox" disabled>` (web-frontend bundle, list-item renderer),
+ * and Chromium ignores `accent-color` on a disabled control: the box is painted
+ * with the native grey instead of the accent (verified 2026-10-30 in the shared
+ * debug Chrome — an accent-coloured disabled checkbox still rendered grey). The
+ * colour therefore has to be drawn, not delegated: the native appearance is
+ * removed and the box takes an accent-tinted border / fill, with the check mark
+ * as an `::after` border pair in the canvas colour.
+ */
+const TASK_CHECKBOX = `${MARKDOWN_SCOPE} input[type="checkbox"]`
 
 /**
  * Session-tree row selector for one state, keyed by the status dot it contains.
@@ -509,7 +558,8 @@ const ELEMENT_RULES = [
   [`${MARKDOWN_SCOPE} thead th`, 'background-color', 'band'],
   [`${MARKDOWN_SCOPE} tbody tr:nth-child(even) > td`, 'background-color', 'zebra'],
   [`${MARKDOWN_SCOPE} tbody tr:hover > td`, 'background-color', 'tableHover'],
-  [`${MARKDOWN_SCOPE} input[type="checkbox"]`, 'accent-color', 'check'],
+  [`${TASK_CHECKBOX}:checked`, 'background-color', 'check'],
+  [`${TASK_CHECKBOX}:checked`, 'border-color', 'check'],
   [`${MARKDOWN_SCOPE} li.task-list-item:has(input[type="checkbox"]:checked)`, 'color', 'faint'],
   [`${COLOR_MODE_ON} [data-state="warning"]`, 'color', 'dotWarn'],
   [`${COLOR_MODE_ON} [data-state="done"]`, 'color', 'dotDone'],
@@ -534,6 +584,42 @@ const LITERAL_RULES = [
   // request: "上下稍微加 2px padding") plus the right padding / rounded right
   // corners keep the fill off the text on every side.
   [`${MARKDOWN_SCOPE} blockquote`, [['padding-top', '2px'], ['padding-bottom', '2px'], ['padding-right', '12px'], ['border-radius', '0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0']]],
+  // Task-list checkbox (2026-10-30 request: "复选框的样式可以优化一下，不需要做成
+  // 灰色，可以带上颜色"). DSH keeps the list marker *and* the checkbox, so a task
+  // list showed a stray bullet next to every box — the checkbox is the marker, so
+  // the marker is dropped. The box itself is redrawn (see `TASK_CHECKBOX`): a 14px
+  // square in the accent hue — the idle box gets a 68% accent outline and a 10%
+  // accent wash, the checked box the solid role colour — with the check mark drawn
+  // as an `::after` border pair in the canvas colour. The accent is mixed with
+  // `transparent` rather than with a surface token so the same declaration holds
+  // on the canvas, inside a blockquote fill and on a table cell; the disabled
+  // state keeps its full colour (no grey native control left to grey out).
+  [`${MARKDOWN_SCOPE} ul.contains-task-list > li.task-list-item`, [['list-style', 'none']]],
+  [TASK_CHECKBOX, [
+    ['-webkit-appearance', 'none'],
+    ['appearance', 'none'],
+    ['box-sizing', 'border-box'],
+    ['width', '14px'],
+    ['height', '14px'],
+    ['margin', '0 8px 0 0'],
+    ['border', '1px solid color-mix(in srgb, var(--everforest-color-check) 68%, transparent)'],
+    ['border-radius', '3px'],
+    ['background-color', 'color-mix(in srgb, var(--everforest-color-check) 10%, transparent)'],
+    ['vertical-align', '-2px'],
+    ['position', 'relative'],
+    ['cursor', 'default']
+  ]],
+  [`${TASK_CHECKBOX}:checked::after`, [
+    ['content', '""'],
+    ['position', 'absolute'],
+    ['left', '3.5px'],
+    ['top', '0.5px'],
+    ['width', '4px'],
+    ['height', '8px'],
+    ['border', 'solid var(--dsw-alias-bg-base)'],
+    ['border-width', '0 1.5px 1.5px 0'],
+    ['transform', 'rotate(42deg)']
+  ]],
   // Table frame and column rules. DSH's table only draws horizontal cell rules,
   // so without them a table reads as a list of loose rows. Fill tables are 100%
   // wide, so their scroll wrapper can carry the outer border (and clip it to a

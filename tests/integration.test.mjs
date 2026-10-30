@@ -665,6 +665,23 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     assert.ok(value.light.trim() !== '' && value.dark.trim() !== '', `${name} has an empty value`)
   }
 
+  // Third-party compatibility aliases ride along in the same layer: guessed
+  // names resolve to the closest real token so plugins' light-mode fallbacks
+  // stop firing on the dark theme.
+  assert.equal(
+    layer.tokens['--dsw-alias-text-primary'].light,
+    layer.tokens['--dsw-alias-label-primary'].light
+  )
+  assert.equal(
+    layer.tokens['--dsw-alias-text-primary'].dark,
+    layer.tokens['--dsw-alias-label-primary'].dark
+  )
+  assert.equal(
+    layer.tokens['--dsw-alias-bg-primary'].dark,
+    layer.tokens['--dsw-alias-bg-layer-1'].dark
+  )
+  assert.ok(layer.tokens['--dsw-alias-separator-primary'], 'alias bridge is not in the override layer')
+
   // Color-mode attributes on <html> and the mode stylesheet are mounted with the
   // token layer, independently of the Settings UI. It is a shipped default with
   // no switch since 2026-10-24, so the attribute is always on.
@@ -783,6 +800,34 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.equal(styleTags.length, 0, 'settings stylesheet was not removed on unload')
   assert.deepEqual(recorded.localeDisposals, ['settings.everforest'], 'locale dictionaries were not released on unload')
   assert.equal(window.listenerCount('storage'), 0, 'cross-window storage listener survived unload')
+})
+
+test('compat alias layer drops names DSH already declares', async () => {
+  // A future DSH version may adopt one of the guessed names. The computed-value
+  // probe runs once before the first override, so a host declaration must win
+  // over the compat shim instead of being shadowed by our inline value.
+  const { module } = loadBundle({
+    body: {},
+    getComputedStyle: () => ({
+      getPropertyValue: (name) => (name === '--dsw-alias-bg-primary' ? '#123456' : ''),
+    }),
+    console: { warn() {}, log() {}, debug() {}, error() {} },
+  })
+  const harness = createHarness()
+  const originalRequire = globalThis.require
+  globalThis.require = () => mockReact
+  try {
+    module.apply(harness.ctx)
+  } finally {
+    globalThis.require = originalRequire
+  }
+  const layer = harness.recorded.tokenLayers[0]
+  assert.equal(layer.tokens['--dsw-alias-bg-primary'], undefined)
+  assert.equal(
+    layer.tokens['--dsw-alias-text-primary'].dark,
+    layer.tokens['--dsw-alias-label-primary'].dark
+  )
+  harness.disposeAll()
 })
 
 test('settings UI mounts when slots/locale arrive after apply()', async () => {
