@@ -69,6 +69,14 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **市场「更新内容」**：1.2.0 小节 1347 字符 / 3515 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.1.0，§8.6）。
 > - **2026-10-28 已发布**：tag `v1.2.0`（commit `626671a`）→ publish run `40713360126` → npm `latest` = `1.2.0`（`dist.shasum` `480aadf87f10b969c1c2cbdf16e4aec530afa60b`，SLSA provenance），GitHub Release `v1.2.0` 已由 workflow 自动创建（发布说明取自 CHANGELOG 1.2.0 小节）；verify run `40713342591` 在 Linux / Windows × Node 20/22/24 全绿。发布后约 2 分钟内裸 tarball 仍 404（CDN 边缘缓存），加查询串立即 200；空缓存安装验证需等缓存刷新。
 
+> **1.3.0 发布注意（待发布，2026-10-30 准备）**
+>
+> - **只改 Client 半部，滚动升级不需要重启 DSH**：设置导航松树图标（DOM 标记 + MutationObserver）、第三方插件兼容别名桥（覆盖层多一组别名 token）、任务列表复选框重绘与表格列宽提示线都是 Client 侧；Host 半部与 `Config` schema 未变，插件升级后刷新页面即可（HMR 会热替换模块）。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交里重建）。
+> - **验收口径**：`node --test` **262/262**；`npm run check`（palette / build / contrast）全绿；`docs/reference/contrast.md` 已由脚本重新生成（25 个角色色值，含新增的 `tableHandle`）。
+> - **市场「更新内容」**：1.3.0 小节 295 字符 / 667 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.2.0，§8.6）。
+> - **发布后回填**：tag `v1.3.0` → publish run、`dist.shasum` 补到本文件顶部发布记录与 `design.md` §10。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。
