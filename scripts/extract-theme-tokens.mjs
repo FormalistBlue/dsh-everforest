@@ -360,7 +360,7 @@ function renderMarkdown(inventory) {
     '# DSH token inventory',
     '',
     '> 由 `node scripts/extract-theme-tokens.mjs --from <ui-theme/lib/client.js>` 生成，请勿手改。',
-    '> 对应：DSH 0.2.1-rc.3 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；2026-10-24 rc.3 复核，提取 SHA-256 不变）。',
+    '> 对应：DSH 0.2.1-rc.3 / rc.5 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；2026-10-24 rc.3、2026-10-30 rc.5 复核，提取 SHA-256 不变）。',
     '',
     `来源：\`${SOURCE_LABEL}\`；提取内容 SHA-256 \`${inventoryDigest(inventory)}\`。`,
     '该指纹与 `--from` 的绝对路径无关，因此任意路径下的同版本文件都可复现 `--check`。',

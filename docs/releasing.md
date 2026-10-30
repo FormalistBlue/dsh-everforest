@@ -185,7 +185,7 @@ npm trust github dsh-everforest `
 
 另外核对：
 
-- `engines.dsh` = `>=0.2.1-rc.2 <0.3.0-0`（安装前与装载 profile 时都会校验；2026-10-24 复核 0.2.1-rc.3 满足该区间，未抬高下限）；
+- `engines.dsh` = `>=0.2.1-rc.2 <0.3.0-0`（安装前与装载 profile 时都会校验；2026-10-24 复核 0.2.1-rc.3、2026-10-30 复核 0.2.1-rc.5 均满足该区间，未抬高下限）；
 - 版本号与 git tag 一致（`v0.1.0` ↔ `0.1.0`）；预发布版本只能发到非 `latest` 的 dist-tag（例如 `--tag next`）；
 - `CHANGELOG.md` 有当前版本对应的 `## [<version>]` 小节且非空（`node scripts/release-notes.mjs --check`；`node --test` 与 publish 都会拦）。它是 GitHub Release 正文、也就是市场「更新内容」的唯一来源，不要再依赖 `--generate-notes` 从 commit/PR 自动生成；小节按「只写改了什么、有什么效果」的口径写（见 §5 的写法约定）；
 - `npm publish` 前工作区干净（`git status` 无输出），发布 commit 已推送。
@@ -254,7 +254,7 @@ DSH 侧（本机 profile = `desktop`）：
 | `OTP required` | 账号开了 2FA 但没用 OIDC 或 automation token；本地交互发布需要 OTP |
 | 包名冲突 | 发布前 `npm view dsh-everforest version`；发布后不能改名，只能新包名 + 同步改 `dsh.client` id |
 | 安装后主题不生效 | tarball 里缺 `client.js`、`exports["./client"]` 错误，或 `dsh.client.platform` 不是 `web` |
-| DSH 提示不兼容 | `engines.dsh` 与运行时版本不匹配（本机 0.2.1-rc.3；兼容区间自 rc.2 起） |
+| DSH 提示不兼容 | `engines.dsh` 与运行时版本不匹配（本机 0.2.1-rc.5；兼容区间自 rc.2 起） |
 | 发布后本地仍装旧版 | 插件管理器安装会锁定版本；升级用 `plugin_manager` update/重装，替换已运行的包需重启 |
 | 升级后强度只在当前浏览器生效、patch 里没有 `config` | 只更新了 npm 包但没重启 DSH，且 Host 半部仍是**没有 `Config` 的旧版**（≤0.2.1）：新 Client 退回 localStorage-only；重启 DSH 后首启会把本地缓存一次性播种到 Host。旧 Host 已有 `Config` 时（0.3.0+）写入照常落 patch，不属此类（见「1.0.0 发布注意」） |
 | 手改 profile patch 成非法强度 | 运行中：volatile-only 更新解析失败被捕获 → Host warning、entry 保持 ACTIVE（旧配色不丢），改回合法值热恢复；冷启动 / 重挂：entry 不激活（无主题），改回合法值或删除 `config` 后重启恢复 |
@@ -344,4 +344,4 @@ description:
 - 收录不等于安全审查；
 - 刚发 npm 版本 24 小时内，pnpm 的 `minimumReleaseAge` 会让市场静默装到上一个成熟版本——上架时先发最终版并过一个冷静期（2026-10-19 上架时的经验，仍适用）；
 - 市场更新弹窗的「更新内容」= **最新 GitHub Release 的正文**（每日探测、只取前 4096 个字符、跳过 prerelease），也就是 `CHANGELOG.md` 对应小节；发版时漏写小节会先被 publish 门禁拦下（§4 / §5）；
-- `engines.dsh`（当前 `>=0.2.1-rc.2 <0.3.0-0`）决定市场卡片的“宿主要求”与兼容过滤：低于它的用户可能被隐藏，放宽前需在旧宿主验证 token 覆盖；0.2.1-rc.3 已满足该区间（2026-10-24 复核），不抬高下限以免隐藏仍用 rc.2 的用户。
+- `engines.dsh`（当前 `>=0.2.1-rc.2 <0.3.0-0`）决定市场卡片的“宿主要求”与兼容过滤：低于它的用户可能被隐藏，放宽前需在旧宿主验证 token 覆盖；0.2.1-rc.3 / rc.5 均已满足该区间（2026-10-24 / 2026-10-30 复核），不抬高下限以免隐藏仍用 rc.2 的用户。

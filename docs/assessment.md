@@ -7,6 +7,7 @@
 > 2026-10-23 更新：**0.4.0 实验性色彩模式（中彩）落地**（初版默认关闭，同日按用户要求改为默认开启、token 层零差异）；用户验收初版（h1–h3 + 表格 + 会话行）后要求补齐 h1–h6 与参考 Enchanted 的富文本角色，扩展轮同日完成。见 §14 / §15 与 [design.md](design.md) §13。
 > 2026-10-23 更新（设置页）：用户截图复核要求去掉解释性文案、外观改用 DSH 默认样式；已按 DSH `AppearanceRow` 对齐并删除 6 条文案，见 §17 与 [design.md](design.md) §6.1。
 > 2026-10-24 更新：DSH Desktop 已升级 **0.2.1-rc.3**；对照安装包与 `dsh-v0.2.1-rc.2...dsh-v0.2.1-rc.3` 源码 diff 复核 token（提取 SHA-256 相同）、boot spinner、markdown / 会话行锚点、settings / `configForms` 与 `includePrerelease` 行为均无变化；`engines.dsh` 不抬高下限，文档目标改为 rc.3（逐项证据见 [design.md](design.md) §12）。
+> 2026-10-30 更新：DSH Desktop 已升级 **0.2.1-rc.5**（rc.3→rc.4 只有 ACP stdout 修复，rc.4→rc.5 只有思考内容展示优化）；对照安装包复核 token（提取 SHA-256 与 rc.3 相同）、web-frontend 渲染 bundle（逐字节相同）、markdown / 表格 / 会话行锚点、settings / `configForms` / `locale` / `slots` / `index-inject` 集成点均无变化，真机复核 6 张样式表与 token 生效；`engines.dsh` 区间仍满足，文档目标改为 rc.5（证据见 [design.md](design.md) §12）。
 > 2026-10-24 更新（色彩模式）：用户要求把设置里的「色彩模式」选项去掉、作为默认提供的功能——设置页区块 / 开关 / 5 个色片与 5 个 locale 键移除，状态、Host `Config`、缓存回到两个强度，旧 `colorMode` 缓存字段与 profile patch 残留键兼容忽略。见新增 §18 与 [design.md](design.md) §13.9。
 > 2026-10-25 更新：**1.0.0 首个稳定版发布**（tag `v1.0.0` / npm `latest`）——0.4.0 之后未发布的批次作为稳定行为一起发布：UI 强调色改用官方 accent、会话状态行改 palette 原色、工作区当前会话行、原生文本选区、深浅切换聚光灯、dev-only 调试面板、图标与市场素材；token 计数与分类口径同日复核修正。见新增 §19 与 [design.md](design.md) §14–§17 / §10。
 > 2026-10-27 更新：**1.1.0 发布**（tag `v1.1.0`）——「跟随系统」下 OS 深浅翻转也走聚光灯；README 重写「特性」并新增「功能实现」清单。见 §20。
@@ -144,7 +145,7 @@
 | 覆盖层残留 | 插件停用后颜色不还原 | disposer 必须挂 `ctx.effect`（已写入 design §5）；验收项「停用后 body 内联变量消失」 |
 | 首屏闪动 | 冷启动先看到 DSH 原生配色，再切 Everforest | 0.2.0 已由 Host boot 注入覆盖：Web 首帧即 Everforest；Desktop 窗口在 load 后才 show、rows 由页面侧在 IPC 后应用，接受最多 1 帧原生色；loading 动效的 spinner / 边框自 0.2.1 起也随 boot token 着色 |
 | boot 注入残留 | 插件停用 / Client 半部加载失败时，页面保留启动调色板 | row 只写 presenter 也会写的 body 内联 token（Client 正常时首次 apply 必覆盖）；停用后 row 在 Host 重启 / 下次 index 渲染消失；Client 失败时保留到本页结束（可接受，README/design 已标注） |
-| 常驻样式表依赖 DSH DOM 锚点 | `aria-selected` / `data-row-key` / `::selection` / markdown 容器等锚点随 DSH 升级改名后，色彩模式 / 当前会话行 / 文本选区会静默失效（token 层与页面不受影响） | 只用 a11y / data 契约锚点；每次 DSH 升级回归（rc.3 已复核）；单项失效只影响对应样式，最坏可回退为停用插件（见 §19） |
+| 常驻样式表依赖 DSH DOM 锚点 | `aria-selected` / `data-row-key` / `::selection` / markdown 容器等锚点随 DSH 升级改名后，色彩模式 / 当前会话行 / 文本选区会静默失效（token 层与页面不受影响） | 只用 a11y / data 契约锚点；每次 DSH 升级回归（rc.3 / rc.5 已复核）；单项失效只影响对应样式，最坏可回退为停用插件（见 §19） |
 | 包装 DSH `ThemeRuntime.setTheme` / `publish`（聚光灯） | 上游方法形态变化或其它插件也包装时行为叠加；跨窗口广播无法在变更前拦截 | 仅跨深浅走过渡、其余原样透传；`system` 跟随的 OS 翻转走 `publish` 包装（§20），广播仍瞬切；卸载按「原方法是否自有属性」还原；无 View Transitions / reduced-motion / 重入同步执行（见 §19 / §20） |
 | `setTheme` 改写全局外观偏好 | 用户「跟随系统」被改成固定深浅色，且跨浏览器共享 | 已决策接受；设置页文案说明；恢复默认只重置强度、不改回 system |
 | 版本判定文档互相矛盾 | 可能误判兼容策略 | 以 app-boot / plugin-manager 的行为为准（已实测代码路径：`semver.satisfies(..., { includePrerelease: true })`）；包内 `dsh-package-manifest` README 的「不强制」说法已过时 |
