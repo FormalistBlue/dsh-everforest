@@ -106,11 +106,11 @@ const EXPECTED_LITERAL_RULES = [
   ]],
   [`${TABLE_FRAME}:not(.md-table-wide)`, [['border', '.5px solid var(--dsw-alias-border-l3)'], ['border-radius', 'var(--dsw-radius-sm)']]],
   [`${TABLE_FRAME}.md-table-wide > table`, [['border', '.5px solid var(--dsw-alias-border-l3)']]],
-  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
+  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['padding-left', '12px'], ['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
   [`${TABLE_FRAME} th:last-child, ${TABLE_FRAME} td:last-child`, [['border-right', '0']]],
   [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
-  [`${TABLE_FRAME} th:first-child, ${TABLE_FRAME} td:first-child`, [['padding-left', '16px']]],
   [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
+  [`${TABLE_FRAME} th`, [['font-size', 'var(--dsh-content-font-size, 14px)'], ['font-weight', '700']]],
   [`${TABLE_FRAME}::-webkit-scrollbar`, [['height', '10px']]],
   [`${TABLE_FRAME}::-webkit-scrollbar-thumb`, [
     ['border-top', '0'],

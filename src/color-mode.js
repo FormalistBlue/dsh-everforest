@@ -550,10 +550,11 @@ const LITERAL_RULES = [
   // wrapper border would draw around the bleed area, not around the table.
   // The frame takes the stronger `l3` step and the inner column rules the `l2`
   // step so the outer edge stays readable over the header band and zebra fills;
-  // both are hairlines, like DSH's own cell rules. The first / last cell padding
-  // that DSH zeroes for its borderless look is restored so text does not touch
-  // the frame, and the last row drops its bottom rule because the frame already
-  // draws it.
+  // both are hairlines, like DSH's own cell rules. DSH's 16px cell padding reads
+  // a little loose once the frame is drawn, so every cell gets a 12px left inset
+  // (2026-10-30 request); the last cell's right padding that DSH zeroes for its
+  // borderless look is restored to 16px so text does not touch the frame, and
+  // the last row drops its bottom rule because the frame already draws it.
   [`${TABLE_FRAME}.md-table-wide`, [
     ['width', 'max-content'],
     ['max-width', '100%'],
@@ -564,11 +565,18 @@ const LITERAL_RULES = [
   ]],
   [`${TABLE_FRAME}:not(.md-table-wide)`, [['border', '.5px solid var(--dsw-alias-border-l3)'], ['border-radius', 'var(--dsw-radius-sm)']]],
   [`${TABLE_FRAME}.md-table-wide > table`, [['border', '.5px solid var(--dsw-alias-border-l3)']]],
-  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
+  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['padding-left', '12px'], ['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
   [`${TABLE_FRAME} th:last-child, ${TABLE_FRAME} td:last-child`, [['border-right', '0']]],
   [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
-  [`${TABLE_FRAME} th:first-child, ${TABLE_FRAME} td:first-child`, [['padding-left', '16px']]],
   [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
+  // The table header gets one type step above the cell text and bold (2026-10-30
+  // request: "字体加大一号，粗体"). DSH renders `th` with the secondary markdown
+  // step (13px at the default content size) at weight 500, which reads as just
+  // another data row once the frame is drawn. The size rides DSH's own content
+  // axis (`--dsh-content-font-size`, so the Settings font size still scales it)
+  // and the line height stays DSH's table-head line, so the row height does not
+  // change.
+  [`${TABLE_FRAME} th`, [['font-size', 'var(--dsh-content-font-size, 14px)'], ['font-weight', '700']]],
   // Horizontal scrollbar of a scrolled table (2026-10-29 request: "make it
   // thicker on hover, easier to grab", then "add a transition animation").
   // The visible thumb stays the same 5px pill DSH paints, sitting directly under
