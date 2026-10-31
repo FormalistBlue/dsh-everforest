@@ -45,7 +45,7 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - 👀 Built around eye comfort: contrast and saturation are gentler on the eyes.
 - 🎨 Two main palettes, dark and light, to pick from as you like.
 - 🖌️ Chat content is colourised: headings, text, code and more all follow the Everforest palette, and each of the six strengths has its own design.
-- 📐 Chat tables show borders; drag a header border to adjust column widths.
+- 📐 Chat tables show borders; drag a header border to adjust column widths, kept across reloads and session switches.
 - 📄 The workspace session list is colour-coded by state: waiting for you / done at a glance.
 - ⌛️ The loading page shown when the app opens matches the active palette, so startup feels natural.
 - ⚙️ Open **Settings → Everforest** to choose one of six strengths:
@@ -72,7 +72,7 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - ✅ Workspace active-session row highlight
 - ✅ Native text-selection colours, preserving each element's own text colour
 - ✅ First-paint loading page, spinner ring and progress arc
-- ✅ Table styling, with column width adjustment
+- ✅ Table styling, with column width adjustment and memory
 
 **Settings and persistence**
 - ✅ Settings page: six strengths plus the appearance control (light / dark / follow system)
@@ -93,7 +93,6 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - ⬜ Refined colouring for dropdown options
 - ⬜ Built-in automatic light/dark schedule
 - ⬜ Compatibility polish for other third-party plugin pages
-- ⬜ Remembering column widths across reloads / sessions, and touch support
 
 ## 📚 References
 

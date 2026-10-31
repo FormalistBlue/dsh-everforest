@@ -1261,7 +1261,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - **拖动期视觉状态**：`data-everforest-col-resize` 打在表格的滚动包装层（不是 `<html>`），拖动期间的 `cursor: col-resize` / 禁止选中只作用于这张表的子树。第一版为求「全窗口都是 resize 光标」把状态放在 `<html>` 并用 `html[data-…] *` 选择器，真机实测每次按下 / 松开要 **~260ms**（整页样式失效重算，聊天窗口明显卡顿）；改为包装层后同一操作 **~2ms**（首帧测量：down 1–3ms、up 2ms、拖动中 0.4–4ms）。光标只在表内变成 resize 是接受的取舍。
 - **跟随列宽**：`<4` 列的 fill 表宽度是 100%，锁定后用 `ResizeObserver` 观察包装层，聊天列宽变化时按比例重排各列（保持总和=容器宽）；宽表（`md-table-wide`）锁定后是显式像素宽（内容宽 + 自身 1px 外框），**不跟随容器**：窗口变窄时保持列宽、由包装层横向滚动（Element 表格式），窗口变宽也不自动撑回去。未锁定的宽表同样按 DSH 的自然列宽排版、放不下就滚动。
 - **状态以表格元素为准**（attribute + CSS 变量是当前页面的真源）；2026-10-31 起另有一份**浏览器本地列宽缓存**（§18.6：独立 localStorage key、不进 Host），在表格被重挂载时用来恢复。table 元素不是 MarkdownText 管理 `style`/`class` 的对象，因此内联属性和变量不会被 React 覆盖。
-- **边界**：触摸不启用（会与横向滚动打架，mouse/pen only）；>12 列不响应拖动；fill 表拖动只在相邻两列间重分配、不改表格总宽（它必须等于容器宽），宽表拖动改表格总宽（可以一路拖窄到放进正文列，或拖宽到溢出后滚动）；`md-table-wide` 是 rc.3 的字面工具类（不是 CSS modules 哈希），和 `_tableScroll` 一样属于 DSH 升级时要复查的选择器面。
+- **边界**：触摸不启用——2026-10-31 评估后**决定不做**（mouse/pen only）：手指拖表头会与宽表的横向滚动抢手势，且触摸端没有 hover、拖动柄不可发现；评估与代价见 [assessment.md](assessment.md) §24。>12 列不响应拖动；fill 表拖动只在相邻两列间重分配、不改表格总宽（它必须等于容器宽），宽表拖动改表格总宽（可以一路拖窄到放进正文列，或拖宽到溢出后滚动）；`md-table-wide` 是 rc.3 的字面工具类（不是 CSS modules 哈希），和 `_tableScroll` 一样属于 DSH 升级时要复查的选择器面。
 
 ### 18.3 实现清单
 
@@ -1311,7 +1311,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 2. **依赖 DSH 的表格度量**：重新装箱依赖 DSH 的 `.md-table-wide` 类名与 `.body` 布局；包装层不再读 `--dsh-table-spare`。列宽完全由 DSH 的单元格度量（`padding`、`min-width: 100px`、`max-width: min(30vw, 320px)`）决定，DSH 改这些会改变列宽与换行位置。fill 表包装层仍完全不碰。
 3. **宽表框形态**：宽表框画在 `<table>` 上，因此没有圆角；表格比正文列宽时列宽保持自然长度、由包装层横向滚动（10px 条位、静止可见条 5px、hover 画满 10px，2026-10-29），横向滚动时框的右边线随内容移出视口。
 4. **重挂载不再丢列宽，但依赖 DSH 内部锚点**：宽度由 §18.6 的本地缓存恢复；缓存靠 `data-conversation-session` / `data-chat-node-key` 两个 DSH 内部属性（无公开契约），升级改名则恢复静默失效、退化为自动布局（不报错），与本节第 1 条同源。
-5. **触摸不支持**；>12 列不提供拖动；列宽现在**跨刷新 / 切会话保留**（§18.6 的本地缓存），但只在同一浏览器同一 origin 有效：Desktop 的 `dsh-app://app` 固定、跨重启保留；用浏览器打开 DSH Web GUI 时端口每次随机，换一次启动就是新 origin（不保留）。
+5. **触摸端不做**（2026-10-31 决定，非待办：手势与宽表横向滚动冲突、无 hover 可发现性；见 [assessment.md](assessment.md) §24）；>12 列不提供拖动；列宽现在**跨刷新 / 切会话保留**（§18.6 的本地缓存），但只在同一浏览器同一 origin 有效：Desktop 的 `dsh-app://app` 固定、跨重启保留；用浏览器打开 DSH Web GUI 时端口每次随机，换一次启动就是新 origin（不保留）。
 6. **fill 表不能改总宽，宽表可以**：`<4` 列的 fill 表宽度必须等于容器宽，拖动只在相邻两列间重分配；宽表拖动改被拖的那一列、表格总宽 = 列宽之和（因此可以一路拖窄到放进正文列，也可以拖宽到溢出后横向滚动），但拖宽超过正文列后最后几列要横向滚动才能看到；最后一列的拖动柄在表格右边框上，表格溢出时它只在滚动到最右端时可见。
 7. **滚动条过渡依赖 Chromium 的事件与私有伪元素行为**：`::-webkit-scrollbar` / `::-webkit-scrollbar-thumb` 的尺寸、命中与「伪元素能否继承自定义属性」都是 Blink 行为（2026-10-29 在共享调试 Chromium 实测）；CSS 过渡 / 动画在滚动条伪元素上不会运行，因此过渡由 `src/table-scrollbar.js` 用 `pointermove` + `requestAnimationFrame` 驱动——若某版本不再把指针在原生滚动条上的事件派发给所属元素，hover 就不再加粗（静止 5px 不变，样式表本身不依赖 JS），若 rAF 不可用或 `prefers-reduced-motion: reduce` 则退化为瞬切。Blink 把滚动条部件的边框宽取整到整 CSS 像素，DPR 1 下只有 5 → 4 → 3 → 2 → 1 → 0 六个绘制态（DPR 2 有半像素档）。Firefox 等非 Chromium 引擎走 DSH 的 `scrollbar-width: thin` 兜底，条不会加粗。可滚动表格的包装层比 1.2.0 高 5px（多出来的是透明条位，位于可见条下方），表格之后的正文整体下移 5px，属预期；不可滚动 / fill 表不受影响。若 DSH / 主题改了全局 thumb 的 `background-clip` 或给 thumb 加边框，插件已重新声明 `background-clip: content-box`，但升级后仍建议目检一次条的形状。
 8. **列宽记忆的失效面**（§18.6）：DSH 改聊天锚点 → 记不住（静默）；retry / 重新生成复用 turn/step → 由表头签名 + 列数拦截；会话 fork 不继承父会话；Web 随机端口不跨重启；多标签 last-write-wins；本地缓存上限 300 条 / 180 天 TTL。
