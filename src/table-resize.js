@@ -25,14 +25,21 @@
 //     Escape during a drag.
 //
 // Everything is reversible: removing the attribute, the custom properties and
-// the inline width returns the table to the renderer's own layout. Nothing is
-// stored outside the table element, so a table the renderer remounts simply
-// comes back in its automatic layout.
+// the inline width returns the table to the renderer's own layout.
+//
+// A table the renderer unmounts (a session switch, a reload) would come back in
+// the automatic layout, so an optional `memory` object remembers the widths the
+// user dragged under a stable per-table key: the conversation id, the chat node
+// (message) key and the table's ordinal inside that node. `src/colwidth-store.js`
+// owns the persistence; this module only derives the key and repairs the saved
+// pixels for the current layout. Without `memory` the interaction is exactly the
+// stateless version it used to be.
 //
 // Column resizing is mouse/pen only: a touch drag on a header would fight the
 // horizontal scroll of a wide table.
 
 import { MARKDOWN_SCOPE } from './color-mode.js'
+import { headerSignature, tableWidthKey } from './colwidth-store.js'
 
 /** Marks a table whose columns are locked to explicit pixel widths. */
 export const RESIZABLE_ATTR = 'data-everforest-resizable'
@@ -60,6 +67,16 @@ const DOUBLE_PRESS_MS = 500
 
 /** ...and only when the two presses land this close together (px). */
 const DOUBLE_PRESS_DISTANCE = 8
+
+/**
+ * DSH anchor of the chat surface a table lives in: the conversation id on the
+ * content root. Internal renderer attribute (design.md §18.6), used only to key
+ * the width memory — a table without it is simply not remembered.
+ */
+export const SESSION_ATTR = 'data-conversation-session'
+
+/** Chat node (message) key anchor; see {@link SESSION_ATTR}. */
+export const NODE_ATTR = 'data-chat-node-key'
 
 /**
  * Move the boundary between two adjacent columns by `delta`, keeping their
@@ -162,6 +179,41 @@ export function normalizeWidths (widths, total, min) {
   return result
 }
 
+/**
+ * The widths a remembered entry paints on a table in the current layout, or
+ * null when the entry cannot be trusted here.
+ *
+ * A fill table is always exactly as wide as its container, so its remembered
+ * pixels are **rescaled proportionally** to the current container width instead
+ * of pinned (a wider window then widens every column, a narrower one shrinks
+ * them, and the column sum never exceeds the container — the ghost-scrollbar
+ * rule of `normalizeWidths`). A wide table keeps the absolute pixels the user
+ * dragged and the wrapper scrolls when the window is narrower, which is exactly
+ * its unpinned Element-style behaviour.
+ *
+ * The caller validates the header signature and the column count beforehand;
+ * only the geometry is checked here. A zero container width (a hidden tab or a
+ * collapsed group) returns the pixels as they are and lets the existing
+ * ResizeObserver rescale them once the table is visible.
+ *
+ * @param {number[]} saved - widths read from the memory.
+ * @param {{ wide: boolean, columns: number, containerWidth: number }} context
+ * @returns {number[] | null}
+ */
+export function memoryWidths (saved, context) {
+  const columns = context.columns
+  if (!Array.isArray(saved) || saved.length !== columns) return null
+  if (!(columns >= 2) || columns > MAX_COLUMNS) return null
+  if (!saved.every((width) => Number.isFinite(width) && width >= MIN_COLUMN_WIDTH)) return null
+  const rounded = saved.map((width) => Math.round(width * 2) / 2)
+  if (context.wide) {
+    const total = rounded.reduce((sum, width) => sum + width, 0)
+    return total > 0 ? rounded : null
+  }
+  if (context.containerWidth > 0) return normalizeWidths(rounded, context.containerWidth, MIN_COLUMN_WIDTH)
+  return rounded
+}
+
 /** Table selector for the locked state, scoped like the color-mode sheet. */
 const TABLE_SCOPE = `${MARKDOWN_SCOPE} table[${RESIZABLE_ATTR}]`
 
@@ -226,6 +278,54 @@ function isWideTable (table) {
 }
 
 /**
+ * Zero-based index of `table` among the markdown tables of its chat node.
+ *
+ * One message can render several tables (a common real case), and the node
+ * identity alone cannot tell them apart, so the ordinal is part of the memory
+ * key. Only tables this module can ever lock are counted (the compact reasoning
+ * variant is excluded), so the ordinal does not shift when such a table is
+ * added elsewhere in the same message.
+ * @param {Element} node - the chat node element (`[data-chat-node-key]`).
+ * @param {HTMLTableElement} table
+ * @returns {number} the ordinal, or -1 when the table is not inside `node`.
+ */
+function tableOrdinal (node, table) {
+  if (typeof node.querySelectorAll !== 'function') return -1
+  let ordinal = 0
+  for (const candidate of node.querySelectorAll('[class*="tableScroll"] > table')) {
+    if (!inMarkdownScope(candidate)) continue
+    if (candidate === table) return ordinal
+    ordinal += 1
+  }
+  return -1
+}
+
+/**
+ * The width-memory key of a chat table, or null when it is not a chat table
+ * with both anchors (document previews, the Settings page, a future renderer
+ * that drops the attributes). Keys are per conversation on purpose: the same
+ * markdown rendered in two sessions keeps two independent column widths.
+ * @param {HTMLTableElement} table
+ * @returns {string | null}
+ */
+export function tableMemoryKey (table) {
+  if (typeof table.closest !== 'function') return null
+  // Only the tables this module can lock are remembered (the compact reasoning
+  // variant is not a place the user can drag a border).
+  if (!inMarkdownScope(table)) return null
+  const session = table.closest(`[${SESSION_ATTR}]`)
+  const node = table.closest(`[${NODE_ATTR}]`)
+  if (session === null || node === null) return null
+  const ordinal = tableOrdinal(node, table)
+  if (ordinal < 0) return null
+  return tableWidthKey(
+    session.getAttribute(SESSION_ATTR),
+    node.getAttribute(NODE_ATTR),
+    ordinal
+  )
+}
+
+/**
  * Whether column `index` of a table with `count` columns has a draggable right
  * edge. Interior boundaries always do. The outermost right border — the right
  * edge of the last column — only does on a wide table, where resizing the last
@@ -276,13 +376,23 @@ function edgeHit (target, clientX) {
  * table this instance locked. A fresh call after a plugin reload starts from
  * empty state, exactly like the first install.
  *
- * @param {{ document?: Document, window?: Window }} [options]
+ * `memory` is optional: `{ read(key, check), write(key, widths, check),
+ * forget(key) }` (see `createColumnWidthMemory`). Without it the interaction is
+ * the stateless version — widths survive only while the table element does.
+ *
+ * @param {{ document?: Document, window?: Window, memory?: { read: Function, write: Function, forget: Function } }} [options]
  * @returns {() => void}
  */
 export function installColumnResize (options = {}) {
   const doc = options.document
   if (!doc || typeof doc.addEventListener !== 'function') return () => {}
   const win = options.window || (typeof window === 'undefined' ? undefined : window)
+  const memory = options.memory
+    && typeof options.memory.read === 'function'
+    && typeof options.memory.write === 'function'
+    && typeof options.memory.forget === 'function'
+    ? options.memory
+    : null
 
   /** Locked table -> { widths, wide }; also the source of truth during drags. */
   const tables = new Map()
@@ -293,6 +403,7 @@ export function installColumnResize (options = {}) {
   let drag = null
   let lastPress = null
   let observer = null
+  let mutationObserver = null
   let resizeObserverCtor = typeof ResizeObserver === 'function' ? ResizeObserver : null
   if (resizeObserverCtor === null && win && typeof win.ResizeObserver === 'function') resizeObserverCtor = win.ResizeObserver
 
@@ -380,6 +491,152 @@ export function installColumnResize (options = {}) {
     return tables.has(table)
   }
 
+  /** Column count + header signature of a table, or null without a header. */
+  function tableCheck (table) {
+    const cells = headerCells(table)
+    if (cells === null || cells.length < 2 || cells.length > MAX_COLUMNS) return null
+    return {
+      columns: cells.length,
+      signature: headerSignature(cells.map((cell) => cell.textContent || ''))
+    }
+  }
+
+  /**
+   * The content-box width of a fill table's scroll wrapper, i.e. the width its
+   * columns have to add up to.
+   *
+   * `getBoundingClientRect` is used instead of `clientWidth` because it carries
+   * the half pixels the layout works on: rounding a whole pixel up is exactly
+   * what once produced a scrollbar that could not scroll.
+   */
+  function containerWidth (table) {
+    const wrapper = table.parentElement
+    if (wrapper === null || typeof wrapper.getBoundingClientRect !== 'function') return 0
+    const rect = wrapper.getBoundingClientRect()
+    if (!(rect.width > 0)) return 0
+    const view = win && typeof win.getComputedStyle === 'function' ? win : null
+    if (view === null) return rect.width
+    const style = view.getComputedStyle(wrapper)
+    const size = (value) => (typeof value === 'string' ? Number.parseFloat(value) : 0) || 0
+    return rect.width
+      - size(style.borderLeftWidth) - size(style.borderRightWidth)
+      - size(style.paddingLeft) - size(style.paddingRight)
+  }
+
+  /** Paint remembered widths on a freshly mounted table, if there are any. */
+  function restore (table) {
+    if (memory === null || tables.has(table)) return
+    if (typeof table.isConnected === 'boolean' && !table.isConnected) return
+    if (!inMarkdownScope(table)) return
+    const check = tableCheck(table)
+    if (check === null) return
+    const key = tableMemoryKey(table)
+    if (key === null) return
+    let saved = null
+    try {
+      saved = memory.read(key, check)
+    } catch {
+      saved = null
+    }
+    if (!Array.isArray(saved)) return
+    const wide = isWideTable(table)
+    const widths = memoryWidths(saved, {
+      wide,
+      columns: check.columns,
+      containerWidth: wide ? 0 : containerWidth(table)
+    })
+    if (widths === null) return
+    lock(table, widths)
+  }
+
+  /** Remember the widths currently painted on a table. */
+  function remember (table) {
+    if (memory === null) return
+    const state = tables.get(table)
+    if (state === undefined) return
+    const check = tableCheck(table)
+    if (check === null || check.columns !== state.widths.length) return
+    const key = tableMemoryKey(table)
+    if (key === null) return
+    try {
+      memory.write(key, state.widths, check)
+    } catch {
+      // A broken memory must never break the drag: the table keeps its widths.
+    }
+  }
+
+  /** Drop a table's remembered widths (double click restores the auto layout). */
+  function forget (table) {
+    if (memory === null) return
+    const key = tableMemoryKey(table)
+    if (key === null) return
+    try {
+      memory.forget(key)
+    } catch {
+      // See remember(): the auto layout is restored either way.
+    }
+  }
+
+  /** Tables under one added DOM node (the node may wrap the table or be one). */
+  function collectTables (node, found) {
+    if (node === null || typeof node !== 'object' || node.nodeType !== 1) return
+    const element = node
+    if (typeof element.matches === 'function' && element.matches('table')) found.push(element)
+    if (typeof element.querySelectorAll !== 'function') return
+    if (typeof element.matches === 'function' && element.matches('[class*="tableScroll"]')) {
+      const direct = element.querySelector('table')
+      if (direct !== null) found.push(direct)
+    }
+    for (const table of element.querySelectorAll('[class*="tableScroll"] > table')) found.push(table)
+  }
+
+  /**
+   * Release the tables the renderer already unmounted.
+   *
+   * Switching sessions replaces the whole chat subtree; every locked table of
+   * the old session would otherwise stay in `tables` (which holds the DOM
+   * element, and with it the detached subtree) for the rest of the page's
+   * life. Restored tables make that set larger than it used to be, so the
+   * memory path prunes detached entries before every restore batch. Cheap: the
+   * map only ever holds the tables locked in the current session.
+   */
+  function pruneDetached () {
+    for (const table of [...tables.keys()]) {
+      if (table.isConnected === false) release(table)
+    }
+  }
+
+  /**
+   * Tables the renderer mounts later: a new session (the whole chat subtree is
+   * replaced), a `loadEarlier` page, or a table created by the streaming
+   * markdown renderer. Scrolling, collapsing and streaming a settled table
+   * never unmount it, so nothing else triggers a restore.
+   */
+  function onMutations (records) {
+    const found = []
+    for (const record of records) {
+      for (const node of record.addedNodes) collectTables(node, found)
+    }
+    pruneDetached()
+    for (const table of found) restore(table)
+  }
+
+  /** Restore what is already mounted, then watch for later mounts. */
+  function startMemory () {
+    if (memory === null) return
+    if (typeof doc.querySelectorAll === 'function') {
+      for (const table of doc.querySelectorAll('[class*="tableScroll"] > table')) restore(table)
+    }
+    if (mutationObserver !== null) return
+    const Observer = typeof MutationObserver === 'function'
+      ? MutationObserver
+      : (win && typeof win.MutationObserver === 'function' ? win.MutationObserver : null)
+    if (typeof Observer !== 'function') return
+    if (!doc.documentElement || typeof doc.documentElement.nodeType !== 'number') return
+    mutationObserver = new Observer(onMutations)
+    mutationObserver.observe(doc.documentElement, { childList: true, subtree: true })
+  }
+
   /** Put the hover guide on `cell`, or clear it when `cell` is null. */
   function setEdge (cell) {
     if (edgeCell === cell) return
@@ -427,6 +684,9 @@ export function installColumnResize (options = {}) {
     ) {
       lastPress = null
       if (isLocked(hit.table)) release(hit.table)
+      // The gesture means "stop imposing widths on this table", so the memory
+      // entry goes too — a later remount must not bring the widths back.
+      forget(hit.table)
       finishDrag()
       setEdge(null)
       return
@@ -455,7 +715,7 @@ export function installColumnResize (options = {}) {
     if (drag.wrapper !== null) drag.wrapper.setAttribute(DRAG_ATTR, '')
   }
 
-  function finishDrag () {
+  function finishDrag (canceled = false) {
     if (drag === null) return
     const finished = drag
     // A drag that actually moved is not half of a double click, so the next
@@ -466,6 +726,7 @@ export function installColumnResize (options = {}) {
     drag = null
     if (finished.wrapper !== null) finished.wrapper.removeAttribute(DRAG_ATTR)
     setEdge(null)
+    if (finished.moved && !canceled) remember(finished.table)
   }
 
   // Touch never starts a drag (see the pointerdown guard), so the up / cancel
@@ -478,7 +739,7 @@ export function installColumnResize (options = {}) {
     if (drag === null || event.key !== 'Escape') return
     applyWidths(drag.table, drag.startWidths, drag.wide)
     tables.set(drag.table, { widths: drag.startWidths.slice(), wide: drag.wide })
-    finishDrag()
+    finishDrag(true)
   }
 
   function onWindowBlur () {
@@ -495,6 +756,7 @@ export function installColumnResize (options = {}) {
   ]
   for (const [type, listener, options] of listened) doc.addEventListener(type, listener, options)
   if (win && typeof win.addEventListener === 'function') win.addEventListener('blur', onWindowBlur)
+  startMemory()
 
   return function dispose () {
     for (const [type, listener, options] of listened) doc.removeEventListener(type, listener, options)
@@ -502,6 +764,8 @@ export function installColumnResize (options = {}) {
     for (const table of [...tables.keys()]) release(table)
     if (observer !== null) observer.disconnect()
     observer = null
+    if (mutationObserver !== null) mutationObserver.disconnect()
+    mutationObserver = null
     observed.clear()
     tables.clear()
     edgeCell = null

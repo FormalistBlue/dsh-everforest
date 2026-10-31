@@ -2260,9 +2260,422 @@ function colorModeStyles () {
   return { COLOR_MODE_ATTRS, colorModeRoles, colorModeDataset, MARKDOWN_SCOPE, colorModeStyles }
 })()
 
+// ---------------------------------------------------------------- src/colwidth-store.js
+const __mod_4_colwidth_store_js = (() => {
+/**
+ * Persistent memory for the chat table column widths.
+ *
+ * The drag interaction (`src/table-resize.js`) only paints explicit widths onto
+ * the table element, so a table the renderer unmounts — a session switch or a
+ * page reload — comes back in the automatic layout. This module is the small,
+ * DOM-free half of the memory: it turns a table identity + its widths into one
+ * `localStorage` entry and back, and it never throws.
+ *
+ * Storage rules (design.md §18.6):
+ *
+ *  - one versioned key (`COLWIDTH_STORAGE_KEY`), **separate** from the strength
+ *    cache: `src/state.js` rewrites its own payload on every palette write and
+ *    would silently drop a field we added there, and the first-paint boot
+ *    script parses that payload on every page load;
+ *  - a table key is `sessionId|chatNodeKey|ordinal` (see `tableWidthKey`); the
+ *    two DSH anchors are read by the controller, never here;
+ *  - entries older than `COLWIDTH_TTL_MS` and everything beyond
+ *    `MAX_COLWIDTH_ENTRIES` (oldest `t` first) are pruned on the next write;
+ *  - a payload with an unknown version, unreadable storage or malformed JSON
+ *    is treated as empty — this is a cache, so a bad payload is discarded
+ *    instead of migrated, and a failing write only means "not remembered this
+ *    session";
+ *  - widths are stored on the half-pixel grid and validated on the way in and
+ *    out; an entry whose column count or header signature no longer matches the
+ *    table in the DOM is ignored rather than painted onto different content.
+ *
+ * Everything here is pure (storage is passed in), so `node --test` runs it
+ * directly without a browser.
+ */
+
+/** `localStorage` key holding the JSON payload. */
+const COLWIDTH_STORAGE_KEY = 'dsh-everforest/colwidths/v1'
+
+/**
+ * Schema version stored alongside the entries.
+ *
+ * Bumped only when the entry shape changes incompatibly; a payload written by
+ * another version is discarded (this is a cache, not a preference).
+ */
+const COLWIDTH_VERSION = 1
+
+/**
+ * Newest entries kept across all sessions; the oldest write is evicted first.
+ *
+ * One entry is roughly 90 bytes, so the cap is ~27 KB — far below the 5 MiB
+ * localStorage quota. The cap only bounds unbounded growth over years of use.
+ */
+const MAX_COLWIDTH_ENTRIES = 300
+
+/** Entries not rewritten for this long are dropped on the next write. */
+const COLWIDTH_TTL_MS = 180 * 24 * 60 * 60 * 1000
+
+/** Longest table key accepted; longer identities are not remembered. */
+const MAX_COLWIDTH_KEY_LENGTH = 160
+
+/**
+ * Longest raw payload accepted from storage. The write path can never exceed
+ * ~250 K characters (300 entries × a 160-character key × 32 columns), so a
+ * longer value means the payload was written by something else; it is treated
+ * as empty instead of parsed. This bounds both the `JSON.parse` cost and the
+ * memory a corrupted / hostile value could make a restore pass allocate.
+ */
+const MAX_COLWIDTH_PAYLOAD_LENGTH = 262144
+
+/**
+ * Column cap of the stored width arrays. Only a sanity guard here — the
+ * layout limits (2–12 columns) are enforced by `src/table-resize.js`.
+ */
+const MAX_STORED_COLUMNS = 32
+
+/**
+ * Longest header cell text hashed into the signature. A chat table header is a
+ * few words; capping it bounds the hash work on a pathological table without
+ * changing the result for any real header.
+ */
+const MAX_SIGNATURE_CELL_LENGTH = 512
+
+/**
+ * Resolve the storage object to use.
+ *
+ * `readWidthTables()` / `writeWidthTables()` take an explicit storage for
+ * tests. `null` explicitly means "no storage"; `undefined` falls back to
+ * `globalThis.localStorage`, but only after checking that reading that
+ * property does not throw (it does in some sandboxed contexts).
+ *
+ * @param {Storage | null | undefined} storage
+ * @returns {Storage | null}
+ */
+function resolveStorage(storage) {
+  if (storage === null) return null
+  if (storage !== undefined) return storage
+  try {
+    const candidate = globalThis.localStorage
+    return candidate && typeof candidate.getItem === 'function' ? candidate : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 32-bit FNV-1a of a string, as eight lowercase hex digits.
+ * @param {string} text
+ * @returns {string}
+ */
+function fnv1a(text) {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
+/**
+ * The storage key of one table, or null when the identity is incomplete.
+ *
+ * `sessionId` is the ChatView's conversation id and `nodeKey` the chat node
+ * (message) key; `ordinal` is the table's zero-based index among the node's
+ * markdown tables. A key longer than `MAX_COLWIDTH_KEY_LENGTH` is rejected
+ * instead of truncated — two truncated keys could collide.
+ *
+ * The parts are joined with `|`, so an id that itself contains `|` would make
+ * two different identities produce the same key ("a|b" + "c" = "a" + "b|c").
+ * DSH ids never contain it (UUIDs and `kind:...` keys), but a hostile id must
+ * not be able to alias another table's entry: such a table is simply not
+ * remembered.
+ *
+ * @param {string | null | undefined} sessionId
+ * @param {string | null | undefined} nodeKey
+ * @param {number} ordinal
+ * @returns {string | null}
+ */
+function tableWidthKey(sessionId, nodeKey, ordinal) {
+  if (typeof sessionId !== 'string' || sessionId === '' || sessionId.includes('|')) return null
+  if (typeof nodeKey !== 'string' || nodeKey === '' || nodeKey.includes('|')) return null
+  if (!Number.isInteger(ordinal) || ordinal < 0) return null
+  const key = `${sessionId}|${nodeKey}|${ordinal}`
+  return key.length > MAX_COLWIDTH_KEY_LENGTH ? null : key
+}
+
+/**
+ * Signature of a table's header cells, used to refuse a remembered width set
+ * after the message content changed (a retry may reuse the same node key).
+ *
+ * Pure text, no DOM: the controller passes `th.textContent.trim()` values.
+ *
+ * The cells are joined with a control character that header text never
+ * contains, and that character (plus the escape character) is itself escaped
+ * inside each cell. The mapping is injective, so `['a\u0001b','c']` and
+ * `['a','b\u0001c']` cannot hash to the same input — a plain join would let a
+ * cell imitate a separator and alias another table's widths. Escape-free cells
+ * hash exactly like the previous plain-join version, so entries written by the
+ * first build stay valid. Each cell is capped at
+ * {@link MAX_SIGNATURE_CELL_LENGTH}.
+ *
+ * @param {Array<string | null | undefined>} cellTexts
+ * @returns {string}
+ */
+function headerSignature(cellTexts) {
+  if (!Array.isArray(cellTexts) || cellTexts.length === 0) return ''
+  const text = cellTexts
+    .map((cell) => escapeSignatureCell(
+      typeof cell === 'string' ? cell.trim().slice(0, MAX_SIGNATURE_CELL_LENGTH) : ''
+    ))
+    .join(SIGNATURE_SEPARATOR)
+  return fnv1a(text)
+}
+
+/** Separator between header cells; escaped when it appears inside a cell. */
+const SIGNATURE_SEPARATOR = '\u0001'
+
+/** Escape character of the signature encoding; escaped too. */
+const SIGNATURE_ESCAPE = '\u0002'
+
+/**
+ * Escape the signature separator / escape characters inside one cell.
+ *
+ * `\u0002e` stands for a literal `\u0002` and `\u0002s` for a literal
+ * `\u0001`, so the encoded cell contains no separator of its own and the join
+ * stays unambiguous. Text without those two characters is returned unchanged.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeSignatureCell(text) {
+  if (text.indexOf(SIGNATURE_ESCAPE) === -1 && text.indexOf(SIGNATURE_SEPARATOR) === -1) return text
+  return text
+    .split(SIGNATURE_ESCAPE).join(SIGNATURE_ESCAPE + 'e')
+    .split(SIGNATURE_SEPARATOR).join(SIGNATURE_ESCAPE + 's')
+}
+
+/**
+ * Validate one stored entry, or return null when it cannot be trusted.
+ *
+ * Widths are rounded onto the half-pixel grid the browser renders crisply; a
+ * non-positive or non-finite width invalidates the whole entry (a partially
+ * valid width set is meaningless). `c` must agree with `w.length` when present,
+ * because the controller validates the array length against the live table.
+ *
+ * @param {unknown} raw
+ * @param {number} now - current time in ms (kept for a stable call shape).
+ * @returns {{ w: number[], c: number, h: string, t: number } | null}
+ */
+function normalizeWidthEntry(raw, now = Date.now()) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const widths = raw.w
+  if (!Array.isArray(widths)) return null
+  if (widths.length < 2 || widths.length > MAX_STORED_COLUMNS) return null
+  const rounded = []
+  for (const width of widths) {
+    if (typeof width !== 'number' || !Number.isFinite(width) || width <= 0) return null
+    rounded.push(Math.round(width * 2) / 2)
+  }
+  if (raw.c !== undefined && raw.c !== widths.length) return null
+  if (typeof raw.h !== 'string') return null
+  const savedAt = typeof raw.t === 'number' && Number.isFinite(raw.t) ? raw.t : now
+  return { w: rounded, c: rounded.length, h: raw.h, t: savedAt }
+}
+
+/**
+ * The valid entries of a parsed payload, without TTL / cap pruning.
+ * @param {unknown} raw - `payload.tables`.
+ * @returns {Record<string, { w: number[], c: number, h: string, t: number }>}
+ */
+function normalizeWidthTables(raw) {
+  /** @type {Record<string, object>} */
+  const tables = Object.create(null)
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return tables
+  for (const key of Object.keys(raw)) {
+    if (typeof key !== 'string' || key === '' || key.length > MAX_COLWIDTH_KEY_LENGTH) continue
+    const entry = normalizeWidthEntry(raw[key])
+    if (entry === null) continue
+    tables[key] = entry
+  }
+  return tables
+}
+
+/**
+ * Drop expired entries and keep only the newest `MAX_COLWIDTH_ENTRIES`.
+ *
+ * "Newest" is the last write (`t`), so re-dragging a column refreshes its
+ * entry and protects it from eviction.
+ *
+ * @param {Record<string, { t: number }>} tables
+ * @param {number} now - current time in ms.
+ * @returns {Record<string, { w: number[], c: number, h: string, t: number }>}
+ */
+function pruneWidthTables(tables, now = Date.now()) {
+  const entries = []
+  for (const key of Object.keys(tables)) {
+    const entry = tables[key]
+    if (entry === null || typeof entry !== 'object') continue
+    if (typeof entry.t === 'number' && now - entry.t > COLWIDTH_TTL_MS) continue
+    entries.push([key, entry])
+  }
+  entries.sort((left, right) => {
+    const delta = (right[1].t ?? 0) - (left[1].t ?? 0)
+    if (delta !== 0) return delta
+    return left[0] < right[0] ? -1 : left[0] > right[0] ? 1 : 0
+  })
+  /** @type {Record<string, object>} */
+  const pruned = Object.create(null)
+  for (const [key, entry] of entries.slice(0, MAX_COLWIDTH_ENTRIES)) pruned[key] = entry
+  return pruned
+}
+
+/**
+ * Read every trusted entry. Never throws; an unusable payload reads as empty.
+ * @param {Storage | undefined} [storage]
+ * @param {number} [now]
+ * @returns {Record<string, { w: number[], c: number, h: string, t: number }>}
+ */
+function readWidthTables(storage, now = Date.now()) {
+  const target = resolveStorage(storage)
+  if (target === null) return Object.create(null)
+  let raw
+  try {
+    raw = target.getItem(COLWIDTH_STORAGE_KEY)
+  } catch {
+    return Object.create(null)
+  }
+  if (typeof raw !== 'string' || raw === '') return Object.create(null)
+  if (raw.length > MAX_COLWIDTH_PAYLOAD_LENGTH) return Object.create(null)
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return Object.create(null)
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return Object.create(null)
+  if (parsed.version !== COLWIDTH_VERSION) return Object.create(null)
+  return pruneWidthTables(normalizeWidthTables(parsed.tables), now)
+}
+
+/**
+ * Write every trusted entry (pruned first). Never throws.
+ * @param {Storage | undefined} [storage]
+ * @param {Record<string, object>} tables
+ * @param {number} [now]
+ * @returns {boolean} whether the write succeeded.
+ */
+function writeWidthTables(storage, tables, now = Date.now()) {
+  const target = resolveStorage(storage)
+  if (target === null) return false
+  try {
+    target.setItem(COLWIDTH_STORAGE_KEY, JSON.stringify({
+      version: COLWIDTH_VERSION,
+      tables: pruneWidthTables(tables, now),
+    }))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The remembered widths for `key`, or null when there is no trustworthy entry.
+ *
+ * `check` refuses a remembered set whose column count or header signature does
+ * not match the live table (the table was edited / regenerated but the node key
+ * was reused).
+ *
+ * @param {Storage | undefined} [storage]
+ * @param {string} key
+ * @param {{ columns: number, signature: string }} check
+ * @param {number} [now]
+ * @returns {number[] | null}
+ */
+function readTableWidths(storage, key, check, now = Date.now()) {
+  if (typeof key !== 'string' || key === '') return null
+  const entry = readWidthTables(storage, now)[key]
+  if (entry === undefined) return null
+  if (check === undefined || check === null) return entry.w.slice()
+  if (entry.c !== check.columns || entry.h !== check.signature) return null
+  return entry.w.slice()
+}
+
+/**
+ * Store one table's widths, refreshing its timestamp.
+ *
+ * The read-modify-write keeps the other entries and lets `pruneWidthTables`
+ * evict the oldest ones when the cap is exceeded.
+ *
+ * @param {Storage | undefined} [storage]
+ * @param {string} key
+ * @param {number[]} widths
+ * @param {{ columns: number, signature: string }} check
+ * @param {number} [now]
+ * @returns {boolean}
+ */
+function rememberTableWidths(storage, key, widths, check, now = Date.now()) {
+  if (typeof key !== 'string' || key === '') return false
+  const entry = normalizeWidthEntry({
+    w: widths,
+    c: check === undefined || check === null ? undefined : check.columns,
+    h: check === undefined || check === null ? '' : check.signature,
+    t: now,
+  }, now)
+  if (entry === null) return false
+  const tables = readWidthTables(storage, now)
+  tables[key] = entry
+  return writeWidthTables(storage, tables, now)
+}
+
+/**
+ * Forget one table. Never throws; returns whether an entry was removed.
+ * @param {Storage | undefined} [storage]
+ * @param {string} key
+ * @param {number} [now]
+ * @returns {boolean}
+ */
+function forgetTableWidths(storage, key, now = Date.now()) {
+  if (typeof key !== 'string' || key === '') return false
+  const tables = readWidthTables(storage, now)
+  if (tables[key] === undefined) return false
+  delete tables[key]
+  return writeWidthTables(storage, tables, now)
+}
+
+/**
+ * The narrow interface `installColumnResize({ memory })` consumes.
+ *
+ * The controller owns the DOM side (which table is which) and asks this object
+ * only for "the remembered widths of this key", "remember these widths" and
+ * "forget this key". Wrapping the pure functions keeps `localStorage` and the
+ * clock out of the DOM module and makes the controller testable with a fake.
+ *
+ * @param {{ storage?: Storage, now?: () => number }} [options]
+ * @returns {{ read: (key: string, check: { columns: number, signature: string }) => number[] | null, write: (key: string, widths: number[], check: { columns: number, signature: string }) => boolean, forget: (key: string) => boolean }}
+ */
+function createColumnWidthMemory(options = {}) {
+  const { storage } = options
+  const now = typeof options.now === 'function' ? options.now : () => Date.now()
+  return {
+    read(key, check) {
+      return readTableWidths(storage, key, check, now())
+    },
+    write(key, widths, check) {
+      return rememberTableWidths(storage, key, widths, check, now())
+    },
+    forget(key) {
+      return forgetTableWidths(storage, key, now())
+    },
+  }
+}
+
+  return { COLWIDTH_STORAGE_KEY, COLWIDTH_VERSION, MAX_COLWIDTH_ENTRIES, COLWIDTH_TTL_MS, MAX_COLWIDTH_KEY_LENGTH, MAX_COLWIDTH_PAYLOAD_LENGTH, MAX_STORED_COLUMNS, MAX_SIGNATURE_CELL_LENGTH, tableWidthKey, headerSignature, normalizeWidthEntry, normalizeWidthTables, pruneWidthTables, readWidthTables, writeWidthTables, readTableWidths, rememberTableWidths, forgetTableWidths, createColumnWidthMemory }
+})()
+
 // ---------------------------------------------------------------- src/table-resize.js
-const __mod_4_table_resize_js = (() => {
+const __mod_5_table_resize_js = (() => {
   const { MARKDOWN_SCOPE } = __mod_3_color_mode_js
+  const { headerSignature, tableWidthKey } = __mod_4_colwidth_store_js
 
 // Interactive column resizing for chat markdown tables.
 //
@@ -2291,9 +2704,15 @@ const __mod_4_table_resize_js = (() => {
 //     Escape during a drag.
 //
 // Everything is reversible: removing the attribute, the custom properties and
-// the inline width returns the table to the renderer's own layout. Nothing is
-// stored outside the table element, so a table the renderer remounts simply
-// comes back in its automatic layout.
+// the inline width returns the table to the renderer's own layout.
+//
+// A table the renderer unmounts (a session switch, a reload) would come back in
+// the automatic layout, so an optional `memory` object remembers the widths the
+// user dragged under a stable per-table key: the conversation id, the chat node
+// (message) key and the table's ordinal inside that node. `src/colwidth-store.js`
+// owns the persistence; this module only derives the key and repairs the saved
+// pixels for the current layout. Without `memory` the interaction is exactly the
+// stateless version it used to be.
 //
 // Column resizing is mouse/pen only: a touch drag on a header would fight the
 // horizontal scroll of a wide table.
@@ -2325,6 +2744,16 @@ const DOUBLE_PRESS_MS = 500
 
 /** ...and only when the two presses land this close together (px). */
 const DOUBLE_PRESS_DISTANCE = 8
+
+/**
+ * DSH anchor of the chat surface a table lives in: the conversation id on the
+ * content root. Internal renderer attribute (design.md §18.6), used only to key
+ * the width memory — a table without it is simply not remembered.
+ */
+const SESSION_ATTR = 'data-conversation-session'
+
+/** Chat node (message) key anchor; see {@link SESSION_ATTR}. */
+const NODE_ATTR = 'data-chat-node-key'
 
 /**
  * Move the boundary between two adjacent columns by `delta`, keeping their
@@ -2427,6 +2856,41 @@ function normalizeWidths (widths, total, min) {
   return result
 }
 
+/**
+ * The widths a remembered entry paints on a table in the current layout, or
+ * null when the entry cannot be trusted here.
+ *
+ * A fill table is always exactly as wide as its container, so its remembered
+ * pixels are **rescaled proportionally** to the current container width instead
+ * of pinned (a wider window then widens every column, a narrower one shrinks
+ * them, and the column sum never exceeds the container — the ghost-scrollbar
+ * rule of `normalizeWidths`). A wide table keeps the absolute pixels the user
+ * dragged and the wrapper scrolls when the window is narrower, which is exactly
+ * its unpinned Element-style behaviour.
+ *
+ * The caller validates the header signature and the column count beforehand;
+ * only the geometry is checked here. A zero container width (a hidden tab or a
+ * collapsed group) returns the pixels as they are and lets the existing
+ * ResizeObserver rescale them once the table is visible.
+ *
+ * @param {number[]} saved - widths read from the memory.
+ * @param {{ wide: boolean, columns: number, containerWidth: number }} context
+ * @returns {number[] | null}
+ */
+function memoryWidths (saved, context) {
+  const columns = context.columns
+  if (!Array.isArray(saved) || saved.length !== columns) return null
+  if (!(columns >= 2) || columns > MAX_COLUMNS) return null
+  if (!saved.every((width) => Number.isFinite(width) && width >= MIN_COLUMN_WIDTH)) return null
+  const rounded = saved.map((width) => Math.round(width * 2) / 2)
+  if (context.wide) {
+    const total = rounded.reduce((sum, width) => sum + width, 0)
+    return total > 0 ? rounded : null
+  }
+  if (context.containerWidth > 0) return normalizeWidths(rounded, context.containerWidth, MIN_COLUMN_WIDTH)
+  return rounded
+}
+
 /** Table selector for the locked state, scoped like the color-mode sheet. */
 const TABLE_SCOPE = `${MARKDOWN_SCOPE} table[${RESIZABLE_ATTR}]`
 
@@ -2491,6 +2955,54 @@ function isWideTable (table) {
 }
 
 /**
+ * Zero-based index of `table` among the markdown tables of its chat node.
+ *
+ * One message can render several tables (a common real case), and the node
+ * identity alone cannot tell them apart, so the ordinal is part of the memory
+ * key. Only tables this module can ever lock are counted (the compact reasoning
+ * variant is excluded), so the ordinal does not shift when such a table is
+ * added elsewhere in the same message.
+ * @param {Element} node - the chat node element (`[data-chat-node-key]`).
+ * @param {HTMLTableElement} table
+ * @returns {number} the ordinal, or -1 when the table is not inside `node`.
+ */
+function tableOrdinal (node, table) {
+  if (typeof node.querySelectorAll !== 'function') return -1
+  let ordinal = 0
+  for (const candidate of node.querySelectorAll('[class*="tableScroll"] > table')) {
+    if (!inMarkdownScope(candidate)) continue
+    if (candidate === table) return ordinal
+    ordinal += 1
+  }
+  return -1
+}
+
+/**
+ * The width-memory key of a chat table, or null when it is not a chat table
+ * with both anchors (document previews, the Settings page, a future renderer
+ * that drops the attributes). Keys are per conversation on purpose: the same
+ * markdown rendered in two sessions keeps two independent column widths.
+ * @param {HTMLTableElement} table
+ * @returns {string | null}
+ */
+function tableMemoryKey (table) {
+  if (typeof table.closest !== 'function') return null
+  // Only the tables this module can lock are remembered (the compact reasoning
+  // variant is not a place the user can drag a border).
+  if (!inMarkdownScope(table)) return null
+  const session = table.closest(`[${SESSION_ATTR}]`)
+  const node = table.closest(`[${NODE_ATTR}]`)
+  if (session === null || node === null) return null
+  const ordinal = tableOrdinal(node, table)
+  if (ordinal < 0) return null
+  return tableWidthKey(
+    session.getAttribute(SESSION_ATTR),
+    node.getAttribute(NODE_ATTR),
+    ordinal
+  )
+}
+
+/**
  * Whether column `index` of a table with `count` columns has a draggable right
  * edge. Interior boundaries always do. The outermost right border — the right
  * edge of the last column — only does on a wide table, where resizing the last
@@ -2541,13 +3053,23 @@ function edgeHit (target, clientX) {
  * table this instance locked. A fresh call after a plugin reload starts from
  * empty state, exactly like the first install.
  *
- * @param {{ document?: Document, window?: Window }} [options]
+ * `memory` is optional: `{ read(key, check), write(key, widths, check),
+ * forget(key) }` (see `createColumnWidthMemory`). Without it the interaction is
+ * the stateless version — widths survive only while the table element does.
+ *
+ * @param {{ document?: Document, window?: Window, memory?: { read: Function, write: Function, forget: Function } }} [options]
  * @returns {() => void}
  */
 function installColumnResize (options = {}) {
   const doc = options.document
   if (!doc || typeof doc.addEventListener !== 'function') return () => {}
   const win = options.window || (typeof window === 'undefined' ? undefined : window)
+  const memory = options.memory
+    && typeof options.memory.read === 'function'
+    && typeof options.memory.write === 'function'
+    && typeof options.memory.forget === 'function'
+    ? options.memory
+    : null
 
   /** Locked table -> { widths, wide }; also the source of truth during drags. */
   const tables = new Map()
@@ -2558,6 +3080,7 @@ function installColumnResize (options = {}) {
   let drag = null
   let lastPress = null
   let observer = null
+  let mutationObserver = null
   let resizeObserverCtor = typeof ResizeObserver === 'function' ? ResizeObserver : null
   if (resizeObserverCtor === null && win && typeof win.ResizeObserver === 'function') resizeObserverCtor = win.ResizeObserver
 
@@ -2645,6 +3168,152 @@ function installColumnResize (options = {}) {
     return tables.has(table)
   }
 
+  /** Column count + header signature of a table, or null without a header. */
+  function tableCheck (table) {
+    const cells = headerCells(table)
+    if (cells === null || cells.length < 2 || cells.length > MAX_COLUMNS) return null
+    return {
+      columns: cells.length,
+      signature: headerSignature(cells.map((cell) => cell.textContent || ''))
+    }
+  }
+
+  /**
+   * The content-box width of a fill table's scroll wrapper, i.e. the width its
+   * columns have to add up to.
+   *
+   * `getBoundingClientRect` is used instead of `clientWidth` because it carries
+   * the half pixels the layout works on: rounding a whole pixel up is exactly
+   * what once produced a scrollbar that could not scroll.
+   */
+  function containerWidth (table) {
+    const wrapper = table.parentElement
+    if (wrapper === null || typeof wrapper.getBoundingClientRect !== 'function') return 0
+    const rect = wrapper.getBoundingClientRect()
+    if (!(rect.width > 0)) return 0
+    const view = win && typeof win.getComputedStyle === 'function' ? win : null
+    if (view === null) return rect.width
+    const style = view.getComputedStyle(wrapper)
+    const size = (value) => (typeof value === 'string' ? Number.parseFloat(value) : 0) || 0
+    return rect.width
+      - size(style.borderLeftWidth) - size(style.borderRightWidth)
+      - size(style.paddingLeft) - size(style.paddingRight)
+  }
+
+  /** Paint remembered widths on a freshly mounted table, if there are any. */
+  function restore (table) {
+    if (memory === null || tables.has(table)) return
+    if (typeof table.isConnected === 'boolean' && !table.isConnected) return
+    if (!inMarkdownScope(table)) return
+    const check = tableCheck(table)
+    if (check === null) return
+    const key = tableMemoryKey(table)
+    if (key === null) return
+    let saved = null
+    try {
+      saved = memory.read(key, check)
+    } catch {
+      saved = null
+    }
+    if (!Array.isArray(saved)) return
+    const wide = isWideTable(table)
+    const widths = memoryWidths(saved, {
+      wide,
+      columns: check.columns,
+      containerWidth: wide ? 0 : containerWidth(table)
+    })
+    if (widths === null) return
+    lock(table, widths)
+  }
+
+  /** Remember the widths currently painted on a table. */
+  function remember (table) {
+    if (memory === null) return
+    const state = tables.get(table)
+    if (state === undefined) return
+    const check = tableCheck(table)
+    if (check === null || check.columns !== state.widths.length) return
+    const key = tableMemoryKey(table)
+    if (key === null) return
+    try {
+      memory.write(key, state.widths, check)
+    } catch {
+      // A broken memory must never break the drag: the table keeps its widths.
+    }
+  }
+
+  /** Drop a table's remembered widths (double click restores the auto layout). */
+  function forget (table) {
+    if (memory === null) return
+    const key = tableMemoryKey(table)
+    if (key === null) return
+    try {
+      memory.forget(key)
+    } catch {
+      // See remember(): the auto layout is restored either way.
+    }
+  }
+
+  /** Tables under one added DOM node (the node may wrap the table or be one). */
+  function collectTables (node, found) {
+    if (node === null || typeof node !== 'object' || node.nodeType !== 1) return
+    const element = node
+    if (typeof element.matches === 'function' && element.matches('table')) found.push(element)
+    if (typeof element.querySelectorAll !== 'function') return
+    if (typeof element.matches === 'function' && element.matches('[class*="tableScroll"]')) {
+      const direct = element.querySelector('table')
+      if (direct !== null) found.push(direct)
+    }
+    for (const table of element.querySelectorAll('[class*="tableScroll"] > table')) found.push(table)
+  }
+
+  /**
+   * Release the tables the renderer already unmounted.
+   *
+   * Switching sessions replaces the whole chat subtree; every locked table of
+   * the old session would otherwise stay in `tables` (which holds the DOM
+   * element, and with it the detached subtree) for the rest of the page's
+   * life. Restored tables make that set larger than it used to be, so the
+   * memory path prunes detached entries before every restore batch. Cheap: the
+   * map only ever holds the tables locked in the current session.
+   */
+  function pruneDetached () {
+    for (const table of [...tables.keys()]) {
+      if (table.isConnected === false) release(table)
+    }
+  }
+
+  /**
+   * Tables the renderer mounts later: a new session (the whole chat subtree is
+   * replaced), a `loadEarlier` page, or a table created by the streaming
+   * markdown renderer. Scrolling, collapsing and streaming a settled table
+   * never unmount it, so nothing else triggers a restore.
+   */
+  function onMutations (records) {
+    const found = []
+    for (const record of records) {
+      for (const node of record.addedNodes) collectTables(node, found)
+    }
+    pruneDetached()
+    for (const table of found) restore(table)
+  }
+
+  /** Restore what is already mounted, then watch for later mounts. */
+  function startMemory () {
+    if (memory === null) return
+    if (typeof doc.querySelectorAll === 'function') {
+      for (const table of doc.querySelectorAll('[class*="tableScroll"] > table')) restore(table)
+    }
+    if (mutationObserver !== null) return
+    const Observer = typeof MutationObserver === 'function'
+      ? MutationObserver
+      : (win && typeof win.MutationObserver === 'function' ? win.MutationObserver : null)
+    if (typeof Observer !== 'function') return
+    if (!doc.documentElement || typeof doc.documentElement.nodeType !== 'number') return
+    mutationObserver = new Observer(onMutations)
+    mutationObserver.observe(doc.documentElement, { childList: true, subtree: true })
+  }
+
   /** Put the hover guide on `cell`, or clear it when `cell` is null. */
   function setEdge (cell) {
     if (edgeCell === cell) return
@@ -2692,6 +3361,9 @@ function installColumnResize (options = {}) {
     ) {
       lastPress = null
       if (isLocked(hit.table)) release(hit.table)
+      // The gesture means "stop imposing widths on this table", so the memory
+      // entry goes too — a later remount must not bring the widths back.
+      forget(hit.table)
       finishDrag()
       setEdge(null)
       return
@@ -2720,7 +3392,7 @@ function installColumnResize (options = {}) {
     if (drag.wrapper !== null) drag.wrapper.setAttribute(DRAG_ATTR, '')
   }
 
-  function finishDrag () {
+  function finishDrag (canceled = false) {
     if (drag === null) return
     const finished = drag
     // A drag that actually moved is not half of a double click, so the next
@@ -2731,6 +3403,7 @@ function installColumnResize (options = {}) {
     drag = null
     if (finished.wrapper !== null) finished.wrapper.removeAttribute(DRAG_ATTR)
     setEdge(null)
+    if (finished.moved && !canceled) remember(finished.table)
   }
 
   // Touch never starts a drag (see the pointerdown guard), so the up / cancel
@@ -2743,7 +3416,7 @@ function installColumnResize (options = {}) {
     if (drag === null || event.key !== 'Escape') return
     applyWidths(drag.table, drag.startWidths, drag.wide)
     tables.set(drag.table, { widths: drag.startWidths.slice(), wide: drag.wide })
-    finishDrag()
+    finishDrag(true)
   }
 
   function onWindowBlur () {
@@ -2760,6 +3433,7 @@ function installColumnResize (options = {}) {
   ]
   for (const [type, listener, options] of listened) doc.addEventListener(type, listener, options)
   if (win && typeof win.addEventListener === 'function') win.addEventListener('blur', onWindowBlur)
+  startMemory()
 
   return function dispose () {
     for (const [type, listener, options] of listened) doc.removeEventListener(type, listener, options)
@@ -2767,6 +3441,8 @@ function installColumnResize (options = {}) {
     for (const table of [...tables.keys()]) release(table)
     if (observer !== null) observer.disconnect()
     observer = null
+    if (mutationObserver !== null) mutationObserver.disconnect()
+    mutationObserver = null
     observed.clear()
     tables.clear()
     edgeCell = null
@@ -2776,11 +3452,11 @@ function installColumnResize (options = {}) {
   }
 }
 
-  return { RESIZABLE_ATTR, EDGE_ATTR, DRAG_ATTR, COLUMN_VARIABLE, MIN_COLUMN_WIDTH, MAX_COLUMNS, EDGE_ZONE, clampSpan, resizeColumn, nextColumnWidths, normalizeWidths, tableResizeStyles, isResizeBoundary, installColumnResize }
+  return { RESIZABLE_ATTR, EDGE_ATTR, DRAG_ATTR, COLUMN_VARIABLE, MIN_COLUMN_WIDTH, MAX_COLUMNS, EDGE_ZONE, SESSION_ATTR, NODE_ATTR, clampSpan, resizeColumn, nextColumnWidths, normalizeWidths, memoryWidths, tableResizeStyles, tableMemoryKey, isResizeBoundary, installColumnResize }
 })()
 
 // ---------------------------------------------------------------- src/table-scrollbar.js
-const __mod_5_table_scrollbar_js = (() => {
+const __mod_6_table_scrollbar_js = (() => {
 // Animated hover growth for the chat table's horizontal scrollbar.
 //
 // The color-mode stylesheet reserves a 10px track and paints the resting thumb
@@ -3051,7 +3727,7 @@ function installTableScrollbarHover (options = {}) {
 })()
 
 // ---------------------------------------------------------------- src/selection.js
-const __mod_6_selection_js = (() => {
+const __mod_7_selection_js = (() => {
   const { RAMPS, SCHEMES, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -3106,7 +3782,7 @@ function selectionStyles() {
 })()
 
 // ---------------------------------------------------------------- src/active-session.js
-const __mod_7_active_session_js = (() => {
+const __mod_8_active_session_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { contrastRatio, labLightness, mix } = __mod_1_color_js
   const { tokensFor } = __mod_2_tokens_js
@@ -3287,7 +3963,7 @@ function activeSessionStyles () {
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_8_nav_icon_js = (() => {
+const __mod_9_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // `settings.section` projects only `id` / `order` / `label`, and the settings
@@ -3461,7 +4137,7 @@ function installSettingsNavIcon (options = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_9_state_js = (() => {
+const __mod_10_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -3755,9 +4431,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_10_durable_js = (() => {
+const __mod_11_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_9_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_10_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -3922,7 +4598,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_11_locale_js = (() => {
+const __mod_12_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -4005,7 +4681,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_12_settings_page_js = (() => {
+const __mod_13_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -4645,7 +5321,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_13_theme_spotlight_js = (() => {
+const __mod_14_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -4952,20 +5628,21 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_14_client_entry_js = (() => {
+const __mod_15_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
-  const { installColumnResize, tableResizeStyles } = __mod_4_table_resize_js
-  const { installTableScrollbarHover } = __mod_5_table_scrollbar_js
-  const { selectionStyles } = __mod_6_selection_js
-  const { activeSessionStyles } = __mod_7_active_session_js
-  const { installSettingsNavIcon } = __mod_8_nav_icon_js
+  const { createColumnWidthMemory } = __mod_4_colwidth_store_js
+  const { installColumnResize, tableResizeStyles } = __mod_5_table_resize_js
+  const { installTableScrollbarHover } = __mod_6_table_scrollbar_js
+  const { selectionStyles } = __mod_7_selection_js
+  const { activeSessionStyles } = __mod_8_active_session_js
+  const { installSettingsNavIcon } = __mod_9_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_9_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_10_durable_js
-  const { EN, NS, ZH } = __mod_11_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_12_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_13_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_10_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_11_durable_js
+  const { EN, NS, ZH } = __mod_12_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_13_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_14_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -5389,6 +6066,14 @@ function apply(ctx) {
   // edges only through DOM-level events. The module owns its listeners and
   // restores the renderer's automatic layout on unload; the stylesheet is
   // installed first so a drag started in the same tick already has its rules.
+  //
+  // The widths are remembered in a browser-local `localStorage` cache
+  // (`src/colwidth-store.js`, design.md §18.6): a table is remounted when the
+  // user switches sessions and on every reload, and the renderer's auto layout
+  // would otherwise forget what the user dragged. The cache is independent of
+  // the Host-backed strength preference — column widths are a per-browser
+  // layout fact, not a shared preference — so this effect never waits for the
+  // settings form and needs no Host half.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')
@@ -5401,6 +6086,7 @@ function apply(ctx) {
       dispose = installColumnResize({
         document,
         window: typeof window === 'undefined' ? undefined : window,
+        memory: createColumnWidthMemory(),
       })
     } catch (error) {
       console.warn(`${LOG_PREFIX} table column resize could not be installed; tables keep the renderer's layout`, error)
@@ -5888,6 +6574,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_14_client_entry_js
+    return __mod_15_client_entry_js
   },
 })

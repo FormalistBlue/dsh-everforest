@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.5（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.5（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -1260,7 +1260,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - **复位**：双击边缘 → 移除属性/变量，回到 DSH 自动布局；拖动中按 Esc → 恢复拖动前宽度。双击不是用 `dblclick` 事件，而是「同一列边界、两次 press 间隔 ≤500ms、两次坐标差 ≤8px、且上一次 press 没有真的拖动过」——`pointerdown` 里的 `preventDefault()` 会抑制 Chromium 的兼容鼠标事件，`dblclick` 不保证送达；「上一次没有拖动」保证拖完立刻再按同一处分界不会误复位。2026-10-28 梳理时删掉了 `dblclick` 监听：实测原生 `dblclick` 从不送达（`pointerdown` 的 `preventDefault()` 已把它抑制掉），那条兜底路径是死代码（见 §18.3）。
 - **拖动期视觉状态**：`data-everforest-col-resize` 打在表格的滚动包装层（不是 `<html>`），拖动期间的 `cursor: col-resize` / 禁止选中只作用于这张表的子树。第一版为求「全窗口都是 resize 光标」把状态放在 `<html>` 并用 `html[data-…] *` 选择器，真机实测每次按下 / 松开要 **~260ms**（整页样式失效重算，聊天窗口明显卡顿）；改为包装层后同一操作 **~2ms**（首帧测量：down 1–3ms、up 2ms、拖动中 0.4–4ms）。光标只在表内变成 resize 是接受的取舍。
 - **跟随列宽**：`<4` 列的 fill 表宽度是 100%，锁定后用 `ResizeObserver` 观察包装层，聊天列宽变化时按比例重排各列（保持总和=容器宽）；宽表（`md-table-wide`）锁定后是显式像素宽（内容宽 + 自身 1px 外框），**不跟随容器**：窗口变窄时保持列宽、由包装层横向滚动（Element 表格式），窗口变宽也不自动撑回去。未锁定的宽表同样按 DSH 的自然列宽排版、放不下就滚动。
-- **状态只存在表格元素上**（attribute + CSS 变量），不写 localStorage、不写 Host；MarkdownText 重渲染但复用同一个 `<table>` 元素时宽度保留，表格被重新挂载则回到自动布局。table 元素不是 MarkdownText 管理 `style`/`class` 的对象，因此内联属性和变量不会被 React 覆盖。
+- **状态以表格元素为准**（attribute + CSS 变量是当前页面的真源）；2026-10-31 起另有一份**浏览器本地列宽缓存**（§18.6：独立 localStorage key、不进 Host），在表格被重挂载时用来恢复。table 元素不是 MarkdownText 管理 `style`/`class` 的对象，因此内联属性和变量不会被 React 覆盖。
 - **边界**：触摸不启用（会与横向滚动打架，mouse/pen only）；>12 列不响应拖动；fill 表拖动只在相邻两列间重分配、不改表格总宽（它必须等于容器宽），宽表拖动改表格总宽（可以一路拖窄到放进正文列，或拖宽到溢出后滚动）；`md-table-wide` 是 rc.3 的字面工具类（不是 CSS modules 哈希），和 `_tableScroll` 一样属于 DSH 升级时要复查的选择器面。
 
 ### 18.3 实现清单
@@ -1278,10 +1278,13 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - `src/table-resize.js`：`onWrapperResize` 只服务 fill 表（宽表保持列宽、由包装层滚动，不观察容器）。
 - `tests/color-mode.test.mjs`：literal 规则表更新为上面的 8 条并补 `border-l1..l3` 外部变量白名单；宽表回归测试钉住重新装箱的 6 条声明（`width/max-content`、`max-width/100%`、`margin-left/padding-left: 0`、`overflow-x/auto`、`padding-bottom/0`），并断言表格不得再被 `max-width` 收窄、单元格不得改 `min-width`、**其它**规则不得再碰重新装箱的属性、fill 表包装层不得改动、宽表框必须落在 `> table` 上。`tests/integration.test.mjs`：常驻样式表 5 → 6 张、新增 table-resize 样式表断言。
 - 常驻样式表 5 张（color-mode / table-resize / selection / active-session / theme-spotlight），含设置页样式共 6 张；2026-10-30 起设置 UI 挂载时另有导航图标样式表，共 7 张（§19）。
+- 2026-10-31（§18.6）：新增 `src/colwidth-store.js` 与 `tests/colwidth-store.test.mjs`；`src/table-resize.js` 增加列宽记忆（`memoryWidths` / `tableMemoryKey` / 首帧扫描 + MutationObserver / 拖动结束写 / 双击删）；`src/client-entry.js` 1e effect 接线；`scripts/build.mjs` 的 `SOURCES` 插入 `colwidth-store.js`；`client.js` 重建。
 
 ### 18.4 验证
 
-- **自动化**：`node --test` 全量 **252/252**（1.1.0 的 224 项 + 1.2.0 批次 15 项 + 2026-10-29 滚动条样式 1 项 + 滚动条动画控制器 12 项）；`npm run check`（palette / build / contrast）全绿。color-mode 样式表 50 条规则、resize 样式表 19 条规则、滚动条动画的命中几何与逐帧序列由测试逐条钉住。
+- **自动化**：`node --test` 全量 **296/296**（1.3.0 的 262 项 + 2026-10-31 列宽记忆 34 项：`tests/colwidth-store.test.mjs` 21 + `tests/table-resize.test.mjs` 新增 13，后者含拖动写记忆 / Esc 不写 / 双击删条目 / MutationObserver 晚挂载与 dispose / 无 memory 等价 / 卸载表释放等事件路径）；`npm run check`（palette / build / contrast）全绿。color-mode 样式表 50 条规则、resize 样式表 19 条规则、滚动条动画的命中几何与逐帧序列由测试逐条钉住；列宽记忆的 key / 签名 / TTL / 300 条淘汰 / 坏数据与坏 storage 由 `tests/colwidth-store.test.mjs` 钉住。
+- **性能（2026-10-31，Chromium 156 实测，import 真实 `src/colwidth-store.js` + 真实 `localStorage`，封顶 300 条）**：写入（拖动松手，读整包+改一条+剪枝+写回）现实最坏 0.72 ms / 理论最坏（300×160 字符 key×32 列，118 KB payload）1.00 ms；双击删除 0.28 / 0.40 ms；单表恢复（getItem+parse+normalize+prune）0.24 / 0.40 ms（常见 20 条 2 KB payload 为 0.011 ms）；20 张表同批恢复 4.65 / 7.92 ms；`localStorage.setItem` 118 KB 为 0.09 ms（`getItem` 由 Chromium 内存缓存，0.2 µs 量级）；TTL/上限剪枝 0.11 / 0.20 ms；`headerSignature` / `tableWidthKey` 0.0004 / 0.0001 ms。`MutationObserver` 回调只遍历新增节点，未发现表时不读存储（微秒级）。真实会话量级（几十条、几 KB、单页 2–5 张表）各环节都在 0.01–1 ms，远低于一帧预算；极端封顶场景（20+ 张表同批恢复）约 8 ms，仍在单帧内。（如需进一步压低，现成杠杆是「一批只解析一次 payload」，但会引入缓存失效逻辑，当前不值得。）
+- **真实浏览器（2026-10-31，共享调试 Chromium）**：独立 harness 页加载**真实** `src/table-resize.js` / `src/colwidth-store.js`，53 项检查全部通过（`.tmp/colwidth-memory/verify/results.json`）。关键读数：fill 表恢复列和 `746` = 容器内容宽 `746`、`scrollWidth == clientWidth == 746`、`maxScrollLeft 0`、条高 `0`（无幽灵条）；宽表恢复 `[200, 250, 300, 350]`、`tableWidth 1101`（列和 1100 + 1px 外框）、`max-width: none`、可滚动；表头签名 / 列数不符 → 保持自动布局；双击后条目被删、回到自动布局；真实拖动后存储宽度与屏幕逐像素一致（`338.5 / 407.5`）；301 次写入后保留 300 条、最久未写被淘汰（payload 22,224 B）；TTL / 未知版本 / 坏 JSON / 坏条目都被丢弃；`MutationObserver` 晚挂载的表被恢复；console 零错误。注：早前一轮 `scrollWidth 747 / clientWidth 746` 的失败已定位为 harness 自己给单元格加四边 `.5px` 边框的近似 CSS 造成（真实 DSH 的 fill 表 `<table>` 无水平外边框），修正 harness 后 `746/746`。
 - **离线预览（高保真）**：`.tmp/table-preview/`（`gen.mjs` 用真实 `tokensFor()` + `colorModeStyles()` + 真实 DSH rc.3 样式表/真实 token 变量/真实表格 DOM 生成 6 档页面；`serve.mjs` 只读静态服务；截图在 `shots/`）。DPR 1 下实测外框/列线各 1px 实色，th 13px/500、td 13px/400（与 rc.3 `--dsw-font-markdown-table*` 一致）。
 - **交互实测（真实浏览器，synthetic PointerEvent + 真实 DOM）**：hover 边缘 → `th[data-everforest-edge]` 出现；pointerdown → 锁定、`--everforest-col-1..3` = 332/333.5/332.5；+60px → 332/393.5/272.5（列对和 666 不变）；表格宽 998 不变、锁定后各列 rect 与锁定前一致（box-sizing 修复后）；双击 → 属性/变量清空、回到自动布局；Esc → 恢复拖动前宽度；console 零错误/零警告。
 - **真实鼠标事件（CDP `Input.dispatchMouseEvent`，不是合成事件）**：在预览页上用真实 hover → press → move → release 复跑：hover 提示线 `2px rgb(131,192,146)` 出现；press 后列宽 332/333.5/332.5、表格 998 不变；move +60 → 332/393.5/272.5；release 保持；**双击（两次真实 press）在绝对边缘复位成功** → `data-everforest-resizable` 为空、`table-layout: auto`、列宽回到 332.23/333.5/332.27。双击必须用「两次 press 的间隔检测」而不是 `dblclick`：`pointerdown` 里的 `preventDefault()` 会抑制 Chromium 的兼容鼠标事件，`dblclick` 不一定送达（实测反例即由此发现）。Esc 取消同样通过；宽表 rest / hover 包装层高度 266 / 266（滚动条补偿成立）。
@@ -1307,10 +1310,47 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 1. **选择器面**：`[class*="tableScroll"]`、`.md-table-wide`、`thead th`、document 级 pointer 事件，DSH 升级改 Markdown 渲染结构时交互会静默失效（样式仍在）；与 §13.7 的选择器风险同源。
 2. **依赖 DSH 的表格度量**：重新装箱依赖 DSH 的 `.md-table-wide` 类名与 `.body` 布局；包装层不再读 `--dsh-table-spare`。列宽完全由 DSH 的单元格度量（`padding`、`min-width: 100px`、`max-width: min(30vw, 320px)`）决定，DSH 改这些会改变列宽与换行位置。fill 表包装层仍完全不碰。
 3. **宽表框形态**：宽表框画在 `<table>` 上，因此没有圆角；表格比正文列宽时列宽保持自然长度、由包装层横向滚动（10px 条位、静止可见条 5px、hover 画满 10px，2026-10-29），横向滚动时框的右边线随内容移出视口。
-4. **React 重挂载表格会丢列宽**：流式输出期间同一表格复用同一个 `<table>` 元素，宽度保留；未来渲染器若 remount 表格，列宽回落到自动布局（不是错误，只是不记忆）。
-5. **触摸不支持**；>12 列不提供拖动；列宽只在当前页面会话内有效（刷新/切会话后回到自动布局）。
+4. **重挂载不再丢列宽，但依赖 DSH 内部锚点**：宽度由 §18.6 的本地缓存恢复；缓存靠 `data-conversation-session` / `data-chat-node-key` 两个 DSH 内部属性（无公开契约），升级改名则恢复静默失效、退化为自动布局（不报错），与本节第 1 条同源。
+5. **触摸不支持**；>12 列不提供拖动；列宽现在**跨刷新 / 切会话保留**（§18.6 的本地缓存），但只在同一浏览器同一 origin 有效：Desktop 的 `dsh-app://app` 固定、跨重启保留；用浏览器打开 DSH Web GUI 时端口每次随机，换一次启动就是新 origin（不保留）。
 6. **fill 表不能改总宽，宽表可以**：`<4` 列的 fill 表宽度必须等于容器宽，拖动只在相邻两列间重分配；宽表拖动改被拖的那一列、表格总宽 = 列宽之和（因此可以一路拖窄到放进正文列，也可以拖宽到溢出后横向滚动），但拖宽超过正文列后最后几列要横向滚动才能看到；最后一列的拖动柄在表格右边框上，表格溢出时它只在滚动到最右端时可见。
 7. **滚动条过渡依赖 Chromium 的事件与私有伪元素行为**：`::-webkit-scrollbar` / `::-webkit-scrollbar-thumb` 的尺寸、命中与「伪元素能否继承自定义属性」都是 Blink 行为（2026-10-29 在共享调试 Chromium 实测）；CSS 过渡 / 动画在滚动条伪元素上不会运行，因此过渡由 `src/table-scrollbar.js` 用 `pointermove` + `requestAnimationFrame` 驱动——若某版本不再把指针在原生滚动条上的事件派发给所属元素，hover 就不再加粗（静止 5px 不变，样式表本身不依赖 JS），若 rAF 不可用或 `prefers-reduced-motion: reduce` 则退化为瞬切。Blink 把滚动条部件的边框宽取整到整 CSS 像素，DPR 1 下只有 5 → 4 → 3 → 2 → 1 → 0 六个绘制态（DPR 2 有半像素档）。Firefox 等非 Chromium 引擎走 DSH 的 `scrollbar-width: thin` 兜底，条不会加粗。可滚动表格的包装层比 1.2.0 高 5px（多出来的是透明条位，位于可见条下方），表格之后的正文整体下移 5px，属预期；不可滚动 / fill 表不受影响。若 DSH / 主题改了全局 thumb 的 `background-clip` 或给 thumb 加边框，插件已重新声明 `background-clip: content-box`，但升级后仍建议目检一次条的形状。
+8. **列宽记忆的失效面**（§18.6）：DSH 改聊天锚点 → 记不住（静默）；retry / 重新生成复用 turn/step → 由表头签名 + 列数拦截；会话 fork 不继承父会话；Web 随机端口不跨重启；多标签 last-write-wins；本地缓存上限 300 条 / 180 天 TTL。
+
+### 18.6 2026-10-31 列宽记忆（localStorage）
+
+**触发**：用户提出「表格修改列宽增加记忆功能」。评估结论（见 [assessment.md](assessment.md) §23）：可做，代价中等偏小；确认方案「localStorage + 300 条上限 + 最久未写淘汰 + 双击删除 + 180 天 TTL」后实现。
+
+**为什么需要**：DSH 聊天行没有虚拟化——滚动、折叠、搜索隐藏、流式输出、向上翻页都**不会卸载**表格 DOM（隐藏只是 `hidden`/`until-found` 属性，表格块用源码偏移量 key 在 frozen/tail/settle 三态间 reconcile），这些场景列宽本来就不丢。真正会丢的只有两处：**切会话再切回**（session 作用域 slot 用 generation key 强制 remount）与**刷新 / 重开**；另外向上翻页新挂载的旧消息也没有宽度。记忆只补这几种重挂载。
+
+**表身份（key = `sessionId|nodeKey|ordinal`）**：
+- `sessionId`：`table.closest('[data-conversation-session]')`，ui-conversation 写在会话内容根上；
+- `nodeKey`：`table.closest('[data-chat-node-key]')`，ui-chat 的 ChatNodeSeat 写在消息行上；assistant 形如 `14:assistant-step<turn>:<step>`，由事件日志确定性推导，**刷新重放 / 切会话 / 流式输出全程不变**（user 消息是 `13:input-message<uuid>`）；
+- `ordinal`：该 node 内「本模块可锁定的 markdown 表」序号（compact 推理变体排除，与拖动作用域一致）。一条消息可渲染多张表（真实样本 2–3 张），必须用序号区分；真实数据里不同会话存在同名表头，所以**不跨会话共享**。
+- 两个锚点都是 DSH 内部实现属性（无公开契约），集中成 `SESSION_ATTR` / `NODE_ATTR` 两个常量（`src/table-resize.js`）；拿不到 = 不记忆（退化），绝不报错。来源：rc.5 安装包 `dsh-client-ui-chat` / `dsh-client-ui-conversation` 的 JSX，真实 session journal 实测 40 个会话 / 58 个含表节点（详见 `.tmp/colwidth-memory/dom-anchor.md`）。
+
+**存储**（`src/colwidth-store.js`，独立 key `dsh-everforest/colwidths/v1`）：
+- **不进** `dsh-everforest/v1`：强度缓存每次写入只序列化 `{version, light, dark}`，会丢掉列宽；boot 脚本每页解析那份 payload。
+- **不进** Host 配置：`cordis.patch.yml` 是用户可读配置，一次写入 = 整份 patch 重写 + profile recompose，和强度偏好共用 revision、每次写都广播给所有浏览器——列宽是 per-browser 布局结果，广播语义本身就是错的；冷启动 schema 校验失败还会让整个插件条目不激活。
+- 条目 `{ w, c, h, t }`：半像素网格列宽 / 列数 / 表头 FNV-1a 8 位签名 / 最后写入时间；约 90 B/条。
+- 上限 `MAX_COLWIDTH_ENTRIES = 300`（约 27 KB），写入时按 `t` 淘汰最久未写的；`COLWIDTH_TTL_MS = 180 天`，过期条目读时过滤、下一次写入时持久删除；`COLWIDTH_VERSION = 1`，版本不符整包丢弃（cache 语义，不迁移）。读写永不 throw。
+- 写入时机：**拖动结束且真的移动过**（`finishDrag` 的 `moved`）写一次；Esc 取消不写；**双击复位 = 删除该条**。恢复前校验 `c === 当前列数` 且 `h === 当前表头签名`（retry 复用 turn/step 时旧宽度不得套到新内容），不符直接丢弃。
+
+**存储硬化与容量**（2026-10-31 复核）：
+- key 用 `|` 连接，id 内含 `|` 的表直接不记忆（否则 `a|b` + `c` 与 `a` + `b|c` 会别名同一份条目）；key 超过 160 字符不截断、直接不记忆。
+- 表头签名把分隔符与转义字符各自转义成自定界编码（引号 / 反斜杠 / 换行 / U+0001 / 孤立代理都不会让两个不同表头得到同一输入），单格文本上限 512 字符；不含这两个控制字符的普通表头哈希与上一版一致，已写入的条目不需要重新拖动。
+- payload 读取前先看长度：超过 `MAX_COLWIDTH_PAYLOAD_LENGTH = 262,144` 字符整包当空、不 `JSON.parse`（防手改 / 损坏值让每次恢复都解析大字符串）。写路径上限有界：300 条 × 160 字符 key × 32 列 = 118,224 字符；真实最坏（key 101、12 列）约 64,524 字符 ≈ 129 KB 配额，离 5 MiB 很远。
+- 条目集合放在 null-prototype 对象上，`__proto__` / `constructor` 等键只当普通条目；读写永不 throw，quota 写失败返回 false、旧 payload 保持可读。
+- 会话切换后旧会话已锁定的表在下一批 `MutationObserver` 里 `release()`（`pruneDetached`），`tables` Map 不长期持有已卸载 DOM（否则每切一次会话就留一份旧 chat 子树）。
+
+**恢复**：
+- 安装时扫一遍 `[class*="tableScroll"] > table`；之后用 `MutationObserver`（`documentElement`，`childList + subtree`）处理后挂载的表：切会话整棵子树替换、`loadEarlier` 前插、流式渲染新建的表。**不监听 scroll**（行不卸载，滚动不是恢复时机）。
+- 宽度按表型修复：fill 表用 `normalizeWidths(saved, 当前容器内容宽, 64)` **按比例重排**（列和不得超容器，防幽灵滚动条）；宽表保持绝对像素宽（表宽 = 列和、包装层横向滚动）；容器宽为 0（隐藏 / 折叠）时先套像素，等 ResizeObserver 在显示后重排。
+- 恢复走与拖动相同的 `lock()` 路径，因此样式表规则、双击、Esc、ResizeObserver 行为不变；隐藏组里的表也恢复（容器宽为 0 时先按保存像素套上，显示后由 ResizeObserver 重排）。
+- `memory` 缺失时行为与 1.3.0 完全一致（无观察器、无存储调用）；记忆读写抛错只影响本次记忆，不影响拖动与样式。
+
+**实现清单**：新增 `src/colwidth-store.js`（纯逻辑：key / 签名 / 校验 / 剪枝 / 读写 / never-throw）与 `tests/colwidth-store.test.mjs`（21 项）；`src/table-resize.js` 增加 `memoryWidths`、`tableMemoryKey`、首帧扫描 + `MutationObserver`、`finishDrag` 写记忆、双击删条（+约 250 行，512 → 759）；`src/client-entry.js` 1e effect 传入 `memory: createColumnWidthMemory()`；`scripts/build.mjs` 的 `SOURCES` 在 `table-resize.js` 前插入 `colwidth-store.js`；`client.js` 重建。`tests/table-resize.test.mjs` +13 项（锚点契约、`memoryWidths` 几何、key/序号/compact、fake DOM 恢复接线、宽表恢复、坏 memory 容错、拖动写记忆、Esc 不写、双击删条目、MutationObserver 晚挂载与 dispose、无 memory 等价、会话切换后卸载表释放）。
+
+**已知边界**：会话 fork 不继承父会话记忆（新 sessionId）；retry 后 node key 变化 → 旧条目成孤儿、由 TTL/上限自然清理；Web 随机端口不跨重启（Desktop `dsh-app://app` 固定）；多标签 last-write-wins（每次写是「读最新 → 改本条 → 写」）；窗口 / 字体 / DPI 变化后 fill 表按比例缩放、宽表保持像素宽。
 
 ## 19. 2026-10-30 设置导航松树图标（settings-nav-icon）
 

@@ -12,6 +12,7 @@
 > 2026-10-25 更新：**1.0.0 首个稳定版发布**（tag `v1.0.0` / npm `latest`）——0.4.0 之后未发布的批次作为稳定行为一起发布：UI 强调色改用官方 accent、会话状态行改 palette 原色、工作区当前会话行、原生文本选区、深浅切换聚光灯、dev-only 调试面板、图标与市场素材；token 计数与分类口径同日复核修正。见新增 §19 与 [design.md](design.md) §14–§17 / §10。
 > 2026-10-27 更新：**1.1.0 发布**（tag `v1.1.0`）——「跟随系统」下 OS 深浅翻转也走聚光灯；README 重写「特性」并新增「功能实现」清单。见 §20。
 > 2026-10-28 更新：**1.2.0 发布**（tag `v1.2.0`）——聊天表格边框与拖拽列宽（fill 表相邻两列重分配、宽表 Element 表格式滚动、最后一列可拖窄）。见新增 §21 与 [design.md](design.md) §18。
+> 2026-10-31 更新：**列宽记忆落地**（未发布）——先评估「表格修改列宽增加记忆功能」（结论：可做，代价中等偏小，主要成本在表格身份与验收而不在代码），确认方案后实现：localStorage 独立缓存、300 条上限 + 最久未写淘汰 + 180 天 TTL、双击删除、按 DSH 聊天锚点恢复；不进 Host 配置。见新增 §23 与 [design.md](design.md) §18.6。
 
 ## 1. 结论
 
@@ -537,3 +538,41 @@
 - 残余（人工项）：共享调试 Chrome 打不开需要 token 的 Web GUI，本会话也没有桌面 app 的 MCP 通道，真实窗口的 hover 手感目检留给用户；改的是 Client 半部（样式表 + 控制器），`client.js` 重建后刷新页面即生效。
 
 **边界**：仅 Chromium / Electron 生效（Firefox 走 DSH 的 `scrollbar-width: thin` 兜底，不加粗）；过渡依赖「指针在原生滚动条上的事件仍派发到所属元素」这一 Blink 行为，若某版本改变则 hover 不再加粗（静止 5px 不受影响），rAF 不可用 / reduced-motion 时退化为瞬切；可滚动表格下方多 5px 透明条位、表格后正文下移 5px，不可滚动 / fill 表不受影响；依赖 `::-webkit-scrollbar*` 私有伪元素与主题的 thumb 绘制方式（DSH 升级需回归）。
+
+## 23. 2026-10-30/31 表格列宽记忆（未发布）
+
+> 触发：用户 2026-10-30 提问「表格修改列宽增加记忆功能，这个好做吗？代价大不大？」，评估后于 2026-10-31 确认方案并实现。设计/实现与逐条读数见 [design.md](design.md) §18.6。
+
+**评估结论（为什么认为「可做、代价中等偏小」）**
+
+| 问题 | 结论 | 依据 |
+|---|---|---|
+| 难在哪 | 只有「表格身份」一个真难点；恢复时机、几何、存储都是常规工程 | 当前列宽只存在表格 DOM 上（[design.md](design.md) §18.5 风险 4/5）；DSH 聊天行无虚拟化，滚动 / 折叠 / 流式 / 翻页都不卸载表格，真正会丢的只有切会话（session generation key 强制 remount）与刷新 |
+| 身份怎么解 | DSH 已把 `data-conversation-session`（会话）与 `data-chat-node-key`（消息节点，`${kind.length}:${kind}${id}`）写进 DOM，刷新重放 / 切会话 / 流式全程不变 → key = 会话 + 节点 + 表序号 | rc.5 安装包 JSX 源码 + 真实 session journal 实测（40 个会话、58 个含表节点、同 node 2–3 张表）；证据见 `.tmp/colwidth-memory/dom-anchor.md` |
+| 通道选哪 | **localStorage 独立 key**，不进 Host 配置、不进 `dsh-everforest/v1`、不进 boot | Host 写入 = 整份 profile patch 重写 + recompose、与强度偏好共用 revision、每次写广播给所有浏览器（列宽是 per-browser 布局结果）；强度缓存每次重写会丢掉额外字段。证据见 `.tmp/colwidth-memory/persistence.md` |
+| 代价 | 最小实现 ~1–1.5 人天；含真机验收与边界 ~2.5–3.5 人天；跨浏览器方案再 +1.5–2.5 且不建议 | 代码增量：新模块 379 行 + `table-resize.js` +264 行（512 → 776）+ 测试 +34 项；历史口径：0.3.0 Host 持久化约 1 天、1.2.0 表格批次 512 行模块 + 106 项离线场景 + 多轮真机修正 |
+
+**决策与落地**
+
+| 主题 | 结论 | 理由 / 边界 |
+|---|---|---|
+| 记忆范围 | 只记「这张表在本浏览器里被拖成的列宽」；**不跨会话共享、不跨浏览器同步** | 不同会话真实存在同名表头（内容哈希会串）；列宽随窗口 / 字体而变，是本地布局事实而非共享偏好 |
+| 淘汰策略 | 300 条上限，按**最后写入时间**淘汰最久未写的；另有 180 天 TTL；只在写入时剪枝 | 单条 ~90 B，300 条 ≈ 27 KB（配额 5 MiB 级）；再拖一次同表会刷新 `t`、保护该条；不需要定时任务 |
+| 删除时机 | 双击复位 = 删除该表条目；Esc 取消拖动不写；拖动未移动不写 | 双击的语义是「这张表不要记忆」，避免重挂载后又回来 |
+| 恢复语义 | fill 表按当前容器比例重排（复用 `normalizeWidths`，列和不得超容器）；宽表保持绝对像素宽 | fill 表宽度必须等于容器；直接套旧像素会重演「拖一点点就出幽灵滚动条」的历史 bug |
+| 防错配 | 恢复前校验列数 + 表头 FNV-1a 签名，不符丢弃 | retry / 重新生成可能复用 turn/step（node key 不变），旧宽度不能套到新内容 |
+| 注入时机 | 安装时首帧扫描 + `MutationObserver`（`documentElement` 的 `childList + subtree`）；不监听 scroll | 切会话 = 整棵子树替换、翻页 = 前插、流式 = 新建表；滚动 / 折叠不卸载行，不是恢复时机 |
+| 锚点失效 | 找不到 `data-*` 锚点 = 不记忆（退化），不报错、不影响拖动 | 两个锚点都是 DSH 内部实现属性，无公开契约；集中为 `SESSION_ATTR` / `NODE_ATTR` 两个常量，DSH 改版只需改一处 |
+| 否决的替代 | ① Host config 存列宽（跨浏览器）② 内容哈希当 key ③ 把表格功能拆成独立插件 | ① 写入放大 / revision 耦合 / 广播错配 / 污染用户配置 / 冷启动校验风险；② 不同会话同名表头会串；③ 拆分固定开销远大于收益（2026-10-28 已决策不拆） |
+
+**实现清单**：新增 `src/colwidth-store.js`（key / 表头签名 / 条目校验 / TTL + 上限剪枝 / localStorage 读写，never-throw）与 `tests/colwidth-store.test.mjs`（21 项）；`src/table-resize.js` 增加 `memoryWidths`、`tableMemoryKey`、首帧扫描 + MutationObserver、拖动结束写入、双击删除、卸载表释放（+约 264 行）；`src/client-entry.js` 1e effect 传入 `memory: createColumnWidthMemory()`；`scripts/build.mjs` 的 `SOURCES` 插入 `colwidth-store.js`；`client.js` 重建。
+
+**验证与证据**
+
+- 自动化：`node --test` **296/296**（1.3.0 的 262 项 + 本轮 34 项：store 21 + table-resize 13，覆盖 key / 签名 / TTL / 300 条淘汰 / 坏 JSON / 坏 storage / 原型污染键 / fill 与宽表恢复几何 / 无锚点与 compact 退化 / 坏 memory 容错 / 拖动写最终宽度 / Esc 不写 / 双击删条目 / MutationObserver 晚挂载与 dispose / 无 memory 等价 / 卸载表释放）；`npm run check`（palette / build / contrast）全绿。
+- 存储专项（2026-10-31 复核）：转义面——含引号 / 反斜杠 / 换行 / U+2028 / 控制字符 / emoji / `</script>` 的 id 经 `JSON.stringify` 原样往返，含 `|` 的 id 直接拒绝（防 key 别名），表头签名改为自定界转义编码（普通表头哈希不变，已写入条目无需重新拖动；`['a\u0001b','c']` 与 `['a','b\u0001c']` 不再同输入）、单格上限 512 字符；`__proto__` / `constructor` 等键落在 null-prototype 表上、不污染原型。容量面——payload 读取硬上限 262,144 字符（超限不解析），写路径最坏 118,224 字符（300 × 160 字符 key × 32 列）、真实最坏约 64,524 字符 ≈ 129 KB 配额、单次 `JSON.parse` 0.24–0.39 ms；手写 3,000 条 payload 只保留 300 条；quota 写失败静默返回 false、旧 payload 仍可读；会话切换后旧会话的锁定表在下一批观察器里释放，不再长期持有旧 DOM。
+- 真实浏览器（共享调试 Chromium，独立 harness 页加载真实模块）：**53/53 项通过**（`.tmp/colwidth-memory/verify/results.json`）——fill 表恢复列和 = 内容宽 = `clientWidth` 746、`maxScrollLeft 0`、条高 0（无幽灵条）；宽表恢复像素宽 + 外框 1px、可滚动；签名 / 列数不符拒绝；双击删条目回自动布局；拖动后存储宽度与屏幕一致；301 次写入 → 300 条 + 淘汰最久未写；TTL / 未知版本 / 坏 JSON 丢弃；MutationObserver 晚挂载恢复；console 零错误。
+- 独立代码评审：**无阻断性问题**（`.tmp/colwidth-memory/review.md`），逐条核实了幽灵滚动条 / 幂等 / 观察器自激 / 无 memory 等价 / 双击顺序 / 写最终宽度 / Esc 不写 / 边界退化；评审建议的 5 条事件路径回归测试已补入仓库测试。
+- 残余（人工项）：真实 DSH 窗口的端到端目检（拖动 → 切会话再切回 / 刷新后恢复、双击复位）需要 dsh-app CDP 或带 token 的 Web GUI；本轮这两条通道不可用（桌面 app 未开 9333；Web GUI 401），留给用户刷新页面后目检。
+
+**边界**：会话 fork 不继承；retry 后 node key 变化会产生孤儿条目（TTL / 上限自然清理）；Web 随机端口不跨重启；多标签 last-write-wins；窗口 / 字体 / DPI 变化后 fill 表按比例缩放、宽表保持像素宽；依赖两个 DSH 内部 DOM 属性（升级回归清单 +1 条）。

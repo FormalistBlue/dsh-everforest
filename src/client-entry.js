@@ -55,6 +55,7 @@
 
 import { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 import { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } from './color-mode.js'
+import { createColumnWidthMemory } from './colwidth-store.js'
 import { installColumnResize, tableResizeStyles } from './table-resize.js'
 import { installTableScrollbarHover } from './table-scrollbar.js'
 import { selectionStyles } from './selection.js'
@@ -450,6 +451,14 @@ export function apply(ctx) {
   // edges only through DOM-level events. The module owns its listeners and
   // restores the renderer's automatic layout on unload; the stylesheet is
   // installed first so a drag started in the same tick already has its rules.
+  //
+  // The widths are remembered in a browser-local `localStorage` cache
+  // (`src/colwidth-store.js`, design.md §18.6): a table is remounted when the
+  // user switches sessions and on every reload, and the renderer's auto layout
+  // would otherwise forget what the user dragged. The cache is independent of
+  // the Host-backed strength preference — column widths are a per-browser
+  // layout fact, not a shared preference — so this effect never waits for the
+  // settings form and needs no Host half.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')
@@ -462,6 +471,7 @@ export function apply(ctx) {
       dispose = installColumnResize({
         document,
         window: typeof window === 'undefined' ? undefined : window,
+        memory: createColumnWidthMemory(),
       })
     } catch (error) {
       console.warn(`${LOG_PREFIX} table column resize could not be installed; tables keep the renderer's layout`, error)
