@@ -2163,6 +2163,13 @@ const LITERAL_RULES = [
   // (2026-10-30 request); the last cell's right padding that DSH zeroes for its
   // borderless look is restored to 16px so text does not touch the frame, and
   // the last row drops its bottom rule because the frame already draws it.
+  // DSH also floors every cell at `min-width: 100px` (content box), which the
+  // 12/16px padding turns into a ~128px column: even a one-digit `#` column
+  // could not get narrower than that (2026-11-04 report). The plugin's own
+  // minimum is the 64px border-box width its drag stops at, so the content
+  // floor is 64 - 12 - 16 = 36px, kept as a calc so it follows the padding; the
+  // `max-width: min(30vw, 320px)` cap is untouched, so long cells wrap exactly
+  // where they used to and a table still keeps its natural widths and scrolls.
   [`${TABLE_FRAME}.md-table-wide`, [
     ['width', 'max-content'],
     ['max-width', '100%'],
@@ -2173,7 +2180,11 @@ const LITERAL_RULES = [
   ]],
   [`${TABLE_FRAME}:not(.md-table-wide)`, [['border', '.5px solid var(--dsw-alias-border-l3)'], ['border-radius', 'var(--dsw-radius-sm)']]],
   [`${TABLE_FRAME}.md-table-wide > table`, [['border', '.5px solid var(--dsw-alias-border-l3)']]],
-  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['padding-left', '12px'], ['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
+  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [
+    ['padding-left', '12px'],
+    ['border-right', '.5px solid var(--dsw-alias-border-l2)'],
+    ['min-width', 'calc(64px - 12px - 16px)']
+  ]],
   [`${TABLE_FRAME} th:last-child, ${TABLE_FRAME} td:last-child`, [['border-right', '0']]],
   [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
   [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],

@@ -140,7 +140,11 @@ const EXPECTED_LITERAL_RULES = [
   ]],
   [`${TABLE_FRAME}:not(.md-table-wide)`, [['border', '.5px solid var(--dsw-alias-border-l3)'], ['border-radius', 'var(--dsw-radius-sm)']]],
   [`${TABLE_FRAME}.md-table-wide > table`, [['border', '.5px solid var(--dsw-alias-border-l3)']]],
-  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [['padding-left', '12px'], ['border-right', '.5px solid var(--dsw-alias-border-l2)']]],
+  [`${TABLE_FRAME} th, ${TABLE_FRAME} td`, [
+    ['padding-left', '12px'],
+    ['border-right', '.5px solid var(--dsw-alias-border-l2)'],
+    ['min-width', 'calc(64px - 12px - 16px)']
+  ]],
   [`${TABLE_FRAME} th:last-child, ${TABLE_FRAME} td:last-child`, [['border-right', '0']]],
   [`${TABLE_FRAME} tbody tr:last-child > td`, [['border-bottom', '0']]],
   [`${TABLE_FRAME} td:last-child`, [['padding-right', '16px']]],
@@ -572,13 +576,23 @@ test('colorModeStyles re-boxes the wide-table scroller into a fixed viewport', (
   assert.ok(frame, 'wide tables must take the frame on the table itself')
   const frameDeclarations = declarationsOf(frame.body)
   assert.equal(frameDeclarations.get('border'), '.5px solid var(--dsw-alias-border-l3)')
-  // The columns keep DSH's natural widths: neither the table nor its cells may
-  // be clamped or shrunk, or the wrapper would wrap instead of scroll.
+  // The columns keep their content widths: the wide re-box must not clamp the
+  // table or shrink cells, or the wrapper would wrap instead of scroll. The
+  // cell floor lives on the generic `th, td` rule (the plugin's 64px drag
+  // minimum, see the assertion below), not on any `.md-table-wide` rule.
   assert.equal(frameDeclarations.has('max-width'), false, 'the table must keep its max-content width')
   for (const rule of rules) {
     if (!rule.selector.includes('.md-table-wide')) continue
     assert.equal(declarationsOf(rule.body).has('min-width'), false, `${rule.selector} overrides DSH's cell floor`)
   }
+  // DSH floors every cell at `min-width: 100px` (content box, ~128px with the
+  // 12/16px padding), which made even a one-digit `#` column that wide
+  // (2026-11-04 report). The generic cell rule brings the floor down to the
+  // plugin's own 64px border-box drag minimum, as a calc over the padding, while
+  // DSH's long-cell `max-width` cap stays untouched so wrapping does not move.
+  const cells = findRule(rules, `${TABLE_FRAME} th, ${TABLE_FRAME} td`, 'min-width')
+  assert.ok(cells, 'expected the generic cell rule to carry the column floor')
+  assert.equal(declarationsOf(cells.body).get('min-width'), 'calc(64px - 12px - 16px)')
 })
 
 test('colorModeStyles reserves a 10px table scrollbar track for a 5px inset pill', () => {
