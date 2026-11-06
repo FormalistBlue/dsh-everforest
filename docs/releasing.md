@@ -78,6 +78,15 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **市场「更新内容」**：1.3.0 小节 295 字符 / 667 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.2.0，§8.6）。
 > - **2026-10-30 已发布**：tag `v1.3.0`（commit `b40b7d6`）→ publish run `41075123199` → npm `latest` = `1.3.0`（`dist.shasum` `8e6bf013a39963c6976612c4c0bae1d3c8aca301`，SLSA provenance，transparency log index `3595682972`），GitHub Release `v1.3.0` 已由 workflow 自动创建（发布说明取自 CHANGELOG 1.3.0 小节，295 字符 / 667 字节）；verify run `41075168286` 在 Linux / Windows × Node 20/22/24 全绿。工作流里 `npm view` 步骤发布瞬间仍读到上一版（1.2.0，CDN 缓存），随后 `dist-tags` 与 `GET .../1.3.0` 均已是 1.3.0。
 
+> **1.4.0 发布注意（待发布，2026-11-07 准备）**
+>
+> - **只改 Client 半部，滚动升级不需要重启 DSH**：token 映射补齐（覆盖层多 12 个 token）、设置导航图标改走官方 `settings.section.icon` 槽位、表格列宽记忆（浏览器本地缓存）与 64px 列宽下限都是 Client 侧；Host 半部与 `Config` schema 未变，插件升级后刷新页面即可（HMR 会热替换模块）。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交里重建）。
+> - **设置导航图标从 DSH 0.2.2-rc.1 起才走官方槽位**：0.2.1-rc.x 宿主不声明 `settings.section.icon`，Everforest 行回退默认齿轮，主题与其它功能不受影响；`engines.dsh` 仍为 `>=0.2.1-rc.2 <0.3.0-0`，不抬高下限。
+> - **验收口径**：`node --test` **295/295**；`npm run check`（palette / build / contrast）全绿；`docs/reference/token-inventory.*` 与 `docs/reference/contrast.md` 已由脚本重新生成（217 个颜色 token，提取摘要 `12f3c67b…`）。
+> - **市场「更新内容」**：1.4.0 小节 223 字符 / 493 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.3.0，§8.6）。
+> - **发布后回填**：tag `v1.4.0` → publish run、`dist.shasum` 补到本文件顶部发布记录与 `design.md` §10。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。
