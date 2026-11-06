@@ -32,12 +32,12 @@ function isLegalColor (value) {
 }
 
 test('token inventory on disk matches the docs/design.md §4 counting convention', () => {
-  assert.deepEqual(inventory.counts, { static: 77, alias: 107, specific: 11, shiki: 11, total: 206 })
-  assert.equal(inventory.tokens.length, 206)
+  assert.deepEqual(inventory.counts, { static: 82, alias: 114, specific: 10, shiki: 11, total: 217 })
+  assert.equal(inventory.tokens.length, 217)
   assert.equal(inventory.generatedBy, 'scripts/extract-theme-tokens.mjs')
   assert.equal(inventory.sheets.length, 8)
-  assert.equal(inventoryNames.length, 206)
-  assert.equal(new Set(inventoryNames).size, 206)
+  assert.equal(inventoryNames.length, 217)
+  assert.equal(new Set(inventoryNames).size, 217)
   for (const category of Object.keys(inventoryCategories)) {
     assert.ok(['static', 'alias', 'specific', 'shiki'].includes(category), category)
   }
@@ -62,16 +62,16 @@ test('tokensFor emits every inventory colour token with light and dark values', 
     assert.ok(!pair.light.includes('var('), `${name} light must be explicit`)
     assert.ok(!pair.dark.includes('var('), `${name} dark must be explicit`)
   }
-  assert.ok(Object.keys(overlay).length >= 206)
+  assert.ok(Object.keys(overlay).length >= 217)
 })
 
 test('TOKEN_COVERAGE is consistent with tokensFor', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   assert.deepEqual([...TOKEN_COVERAGE.covered].sort(), Object.keys(overlay).sort())
-  assert.equal(TOKEN_COVERAGE.covered.length, 212) // 206 colour + 6 auxiliary
+  assert.equal(TOKEN_COVERAGE.covered.length, 223) // 217 colour + 6 auxiliary
   const covered = new Set(TOKEN_COVERAGE.covered)
   for (const name of inventoryNames) assert.ok(covered.has(name), name)
-  // Auxiliary tokens required by design §4 but outside the 206 inventory.
+  // Auxiliary tokens required by design §4 but outside the 217 inventory.
   assert.deepEqual([...AUXILIARY_TOKEN_NAMES], [
     '--dsw-gradient-onboarding-blue-stops',
     '--dsw-gradient-onboarding-cyan-stops',
@@ -91,7 +91,7 @@ test('compat aliases fill guessed third-party token names without touching the o
   const covered = new Set(TOKEN_COVERAGE.covered)
 
   // Every alias is a guessed name, never an official token and never counted
-  // as Everforest coverage; deleting the bridge cannot change the 206-token
+  // as Everforest coverage; deleting the bridge cannot change the 217-token
   // contract or the boot palette.
   assert.deepEqual([...COMPAT_ALIAS_NAMES], Object.keys(aliases).sort())
   for (const [name, pair] of Object.entries(aliases)) {
@@ -421,6 +421,59 @@ test('semantic state mapping follows Enchanted', () => {
   assert.equal(overlay['--dsw-alias-state-idle-primary'].light, FOREGROUNDS.light.grey2)
   assert.equal(overlay['--dsw-alias-label-secondary'].light, FOREGROUNDS.light.grey1)
   assert.equal(overlay['--dsw-alias-label-tertiary'].light, FOREGROUNDS.light.grey2)
+})
+
+test('0.2.2-rc.1 additions: illustration artwork and the violet done state', () => {
+  // 0.2.2-rc.1 adds the schedule empty-state illustration family (neutral
+  // statics in DSH) and the violet "done" state. The illustration keeps the
+  // artwork's tonal order on the scheme's neutral ramp; the done state maps to
+  // the palette purple (DSH's violet, distinct from the success green).
+  const overlay = tokensFor(DEFAULT_STATE)
+  assert.equal(overlay['--dsw-alias-state-done-primary'].light, FOREGROUNDS.light.purple)
+  assert.equal(overlay['--dsw-alias-state-done-primary'].dark, FOREGROUNDS.dark.purple)
+  assert.equal(
+    overlay['--dsw-specific-sidebar-nav-item-hover'],
+    undefined,
+    'the 0.2.1 nav-hover token was removed upstream'
+  )
+
+  for (const scheme of ['light', 'dark']) {
+    const value = (name) => overlay[name][scheme]
+    for (const role of ['background', 'surface', 'backing', 'detail', 'inset', 'shadow']) {
+      assert.match(value(`--dsw-alias-illustration-${role}`), /^#[0-9a-f]{6}$/i)
+    }
+    // Tonal order of the DSH artwork: light = background > surface > backing;
+    // dark = detail > surface > backing > background.
+    const order = scheme === 'light'
+      ? ['background', 'surface', 'backing']
+      : ['detail', 'surface', 'backing', 'background']
+    for (let i = 1; i < order.length; i++) {
+      const previous = relativeLuminance(value(`--dsw-alias-illustration-${order[i - 1]}`))
+      const current = relativeLuminance(value(`--dsw-alias-illustration-${order[i]}`))
+      assert.ok(previous > current, `${scheme}: ${order[i - 1]} must be lighter than ${order[i]}`)
+    }
+    // The two derived aliases follow DSH: surface in light, backing in dark.
+    const derived = value(`--dsw-alias-illustration-${scheme === 'light' ? 'surface' : 'backing'}`)
+    assert.equal(value('--dsw-alias-illustration-inset'), derived)
+    assert.equal(value('--dsw-alias-illustration-shadow'), derived)
+  }
+
+  // The new violet static ramp stays a hue (not neutral) and keeps its order.
+  const violet400 = overlay['--dsw-static-violet-400'].light
+  const violet600 = overlay['--dsw-static-violet-600'].light
+  for (const value of [violet400, violet600]) {
+    assert.match(value, /^#[0-9a-f]{6}$/i)
+    const channels = [value.slice(1, 3), value.slice(3, 5), value.slice(5, 7)].map((hex) => parseInt(hex, 16))
+    assert.ok(Math.max(...channels) - Math.min(...channels) > 30, `violet must stay a hue: ${value}`)
+  }
+  assert.ok(relativeLuminance(violet400) > relativeLuminance(violet600), 'violet-400 must be lighter than violet-600')
+  for (const name of [
+    '--dsw-static-neutral-bluish-55',
+    '--dsw-static-neutral-bluish-90',
+    '--dsw-static-neutral-bluish-310'
+  ]) {
+    assert.ok(name in overlay, name)
+  }
 })
 
 test('diff uses bg_green / bg_red surfaces with green / red markers', () => {

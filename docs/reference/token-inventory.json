@@ -1,7 +1,7 @@
 {
   "source": "@deepseek-ai/dsh-client-ui-theme lib/client.js (8 inlined sheets)",
   "generatedBy": "scripts/extract-theme-tokens.mjs",
-  "sourceSha256": "882ea20f5d851965c1d68386a569cc26c64abb14cd2ae2cd55c0c1483fa6f506",
+  "sourceSha256": "12f3c67bbd1643eade93e6cc8ece4257b7d458f098d465c4c79f351fd16e79b5",
   "sheets": [
     "base.css",
     "corner-shape.css",
@@ -13,11 +13,11 @@
     "shiki.css"
   ],
   "counts": {
-    "static": 77,
-    "alias": 107,
-    "specific": 11,
+    "static": 82,
+    "alias": 114,
+    "specific": 10,
     "shiki": 11,
-    "total": 206
+    "total": 217
   },
   "tokens": [
     {
@@ -413,6 +413,54 @@
       "darkKind": "literal"
     },
     {
+      "name": "--dsw-alias-illustration-background",
+      "category": "alias",
+      "light": "var(--dsw-static-neutral-bluish-55)",
+      "dark": "var(--dsw-static-neutral-bluish-850)",
+      "lightKind": "var-static",
+      "darkKind": "var-static"
+    },
+    {
+      "name": "--dsw-alias-illustration-backing",
+      "category": "alias",
+      "light": "var(--dsw-static-neutral-bluish-310)",
+      "dark": "var(--dsw-static-neutral-bluish-750)",
+      "lightKind": "var-static",
+      "darkKind": "var-static"
+    },
+    {
+      "name": "--dsw-alias-illustration-detail",
+      "category": "alias",
+      "light": "var(--dsw-static-neutral-bluish-310)",
+      "dark": "var(--dsw-static-neutral-bluish-600)",
+      "lightKind": "var-static",
+      "darkKind": "var-static"
+    },
+    {
+      "name": "--dsw-alias-illustration-inset",
+      "category": "alias",
+      "light": "var(--dsw-alias-illustration-surface)",
+      "dark": "var(--dsw-alias-illustration-backing)",
+      "lightKind": "alias-ref",
+      "darkKind": "alias-ref"
+    },
+    {
+      "name": "--dsw-alias-illustration-shadow",
+      "category": "alias",
+      "light": "var(--dsw-alias-illustration-surface)",
+      "dark": "var(--dsw-alias-illustration-backing)",
+      "lightKind": "alias-ref",
+      "darkKind": "alias-ref"
+    },
+    {
+      "name": "--dsw-alias-illustration-surface",
+      "category": "alias",
+      "light": "var(--dsw-static-neutral-bluish-90)",
+      "dark": "var(--dsw-static-neutral-bluish-700)",
+      "lightKind": "var-static",
+      "darkKind": "var-static"
+    },
+    {
       "name": "--dsw-alias-interactive-bg-active",
       "category": "alias",
       "light": "#2631481a",
@@ -741,6 +789,14 @@
       "darkKind": "var-static"
     },
     {
+      "name": "--dsw-alias-state-done-primary",
+      "category": "alias",
+      "light": "var(--dsw-static-violet-600)",
+      "dark": "var(--dsw-static-violet-400)",
+      "lightKind": "var-static",
+      "darkKind": "var-static"
+    },
+    {
       "name": "--dsw-alias-state-error-primary",
       "category": "alias",
       "light": "var(--dsw-static-red-600)",
@@ -945,14 +1001,6 @@
       "category": "specific",
       "light": "var(--dsw-static-deepseek-100)",
       "dark": "var(--dsw-static-neutral-bluish-800)",
-      "lightKind": "var-static",
-      "darkKind": "var-static"
-    },
-    {
-      "name": "--dsw-specific-sidebar-nav-item-hover",
-      "category": "specific",
-      "light": "var(--dsw-static-neutral-bluish-75)",
-      "dark": "var(--dsw-static-neutral-bluish-850)",
       "lightKind": "var-static",
       "darkKind": "var-static"
     },
@@ -1413,6 +1461,14 @@
       "darkKind": "literal"
     },
     {
+      "name": "--dsw-static-neutral-bluish-310",
+      "category": "static",
+      "light": "#cad2db",
+      "dark": "#cad2db",
+      "lightKind": "literal",
+      "darkKind": "literal"
+    },
+    {
       "name": "--dsw-static-neutral-bluish-400",
       "category": "static",
       "light": "#adb2b8",
@@ -1433,6 +1489,14 @@
       "category": "static",
       "light": "#979da6",
       "dark": "#979da6",
+      "lightKind": "literal",
+      "darkKind": "literal"
+    },
+    {
+      "name": "--dsw-static-neutral-bluish-55",
+      "category": "static",
+      "light": "#f5f7fa",
+      "dark": "#f5f7fa",
       "lightKind": "literal",
       "darkKind": "literal"
     },
@@ -1497,6 +1561,14 @@
       "category": "static",
       "light": "#232324",
       "dark": "#232324",
+      "lightKind": "literal",
+      "darkKind": "literal"
+    },
+    {
+      "name": "--dsw-static-neutral-bluish-90",
+      "category": "static",
+      "light": "#edf0f4",
+      "dark": "#edf0f4",
       "lightKind": "literal",
       "darkKind": "literal"
     },
@@ -1577,6 +1649,22 @@
       "category": "static",
       "light": "#570c0c",
       "dark": "#570c0c",
+      "lightKind": "literal",
+      "darkKind": "literal"
+    },
+    {
+      "name": "--dsw-static-violet-400",
+      "category": "static",
+      "light": "#a78bfa",
+      "dark": "#a78bfa",
+      "lightKind": "literal",
+      "darkKind": "literal"
+    },
+    {
+      "name": "--dsw-static-violet-600",
+      "category": "static",
+      "light": "#7c3aed",
+      "dark": "#7c3aed",
       "lightKind": "literal",
       "darkKind": "literal"
     },

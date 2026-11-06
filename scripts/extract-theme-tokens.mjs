@@ -8,14 +8,14 @@
  *   node scripts/extract-theme-tokens.mjs --from <path-to-ui-theme/lib/client.js> [--out-dir <dir>] [--check]
  *
  * Outputs (zero dependencies, deterministic):
- *   docs/reference/token-inventory.json  machine-readable list of the 206 colour tokens
+ *   docs/reference/token-inventory.json  machine-readable list of the 217 colour tokens
  *   docs/reference/token-inventory.md    human-readable tables + statistics
  *
- * Counting convention (docs/design.md §4, 2026-10-18 audit):
- *   403 unique `--dsw-*` names across the eight ui-theme sheets
- *   -> colours: 77 static + 107 alias + 11 specific = 195
- *   -> syntax highlighting: 9 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background` = 11
- *   -> total covered token inventory: 206
+ * Counting convention (docs/design.md §4; 0.2.2-rc.1 re-audit, §12):
+ *   colours: 82 static + 114 alias + 10 specific = 206
+ *   syntax highlighting: 9 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background` = 11
+ *   -> total covered token inventory: 217
+ *   (0.2.1-rc.2 … rc.5 carried 206: 77 static + 107 alias + 11 specific + 11 shiki)
  *
  * Value kinds:
  *   literal     a concrete colour literal (#hex, rgb(), ...)
@@ -42,7 +42,7 @@ const REPO_ROOT = resolve(SCRIPT_DIR, '..')
 const DEFAULT_OUT_DIR = join(REPO_ROOT, 'docs', 'reference')
 
 /** Expected colour-token counts, fixed by docs/design.md §4 (2026-10-18 audit). */
-const EXPECTED_COUNTS = { static: 77, alias: 107, specific: 11, shiki: 11, total: 206 }
+const EXPECTED_COUNTS = { static: 82, alias: 114, specific: 10, shiki: 11, total: 217 }
 
 const SHEET_REGION_RE =
   /\/\/#region [^\n]*dsh-inline-css:([^\n]+)\r?\n[^\n]*?= ("(?:[^"\\]|\\.)*");/g
@@ -360,7 +360,7 @@ function renderMarkdown(inventory) {
     '# DSH token inventory',
     '',
     '> 由 `node scripts/extract-theme-tokens.mjs --from <ui-theme/lib/client.js>` 生成，请勿手改。',
-    '> 对应：DSH 0.2.1-rc.3 / rc.5 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；2026-10-24 rc.3、2026-10-30 rc.5 复核，提取 SHA-256 不变）。',
+    '> 对应：DSH 0.2.2-rc.1 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；0.2.1-rc.3 / rc.5 复核 206 token 不变；2026-11-06 0.2.2-rc.1 复核扩到 217，见 §12）。',
     '',
     `来源：\`${SOURCE_LABEL}\`；提取内容 SHA-256 \`${inventoryDigest(inventory)}\`。`,
     '该指纹与 `--from` 的绝对路径无关，因此任意路径下的同版本文件都可复现 `--check`。',
@@ -379,7 +379,7 @@ function renderMarkdown(inventory) {
     '',
     `sheets：${inventory.sheets.map((s) => `\`${s}\``).join('、')}`,
     '',
-    '### 1.1 声明值形态（全部 206 个颜色 token 的 light 声明）',
+    `### 1.1 声明值形态（全部 ${counts.total} 个颜色 token 的 light 声明）`,
     '',
     '| 形态 | 数量 | 说明 |',
     '|---|---:|---|',
@@ -410,12 +410,12 @@ function renderMarkdown(inventory) {
   }
   push(
     '',
-    '`design-platform.css` 承载 light 侧 112 条 alias/specific 声明（101 alias + 11 specific）。按值形态提取为：',
+    `\`design-platform.css\` 承载 light 侧 ${dp.total} 条 alias/specific 声明。按值形态提取为：`,
     '',
     `- var-static ${dp['var-static']} + color-mix ${dp['color-mix']} + literal ${dp.literal} + alias-ref ${dp['alias-ref']} = ${dp.total}；`,
-    '- `docs/design.md` §4 写作「74 条 var-static + 5 条 color-mix + 28 字面量 + 5 条 alias 间引用」，与提取结果相差 1 条分类边界（`--dsw-alias-tooltip-key-bg` 的 `color-mix()` 内引用的是 alias 而非 static；`--dsw-specific-menu` 引用的是非 static/alias 的 `--dsw-menu-surface-fill`）。总数 112 一致，**不改变覆盖结论**：插件对所有 206 个 token 都显式给值，不依赖自动跟随。',
+    `- 分类边界（\`--dsw-alias-tooltip-key-bg\` 的 \`color-mix()\` 内引用 alias 而非 static、\`--dsw-specific-menu\` 引用非 static/alias 的 \`--dsw-menu-surface-fill\` 等）不改变覆盖结论：插件对所有 ${counts.total} 个 token 都显式给值，不依赖自动跟随。`,
     '',
-    '### 1.3 显式处理清单（light 侧 literal + alias-ref，全部 206 个 token 均显式映射）',
+    `### 1.3 显式处理清单（light 侧 literal + alias-ref，全部 ${counts.total} 个 token 均显式映射）`,
     '',
   )
   const explicit = inventory.tokens.filter((t) => t.lightKind === 'literal' || t.lightKind === 'alias-ref')
@@ -427,7 +427,12 @@ function renderMarkdown(inventory) {
   for (const name of inventory.missingDark) push(`- \`${name}\``)
   push('', '## 2. token 表', '')
 
-  const titles = { static: 'static（77）', alias: 'alias（107）', specific: 'specific（11）', shiki: 'shiki（11）' }
+  const titles = {
+    static: `static（${counts.static}）`,
+    alias: `alias（${counts.alias}）`,
+    specific: `specific（${counts.specific}）`,
+    shiki: `shiki（${counts.shiki}）`,
+  }
   for (const category of CATEGORY_ORDER) {
     const rows = inventory.tokens.filter((t) => t.category === category)
     push(`### 2.${CATEGORY_ORDER.indexOf(category) + 1} ${titles[category]}`, '', '| token | light | lightKind | dark | darkKind |', '|---|---|---|---|---|')
@@ -443,7 +448,7 @@ function renderMarkdown(inventory) {
     '',
     `8 张 sheet 里另有 ${inventory.nonColor.length} 个非颜色 \`--dsw-*\` token（字体 / 圆角 / 阴影 / 渐变 / 遮罩模糊 / 焦点环 / 浮层材质等）。其中 **6 个**由覆盖层作为辅助 token 显式接管（` +
       '`--dsw-gradient-onboarding-violet/blue/cyan-stops`、`--dsw-linear-gradient-think`、`--dsw-linear-think-select`、`--dsw-menu-surface-fill`）；' +
-      '其余 **202 个**按 design §4 的「明确不覆盖」清单保留 DSH 原生值：',
+      `其余 **${inventory.nonColor.length - 6} 个**按 design §4 的「明确不覆盖」清单保留 DSH 原生值：`,
     '',
   )
   const coveredAuxiliary = new Set([

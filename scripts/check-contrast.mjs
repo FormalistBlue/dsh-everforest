@@ -153,7 +153,6 @@ const TEXT_SURFACES = [
   '--dsw-specific-selector',
   '--dsw-specific-tip',
   '--dsw-specific-sidebar-nav-item-active',
-  '--dsw-specific-sidebar-nav-item-hover',
   '--dsw-alias-onboarding-card-fill',
   '--dsw-alias-onboarding-secondary-fill'
 ]
@@ -641,7 +640,7 @@ function renderMarkdown () {
     '',
     `- 硬门槛：${failures.length === 0 ? '**全部通过** ✅' : `**${failures.length} 项不达标** ❌`}`,
     `- 报告项（次要文本 / 语义色 / diff / 反色前景）：${reportIssues.length === 0 ? '全部 ≥ 1.5，无映射损坏 ✅' : `${reportIssues.length} 项 < 1.5 ❌`}`,
-    `- 覆盖 token 数：${TOKEN_COVERAGE.covered.length}（206 颜色 + ${AUXILIARY.size} 辅助 token）`,
+    `- 覆盖 token 数：${TOKEN_COVERAGE.covered.length}（${TOKEN_COVERAGE.covered.length - AUXILIARY.size} 颜色 + ${AUXILIARY.size} 辅助 token）`,
     '',
     '硬门槛定义：',
     '',
@@ -893,7 +892,7 @@ function renderMarkdown () {
     '- design 写「最暗 = bg5、最亮 = bg0」。对 dark scheme 而言 `bg5` 比 `bg0` **更亮**，按字面会得到反向亮度（statics 无法作为浅色文本色）。',
     '- 实现按「绝对亮度锚定」解释：DSH static 是双 scheme 相同的绝对色阶（00 = 白 … 1000 = 黑），映射到各 scheme 的最亮锚点 → `bg5` → 最暗锚点：',
     '  - light：`bg0` → `bg5` → `fg`；dark：`fg` → `bg5` → `bgDim`；色相族为「浅 tint → fg 色相 → 深 tint」。',
-    '- 该解释让所有 `var(--dsw-static-*)` 引用在两个 scheme 下都保持方向正确（design 对 static 层的目标），且不改变 206 个 token 的显式覆盖。',
+    `- 该解释让所有 \`var(--dsw-static-*)\` 引用在两个 scheme 下都保持方向正确（design 对 static 层的目标），且不改变 ${TOKEN_COVERAGE.covered.length - AUXILIARY.size} 个 token 的显式覆盖。`,
     '',
     '### 6.3 diff 底色',
     '',
