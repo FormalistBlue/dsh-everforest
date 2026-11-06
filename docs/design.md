@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.1-rc.5（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.1（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**五张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、表格列宽交互（§18）、聚光灯过渡（§17）；设置 UI 挂载时再加设置页样式表与设置导航图标样式表（§19），共 7 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时前五张仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**五张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、表格列宽交互（§18）、聚光灯过渡（§17）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），共 6 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时前五张仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -197,7 +197,14 @@ tokensFor(state) → {
 > - **dark 侧**：107 个 alias 中 **104 个**有 `body[data-ds-dark-theme]` 重定义（28 literal / 5 alias-ref / 65 var-static / 6 color-mix），3 个 missing（`onboarding-accent`、`settings-card-fill`、`settings-card-stroke`，按级联沿用 light 声明；插件两侧仍显式给值）。旧写「dark 侧 alias 重定义为 101」是本次复核前的数字。
 > - **未覆盖清单**：`TOKEN_COVERAGE.uncovered` 共 **17 条**，除下文明列的字体 / 圆角 / 阴影 / 焦点环 / `menu-backdrop-filter` 外，还包括 `--dsw-mask-blur`、`--dsw-elevation-*`（5 条）、`--dsw-corner-shape` 与 `--dsh-*`。另有 `SELF_CHECK_TOKENS` 5 个探针（`--dsw-focus-ring-width`、`--dsw-menu-backdrop-filter`、`--dsw-shadow-lv1`、`--dsw-mask-blur`、`--dsw-elevation-stroke-color`），启动后检查一次、缺失只 warn。
 
-### 第 1 层：派生映射（覆盖 195 个颜色 token）
+> **2026-11-06 复核修正（0.2.2-rc.1 token 契约扩展）**（证据：安装包 `@deepseek-ai/dsh-client-ui-theme/lib/client.js` 重新提取，`node scripts/extract-theme-tokens.mjs --from <rc.1 client.js>` 输出）：
+>
+> - **颜色 token 206 → 217**：82 static（+5：`neutral-bluish-55/90/310`、`violet-400/600`）+ 114 alias（+7：`illustration-background/backing/detail/inset/shadow/surface`、`state-done-primary`）+ 10 specific（−1：`--dsw-specific-sidebar-nav-item-hover` 上游不再声明）+ 11 shiki。`tokensFor()` 共 **223 条**（217 颜色 + 6 辅助），`reference/token-inventory.*` 已重新生成（SHA-256 `12f3c67b…`）。
+> - **映射**：illustration 六项按 DSH 声明值的「绝对亮度锚定」落在各 scheme 的中性 ramp 上（light：background < surface < backing/detail；dark：detail < surface < backing < background，保留插图的明暗层次；`inset` / `shadow` 按 DSH 语义 light 取 surface、dark 取 backing）；`state-done-primary` = Everforest purple（DSH 的 done 用紫色，与 success 绿区分）；violet static 只有 400/600 两档，用显式 `positions` 放在纯色相附近，而不是被索引拉伸到 tint → shade 两端。
+> - **消费方**：新增 token 在已发布包里只被 `dsh-client-ui-schedule` 的 `ScheduleEmptyIllustration`（自动化任务页空态插图）与实验性 `forge` 插件引用；核心 UI 无其它引用，所以不补也不会崩，只是插图不跟随主题。
+> - **删除的 token**：`--dsw-specific-sidebar-nav-item-hover` 在 0.2.2 不再声明（设置导航 hover 改用既有 `interactive-bg-hover` 等 token），插件从映射表移除；旧 inventory 中的历史值不再输出。
+
+### 第 1 层：派生映射（覆盖 206 个颜色 token）
 
 `src/tokens.js` 用「角色 / 表达式」描述，而不是逐条写死六份颜色：
 
@@ -618,7 +625,7 @@ export function apply(ctx) {
 4. 非默认的 4 个变体沿用 Enchanted 的 `header-*` 常量值：若硬/软档的对比度检查不通过，需要按背景亮度做小幅修正，并回写 `docs/reference/palette.md`。
 5. ~~侧栏是否要保留 Enchanted 的「平铺背景」~~ **已决策（2026-10-18 视觉走查）**：不保留 —— 侧栏改为 `bg0` → `bg1` 的 80% 混合 + 对比度守卫；平铺时 Windows 下侧栏 / 标题栏 / 内容卡同色，边界完全消失（并新增边界 ≥ 1.02:1 硬门槛）。
 6. ~~冷启动首帧（loading 页 / 首帧底色是 Host 字面 CSS）是否接受；若要消除，需要评估首帧注入在 Electron `dsh-app://` 窗口是否可用~~ **已解决（2026-10-19）**：官方 `webserver/index-inject` 结构化 rows 同时服务 Web（`renderIndex`）与 Desktop（Host ready 时 `collectIndexInjections()` → `DESKTOP_IPC.boot` → 页面侧 boot 内核在插件 roster 前应用），与 `tapIndex` 无关；Host 半部追加一条 body script row 即可。Desktop 上窗口在 load 后才 show、rows 在页面侧 IPC 后应用，因此接受「最多 1 帧原生色」；loading 动效的灰 spinner / 边框在 2026-10-21 由 boot token 6→8 覆盖（见 §5 / §12）。
-7. ~~是否值得为设置导航项做自定义图标~~ **已决策（2026-10-22 用户确认）：标为待做，等 DSH 官方给 `settings.section` 加 icon 字段**。现状核对：导航图标由 ui-settings-general 的 `navIcon(id)` 按 section id 硬编码（`account` / `models` / `agent-presets` / `plugins` / `archived-sessions`），未知 id 一律回退默认齿轮；注册项只有 `id` / `order` / `label`。**2026-10-30 更新：改为已实现**——DSH 仍没有 icon 字段，本插件改用 `dshmarket` / `dsh-notify-me` 的 DOM 标记 + MutationObserver 给自己那一行画松树图标（只认本插件 section label、不动 shell 结构；DSH 将来若加 icon 字段即删除该模块，见 §19）。
+7. ~~是否值得为设置导航项做自定义图标~~ **已决策（2026-10-22 用户确认）：标为待做，等 DSH 官方给 `settings.section` 加 icon 字段**。现状核对：导航图标由 ui-settings-general 的 `navIcon(id)` 按 section id 硬编码（`account` / `models` / `agent-presets` / `plugins` / `archived-sessions`），未知 id 一律回退默认齿轮；注册项只有 `id` / `order` / `label`。**2026-10-30 更新：改为已实现**——DSH 仍没有 icon 字段，本插件改用 `dshmarket` / `dsh-notify-me` 的 DOM 标记 + MutationObserver 给自己那一行画松树图标（只认本插件 section label、不动 shell 结构；DSH 将来若加 icon 字段即删除该模块，见 §19）。**2026-11-06 更新：DSH 0.2.2 新增官方 `settings.section.icon` 槽位（注册 id 等于 section id，组件收 `{ size, active }`），本插件已迁移并删除 DOM hack / 样式表 / observer；旧宿主回退默认齿轮（见 §19）。**
 8. `--dsw-token` 自检策略：启动时读取若干关键 token 的 computed 值判断是否缺失/改名；缺失时降级（保留原生值）并 console.warn，是否要暴露到设置页「诊断」区。
 9. ~~Host 侧强度持久化何时重启~~ **已解决（2026-10-22，0.3.0）**：确认第三方 Host entry 导出的 `Config`（volatile 叶子字段）会被 settings 服务投影为 `ctx.configForms.get('<entry id>')` 表单，写入落当前 profile 的 `cordis.patch.yml` 并跨浏览器广播；localStorage 已降级为「首帧缓存 + 旧宿主兜底」，0.2.1 旧值一次性播种。遗留：旧宿主（无 settings / schemastery 无 `volatile()`）降级路径与多 profile 边界见 §7。
 10. 首帧注入的降级边界：插件停用 / Client 半部加载失败时 boot 调色板保留到本页结束；本机缓存与 Host 值都不可用时回退默认配对。是否需要在设置页暴露「首帧注入是否生效」诊断（读取 index 里是否存在本插件 row / `window.__EVERFOREST_BOOT__`）——0.x 不做。
@@ -754,6 +761,19 @@ DSH Desktop 自动更新到 `0.2.1-rc.5`（`app.asar` 内 `dsh-desktop-runtime` 
 - **真机复核**：Desktop 窗口（rc.5）body 内联 token 生效（`--dsw-alias-bg-base #333C43`、`--dsw-alias-label-primary #D3C6AA`、`--dsw-alias-brand-primary #83C092`，dark·soft），6 张 `<style data-plugin-css>` 样式表全部挂载（settings / color-mode / selection / active-session / table-resize / theme-spotlight）；`window.__EVERFOREST_BOOT__ = { version: 1, light: 'hard', dark: 'soft' }`，boot 脚本读取的 `html[data-ds-theme-source]` / `body[data-ds-dark-theme]` 仍在原位；控制台无插件报错。
 - **`engines.dsh` 无需调整**：`>=0.2.1-rc.2 <0.3.0-0` 已覆盖 rc.5，不抬高下限。
 - **既有上游瑕疵（非本次新增）**：若干组件引用了 ui-theme 未声明的别名（如 `--dsw-alias-fill-l1` / `--dsw-alias-bg-layer-4` / `--dsw-alias-label-quaternary`），rc.3 的 web-frontend 里已如此，属 DSH 自身未定义的自定义属性，不走覆盖层、插件不做特例。
+
+### 2026-11-06 0.2.2-rc.1 复核（token 扩展 + 导航图标迁移）
+
+DSH Desktop 已升级到 `0.2.2-rc.1`（`app.asar` 根与全部 `@deepseek-ai/*` 包均为 rc.1；npm 11-04 发布，本机 11-04 17:30 安装）。上游 release notes 与插件相关的有：手机 / 平板适配、聊天文本引用、统一右键菜单、**插件设置页导航图标 API**、设置导航深色 hover 修复、桌面更新提示改为窗内视图、侧栏拖动预览、新语言、插件管理页富文本 / 更新、Trajectory 改造等。逐项复核结论：
+
+- **token 层扩展（唯一契约变化）**：安装包 `@deepseek-ai/dsh-client-ui-theme/lib/client.js` 重新提取为 8 张样式表 / **217** 个颜色 token（82 static + 114 alias + 10 specific + 11 shiki；rc.5 为 206）。新增 12 个：`--dsw-static-neutral-bluish-55/90/310`、`--dsw-static-violet-400/600`、`--dsw-alias-illustration-background/backing/detail/inset/shadow/surface`、`--dsw-alias-state-done-primary`；删除 `--dsw-specific-sidebar-nav-item-hover`。已补映射并重生成 `reference/token-inventory.*`（提取 SHA-256 `12f3c67bbd1643eade93e6cc8ece4257b7d458f098d465c4c79f351fd16e79b5`），计数口径见 §4 的 2026-11-06 修正。
+- **新增 token 的实际消费方**：`dsh-client-ui-schedule` 的 `ScheduleEmptyIllustration`（自动化任务页空态插图，6 个 illustration token）与实验性 `forge` 插件（violet-400 / state-done-primary）；核心 UI 没有其它引用。
+- **设置导航行结构变化（本次唯一必须改的 UI 集成）**：0.2.2 的 `ui-settings-general` 把导航行改成 `button > span.navIcon > svg` + `span.navLabel`，并新增官方槽位 `settings.section.icon`（`kind: list`、`scope: root`、`inline: true`；注册项 `id` 必须等于目标 section id，组件收 `{ size, active }`）。旧 DOM hack 的 `[marker] > svg` 只匹配直接子级，导致齿轮与松树同时显示（真机截图：Everforest / 插件市场 / 通知提醒三行都是双图标）。已改为注册官方槽位（`src/nav-icon.js` 只保留组件，接线在 `src/client-entry.js`），DOM hack、样式表与 observer 删除。
+- **渲染层 bundle 变化**：`dsh-web-frontend/dist/assets/index-BgUyXZcc.js` / `index-lh_YM6sT.css`（rc.5 为 `index-BXV-oxvX.js` / `index-BNYAYEM7.css`）均重新构建；逐项确认 `[class*="markdown"]` / `data-markdown-variant`、`[class*="tableScroll"]` / `.md-table-wide` / `tableFill`、`[class*="fileLink"]`、`task-list-item`、`[data-state="done"/"warning"]` 与 `data-chat-node-key` / `data-conversation-session` 锚点仍在。
+- **会话行 / 聊天**：`ui-workspace` 的 `_time` / `_iconButton` / `_pinIndicator` 后缀、`[role="treeitem"][data-row-key^="session:"]` 与 `ui-chat` 的 `data-chat-node-key` 均在；新增的右键菜单、聊天引用、文件预览等 UI 只用既有 token（右键菜单真机实测为 Everforest 配色）。
+- **集成点未变**：`theme.overrideTokens` / `getTheme` / `setTheme` / `publish` / `theme/change`、`configForms`、`settings.configure({ auto: false })`、`locale.register`、`slots` 的 `settings.section` / `shell.overlay`、`webserver/index-inject` 行形状均在；`engines.dsh` 区间 `>=0.2.1-rc.2 <0.3.0-0` 仍覆盖 0.2.2-rc.1，不抬高下限。
+- **真机复核**：Desktop（0.2.2-rc.1）token 生效（`--dsw-alias-bg-base #FFFBEF`、`--dsw-alias-label-primary #5C6A72`、`--dsw-alias-brand-primary #35A77C`，light·hard），5 张常驻样式表 + 设置页样式表（共 6 张）挂载，`window.__EVERFOREST_BOOT__ = { version: 1, light: 'hard', dark: 'soft' }`，设置页 6 档色卡正常，控制台无插件报错；修复后设置导航行只剩松树（§19）。
+- **升级影响**：主题层无需改动；token 补齐与导航图标迁移属于本次适配。`engines.dsh` 不变，旧宿主（0.2.1-rc.x）仍可用主题，只是设置导航回退默认齿轮。
 
 ## 13. 2026-10-23 0.4.0：色彩模式（中彩；2026-10-24 起默认提供、无开关）
 
@@ -1221,7 +1241,7 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 - `src/client-entry.js`：import 与 5 段接线（卸载 `spotlight.dispose()`、样式表、原点跟踪、`setTheme` 包装与 `publish` 包装各自还原）、`select()`、`setPreference()`。
 - `scripts/build.mjs` 的 `SOURCES` 已含 `theme-spotlight.js`（本轮未改）；`client.js` 已重新构建入库。
 - `tests/theme-spotlight.test.mjs`（11 项：样式表禁用 cross-fade 与 z-order、`resolveSchemePreference`、`shouldRevealSystemFlip` 的窄门六分支、无 View Transitions 兜底、reduced motion、快照→换色→揭示顺序与中心原点/半径、两方向都从指针点扩张、`origin: 'center'` 忽略旧指针、重入、dispose、无 DOM）；`tests/integration.test.mjs` 覆盖同深浅瞬切、无 prepend 监听、无 `data-everforest-transition`、服务包装在无 View Transitions 时瞬切与卸载还原，以及本轮新增的「OS 翻转走揭示」与「其他 publish 仍瞬切 / setTheme 只揭示一次」两项。
-- 常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），含设置页样式共 5 张；2026-10-27 新增表格列宽样式表后为 5 / 6 张（§18）；2026-10-30 新增设置导航图标样式表后为 5 / 7 张（§19）。
+- 常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），含设置页样式共 5 张；2026-10-27 新增表格列宽样式表后为 5 / 6 张（§18）；2026-10-30 曾为设置导航图标加过一张样式表（5 / 7 张），2026-11-06 改走官方 `settings.section.icon` 槽位后删除，回到 5 / 6 张（§19）。
 
 **门禁**：`node --test` 全量 **224/224**（2026-10-25 追加跟随系统 OS 翻转后）与 `npm run check`（palette / build / contrast）全绿；本轮只动 Client 侧接线，token 层、24 个角色色值与 6 档强度均未改动。
 
@@ -1278,7 +1298,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - `scripts/build.mjs`：`SOURCES` 增 `table-resize.js`（`color-mode.js` 之后、`client-entry.js` 之前）；`client.js` 重建。
 - `src/table-resize.js`：`onWrapperResize` 只服务 fill 表（宽表保持列宽、由包装层滚动，不观察容器）。
 - `tests/color-mode.test.mjs`：literal 规则表更新为上面的 8 条并补 `border-l1..l3` 外部变量白名单；宽表回归测试钉住重新装箱的 6 条声明（`width/max-content`、`max-width/100%`、`margin-left/padding-left: 0`、`overflow-x/auto`、`padding-bottom/0`），并断言表格不得再被 `max-width` 收窄、单元格不得改 `min-width`、**其它**规则不得再碰重新装箱的属性、fill 表包装层不得改动、宽表框必须落在 `> table` 上。`tests/integration.test.mjs`：常驻样式表 5 → 6 张、新增 table-resize 样式表断言。
-- 常驻样式表 5 张（color-mode / table-resize / selection / active-session / theme-spotlight），含设置页样式共 6 张；2026-10-30 起设置 UI 挂载时另有导航图标样式表，共 7 张（§19）。
+- 常驻样式表 5 张（color-mode / table-resize / selection / active-session / theme-spotlight），含设置页样式共 6 张；2026-10-30 曾另有导航图标样式表（共 7 张），2026-11-06 改走官方 `settings.section.icon` 槽位后删除，回到 6 张（§19）。
 - 2026-10-31（§18.6）：新增 `src/colwidth-store.js` 与 `tests/colwidth-store.test.mjs`；`src/table-resize.js` 增加列宽记忆（`memoryWidths` / `tableMemoryKey` / 首帧扫描 + MutationObserver / 拖动结束写 / 双击删）；`src/client-entry.js` 1e effect 接线；`scripts/build.mjs` 的 `SOURCES` 插入 `colwidth-store.js`；`client.js` 重建。
 
 ### 18.4 验证
@@ -1353,17 +1373,16 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 
 **已知边界**：会话 fork 不继承父会话记忆（新 sessionId）；retry 后 node key 变化 → 旧条目成孤儿、由 TTL/上限自然清理；Web 随机端口不跨重启（Desktop `dsh-app://app` 固定）；多标签 last-write-wins（每次写是「读最新 → 改本条 → 写」）；窗口 / 字体 / DPI 变化后 fill 表按比例缩放、宽表保持像素宽。
 
-## 19. 2026-10-30 设置导航松树图标（settings-nav-icon）
+## 19. 设置导航松树图标（settings-nav-icon；2026-11-06 起走官方槽位）
 
-**触发**：用户要求「设置导航里 Everforest 有了自己的松树图标」。DSH 的 `settings.section` 注册项只有 `id` / `order` / `label`，没有 `icon` 字段（§11 第 7 条）：ui-settings-general 的 `navIcon(id)` 只认内置 section id，其它一律回退默认齿轮。2026-10-22 曾决策「等官方加字段、0.x 不做 DOM 改写」，2026-10-30 改为实现（与 `dshmarket` / `dsh-notify-me` 同法）。
+**触发**：用户要求「设置导航里 Everforest 有了自己的松树图标」。DSH 0.2.1 的 `settings.section` 注册项只有 `id` / `order` / `label`，没有 icon 字段（§11 第 7 条）：ui-settings-general 的 `navIcon(id)` 只认内置 section id，其它一律回退默认齿轮。2026-10-30 先用 DOM hack 实现（与 `dshmarket` / `dsh-notify-me` 同法）：`MutationObserver` 认领文本等于本插件 label 的 `[role="dialog"] nav button`，打 `data-everforest-nav-icon` 标记，再用 `::before` + `mask-image` 藏掉 shell 齿轮并画单色松树。
 
-**做法**（`src/nav-icon.js`，168 行；接线在 `src/client-entry.js`）：
+**2026-11-06 迁移（0.2.2-rc.1）**：0.2.2 新增官方槽位 `settings.section.icon`，同时把导航行改成 `button > span.navIcon > svg` + `span.navLabel`——旧规则 `[marker] > svg` 只匹配直接子级，齿轮没被藏掉，Everforest 行出现「松树 + 齿轮」双图标（`dshmarket` / `dsh-notify-me` 同受影响）。迁移后：
 
-- **认领自己的行**：设置页挂载后，`MutationObserver` 观察 `document.body`（`childList` / `subtree` / `characterData`，`queueMicrotask` 合并同一轮变更），在每个 `[role="dialog"] nav button` 里找可见文本**严格等于**本插件 `settings.section` 当前 label 的那一行，打 `data-everforest-nav-icon` 标记；label 每次 sync 重读，locale 切换后行跟着换。空 label 不匹配任何行——locale 尚未解析时不会把整个导航标脏。
-- **画图标**：一条 `<style data-plugin="dsh-everforest" data-plugin-css="everforest/settings-nav-icon">` 隐藏 shell 的 `<svg>` 齿轮，再用 `::before` 在原 16px 槽位画 glyph：`background-color: currentColor` + `mask-image`（glyph 是包图标 `icon.svg` 里的松树，缩成单色 16px、编码成 `data:image/svg+xml,` URL）。用 mask 而不是替换 `<svg>`：glyph 直接继承行的 `currentColor`，normal / hover / active / 深浅切换都不需要额外代码。
-- **生命周期**：marker 与样式表都由调用方的 `ctx.effect` 持有（`src/client-entry.js` 在 `slots.register` 成功后安装），卸载时移除全部 marker 和样式表，shell 齿轮原样恢复；没有可用 DOM / `MutationObserver` 时是 no-op（非浏览器宿主与测试 harness 不报错，主题照常）。
-- **边界**：只标记本插件自己那一行，不改 shell 结构；若 DSH 改设置导航的 DOM（`[role="dialog"] nav button` 或按钮文本），图标静默失效、回退默认齿轮（与 §18.5 同类选择器面风险）；DSH 将来给 `settings.section` 加 `icon` 字段就删掉本模块与它在 client-entry 的调用。
-- **验证**：`tests/nav-icon.test.mjs` 6 项（glyph 契约与 mask URL 编码、样式表隐藏齿轮并画在 16px 槽位、`isOwnNavRow` 只匹配完全相同的 label、挂载后标记本行 + label 切换后重认领、dispose 移除 marker / 样式表 / observer、无 DOM no-op）；接线在 `src/client-entry.js` 的 `setupSettingsUi()` 里——`slots.register` 成功后用 `ctx.effect(…, 'everforest: settings nav glyph')` 安装，因此只在设置页真正挂上后才会出现。样式表计数：设置 UI 挂载时共 7 张（§2）。
+- **只保留组件**（`src/nav-icon.js`）：`createSettingsNavIcon({ h })` 返回一个 React 组件，按 `{ size, active }` 画 16px 方形 SVG（`viewBox="0 0 16 16"`、`fill="currentColor"`、`aria-hidden`），松树 path 来自包图标；`NAV_ICON_SLOT` 导出槽位名，`NAV_GLYPH_PATH` 导出 path。
+- **注册**（`src/client-entry.js` 的 `setupSettingsUi()`）：`slots.inject('settings.section.icon', () => slots.register({ name, id: ENTRY_ID, order: 25 }, SettingsNavIcon))`；**id 必须等于 `settings.section` 的 id**（`ENTRY_ID = 'everforest'`），shell 才会在该行渲染它并替换默认齿轮。slot 声明由 settings shell 在挂载时给出，`slots.inject` 会等待。
+- **旧宿主**：0.2.1-rc.x 不声明该槽位，`slots.inject` 不触发，设置导航回退默认齿轮；主题与其它功能不受影响（不再需要 DOM hack，也不再注入 `everforest/settings-nav-icon` 样式表，设置 UI 挂载时共 6 张样式表）。
+- **验证**：`tests/nav-icon.test.mjs` 4 项（槽位名与松树 path 契约、按 size 画 currentColor SVG、默认 16px 与非法 size 回退、缺少 `h` 时报错）；`tests/integration.test.mjs` 断言注册项 `{ name: 'settings.section.icon', id: 'everforest', order: 25 }`、组件返回 `svg`、以及 dev 包 `slotInjectKeys` 顺序为 `settings.section` → `settings.section.icon` → `shell.overlay`。真机：设置对话框 Everforest 行只剩松树，normal / hover / 选中随行 `currentColor`。
 
 ## 20. 2026-10-30 第三方插件兼容别名桥（compat aliases）
 
@@ -1373,7 +1392,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 
 - `COMPAT_ALIASES`：41 个观测到的猜测名 → 最接近的真实 token 的静态映射（文本 / 表面 / 边框 / 交互 / 品牌 / 语义状态六组，见源码注释）；`COMPAT_ALIAS_NAMES` 供启动探测。
 - `compatAliasesFor(overlay, isDeclared)`：每个别名**直接拷贝目标 token 的 `{ light, dark }` 值**（不是 `var()` 间接），因此别名与真实 token 一样跟随 6 档强度与深浅；目标必须由 `tokensFor()` 输出，否则抛错。
-- 叠加点只有一处：`src/client-entry.js` 的 `applyLayer()` 把 `tokensFor()` + `compatAliasesFor()` 一起交给 `ctx.theme.overrideTokens()`；**不进** `TOKEN_COVERAGE` / token-inventory / 官方 206 token 契约，便于上游修好后一处删除。
+- 叠加点只有一处：`src/client-entry.js` 的 `applyLayer()` 把 `tokensFor()` + `compatAliasesFor()` 一起交给 `ctx.theme.overrideTokens()`；**不进** `TOKEN_COVERAGE` / token-inventory / 官方 217 token 契约，便于上游修好后一处删除。
 - **宿主声明优先**：第一次 apply 时用 `getComputedStyle(document.body)` 探测每个别名 DSH 是否已声明（在我们的覆盖层生效之前），已声明的跳过——未来 DSH 采纳某个同名 token 时不会被我们的内联值遮蔽。
 - **准入规则**：别名必须是 DSH 未声明的名字（`tests/tokens.test.mjs` 用 `docs/reference/token-inventory.json` 钉住「不得与真实 token 重名」）；只收实际观测到的名字，优先推动上游插件修复，不主动扩大表。
 
