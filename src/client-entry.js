@@ -60,7 +60,7 @@ import { installColumnResize, tableResizeStyles } from './table-resize.js'
 import { installTableScrollbarHover } from './table-scrollbar.js'
 import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
-import { installSettingsNavIcon } from './nav-icon.js'
+import { createSettingsNavIcon, NAV_ICON_SLOT } from './nav-icon.js'
 import { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
 import {
@@ -891,7 +891,7 @@ export function apply(ctx) {
       })
       const options = {
         name: 'settings.section',
-        id: 'everforest',
+        id: ENTRY_ID,
         order: 25,
         label: () => t('nav.title'),
         locale: NS,
@@ -906,12 +906,17 @@ export function apply(ctx) {
     slots.inject('settings.section', () => slots.register(settingsUiSection.options, settingsUiSection.Section))
     settingsUiMounted = true
 
-    // The shell gives every plugin section the same gear; claim our row and
-    // draw the pine glyph instead (see `src/nav-icon.js`). Installed after the
-    // section exists, so the row can only appear with its icon already wired.
+    // Official nav-icon slot (DSH 0.2.2+): the registration id must equal the
+    // settings section id, so the shell swaps its gear for the pine on our row
+    // (`src/nav-icon.js`). Older hosts never declare the slot, so their rows
+    // keep the default gear and the theme still works.
+    const SettingsNavIcon = createSettingsNavIcon({ h })
     ctx.effect(
-      () => installSettingsNavIcon({ resolveLabel: settingsUiSection.options.label }),
-      'everforest: settings nav glyph',
+      () => slots.inject(NAV_ICON_SLOT, () => slots.register(
+        { name: NAV_ICON_SLOT, id: ENTRY_ID, order: 25 },
+        SettingsNavIcon,
+      )),
+      'everforest: settings nav icon',
     )
   }
 

@@ -27,7 +27,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const PACKAGE_ID = 'dsh-everforest'
 const read = (relative) => readFileSync(join(ROOT, relative), 'utf8')
 const readJson = (relative) => JSON.parse(read(relative))
-const EXPECTED_TOKEN_COUNT = 206 // 77 static + 107 alias + 11 specific + 11 shiki
+const EXPECTED_TOKEN_COUNT = 217 // 82 static + 114 alias + 10 specific + 11 shiki
 
 function runNode(scriptArgs, options = {}) {
   const result = spawnSync(process.execPath, scriptArgs, {
@@ -235,9 +235,13 @@ function createHarness({ deferUiServices = false, configForms = true, deferConfi
   }
   const slots = {
     inject: (key, callback) => {
-      // The production bundle only registers the Settings page; the dev bundle
-      // additionally mounts its debug panel into the frame-wide overlay layer.
-      assert.ok(key === 'settings.section' || key === 'shell.overlay', `unexpected slot: ${key}`)
+      // The production bundle registers the Settings page and its nav icon; the
+      // dev bundle additionally mounts its debug panel into the frame-wide
+      // overlay layer.
+      assert.ok(
+        key === 'settings.section' || key === 'settings.section.icon' || key === 'shell.overlay',
+        `unexpected slot: ${key}`,
+      )
       recorded.slotInjectKeys.push(key)
       const disposer = callback()
       return () => disposer?.()
@@ -730,13 +734,27 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
   assert.equal(styleTags.length, 6, 'exactly six <style> elements (color mode + table resize + selection + active session + theme spotlight + settings)')
-  assert.equal(recorded.slotRegistrations.length, 1)
-  const { options, component } = recorded.slotRegistrations[0]
-  assert.equal(options.name, 'settings.section')
+  assert.equal(recorded.slotRegistrations.length, 2)
+  const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
+  assert.ok(settingsRegistration, 'the Settings page was not registered')
+  const { options, component } = settingsRegistration
   assert.equal(options.id, 'everforest')
   assert.equal(options.order, 25)
   assert.equal(typeof options.label, 'function')
   assert.equal(typeof component, 'function')
+
+  // The nav glyph rides the official settings.section.icon slot (DSH 0.2.2+):
+  // its registration id must equal the section id, so the shell replaces the
+  // gear on our row with the pine.
+  const iconRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section.icon')
+  assert.ok(iconRegistration, 'the settings nav icon was not registered')
+  assert.equal(iconRegistration.options.id, 'everforest')
+  assert.equal(iconRegistration.options.order, 25)
+  assert.equal(typeof iconRegistration.component, 'function')
+  const iconTree = iconRegistration.component({ size: 16, active: false })
+  assert.equal(iconTree.type, 'svg')
+  assert.equal(iconTree.props.width, 16)
+  assert.equal(iconTree.props.fill, 'currentColor')
   const injection = options.inject()
   assert.equal(typeof injection.t, 'function')
   const store = injection.store
@@ -865,15 +883,16 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.injectCalls[1].delivered, false)
 
   harness.releaseUiServices()
-  assert.equal(recorded.slotRegistrations.length, 1)
+  assert.equal(recorded.slotRegistrations.length, 2)
   assert.equal(recorded.slotRegistrations[0].options.id, 'everforest')
+  assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
   assert.equal(styleTags.length, 6)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
-  assert.equal(recorded.slotRegistrations.length, 1)
+  assert.equal(recorded.slotRegistrations.length, 2)
 
   harness.disposeAll()
   assert.ok(
@@ -905,7 +924,7 @@ test('the development bundle mounts the debug panel into shell.overlay', async (
   assert.equal(overlay.options.id, 'everforest-dev')
   assert.equal(overlay.options.order, 100)
   assert.equal(typeof overlay.component, 'function')
-  assert.deepEqual(recorded.slotInjectKeys, ['settings.section', 'shell.overlay'])
+  assert.deepEqual(recorded.slotInjectKeys, ['settings.section', 'settings.section.icon', 'shell.overlay'])
 
   // The panel is a normal React component with no injected props: it closes
   // over the same store as the Settings page.
@@ -1416,8 +1435,9 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   // the immediate `ctx.inject` fallback retries instead of leaving no page.
   assert.equal(attempts, 2, 'the inject fallback did not retry the Settings setup')
   assert.equal(recorded.localeRegistrations.length, 1, 'the retry registered the dictionaries twice')
-  assert.equal(recorded.slotRegistrations.length, 1)
+  assert.equal(recorded.slotRegistrations.length, 2)
   assert.equal(recorded.slotRegistrations[0].options.id, 'everforest')
+  assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   // The color-mode stylesheet is mounted before the failure and is not part of
   // the Settings setup, so the only retried stylesheet is the settings one.
   assert.equal(tagsOwnedBy(styleTags, COLOR_MODE_CSS_OWNER).length, 1)

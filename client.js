@@ -514,13 +514,13 @@ const __mod_2_tokens_js = (() => {
 // ---------------------------------------------------------------------------
 // Coverage (docs/design.md §4, 2026-10-18 audit; inventory: docs/reference/token-inventory.json)
 // ---------------------------------------------------------------------------
-//   77 `--dsw-static-*` colour tokens   (derived: luminance-anchored ramp interpolation)
-//  107 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
-//   11 `--dsw-specific-*` colour tokens (explicit role mapping)
+//   82 `--dsw-static-*` colour tokens   (derived: luminance-anchored ramp interpolation)
+//  114 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
+//   10 `--dsw-specific-*` colour tokens (explicit role mapping)
 //   11 `--shiki-*` tokens               (explicit; shiki.css light values on :root and
 //                                        --shiki-foreground/background reference body-level
 //                                        aliases, so alias inheritance cannot be relied on)
-//   = 206 covered colour tokens
+//   = 217 covered colour tokens (DSH 0.2.2-rc.1; 206 through 0.2.1-rc.5)
 //   + 6 auxiliary tokens (menu material, think gradients, onboarding gradient stops)
 //
 // Not covered (kept at DSH native values; see TOKEN_COVERAGE.uncovered):
@@ -554,8 +554,9 @@ const __mod_2_tokens_js = (() => {
 //    docs/design.md §4 (bg layers, sidebar = one ramp step off bg0, labels,
 //    borders = bg5 alpha, brand = header-aqua, link = header-blue, states,
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
-//    foreground = bg0, tooltip/toast = inverted surfaces, ...).
-//    No alias relies on automatic following: all 206 tokens are explicit.
+//    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
+//    = neutral luminance anchors, ...). No alias relies on automatic following:
+//    all 217 tokens are explicit.
 // 3. contrast guard for text-bearing light surfaces: DSH light layers are all
 //    #fff natively and Everforest Enchanted uses a flat background, but the
 //    upstream light·soft ramp is darker. Text-bearing surfaces therefore blend
@@ -563,7 +564,7 @@ const __mod_2_tokens_js = (() => {
 //    (`readableSurface`) mixes a surface toward its scheme background anchor until
 //    label-primary text reaches 4.5:1 (WCAG AA). See docs/reference/contrast.md.
 //
-// Everything is rule/data driven: no 206 hand-written output hex values.
+// Everything is rule/data driven: no hand-written output hex values.
 
 
 /** Minimum contrast for surfaces that carry `--dsw-alias-label-primary` text. */
@@ -938,12 +939,15 @@ const STATIC_NEUTRAL_ANCHORS = Object.freeze({
   '--dsw-static-neutral-1000': 1,
   '--dsw-static-neutral-bluish-00': 0,
   '--dsw-static-neutral-bluish-50': 0.0452,
+  '--dsw-static-neutral-bluish-55': 0.0716,
   '--dsw-static-neutral-bluish-60': 0.0796,
   '--dsw-static-neutral-bluish-75': 0.1061,
+  '--dsw-static-neutral-bluish-90': 0.1314,
   '--dsw-static-neutral-bluish-100': 0.1478,
   '--dsw-static-neutral-bluish-150': 0.1627,
   '--dsw-static-neutral-bluish-200': 0.2178,
   '--dsw-static-neutral-bluish-300': 0.3529,
+  '--dsw-static-neutral-bluish-310': 0.3624,
   '--dsw-static-neutral-bluish-400': 0.5581,
   '--dsw-static-neutral-bluish-500': 0.6655,
   '--dsw-static-neutral-bluish-600': 0.7666,
@@ -984,8 +988,10 @@ function neutralStops (p) {
  * Ordered DSH static colour families (lightest → darkest, ordered by the declared
  * DSH luminance) plus the Everforest hue each family maps to. The position inside
  * the family provides `t` (0 = lightest tint, 1 = darkest shade); the ramp itself
- * passes through the scheme's tint / hue / dark anchors.
- * @type {Readonly<Record<string, { hue: string, levels: string[] }>>}
+ * passes through the scheme's tint / hue / dark anchors. Families with too few
+ * declared steps to span that ramp carry explicit `positions` instead of the
+ * index-derived ones (violet: two saturated mid shades).
+ * @type {Readonly<Record<string, { hue: string, levels: string[], positions?: number[] }>>}
  */
 const STATIC_COLOR_FAMILIES = Object.freeze({
   blue: {
@@ -1007,6 +1013,14 @@ const STATIC_COLOR_FAMILIES = Object.freeze({
   amber: {
     hue: 'yellow',
     levels: ['100', '400', '500', '600', '900']
+  },
+  violet: {
+    hue: 'purple',
+    levels: ['400', '600'],
+    // Two declared steps only: index positions would stretch them across the
+    // whole tint → shade ramp (pale pink → near-ink), while the DSH pair is a
+    // saturated light/deep violet. Place them around the pure hue instead.
+    positions: [0.5, 0.72]
   }
 })
 
@@ -1024,14 +1038,49 @@ function hueStops (p, hue) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Layer 1d: schedule empty-state illustration (neutral luminance anchors)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Luminance anchors for the six `--dsw-alias-illustration-*` tokens, in the same
+ * `t = 1 - relativeLuminance` convention as the static neutral ramps.
+ *
+ * DSH paints the schedule page's empty-state artwork with neutral statics
+ * (`neutral-bluish-55/90/310` in light, `850/700/750/600` in dark). Each alias is
+ * mapped to the matching luminance position on the scheme's neutral ramp, which
+ * preserves the artwork's tonal order — light: background < surface < backing /
+ * detail; dark: detail < surface < backing < background — in Everforest neutrals.
+ * The two derived aliases (`inset`, `shadow`) follow DSH: surface in light,
+ * backing in dark.
+ *
+ * @type {Readonly<Record<'background' | 'surface' | 'backing' | 'detail', { light: number, dark: number }>>}
+ */
+const ILLUSTRATION_NEUTRAL_ANCHORS = Object.freeze({
+  background: { light: 0.0716, dark: 0.9747 },
+  surface: { light: 0.1314, dark: 0.8689 },
+  backing: { light: 0.3624, dark: 0.9406 },
+  detail: { light: 0.3624, dark: 0.7666 }
+})
+
+/**
+ * Neutral ramp value for one illustration role in the active scheme.
+ * @param {{ scheme: string, ramp: object, fg: object }} p
+ * @param {'background' | 'surface' | 'backing' | 'detail'} role
+ * @returns {string}
+ */
+function illustrationNeutral (p, role) {
+  return interpolateRamp(neutralStops(p), ILLUSTRATION_NEUTRAL_ANCHORS[role][p.scheme])
+}
+
+/* ------------------------------------------------------------------ *
  * Layer 2: explicit alias / specific / shiki mapping
  * ------------------------------------------------------------------ */
 
 /**
- * The 107 `--dsw-alias-*` colour tokens of the DSH 0.2.1-rc.2 / rc.3 ui-theme sheets
- * (the rc.3 sheets carry the identical token set; see docs/design.md §12).
- * Every entry is an explicit role mapping (docs/design.md §4); none relies on
- * static-token following.
+ * The 114 `--dsw-alias-*` colour tokens of the DSH 0.2.2-rc.1 ui-theme sheets
+ * (0.2.1-rc.2 … rc.5 carried 107; 0.2.2-rc.1 adds the illustration family and
+ * `state-done-primary`; see docs/design.md §12). Every entry is an explicit role
+ * mapping (docs/design.md §4); none relies on static-token following.
  * @type {Record<string, (p: object) => string>}
  */
 const ALIAS_TOKENS = {
@@ -1160,10 +1209,26 @@ const ALIAS_TOKENS = {
   '--dsw-alias-settings-card-fill': (p) => surface(p, 2),
   '--dsw-alias-settings-card-stroke': (p) => border(p, 'l2'),
 
+  // Illustration artwork (schedule empty state; DSH maps these to neutral
+  // statics, so the Everforest values are the same luminance positions on the
+  // scheme's neutral ramp — see ILLUSTRATION_NEUTRAL_ANCHORS) -----------------
+  '--dsw-alias-illustration-background': (p) => illustrationNeutral(p, 'background'),
+  '--dsw-alias-illustration-backing': (p) => illustrationNeutral(p, 'backing'),
+  '--dsw-alias-illustration-detail': (p) => illustrationNeutral(p, 'detail'),
+  '--dsw-alias-illustration-inset': (p) => (p.scheme === 'light'
+    ? illustrationNeutral(p, 'surface')
+    : illustrationNeutral(p, 'backing')),
+  '--dsw-alias-illustration-shadow': (p) => (p.scheme === 'light'
+    ? illustrationNeutral(p, 'surface')
+    : illustrationNeutral(p, 'backing')),
+  '--dsw-alias-illustration-surface': (p) => illustrationNeutral(p, 'surface'),
+
   // States (Enchanted semantics; semantic colours keep the upstream low-contrast
   // character and are reported, not "fixed", in docs/reference/contrast.md) -----
   '--dsw-alias-state-business-primary': (p) => p.fg.blue,
   '--dsw-alias-state-business-tertiary': (p) => tint(p, p.fg.blue, 0.85),
+  // DSH's "done" state is violet, distinct from the success green.
+  '--dsw-alias-state-done-primary': (p) => p.fg.purple,
   '--dsw-alias-state-error-primary': (p) => p.fg.red,
   '--dsw-alias-state-error-secondary': (p) => lift(p, p.fg.red, 0.25),
   '--dsw-alias-state-idle-primary': (p) => p.fg.grey2,
@@ -1185,7 +1250,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-turn-trigger-bg-hover': (p) => alpha(surface(p, 3), 0.85)
 }
 
-/** The 11 `--dsw-specific-*` colour tokens. @type {Record<string, (p: object) => string>} */
+/** The 10 `--dsw-specific-*` colour tokens. @type {Record<string, (p: object) => string>} */
 const SPECIFIC_TOKENS = {
   '--dsw-specific-bubble': (p) => bubbleSurface(p),
   '--dsw-specific-bubble-highlight': (p) => surface(p, 2),
@@ -1196,7 +1261,6 @@ const SPECIFIC_TOKENS = {
   '--dsw-specific-sidebar-fill': (p) => sidebarSurface(p),
   '--dsw-specific-sidebar-nav-item-active': (p) => surface(p, 2),
   '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.aqua, 0.2),
-  '--dsw-specific-sidebar-nav-item-hover': (p) => surface(p, 1),
   '--dsw-specific-tip': (p) => surface(p, 2)
 }
 
@@ -1222,7 +1286,7 @@ const SHIKI_TOKENS = {
 }
 
 /**
- * Six auxiliary tokens that are not part of the 206-token colour inventory but are
+ * Six auxiliary tokens that are not part of the 217-token colour inventory but are
  * explicitly required by docs/design.md §4 (menu material, think gradients,
  * onboarding gradient stops). They are emitted with the same overlay.
  * @type {Record<string, (p: object) => string>}
@@ -1257,8 +1321,8 @@ function onboardingStops (p, accent, secondary) {
  * ------------------------------------------------------------------ */
 
 /**
- * Build the 77 static token expressions: 35 neutral entries (luminance anchored)
- * + 38 hue entries + 4 translucent static entries.
+ * Build the 82 static token expressions: 38 neutral entries (luminance anchored)
+ * + 40 hue entries + 4 translucent static entries.
  * @returns {Array<[string, (p: object) => string]>}
  */
 function buildStaticTokens () {
@@ -1267,9 +1331,11 @@ function buildStaticTokens () {
     entries.push([name, (p) => interpolateRamp(neutralStops(p), anchor)])
   }
   for (const [family, definition] of Object.entries(STATIC_COLOR_FAMILIES)) {
-    const { hue, levels } = definition
+    const { hue, levels, positions } = definition
     levels.forEach((level, index) => {
-      const position = levels.length === 1 ? 0.5 : index / (levels.length - 1)
+      const position = positions !== undefined
+        ? positions[index]
+        : levels.length === 1 ? 0.5 : index / (levels.length - 1)
       const name = `--dsw-static-${family}-${level}`
       entries.push([name, (p) => interpolateRamp(hueStops(p, p.fg[hue]), position)])
     })
@@ -1294,9 +1360,9 @@ const TOKEN_ENTRIES = [
 ]
 
 /**
- * The six auxiliary tokens emitted on top of the 206-token colour inventory
+ * The six auxiliary tokens emitted on top of the 217-token colour inventory
  * (docs/design.md §4 explicitly requires menu material, think gradients and the
- * onboarding gradient stops; they are not part of the 195 colour + 11 shiki count).
+ * onboarding gradient stops; they are not part of the 206 colour + 11 shiki count).
  * @type {string[]}
  */
 const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort())
@@ -1318,7 +1384,7 @@ const COVERED_NAMES = TOKEN_ENTRIES.map(([name]) => name).sort()
  *
  * This bridge defines the guessed names with the value of the closest real
  * token. It is deliberately NOT part of `tokensFor`/`TOKEN_COVERAGE.covered`:
- * the official 206-token contract stays untouched, and the aliases are layered
+ * the official 217-token contract stays untouched, and the aliases are layered
  * on only where the override layer is built (the Client entry), so the bridge
  * can be removed in one place once upstream plugin fixes land.
  *
@@ -1454,7 +1520,7 @@ function tokensFor (state = DEFAULT_STATE) {
 
 /**
  * Token coverage bookkeeping for docs / startup diagnostics.
- * - `covered`: every CSS variable emitted by `tokensFor` (206 colour + 6 auxiliary)
+ * - `covered`: every CSS variable emitted by `tokensFor` (217 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
  *
  * The third-party compatibility aliases (`compatAliasesFor`) are layered on by
@@ -3977,174 +4043,62 @@ function activeSessionStyles () {
 const __mod_9_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
-// `settings.section` projects only `id` / `order` / `label`, and the settings
-// shell (`@deepseek-ai/dsh-client-ui-settings-general`) picks the nav glyph from
-// a closed table of section ids, handing every other section — every plugin
-// section, this one included — its own gear (`navIcon()` in `SettingsRoot`).
-// There is no icon field to pass, so the row is claimed after it renders: once
-// the dialog mounts, the button whose visible label is this plugin's own
-// localized section label is marked, and CSS hides the shell's gear and draws
-// the real glyph in the same 16px slot. `dshmarket` and `dsh-notify-me` solve
-// it the same way.
+// DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
+// renders one `<button>` per `settings.section` entry; for each row it renders
+// this slot filtered by the section id (`{ only: row.id }`) and keeps its own
+// gear when no icon is registered for that id. The component receives
+// `{ size, active }` and is wrapped by the shell in an `aria-hidden` icon span,
+// so the glyph only has to paint a square SVG in `currentColor`.
 //
-// Why a mask instead of replacing the `<svg>`: the glyph then inherits
-// `currentColor` from the row, so the normal / hover / active states and a
-// light↔dark theme switch need no extra code. The mark is a standalone SVG
-// painted opaque black — a mask reads its alpha only, so the colour always
-// comes from `background-color: currentColor`.
-//
-// Scope, deliberately narrow:
-//
-// - only the row whose visible text equals this plugin's own localized section
-//   label is marked; no shell structure is touched and an empty label matches
-//   nothing (a not-yet-resolved locale must not mark the whole nav);
-// - the marker attributes and the one stylesheet belong to the caller's
-//   `ctx.effect`, so unload removes them with the fiber;
-// - the label is re-read on every sync, so a locale switch re-claims the row and
-//   the glyph never disagrees with the row it belongs to;
-// - if a future DSH grows an `icon` field on `settings.section`, delete this
-//   module and its call in `src/client-entry.js`.
+// Before 0.2.2 there was no icon field or slot: the plugin claimed the nav row
+// after it rendered and hid the shell gear with a `::before` mask. That DOM hack
+// is gone — 0.2.2 changed the row structure (the gear now sits inside a
+// `span.navIcon`), which made the old rule paint a second glyph next to the
+// gear. On older hosts (0.2.1-rc.x) the icon slot never materializes and the row
+// keeps the shell's default gear; the theme itself is unaffected.
 //
 // The glyph is the pine from the package icon (`icon.svg`), reduced to a
-// single-colour mark so it stays legible at 16px.
+// single-colour 16px mark. Painting with `currentColor` means the normal /
+// hover / selected states and light↔dark switches need no extra code.
+//
+// This module only builds the component: the registration (whose id must equal
+// the `settings.section` id) lives in `src/client-entry.js`, next to the page it
+// decorates.
 
-/** Marks the one nav row this plugin owns. */
-const NAV_ICON_MARKER = 'data-everforest-nav-icon'
+/** The slot the settings shell declares for per-section navigation icons. */
+const NAV_ICON_SLOT = 'settings.section.icon'
+
+/** The pine mark's path, scaled to a 16px viewBox (from the package icon). */
+const NAV_GLYPH_PATH = 'M8 1.2 3.4 7.6h2.1L2.2 12.4h4.4v2.4h2.8v-2.4h4.4L10.5 7.6h2.1z'
 
 /**
- * The nav rows of the settings dialog. The shell renders each
- * `settings.section` entry as a `<button>` inside the panel's `<nav>`; the panel
- * is the `[role="dialog"]` element in `SettingsPanel`.
- */
-const NAV_ROW_SELECTOR = '[role="dialog"] nav button'
-
-/**
- * The pine mark as a standalone SVG for a CSS `mask-image`.
+ * Build the settings-navigation icon component.
  *
- * The same two-tier pine the package icon draws over its forest ridge, scaled
- * to the navigation's 16px slot. Painted pure black on purpose: a mask reads
- * alpha only, and the visible colour comes from `currentColor`.
+ * @param {{ h: (type: string, props?: object, ...children: unknown[]) => unknown }} options
+ *   `h` is the host React's `createElement`; the Client bundle resolves React at
+ *   runtime through `require('react')` and passes its `createElement` in.
+ * @returns {(props?: { size?: number, active?: boolean }) => unknown}
  */
-const NAV_GLYPH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="#000">'
-  + '<path d="M8 1.2 3.4 7.6h2.1L2.2 12.4h4.4v2.4h2.8v-2.4h4.4L10.5 7.6h2.1z"/></svg>'
-
-/**
- * The mask URL for the mark (encoded at runtime, never hand-escaped).
- * @param {string} [svg] - standalone SVG source; defaults to `NAV_GLYPH_SVG`
- * @returns {string} a `data:image/svg+xml,` URL usable in `mask-image`
- */
-function navGlyphMaskUrl (svg = NAV_GLYPH_SVG) {
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`
-}
-
-/**
- * Stylesheet for the marked row: hide the shell's gear, draw the mark in its
- * slot with the row's own colour.
- * @param {string} [maskUrl] - mask URL; defaults to `navGlyphMaskUrl()`
- * @returns {string}
- */
-function navGlyphStyles (maskUrl = navGlyphMaskUrl()) {
-  return [
-    `[${NAV_ICON_MARKER}] > svg { display: none; }`,
-    `[${NAV_ICON_MARKER}]::before {`,
-    '  content: \'\';',
-    '  flex: none;',
-    '  width: 16px;',
-    '  height: 16px;',
-    '  background-color: currentColor;',
-    `  -webkit-mask-image: url("${maskUrl}");`,
-    `  mask-image: url("${maskUrl}");`,
-    '  -webkit-mask-repeat: no-repeat;',
-    '  mask-repeat: no-repeat;',
-    '  -webkit-mask-position: center;',
-    '  mask-position: center;',
-    '  -webkit-mask-size: 16px 16px;',
-    '  mask-size: 16px 16px;',
-    '}'
-  ].join('\n')
-}
-
-/**
- * Whether a rendered nav row is this plugin's own.
- *
- * Pure, and the only decision this feature makes: the row whose visible text is
- * the section label the shell is currently projecting. An empty label matches
- * nothing — a locale that has not resolved yet must not mark the whole nav.
- * @param {string | null | undefined} rowText - `textContent` of a nav button
- * @param {string | null | undefined} wantedLabel - current section label
- * @returns {boolean}
- */
-function isOwnNavRow (rowText, wantedLabel) {
-  const wanted = String(wantedLabel ?? '').trim()
-  if (wanted.length === 0) return false
-  return String(rowText ?? '').trim() === wanted
-}
-
-/**
- * Install the settings-nav glyph on a document.
- *
- * The returned disposer disconnects the observer, removes every marker
- * attribute and the stylesheet, leaving the shell's gear exactly as it renders
- * without this plugin. A missing DOM (`document`, `document.body`, or
- * `MutationObserver` — e.g. a non-browser host or a bare test harness) makes
- * this a no-op rather than a failure: the theme must keep working.
- *
- * @param {{ document?: Document, resolveLabel?: () => string }} [options]
- *   `resolveLabel` is this plugin's current section label; it is re-read on
- *   every sync so a locale switch re-claims the row.
- * @returns {() => void}
- */
-function installSettingsNavIcon (options = {}) {
-  const doc = options.document ?? (typeof document === 'undefined' ? undefined : document)
-  const resolveLabel = options.resolveLabel
-  if (!doc || typeof resolveLabel !== 'function') return () => {}
-  if (typeof doc.createElement !== 'function' || !doc.head || !doc.body) return () => {}
-  if (typeof doc.querySelectorAll !== 'function') return () => {}
-  if (typeof MutationObserver !== 'function') return () => {}
-  if (typeof queueMicrotask !== 'function') return () => {}
-
-  const tag = doc.createElement('style')
-  tag.dataset.plugin = 'dsh-everforest'
-  tag.dataset.pluginCss = 'everforest/settings-nav-icon'
-  tag.textContent = navGlyphStyles()
-  doc.head.appendChild(tag)
-
-  let disposed = false
-  let scheduled = false
-
-  /** Mark exactly the row carrying this plugin's current label. */
-  function sync () {
-    scheduled = false
-    if (disposed) return
-    const wanted = String(resolveLabel() ?? '').trim()
-    for (const row of doc.querySelectorAll(NAV_ROW_SELECTOR)) {
-      if (isOwnNavRow(row.textContent, wanted)) row.setAttribute(NAV_ICON_MARKER, '')
-      else row.removeAttribute(NAV_ICON_MARKER)
-    }
-  }
-
-  /** Coalesce a burst of mutations (a whole dialog mounts in one task). */
-  function schedule () {
-    if (scheduled || disposed) return
-    scheduled = true
-    queueMicrotask(sync)
-  }
-
-  sync()
-  const observer = new MutationObserver(schedule)
-  observer.observe(doc.body, { childList: true, subtree: true, characterData: true })
-
-  return function dispose () {
-    disposed = true
-    observer.disconnect()
-    for (const row of doc.querySelectorAll(`[${NAV_ICON_MARKER}]`)) {
-      row.removeAttribute(NAV_ICON_MARKER)
-    }
-    tag.remove()
+function createSettingsNavIcon ({ h } = {}) {
+  if (typeof h !== 'function') throw new TypeError('createSettingsNavIcon: h must be a function')
+  return function SettingsNavIcon ({ size = 16 } = {}) {
+    const edge = Number.isFinite(size) && size > 0 ? size : 16
+    return h(
+      'svg',
+      {
+        width: edge,
+        height: edge,
+        viewBox: '0 0 16 16',
+        fill: 'currentColor',
+        'aria-hidden': 'true',
+        focusable: 'false'
+      },
+      h('path', { d: NAV_GLYPH_PATH })
+    )
   }
 }
 
-  return { NAV_ICON_MARKER, NAV_ROW_SELECTOR, NAV_GLYPH_SVG, navGlyphMaskUrl, navGlyphStyles, isOwnNavRow, installSettingsNavIcon }
+  return { NAV_ICON_SLOT, NAV_GLYPH_PATH, createSettingsNavIcon }
 })()
 
 // ---------------------------------------------------------------- src/state.js
@@ -5647,7 +5601,7 @@ const __mod_15_client_entry_js = (() => {
   const { installTableScrollbarHover } = __mod_6_table_scrollbar_js
   const { selectionStyles } = __mod_7_selection_js
   const { activeSessionStyles } = __mod_8_active_session_js
-  const { installSettingsNavIcon } = __mod_9_nav_icon_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_9_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
   const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_10_state_js
   const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_11_durable_js
@@ -6517,7 +6471,7 @@ function apply(ctx) {
       })
       const options = {
         name: 'settings.section',
-        id: 'everforest',
+        id: ENTRY_ID,
         order: 25,
         label: () => t('nav.title'),
         locale: NS,
@@ -6532,12 +6486,17 @@ function apply(ctx) {
     slots.inject('settings.section', () => slots.register(settingsUiSection.options, settingsUiSection.Section))
     settingsUiMounted = true
 
-    // The shell gives every plugin section the same gear; claim our row and
-    // draw the pine glyph instead (see `src/nav-icon.js`). Installed after the
-    // section exists, so the row can only appear with its icon already wired.
+    // Official nav-icon slot (DSH 0.2.2+): the registration id must equal the
+    // settings section id, so the shell swaps its gear for the pine on our row
+    // (`src/nav-icon.js`). Older hosts never declare the slot, so their rows
+    // keep the default gear and the theme still works.
+    const SettingsNavIcon = createSettingsNavIcon({ h })
     ctx.effect(
-      () => installSettingsNavIcon({ resolveLabel: settingsUiSection.options.label }),
-      'everforest: settings nav glyph',
+      () => slots.inject(NAV_ICON_SLOT, () => slots.register(
+        { name: NAV_ICON_SLOT, id: ENTRY_ID, order: 25 },
+        SettingsNavIcon,
+      )),
+      'everforest: settings nav icon',
     )
   }
 
