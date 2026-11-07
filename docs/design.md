@@ -40,7 +40,7 @@
 │   └─ ctx.slots.inject('settings.section', () => ctx.slots.register({ id: 'everforest', … }))│
 │                                                                                     │
 │  EverforestSection                                                                  │
-│   ├─ 外观：明暗开关（日/夜动画）+「跟随系统」按钮 → setPreference            │
+│   ├─ 外观 3 卡片：浅色 / 深色 / 跟随系统（DSH AppearanceRow 样式）→ setPreference      │
 │   ├─ 深色组 3 张卡 / 浅色组 3 张卡                                                   │
 │   └─ onClick: select → 更新内存 + 写缓存 + configForms.mutate 写 Host → 替换覆盖层   │
 │       → ctx.theme.setTheme(scheme)（已决策）                                         │
@@ -427,23 +427,23 @@ export function apply(ctx) {
 2. **token 层与状态属性**：`applyLayer()` = `overrideTokens`（pair 未变时不重栈）+ `applyStateAttributes()`（写 `data-everforest-color-mode` / `-light` / `-dark` 三个属性）。
 3. **三张常驻样式表**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms。**1.2.0 起**另有独立 effect（`1e`）注入表格列宽样式表（`src/table-resize.js`，§18.3），同样不依赖设置 UI。
 4. **表单胶水**（把 §7 落到代码）：`queuedWrite`、`hasUserLayer`、`shouldSeed`、`seedHost(snapshot)`（播种时才带 `snapshot.revision`）、`adoptHostState()`、`writeToHost(ops, failureMessage)`（不带 revision）、`warnRefusedOnce()`、`writesInFlight` + `beginWrite()` / `flushQueuedWrite()`。`select()` 的跨深浅分支把 `applyLayer() + ctx.theme.setTheme(scheme)` 一起包进 `spotlight.run()`，同深浅分支只重栈（瞬切），`notify()` 在切换之后；`reset()` 先回默认状态，`persistReset()` 在 `writesInFlight > 0` 时把 unset 排到在途写入之后。
-5. **其它**：`setPreference()`（外观明暗开关 /「跟随系统」按钮 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
+5. **其它**：`setPreference()`（外观三卡 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
 
 ## 6. 设置页
 
 - **插槽**：`settings.section`（list），在 `ctx.slots.inject(...)` 回调内注册 `{ name: 'settings.section', id: 'everforest', order: 25, label: thunk, locale: NS, inject: () => ({ t, store }) }`；owner props 提供 `close`（本页不使用）。`label` thunk 每次投影重读，locale 切换不必重注册；`locale` / `inject` 面与 `dshmarket` 的注册方式一致。
 - **布局**（2026-10-23 用户截图复核后精简，见 §6.1）：
   - 标题「Everforest」——标题下不再有说明段落。
-  - 外观控制（2026-11-07 起，见 §6.3）：一个 60×34 的日/夜动画开关（白天太阳+松树、夜晚月亮+星空+云，切换时交叉淡入淡出）加一枚「跟随系统」按钮。开关管理 DSH 固定的 `light` / `dark` 偏好（`role="switch"` + `aria-checked` 跟随实际生效的深浅色，星球只左右横移），「跟随系统」按钮写回 `system`（`aria-pressed`）；三态仍然都可从本页选择，选中态用 `--dsw-alias-brand-primary` 描边 + `--dsw-alias-bg-module-platform` 底色。开关配色是 Everforest 调色板数据（日侧取浅色系 accent blue / yellow 与 canvas，夜侧取深色系 `bgDim` / `fg` / `grey1`，松树取深色系 `fg.green` / `fg.aqua`），以 `--everforest-switch-*` 内联自定义属性下发，样式表里不写颜色字面量。
+  - 外观控制：`浅色` / `深色` / `跟随系统` 三张卡片，样式、顺序、图标与尺寸对齐 DSH 自带的 Appearance row（`themeCube`：`flex: 180px`、`.5px` 描边 + `--dsw-radius-xl` 圆角、`--dsw-alias-border-l4` 边框；图标用 DSH 同款 16×16 SVG path，stroke 1.3；选中卡片用 `--dsw-alias-brand-primary` 描边 + `--dsw-alias-bg-module-platform` 底色）。选中态没有额外说明文字。
   - `深色` 分组：3 张卡（Hard / Medium / Soft，默认 Soft），每张含 5 段色带（`bg0`、`bg1`、`bg2`、`fg`、`aqua`；第 5 段 2026-10-24 起改用官方 accent，与 §16.1 一致）。
   - `浅色` 分组：同上（默认 Hard）。
   - ~~色彩模式区块（0.4.0）~~ **2026-10-24 已移除**（色彩模式改为默认提供、无开关，见 §13.9）：原区块位于两个强度分组之后、当前选择行之前，含标题 + 一行说明 + `role="switch"` 开关 + 当前 scheme 的 5 个强调色装饰片；现在整块不存在，设置页也不再渲染任何色彩模式文案。
   - 当前生效行：「深色 Soft · 浅色 Hard」+ 当前实际 scheme（`active.colorScheme`；偏好为 `system` 时注明「跟随系统」）；右侧「恢复默认」（**只恢复 Enchanted 默认配对的两个强度，不改外观偏好**，2026-10-21 用户确认保持；2026-10-24 起色彩模式已无开关，重置也不再涉及它）。该行是 `role="group"` + `aria-label` 的有名分组。
   - 页面末尾不再有 `hint.scheme` / `hint.storage` 说明列表。
 - **交互**：点击卡片 → 立即应用；写入顺序是「内存 + 首帧缓存 → `configForms.mutate`（一次原子写两个字段：`light` / `dark`，落 profile patch）」，若该卡属于另一个 scheme，再调用 `ctx.theme.setTheme(scheme)` 让用户马上看到效果（**已决策**；1.0.0 起这一步包在聚光灯过渡回调里，见 §17）。写入被拒 / revision 冲突时由 settings 服务回读，Client 以 Host 值为准（设置页不弹错、不静默丢掉用户选择）；「恢复默认」先回默认状态并写缓存，再 `unset` Host 的两个字段（清掉 user 层，回到 base 默认）。外观卡片调用 `ctx.theme.setTheme(preference)`（`system` 恢复跟随 OS，`light` / `dark` 固定）；它与 DSH 自带 Appearance 写的是同一份全局偏好（所有已认证浏览器共享）。
-- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键共 **19 个**：`nav.title`、`appearance.title/label/switch/system/dark/light`、`group.dark/light`、`strength.hard/medium/soft`、`current.label/summary/active/system`、`reset`、`aria.card/group`。2026-10-23 删除 `intro`、`appearance.systemActive/fixed`、`colorMode.experimental`、`hint.scheme`、`hint.storage`（用户要求不再显示这些解释性文案）；2026-10-24 再删 `colorMode.title/desc/on/off/switch`（随色彩模式区块移除，键集 23 → 18，中英同步）；2026-11-07 外观换成明暗开关，新增 `appearance.switch`（开关的可访问名，18 → 19）。
-- **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。强度卡外观参照 DSH 设置卡片；外观明暗开关移植自 Uiverse `jolly-chicken-91`（MIT，见 `THIRD_PARTY_NOTICES.md`），结构与动画保留、类名改为 `.everforest-*` 作用域、配色改用 Everforest 调色板（§6.3）；「跟随系统」按钮沿用旧外观卡的选中态 token。
-- **无障碍**：明暗开关是原生 `<button role="switch">`（`aria-checked` 跟随实际 scheme），「跟随系统」是原生按钮 + `aria-pressed`；键盘可达、`:focus-visible` 用 DSH 焦点环；减弱动态（`prefers-reduced-motion: reduce`）时关闭旋转/飘云/闪烁与过渡；色卡附文本标签，不只靠颜色区分；`aria-label` 只挂在有命名 role 的元素上（当前行 `role="group"`，裸 `<div>` 的 `aria-label` 不进无障碍树）。
+- **i18n**：命名空间 `settings.everforest`，内置 locale id 是 **`zh` / `en`**（`{ zh: zhDict, en: enDict }`；`zh-CN` 只是 `<html lang>` 的映射，不是注册键）；键共 **18 个**：`nav.title`、`appearance.title/label/light/dark/system`、`group.dark/light`、`strength.hard/medium/soft`、`current.label/summary/active/system`、`reset`、`aria.card/group`。2026-10-23 删除 `intro`、`appearance.systemActive/fixed`、`colorMode.experimental`、`hint.scheme`、`hint.storage`（用户要求不再显示这些解释性文案）；2026-10-24 再删 `colorMode.title/desc/on/off/switch`（随色彩模式区块移除，键集 23 → 18，中英同步）。
+- **样式**：全部用 `--dsw-alias-*` token；类名前缀 `.everforest-*`。**不能用 `styles.insert`**（那是模型动态 Cordis 包的闭包内建，npm 安装的 client bundle 没有）；在 factory 内创建 `<style>`，打 `data-plugin="dsh-everforest"` / `data-plugin-css` 标记，并在 `ctx.effect` 的 cleanup 里移除（照抄 ui-theme `installThemeStyles` 的写法；module 系统只会在物化期自动认领无标记 style，停用清理仍靠自己）。强度卡外观参照 DSH 设置卡片；外观三张卡片直接对齐 DSH `AppearanceRow` 的 `themeCube` 规则（`docs/design.md` §6.1 记录唯一偏差：选中描边改用主题强调色 `--dsw-alias-brand-primary`，因为 DSH 原生的 `--dsw-static-neutral-bluish-400` 在 Everforest 浅色下与未选中边框几乎同色，会看不出选中）。
+- **无障碍**：`aria-pressed`、键盘可达、`:focus-visible` 用 DSH 焦点环；色卡附文本标签，不只靠颜色区分；`aria-label` 只挂在有命名 role 的元素上（当前行 `role="group"`，裸 `<div>` 的 `aria-label` 不进无障碍树）。
 - **降级**：`ctx.get('slots'/'locale')` 立即不可用时用 `ctx.inject` 等待再挂载；等待也不可用时跳过页面注册（主题仍生效），并在控制台留一条带前缀的警告。
 - **已知限制**：① `settings.section` 仍没有 `icon` 字段，第三方页在设置导航里显示 DSH 默认齿轮图标——2026-10-30 起本插件只给自己那一行改用 DOM 标记 + MutationObserver 画松树图标（同 `dshmarket` / `dsh-notify-me`，见 §19），其它第三方页不受影响；② DSH 不会在 Plugins 页给本插件再生成一份自动表单——Host 半部用 `settings.configure({ auto: false })` 声明设置页由本插件自己渲染，所以强度只能在本页修改（插件详情页没有可编辑的强度卡片）。
 
@@ -457,7 +457,7 @@ export function apply(ctx) {
 - **验证**：`tests/settings-page.test.mjs` 覆盖新顺序、图标 path 数、`aria-pressed`、被删文案不再渲染；`.tmp/settings-preview/` 用真实 `SETTINGS_STYLES` + `tokensFor()` 渲染 dark-soft / light-hard 两档截图目检（选中态在浅色档可见）。
 - **未改**：README（用户要求保持原文案）、色彩模式的行为与持久化路径、Host `Config` 字段。
 
-> 注：本节记录的「色彩模式标题 + 说明 + 开关」区块已在 2026-10-24 随「默认提供、无开关」一起移除（见 §13.9）；外观三卡的样式在 2026-11-07 又被明暗开关取代（见 §6.3），本节其余内容（文案精简、选中描边偏差）仍是现状。
+> 注：本节记录的「色彩模式标题 + 说明 + 开关」区块已在 2026-10-24 随「默认提供、无开关」一起移除（见 §13.9）；本节其余内容（文案精简、外观控件样式、选中描边偏差）仍是现状。
 
 ### 6.2 2026-10-24 边框宽度统一
 
@@ -466,18 +466,6 @@ export function apply(ctx) {
 - 修正：`.everforest-page` 定义唯一宽度变量 `--everforest-border-width: .5px`，页面内 6 处 solid `border`（外观卡 / 强度卡 / 色带条 / 恢复按钮 + 当前行上下两条）全部引用它，另 1 处 `border: 0` 属 sr-only（与 DSH 自带的 `.5px solid` 设置卡片 / 输入框 / 描边按钮一致）；选中态只改 `border-color`，删除 inset box-shadow。
 - 回归：`tests/settings-page.test.mjs` 新增断言——所有 solid 边框必须引用该变量、页面只声明一次宽度、禁止 `box-shadow`。
 - 未改：颜色层级（外观卡 `border-l4`、强度卡 `settings-card-stroke` / `l2`、hover `l3`、选中 `brand-primary`）、圆角与焦点环。
-
-### 6.3 2026-11-07 外观控制换成日/夜动画开关
-
-用户给出 Uiverse 的 [`jolly-chicken-91`](https://uiverse.io/RiccardoRapelli/jolly-chicken-91)（MIT，RiccardoRapelli）并问能否用于「白天和黑夜模式的开关」。落地：设置页外观区由三张 DSH 同款卡片改为「太阳 ↔ 月亮」动画开关 + 一枚「跟随系统」按钮。
-
-- **取舍**：开关只有两态，而 DSH Appearance 有三态（light / dark / system）。开关负责固定偏好：`aria-checked` 跟随**实际生效**的 scheme，因此 `system` 下也显示真实的日/夜侧；点开关即写 `light` / `dark`。第三态用旁边的「跟随系统」按钮保留（`aria-pressed`），DSH 全局偏好仍是唯一真源，本插件不存 Appearance。用户 2026-11-07 明确选择「保留一个小按钮」。
-- **配色**：适配 Everforest 而非原版蓝/黑/黄——日侧取浅色系 `fg.blue`（天空）/ `fg.yellow`（太阳）/ `bg0`（云），夜的云与月用深色系 `fg`、月坑用 `grey1`，夜空 `bgDim`；白天的松树用深色系的两支浅绿 `fg.green` / `fg.aqua`（2026-11-07 反馈「森林更浅绿色一点」，初版用的 `bgGreen` / `bg5` 太深）。全部经 `--everforest-switch-*` 内联在开关节点上，样式表保持无颜色字面量（沿用「调色板数据是 DOM 内联数据」的约定）。开关两侧与所选强度无关，固定为「浅色日 / 深色夜」。
-- **场景**：白天 = 太阳 + 右下角五棵松树（浅绿、前后两层、全部排在太阳右侧 x>30 处，不与太阳重叠）；夜晚 = 月亮 + 星空 + 月亮云的云层（云只在夜里出现、松树只在白天出现，切换时做 0.4s 交叉淡入淡出，对应 2026-11-07 反馈「把白天右下角的云变成几个树」）。
-- **动效**：星球只做左右横移（`transform: translateX(26px)` 的 0.4s transition），**不做旋转**——第一版用了 `animation` 叠加 rotate，animation 会顶替 transition 并立即把球体放到终点，表现为「瞬移 + 原地旋转」；现在样式表里没有任何 `rotate(`，`prefers-reduced-motion: reduce` 下关闭飘云、闪烁与过渡。
-- **实现**：结构、云/星空位置与 0.4s 过渡/关键帧移植自该 Uiverse 组件，类名重写为 `.everforest-appearance-*`（不复用已删除色彩模式开关的 `.everforest-switch` 前缀），按钮有 `.5px` `--dsw-alias-border-l4` 描边保证深色页上夜侧可见；开关是原生 `<button role="switch">`，无隐藏 input，键盘 Enter / Space 直接触发。
-- **许可**：MIT，作者与条款记入 `THIRD_PARTY_NOTICES.md`。
-- **验证**：`tests/settings-page.test.mjs` 覆盖 18 个装饰 SVG（3 月坑 / 6 云 / 5 松树 / 4 星）、内联调色板变量、`aria-checked` 跟随与点击写入、跟随系统按钮、云/树昼夜互斥、五棵松树都排在太阳右侧（`left > 30`）与减弱动态规则，并断言样式表不含 `rotate(`；离线 token 页逐帧读取 transition 采样为纯 `translateX` 插值（0 → 10.6 → 20.9 → 25 → 26px，矩阵无旋转项）；把构建产物经 desktop profile 的 junction 交给运行中 DSH 的 HMR 热替换后，在真实设置页截图目检白天松树/夜晚星空两态，并用 UI Automation 读取 `TogglePattern`（Off→On→Off）确认开关真实交互、再点回原偏好。
 
 ## 7. 持久化（0.3.0 起：Host 侧持久化；2026-10-24 起只有两个强度）
 
