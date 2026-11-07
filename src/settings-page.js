@@ -7,19 +7,20 @@
  * the module loader) and in plain Node tests (where a tiny mock React is
  * enough). Nothing here requires a `@deepseek-ai/*` package.
  *
- * The page shows an Appearance control — the same three icon cubes DSH's own
- * Appearance row uses (Light / Dark / Follow system; same tokens, icon style and
- * selected state) — followed by two groups of three strength cards (Dark,
+ * The page shows an Appearance control — a day/night switch re-skinned from the
+ * Uiverse "jolly-chicken-91" switch (MIT, see THIRD_PARTY_NOTICES.md) with
+ * Everforest palette colours, plus a "Follow system" chip that keeps DSH's third
+ * preference reachable — followed by two groups of three strength cards (Dark,
  * default Soft; Light, default Hard). Each card previews the five signature
  * colors of its palette: bg0, bg1, bg2, fg and header-aqua. Selecting a card
  * persists the choice (through the injected store) and, when it belongs to the
- * other color scheme, also switches DSH Appearance; the Appearance control
- * switches it back to `system` (or a fixed side) without touching the palette
- * strengths. Color mode has no control here: since 2026-10-24 it ships as a
- * default feature (see `src/color-mode.js`), so the 0.4.x switch, its swatches
- * and its copy are gone. Explanatory copy is deliberately absent: DSH's own
- * Appearance row does not show any, and the user's 2026-10-23 screenshot review
- * asked to remove it here as well.
+ * other color scheme, also switches DSH Appearance; the switch fixes
+ * DSH Appearance to light/dark and the chip switches it back to `system`
+ * without touching the palette strengths. Color mode has no control here: since
+ * 2026-10-24 it ships as a default feature (see `src/color-mode.js`).
+ * Explanatory copy is deliberately absent: DSH's own Appearance row does not
+ * show any either, and the user's 2026-10-23 screenshot review asked to remove
+ * it here as well.
  *
  * Styling uses only `--dsw-*` design tokens for interface colors. The palette
  * colors in the preview stripes are Everforest data, supplied inline by the
@@ -39,7 +40,7 @@ export const SETTINGS_STYLES = `
    * .5px solid settings cards / inputs / outline buttons. Selection changes the
    * border colour only — it must never thicken the outline (2026-10-24: the
    * selected strength cards used a 1px inset ring on top of the 1px border and
-   * read as 2px next to the appearance cubes' 1px). */
+   * read as 2px next to the borders of the other controls). */
   --everforest-border-width: .5px;
   display: flex;
   flex-direction: column;
@@ -75,54 +76,171 @@ export const SETTINGS_STYLES = `
   font-weight: 600;
   line-height: 20px;
 }
-.everforest-appearance-cubes {
+.everforest-appearance-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: stretch;
-  gap: 8px;
-}
-.everforest-appearance-cube {
-  box-sizing: border-box;
-  display: flex;
-  flex: 180px;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
+}
+/* Day/night switch: an Everforest-coloured re-skin of the Uiverse
+ * "jolly-chicken-91" switch (MIT, RiccardoRapelli — see THIRD_PARTY_NOTICES).
+ * The artwork colours are Everforest palette data supplied inline by the
+ * component (the --everforest-switch-* custom properties), never literals in
+ * this stylesheet. */
+.everforest-appearance-switch {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-block;
+  flex: none;
+  width: 60px;
+  height: 34px;
   margin: 0;
-  padding: 20px 32px;
+  padding: 0;
   border: var(--everforest-border-width) solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-xl);
+  border-radius: 34px;
   background: none;
-  color: var(--dsw-alias-label-primary);
   font: inherit;
-  font-size: 14px;
-  line-height: 22px;
   cursor: pointer;
-  transition: background-color .12s ease, border-color .12s ease;
 }
-.everforest-appearance-cube:hover:not([aria-pressed='true']) {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-.everforest-appearance-cube[aria-pressed='true'] {
-  /* DSH's own Appearance row marks the selection with
-   * --dsw-static-neutral-bluish-400; under Everforest that token maps to a
-   * neutral almost identical to the unselected border in light mode, so the
-   * selected cube would be invisible. Use the theme accent instead. */
-  border-color: var(--dsw-alias-brand-primary);
-  background: var(--dsw-alias-bg-module-platform);
-}
-.everforest-appearance-cube:focus-visible {
+.everforest-appearance-switch:focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
-.everforest-appearance-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  color: currentColor;
+.everforest-appearance-track {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 34px;
+  background-color: var(--everforest-switch-day-track);
+  transition: background-color .4s;
+}
+.everforest-appearance-switch[aria-checked='true'] .everforest-appearance-track {
+  background-color: var(--everforest-switch-night-track);
+}
+.everforest-appearance-orb {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: var(--everforest-switch-sun);
+  transition: transform .4s, background-color .4s;
+}
+.everforest-appearance-switch[aria-checked='true'] .everforest-appearance-orb {
+  transform: translateX(26px);
+  background-color: var(--everforest-switch-moon);
+  animation: everforest-switch-turn .6s ease-in-out both;
+}
+.everforest-appearance-moon-dot {
+  position: absolute;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity .4s;
+  fill: var(--everforest-switch-crater);
+}
+.everforest-appearance-switch[aria-checked='true'] .everforest-appearance-moon-dot {
+  opacity: 1;
+}
+.everforest-appearance-dot-1 { left: 10px; top: 3px; width: 6px; height: 6px; }
+.everforest-appearance-dot-2 { left: 2px; top: 10px; width: 10px; height: 10px; }
+.everforest-appearance-dot-3 { left: 16px; top: 18px; width: 3px; height: 3px; }
+.everforest-appearance-ray {
+  position: absolute;
+  z-index: -1;
+  opacity: .1;
+  fill: var(--everforest-switch-ray);
+}
+.everforest-appearance-ray-1 { left: -8px; top: -8px; width: 43px; height: 43px; }
+.everforest-appearance-ray-2 { left: -50%; top: -50%; width: 55px; height: 55px; }
+.everforest-appearance-ray-3 { left: -18px; top: -18px; width: 60px; height: 60px; }
+.everforest-appearance-cloud {
+  position: absolute;
+  animation: everforest-switch-cloud 6s infinite;
+}
+.everforest-appearance-cloud-light { fill: var(--everforest-switch-cloud); }
+.everforest-appearance-cloud-shade {
+  fill: var(--everforest-switch-cloud-shade);
+  animation-delay: 1s;
+}
+.everforest-appearance-cloud-1 { left: 30px; top: 15px; width: 40px; }
+.everforest-appearance-cloud-2 { left: 44px; top: 10px; width: 20px; }
+.everforest-appearance-cloud-3 { left: 18px; top: 24px; width: 30px; }
+.everforest-appearance-cloud-4 { left: 36px; top: 18px; width: 40px; }
+.everforest-appearance-cloud-5 { left: 48px; top: 14px; width: 20px; }
+.everforest-appearance-cloud-6 { left: 22px; top: 26px; width: 30px; }
+.everforest-appearance-stars {
+  transform: translateY(-32px);
+  opacity: 0;
+  transition: transform .4s, opacity .4s;
+}
+.everforest-appearance-switch[aria-checked='true'] .everforest-appearance-stars {
+  transform: translateY(0);
+  opacity: 1;
+}
+.everforest-appearance-star {
+  position: absolute;
+  fill: var(--everforest-switch-star);
+  animation: everforest-switch-twinkle 2s infinite;
+}
+.everforest-appearance-star-1 { width: 20px; top: 2px; left: 3px; animation-delay: .3s; }
+.everforest-appearance-star-2 { width: 6px; top: 16px; left: 3px; }
+.everforest-appearance-star-3 { width: 12px; top: 20px; left: 10px; animation-delay: .6s; }
+.everforest-appearance-star-4 { width: 18px; top: 0; left: 18px; animation-delay: 1.3s; }
+.everforest-appearance-system {
+  flex: none;
+  margin: 0;
+  padding: 6px 14px;
+  border: var(--everforest-border-width) solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  background: none;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+}
+.everforest-appearance-system:hover:not([aria-pressed='true']) {
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.everforest-appearance-system[aria-pressed='true'] {
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-bg-module-platform);
+}
+.everforest-appearance-system:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+@keyframes everforest-switch-turn {
+  from { transform: translateX(26px) rotate(0deg); }
+  to { transform: translateX(26px) rotate(360deg); }
+}
+@keyframes everforest-switch-cloud {
+  0% { transform: translateX(0); }
+  40% { transform: translateX(4px); }
+  80% { transform: translateX(-4px); }
+  100% { transform: translateX(0); }
+}
+@keyframes everforest-switch-twinkle {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  80% { transform: scale(.8); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .everforest-appearance-track,
+  .everforest-appearance-orb,
+  .everforest-appearance-moon-dot,
+  .everforest-appearance-stars {
+    transition: none;
+  }
+  .everforest-appearance-orb,
+  .everforest-appearance-cloud,
+  .everforest-appearance-star {
+    animation: none;
+  }
 }
 .everforest-cards {
   display: grid;
@@ -254,34 +372,23 @@ export const SETTINGS_STYLES = `
 /** Color schemes in display order (dark group first, then light). */
 const GROUP_SCHEMES = ['dark', 'light']
 
-/** Appearance preferences in display order (DSH's own Appearance row: Light, Dark, Follow system). */
-const APPEARANCE_OPTIONS = ['light', 'dark', 'system']
-
 /**
- * SVG path data for the three Appearance cubes, copied from DSH's own
- * Appearance row icons (`IconLightOutlineMedium` / `IconDarkOutlineMedium` /
- * `IconFollowsystemOutlineMedium`, 16×16 viewBox, medium stroke width 1.3).
- * @type {Record<string, string[]>}
+ * Fallback colours of the day/night switch artwork, used when the palette module
+ * is not readable. These are palette1 values, not interface chrome: the day side
+ * takes the light scheme's accent blue / yellow / canvas and the night side the
+ * dark scheme's deepest canvas, cream foreground and grey.
+ * @type {Record<string, string>}
  */
-const APPEARANCE_ICON_PATHS = {
-  light: [
-    'M8.00007 11.8117C10.1052 11.8117 11.8117 10.1052 11.8117 8.00007C11.8117 5.89499 10.1052 4.18848 8.00007 4.18848C5.89499 4.18848 4.18848 5.89499 4.18848 8.00007C4.18848 10.1052 5.89499 11.8117 8.00007 11.8117Z',
-    'M13.3899 8H15.1499',
-    'M11.8115 11.8115L13.0556 13.0556',
-    'M8 13.3901V15.1501',
-    'M4.18868 11.8115L2.94458 13.0556',
-    'M2.6101 8H0.850098',
-    'M4.18868 4.18856L2.94458 2.94446',
-    'M8 2.6101V0.850098',
-    'M11.8115 4.18856L13.0556 2.94446',
-  ],
-  dark: [
-    'M14.1127 8.70663C14.2576 8.60602 14.4627 8.71355 14.4386 8.88834C14.2901 9.96567 13.8731 10.9912 13.2229 11.8692C12.479 12.8735 11.4613 13.6421 10.2917 14.0829C9.1222 14.5236 7.85038 14.6179 6.62865 14.3543C5.40692 14.0907 4.28709 13.4805 3.40332 12.5967C2.51955 11.7129 1.90931 10.5931 1.64572 9.37135C1.38212 8.14962 1.47635 6.87779 1.91711 5.70825C2.35787 4.5387 3.12647 3.52103 4.13083 2.77714C5.00878 2.12689 6.03433 1.70994 7.11166 1.5614C7.28645 1.5373 7.39397 1.74238 7.29337 1.88734C6.68703 2.76099 6.37885 3.81241 6.42313 4.88345C6.47392 6.11194 6.98471 7.27645 7.85413 8.14587C8.72355 9.01529 9.88805 9.52608 11.1166 9.57687C12.1876 9.62114 13.239 9.31296 14.1127 8.70663Z',
-  ],
-  system: [
-    'M13.5 2.5H2.5C1.94772 2.5 1.5 2.94772 1.5 3.5V11.5C1.5 12.0523 1.94772 12.5 2.5 12.5H13.5C14.0523 12.5 14.5 12.0523 14.5 11.5V3.5C14.5 2.94772 14.0523 2.5 13.5 2.5Z',
-    'M5 14.5H11',
-  ],
+const FALLBACK_SWITCH_ART = {
+  dayTrack: '#3A94C5',
+  sun: '#DFA000',
+  nightTrack: '#1E2326',
+  moon: '#D3C6AA',
+  crater: '#859289',
+  cloud: '#FFFBEF',
+  cloudShade: '#D3C6AA',
+  star: '#D3C6AA',
+  ray: '#FFFBEF',
 }
 
 /** Fallback strength order, used when the palette module is not yet readable. */
@@ -399,6 +506,40 @@ export function createSettingsComponent(dependencies) {
     return { preference, colorScheme }
   }
 
+  /**
+   * The day/night switch artwork colours, read from the injected palette module.
+   *
+   * The switch is a mode control, not a palette preview: its two halves always
+   * show the light scheme's day (accent blue sky, amber sun) and the dark
+   * scheme's night (deepest canvas, cream moon, grey craters), independent of
+   * the selected strength. Missing palette data falls back to the same
+   * palette1 values so a bare mount still renders.
+   * @returns {Record<string, string>} CSS custom-property values for the switch.
+   */
+  function switchArtwork() {
+    const foregrounds = palette.FOREGROUNDS && typeof palette.FOREGROUNDS === 'object' ? palette.FOREGROUNDS : {}
+    const ramps = palette.RAMPS && typeof palette.RAMPS === 'object' ? palette.RAMPS : {}
+    const lightFg = foregrounds.light && typeof foregrounds.light === 'object' ? foregrounds.light : {}
+    const darkFg = foregrounds.dark && typeof foregrounds.dark === 'object' ? foregrounds.dark : {}
+    const lightHard = ramps.light && typeof ramps.light === 'object' && ramps.light.hard && typeof ramps.light.hard === 'object'
+      ? ramps.light.hard
+      : {}
+    const darkHard = ramps.dark && typeof ramps.dark === 'object' && ramps.dark.hard && typeof ramps.dark.hard === 'object'
+      ? ramps.dark.hard
+      : {}
+    return {
+      dayTrack: lightFg.blue ?? FALLBACK_SWITCH_ART.dayTrack,
+      sun: lightFg.yellow ?? FALLBACK_SWITCH_ART.sun,
+      nightTrack: darkHard.bgDim ?? FALLBACK_SWITCH_ART.nightTrack,
+      moon: darkFg.fg ?? FALLBACK_SWITCH_ART.moon,
+      crater: darkFg.grey1 ?? FALLBACK_SWITCH_ART.crater,
+      cloud: lightHard.bg0 ?? FALLBACK_SWITCH_ART.cloud,
+      cloudShade: darkFg.fg ?? FALLBACK_SWITCH_ART.cloudShade,
+      star: darkFg.fg ?? FALLBACK_SWITCH_ART.star,
+      ray: lightHard.bg0 ?? FALLBACK_SWITCH_ART.ray,
+    }
+  }
+
   /** Resolve an injected store, falling back to an empty one. */
   function resolveStore(store) {
     if (
@@ -508,51 +649,100 @@ export function createSettingsComponent(dependencies) {
     }
 
     /**
-     * The DSH-style icon of one Appearance cube: a 16×16 inline SVG with the
-     * same path data as DSH's own Appearance row (stroke width 1.3, currentColor).
-     * Decorative only — the button's text label names the option.
-     * @param {string} preference
+     * One decorative SVG of the switch scene: a 100×100 circle, or the 20×20
+     * four-point star path. Fill and position come from the stylesheet.
      */
-    function renderAppearanceIcon(preference) {
-      const paths = APPEARANCE_ICON_PATHS[preference] ?? []
-      return h('span', {
-        key: 'icon',
-        className: 'everforest-appearance-icon',
+    function renderSwitchSvg(kind, index, className) {
+      const isStar = kind === 'star'
+      return h('svg', {
+        key: className + '-' + index,
+        className,
+        viewBox: isStar ? '0 0 20 20' : '0 0 100 100',
         'aria-hidden': 'true',
-      }, h('svg', {
-        width: 16,
-        height: 16,
-        viewBox: '0 0 16 16',
-        fill: 'none',
-        strokeWidth: 1.3,
-        stroke: 'currentColor',
-        xmlns: 'http://www.w3.org/2000/svg',
-      }, paths.map((d, index) => h('path', { key: 'path-' + index, d, stroke: 'currentColor' }))))
-    }
-
-    /** One appearance-preference cube: native button with `aria-pressed`. */
-    function renderAppearanceOption(preference) {
-      const selected = theme.preference === preference
-      return h('button', {
-        key: preference,
-        type: 'button',
-        className: 'everforest-appearance-cube',
-        'aria-pressed': selected ? 'true' : 'false',
-        'data-preference': preference,
-        onClick: () => {
-          if (typeof store.setPreference === 'function') store.setPreference(preference)
-        },
-      }, [
-        renderAppearanceIcon(preference),
-        h('span', { key: 'label' }, t('appearance.' + preference)),
-      ])
+      }, isStar
+        ? h('path', { d: 'M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z' })
+        : h('circle', { cx: 50, cy: 50, r: 50 }))
     }
 
     /**
-     * Appearance control: the same three icon cubes as DSH's own Appearance row
-     * (Light / Dark / Follow system), matching its order, icon set, tokens and
-     * selected state. No explanatory note: the current row below already prints
-     * the resolved appearance.
+     * The day/night switch: a native `<button role="switch">` whose sun/moon
+     * scene is the Everforest-adapted Uiverse switch. `aria-checked` mirrors the
+     * scheme that is actually showing, so `system` still reports the resolved
+     * side; toggling always fixes DSH Appearance to light/dark.
+     */
+    function renderAppearanceSwitch() {
+      const isDark = theme.colorScheme === 'dark'
+      const art = switchArtwork()
+      const style = {
+        // Everforest palette data, supplied inline: the stylesheet only uses it.
+        '--everforest-switch-day-track': art.dayTrack,
+        '--everforest-switch-night-track': art.nightTrack,
+        '--everforest-switch-sun': art.sun,
+        '--everforest-switch-moon': art.moon,
+        '--everforest-switch-crater': art.crater,
+        '--everforest-switch-cloud': art.cloud,
+        '--everforest-switch-cloud-shade': art.cloudShade,
+        '--everforest-switch-star': art.star,
+        '--everforest-switch-ray': art.ray,
+      }
+      const moonDots = [1, 2, 3].map((index) => renderSwitchSvg(
+        'dot', index, 'everforest-appearance-moon-dot everforest-appearance-dot-' + index,
+      ))
+      const rays = [1, 2, 3].map((index) => renderSwitchSvg(
+        'ray', index, 'everforest-appearance-ray everforest-appearance-ray-' + index,
+      ))
+      const clouds = [1, 2, 3, 4, 5, 6].map((index) => renderSwitchSvg(
+        'cloud', index,
+        'everforest-appearance-cloud ' +
+          (index <= 3 ? 'everforest-appearance-cloud-shade ' : 'everforest-appearance-cloud-light ') +
+          'everforest-appearance-cloud-' + index,
+      ))
+      const stars = [1, 2, 3, 4].map((index) => renderSwitchSvg(
+        'star', index, 'everforest-appearance-star everforest-appearance-star-' + index,
+      ))
+      return h('button', {
+        key: 'switch',
+        type: 'button',
+        role: 'switch',
+        className: 'everforest-appearance-switch',
+        'aria-checked': isDark ? 'true' : 'false',
+        'aria-label': t('appearance.switch'),
+        style,
+        onClick: () => {
+          if (typeof store.setPreference === 'function') store.setPreference(isDark ? 'light' : 'dark')
+        },
+      }, h('span', {
+        key: 'track',
+        className: 'everforest-appearance-track',
+        'aria-hidden': 'true',
+      }, [
+        h('span', { key: 'orb', className: 'everforest-appearance-orb' }, [
+          ...moonDots,
+          ...rays,
+          ...clouds,
+        ]),
+        h('span', { key: 'stars', className: 'everforest-appearance-stars', 'aria-hidden': 'true' }, stars),
+      ]))
+    }
+
+    /** The "Follow system" choice, kept beside the switch. */
+    function renderAppearanceSystem() {
+      const selected = theme.preference === 'system'
+      return h('button', {
+        key: 'system',
+        type: 'button',
+        className: 'everforest-appearance-system',
+        'aria-pressed': selected ? 'true' : 'false',
+        onClick: () => {
+          if (typeof store.setPreference === 'function') store.setPreference('system')
+        },
+      }, t('appearance.system'))
+    }
+
+    /**
+     * Appearance control: one day/night switch plus a "Follow system" chip.
+     * The switch always fixes DSH Appearance; the chip returns it to following
+     * the OS, so all three DSH preferences stay reachable from this page.
      */
     function renderAppearance() {
       const headingId = 'everforest-appearance-title'
@@ -563,11 +753,9 @@ export function createSettingsComponent(dependencies) {
       }, [
         h('h3', { key: 'heading', id: headingId, className: 'everforest-group-title' }, t('appearance.title')),
         h('div', {
-          key: 'options',
-          className: 'everforest-appearance-cubes',
-          role: 'group',
-          'aria-label': t('appearance.label'),
-        }, APPEARANCE_OPTIONS.map((preference) => renderAppearanceOption(preference))),
+          key: 'controls',
+          className: 'everforest-appearance-row',
+        }, [renderAppearanceSwitch(), renderAppearanceSystem()]),
       ])
     }
 

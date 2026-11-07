@@ -5,10 +5,11 @@
  * The page is a pure `createElement` component: the client entry injects React
  * and the palette module, so here a tiny mock React (no renderer, no DOM) calls
  * the component directly and the returned element tree is inspected. This keeps
- * the component's contract — six cards, `aria-pressed`, the Appearance control,
- * current row, click → `store.select` / `store.setPreference`, reset →
- * `store.reset` — testable in plain Node. Color mode has no control on the page
- * any more (a shipped default since 2026-10-24), so the tests pin its absence.
+ * the component's contract — six cards, `aria-pressed`, the Appearance day/night
+ * switch (`role="switch"` + `aria-checked`) and follow-system chip, current row,
+ * click → `store.select` / `store.setPreference`, reset → `store.reset` —
+ * testable in plain Node. Color mode has no control on the page any more (a
+ * shipped default since 2026-10-24), so the tests pin its absence.
  */
 
 import { test } from 'node:test'
@@ -178,11 +179,20 @@ const isCard = (node) => Boolean(
   && typeof node.props['data-scheme'] === 'string'
   && typeof node.props['data-strength'] === 'string',
 )
-const isAppearanceOption = (node) => Boolean(
+const isAppearanceSwitch = (node) => Boolean(
   node
   && node.type === 'button'
   && node.props
-  && typeof node.props['data-preference'] === 'string',
+  && node.props.role === 'switch'
+  && typeof node.props.className === 'string'
+  && node.props.className.split(/\s+/).includes('everforest-appearance-switch'),
+)
+const isAppearanceSystem = (node) => Boolean(
+  node
+  && node.type === 'button'
+  && node.props
+  && typeof node.props.className === 'string'
+  && node.props.className.split(/\s+/).includes('everforest-appearance-system'),
 )
 const byClass = (name) => (node) => Boolean(
   node
@@ -227,8 +237,8 @@ test('SETTINGS_STYLES uses only design tokens for interface colors', () => {
     '--dsw-alias-bg-module-platform',
     '--dsw-alias-interactive-bg-hover',
     '--dsw-focus-ring-color',
+    '--dsw-radius-sm',
     '--dsw-radius-md',
-    '--dsw-radius-xl',
   ]) {
     assert.ok(SETTINGS_STYLES.includes(marker), `stylesheet does not use ${marker}`)
   }
@@ -240,25 +250,38 @@ test('SETTINGS_STYLES uses only design tokens for interface colors', () => {
     '.everforest-card[aria-pressed=\'true\']',
     '.everforest-card:focus-visible',
     '.everforest-swatch',
-    '.everforest-appearance-cubes',
-    '.everforest-appearance-cube',
-    '.everforest-appearance-cube:hover:not([aria-pressed=\'true\'])',
-    '.everforest-appearance-cube[aria-pressed=\'true\']',
-    '.everforest-appearance-cube:focus-visible',
-    '.everforest-appearance-icon',
+    '.everforest-appearance-row',
+    '.everforest-appearance-switch',
+    '.everforest-appearance-switch:focus-visible',
+    '.everforest-appearance-track',
+    '.everforest-appearance-orb',
+    '.everforest-appearance-switch[aria-checked=\'true\'] .everforest-appearance-orb',
+    '.everforest-appearance-moon-dot',
+    '.everforest-appearance-ray',
+    '.everforest-appearance-stars',
+    '.everforest-appearance-star',
+    '.everforest-appearance-system',
+    '.everforest-appearance-system[aria-pressed=\'true\']',
+    '.everforest-appearance-system:focus-visible',
     '.everforest-reset',
   ]) {
     assert.ok(SETTINGS_STYLES.includes(marker), `stylesheet is missing ${marker}`)
   }
 
   // Color mode has no control on this page since 2026-10-24: none of the 0.4.x
-  // switch / preview styles may survive in the stylesheet.
+  // color-mode styles may survive in the stylesheet. (The appearance switch is
+  // deliberately named without the `everforest-switch-` prefix.)
   for (const gone of [
     '.everforest-color-mode',
     '.everforest-switch',
   ]) {
     assert.equal(SETTINGS_STYLES.includes(gone), false, `stylesheet still styles ${gone}`)
   }
+
+  // Motion is decorative: reduced-motion users get the state change without the
+  // spinning orb, drifting clouds or twinkling stars.
+  assert.match(SETTINGS_STYLES, /@media \(prefers-reduced-motion: reduce\)/)
+  assert.match(SETTINGS_STYLES, /animation: none/)
 })
 
 test('settings-page stylesheet does not reference Harness internals', () => {
@@ -298,6 +321,7 @@ test('locale dictionaries are complete and mirrored', () => {
     'nav.title',
     'appearance.title',
     'appearance.label',
+    'appearance.switch',
     'appearance.system',
     'appearance.dark',
     'appearance.light',
@@ -319,7 +343,7 @@ test('locale dictionaries are complete and mirrored', () => {
     assert.ok(zhKeys.includes(key), `ZH is missing key ${key}`)
   }
   // The 0.4.x color-mode control is gone, so its five keys are gone too: the
-  // dictionaries hold exactly the 18 keys of the remaining page.
+  // dictionaries hold exactly the 19 keys of the remaining page.
   assert.equal(enKeys.length, required.length)
 
   for (const dictionary of [EN, ZH]) {
@@ -538,71 +562,99 @@ test('current row reflects a fixed Appearance preference', () => {
   assert.match(textContent(findOne(tree, byClass('everforest-current-meta'))), /Light/)
 })
 
-test('appearance control uses DSH cube order (light, dark, system) and marks the preference', () => {
+test('appearance control is a day/night switch plus a follow-system chip', () => {
   const { tree } = renderPage({ store: createMockStore({ preference: 'system', colorScheme: 'light' }) })
-  const options = findAll(tree, isAppearanceOption)
-  assert.deepEqual(
-    options.map((option) => option.props['data-preference']),
-    ['light', 'dark', 'system'],
-  )
-  assert.deepEqual(options.map(textContent), ['Light', 'Dark', 'Follow system'])
-  assert.deepEqual(
-    options.filter((option) => option.props['aria-pressed'] === 'true').map((option) => option.props['data-preference']),
-    ['system'],
-  )
-  const group = findOne(tree, (node) => (
-    node.props && node.props.role === 'group' && node.props['aria-label'] === 'Appearance preference'
-  ))
-  assert.ok(group)
-  assert.equal(group.props.className, 'everforest-appearance-cubes')
-  for (const option of options) {
-    assert.equal(option.props.type, 'button')
-    assert.equal(typeof option.props.onClick, 'function')
-    assert.equal(option.props.className, 'everforest-appearance-cube')
-  }
+  const switchButton = findOne(tree, isAppearanceSwitch)
+  assert.ok(switchButton, 'missing the day/night switch')
+  assert.equal(switchButton.props.type, 'button')
+  assert.equal(switchButton.props['aria-checked'], 'false')
+  assert.equal(switchButton.props['aria-label'], 'Light and dark mode')
+
+  const system = findOne(tree, isAppearanceSystem)
+  assert.ok(system, 'missing the follow-system chip')
+  assert.equal(system.type, 'button')
+  assert.equal(system.props.type, 'button')
+  assert.equal(system.props['aria-pressed'], 'true')
+  assert.equal(textContent(system), 'Follow system')
+
+  // The old three-cube markup (and its data attribute) is gone.
+  assert.equal(findAll(tree, (node) => node.props && typeof node.props['data-preference'] === 'string').length, 0)
+  assert.equal(findOne(tree, byClass('everforest-appearance-cube')), undefined)
+
+  const row = findOne(tree, byClass('everforest-appearance-row'))
+  assert.ok(row)
+  assert.deepEqual(row.props.children, [switchButton, system])
   // DSH's own Appearance row shows no explanatory note; neither does this page.
   assert.equal(findOne(tree, byClass('everforest-appearance-note')), undefined)
 })
 
-test('each appearance cube carries the DSH icon for its preference', () => {
-  const { tree } = renderPage()
-  const options = findAll(tree, isAppearanceOption)
-  const expectedPathCounts = { light: 9, dark: 1, system: 2 }
-  for (const option of options) {
-    const preference = option.props['data-preference']
-    const icon = findOne(option, byClass('everforest-appearance-icon'))
-    assert.ok(icon, `${preference}: missing icon wrapper`)
-    assert.equal(icon.props['aria-hidden'], 'true')
-    const svg = findOne(icon, (node) => node.type === 'svg')
-    assert.ok(svg, `${preference}: missing svg`)
-    assert.equal(svg.props.viewBox, '0 0 16 16')
-    assert.equal(svg.props.strokeWidth, 1.3)
-    const paths = findAll(svg, (node) => node.type === 'path')
-    assert.equal(paths.length, expectedPathCounts[preference], `${preference}: path count`)
-    for (const path of paths) assert.equal(typeof path.props.d, 'string')
-  }
+test('switch mirrors the resolved scheme and toggles the fixed preference', () => {
+  // `system` shows the resolved side; flipping the switch fixes the preference.
+  const systemStore = createMockStore({ preference: 'system', colorScheme: 'dark' })
+  const systemSwitch = findOne(renderPage({ store: systemStore }).tree, isAppearanceSwitch)
+  assert.equal(systemSwitch.props['aria-checked'], 'true')
+  systemSwitch.props.onClick()
+  assert.deepEqual(systemStore.calls.preference, ['light'])
+
+  const darkStore = createMockStore({ preference: 'dark', colorScheme: 'dark' })
+  const darkSwitch = findOne(renderPage({ store: darkStore }).tree, isAppearanceSwitch)
+  assert.equal(darkSwitch.props['aria-checked'], 'true')
+  darkSwitch.props.onClick()
+  assert.deepEqual(darkStore.calls.preference, ['light'])
+
+  const lightStore = createMockStore({ preference: 'light', colorScheme: 'light' })
+  const lightSwitch = findOne(renderPage({ store: lightStore }).tree, isAppearanceSwitch)
+  assert.equal(lightSwitch.props['aria-checked'], 'false')
+  lightSwitch.props.onClick()
+  assert.deepEqual(lightStore.calls.preference, ['dark'])
+
+  // The chip is the third DSH preference and is pressed only while following.
+  const chipStore = createMockStore({ preference: 'dark', colorScheme: 'dark' })
+  const chip = findOne(renderPage({ store: chipStore }).tree, isAppearanceSystem)
+  assert.equal(chip.props['aria-pressed'], 'false')
+  chip.props.onClick()
+  assert.deepEqual(chipStore.calls.preference, ['system'])
+
+  // A later render reflects the new preference.
+  const { tree: updated } = renderPage({ store: chipStore })
+  assert.equal(findOne(updated, isAppearanceSystem).props['aria-pressed'], 'true')
+  assert.equal(findOne(updated, isAppearanceSwitch).props['aria-checked'], 'true')
 })
 
-test('clicking an appearance option calls store.setPreference and re-renders', () => {
-  const store = createMockStore({ preference: 'dark', colorScheme: 'dark' })
-  const { tree } = renderPage({ store })
-  const options = findAll(tree, isAppearanceOption)
-  assert.deepEqual(
-    options.filter((option) => option.props['aria-pressed'] === 'true').map((option) => option.props['data-preference']),
-    ['dark'],
-  )
+test('switch renders the sixteen decorative scene SVGs and inlines palette colours', () => {
+  const { tree } = renderPage()
+  const switchButton = findOne(tree, isAppearanceSwitch)
+  const dots = findAll(switchButton, byClass('everforest-appearance-moon-dot'))
+  assert.equal(dots.length, 3)
+  const rays = findAll(switchButton, byClass('everforest-appearance-ray'))
+  assert.equal(rays.length, 3)
+  const clouds = findAll(switchButton, byClass('everforest-appearance-cloud'))
+  assert.equal(clouds.length, 6)
+  assert.equal(findAll(switchButton, byClass('everforest-appearance-cloud-shade')).length, 3)
+  assert.equal(findAll(switchButton, byClass('everforest-appearance-cloud-light')).length, 3)
+  const stars = findAll(switchButton, byClass('everforest-appearance-star'))
+  assert.equal(stars.length, 4)
+  const svgs = findAll(switchButton, (node) => node.type === 'svg')
+  assert.equal(svgs.length, 16)
+  for (const svg of svgs) {
+    assert.equal(svg.props['aria-hidden'], 'true')
+    assert.equal(svg.props.viewBox, svg.props.className.includes('star') ? '0 0 20 20' : '0 0 100 100')
+  }
 
-  const system = options.find((option) => option.props['data-preference'] === 'system')
-  system.props.onClick()
-  const light = options.find((option) => option.props['data-preference'] === 'light')
-  light.props.onClick()
-  assert.deepEqual(store.calls.preference, ['system', 'light'])
+  // Artwork colours are inline Everforest palette data, not stylesheet literals.
+  const style = switchButton.props.style
+  assert.equal(style['--everforest-switch-day-track'], palette.FOREGROUNDS.light.blue)
+  assert.equal(style['--everforest-switch-night-track'], palette.RAMPS.dark.hard.bgDim)
+  assert.equal(style['--everforest-switch-sun'], palette.FOREGROUNDS.light.yellow)
+  assert.equal(style['--everforest-switch-moon'], palette.FOREGROUNDS.dark.fg)
+  assert.equal(style['--everforest-switch-crater'], palette.FOREGROUNDS.dark.grey1)
+  assert.equal(style['--everforest-switch-cloud'], palette.RAMPS.light.hard.bg0)
+  assert.equal(style['--everforest-switch-star'], palette.FOREGROUNDS.dark.fg)
 
-  const { tree: updated } = renderPage({ store })
-  const pressed = findAll(updated, isAppearanceOption)
-    .filter((option) => option.props['aria-pressed'] === 'true')
-    .map((option) => option.props['data-preference'])
-  assert.deepEqual(pressed, ['light'])
+  const track = findOne(switchButton, byClass('everforest-appearance-track'))
+  assert.ok(track)
+  assert.equal(track.props['aria-hidden'], 'true')
+  assert.equal(findOne(switchButton, byClass('everforest-appearance-stars')).props['aria-hidden'], 'true')
 })
 
 test('the removed explanatory copy is gone from the page', () => {
@@ -623,17 +675,21 @@ test('the removed explanatory copy is gone from the page', () => {
 
 test('color mode has no control on the page any more (shipped default since 2026-10-24)', () => {
   const { tree } = renderPage()
-  // No section, heading, switch, chip preview or copy for the mode.
+  // No section, heading, chip preview or copy for the mode.
   assert.equal(findOne(tree, byClass('everforest-color-mode')), undefined)
-  assert.equal(findOne(tree, byClass('everforest-switch')), undefined)
   assert.equal(findOne(tree, byClass('everforest-color-mode-swatch')), undefined)
-  assert.equal(findOne(tree, (node) => node.props && node.props.role === 'switch'), undefined)
   const text = textContent(tree)
   assert.doesNotMatch(text, /color mode/i)
   assert.doesNotMatch(text, /色彩模式/)
 
+  // The only `role="switch"` on the page is the Appearance day/night switch;
+  // color mode has no toggle of its own.
+  const switches = findAll(tree, (node) => node.props && node.props.role === 'switch')
+  assert.equal(switches.length, 1)
+  assert.ok(isAppearanceSwitch(switches[0]))
+
   // Even a store snapshot that still carries the retired 0.4.x flag changes
-  // nothing: there is no control to render and the page stays valid.
+  // nothing: there is no color-mode control to render and the page stays valid.
   for (const colorMode of [true, false, 'on', null]) {
     const { tree: legacy } = renderPage({
       store: {
@@ -647,7 +703,8 @@ test('color mode has no control on the page any more (shipped default since 2026
       },
     })
     assert.equal(findAll(legacy, isCard).length, 6)
-    assert.equal(findOne(legacy, (node) => node.props && node.props.role === 'switch'), undefined)
+    assert.equal(findAll(legacy, (node) => node.props && node.props.role === 'switch').length, 1)
+    assert.ok(isAppearanceSwitch(findOne(legacy, (node) => node.props && node.props.role === 'switch')))
   }
 })
 
@@ -712,8 +769,10 @@ test('Simplified Chinese renders translated copy and labels', () => {
 
   const cards = findAll(tree, isCard)
   assert.equal(cards[0].props['aria-label'], '深色 Hard 配色')
-  const appearanceOptions = findAll(tree, isAppearanceOption)
-  assert.deepEqual(appearanceOptions.map(textContent), ['浅色', '深色', '跟随系统'])
+  const switchButton = findOne(tree, isAppearanceSwitch)
+  assert.ok(switchButton)
+  assert.equal(switchButton.props['aria-label'], '明暗模式')
+  assert.equal(textContent(findOne(tree, isAppearanceSystem)), '跟随系统')
   assert.equal(
     textContent(findOne(tree, byClass('everforest-current-main'))),
     '当前：深色 Soft · 浅色 Hard',
@@ -731,7 +790,7 @@ test('Simplified Chinese renders translated copy and labels', () => {
 test('all interactive controls are native buttons', () => {
   const { tree } = renderPage()
   const buttons = findAll(tree, (node) => node.type === 'button')
-  assert.equal(buttons.length, 10) // six cards + three appearance options + reset
+  assert.equal(buttons.length, 9) // six cards + appearance switch + follow-system chip + reset
   for (const button of buttons) {
     assert.equal(button.props.type, 'button')
     assert.equal(typeof button.props.onClick, 'function')
@@ -763,7 +822,8 @@ test('renders safely without a store and without optional props', () => {
     'Current: Dark Soft · Light Hard',
   )
   // The no-op fallback store keeps the appearance control clickable.
-  for (const option of findAll(tree, isAppearanceOption)) option.props.onClick()
+  findOne(tree, isAppearanceSwitch).props.onClick()
+  findOne(tree, isAppearanceSystem).props.onClick()
   assert.doesNotThrow(() => findOne(tree, byClass('everforest-reset')).props.onClick())
   // Standard slot owner props are ignored by the page.
   const tree2 = Component({ t: translateEN, store: createMockStore(), close: () => {}, extra: 42 })
@@ -787,12 +847,8 @@ test('hostile store snapshots degrade to the default pairing', () => {
     textContent(findOne(tree, byClass('everforest-current-meta'))),
     /following system/,
   )
-  assert.deepEqual(
-    findAll(tree, isAppearanceOption)
-      .filter((option) => option.props['aria-pressed'] === 'true')
-      .map((option) => option.props['data-preference']),
-    ['system'],
-  )
+  assert.equal(findOne(tree, isAppearanceSystem).props['aria-pressed'], 'true')
+  assert.equal(findOne(tree, isAppearanceSwitch).props['aria-checked'], 'true')
 })
 
 test('a missing palette module still renders the six default cards', () => {
@@ -805,6 +861,10 @@ test('a missing palette module still renders the six default cards', () => {
     const segments = findAll(findOne(card, byClass('everforest-swatch')), byClass('everforest-swatch-segment'))
     assert.equal(segments.length, 5)
   }
-  // The page still renders without any color-mode control.
-  assert.equal(findOne(tree, (node) => node.props && node.props.role === 'switch'), undefined)
+  // The switch still renders, with the palette1 artwork fallbacks inline.
+  const switchButton = findOne(tree, isAppearanceSwitch)
+  assert.ok(switchButton)
+  assert.equal(switchButton.props.style['--everforest-switch-day-track'], '#3A94C5')
+  assert.equal(switchButton.props.style['--everforest-switch-night-track'], '#1E2326')
+  assert.equal(findAll(switchButton, (node) => node.type === 'svg').length, 16)
 })

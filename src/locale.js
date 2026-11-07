@@ -7,7 +7,8 @@
  * English is the key-set source of truth: `EN` and `ZH` must always expose the
  * same keys (checked by `tests/settings-page.test.mjs`).
  *
- * The 18 keys cover the Appearance control, the two strength groups, the
+ * The 19 keys cover the Appearance control (the day/night switch and its
+ * accessible name, the "Follow system" chip), the two strength groups, the
  * current-choice row and the restore-defaults action. Color mode has no copy:
  * it ships as a default feature with no switch since 2026-10-24 (the five
  * `colorMode.*` keys of 0.4.x were removed with the control).
@@ -26,6 +27,7 @@ export const EN = {
 
   'appearance.title': 'Appearance',
   'appearance.label': 'Appearance preference',
+  'appearance.switch': 'Light and dark mode',
   'appearance.system': 'Follow system',
   'appearance.dark': 'Dark',
   'appearance.light': 'Light',
@@ -54,6 +56,7 @@ export const ZH = {
 
   'appearance.title': '外观',
   'appearance.label': '外观偏好',
+  'appearance.switch': '明暗模式',
   'appearance.system': '跟随系统',
   'appearance.dark': '深色',
   'appearance.light': '浅色',
