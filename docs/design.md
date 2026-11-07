@@ -434,7 +434,7 @@ export function apply(ctx) {
 - **插槽**：`settings.section`（list），在 `ctx.slots.inject(...)` 回调内注册 `{ name: 'settings.section', id: 'everforest', order: 25, label: thunk, locale: NS, inject: () => ({ t, store }) }`；owner props 提供 `close`（本页不使用）。`label` thunk 每次投影重读，locale 切换不必重注册；`locale` / `inject` 面与 `dshmarket` 的注册方式一致。
 - **布局**（2026-10-23 用户截图复核后精简，见 §6.1）：
   - 标题「Everforest」——标题下不再有说明段落。
-  - 外观控制（2026-11-07 起，见 §6.3）：一个 60×34 的日/夜动画开关（太阳 ↔ 月亮、云与星星）加一枚「跟随系统」按钮。开关管理 DSH 固定的 `light` / `dark` 偏好（`role="switch"` + `aria-checked` 跟随实际生效的深浅色），「跟随系统」按钮写回 `system`（`aria-pressed`）；三态仍然都可从本页选择，选中态用 `--dsw-alias-brand-primary` 描边 + `--dsw-alias-bg-module-platform` 底色。开关配色是 Everforest 调色板数据（日侧取浅色系 accent blue / yellow 与 canvas，夜侧取深色系 `bgDim` / `fg` / `grey1`），以 `--everforest-switch-*` 内联自定义属性下发，样式表里不写颜色字面量。
+  - 外观控制（2026-11-07 起，见 §6.3）：一个 60×34 的日/夜动画开关（白天太阳+松树、夜晚月亮+星空+云，切换时交叉淡入淡出）加一枚「跟随系统」按钮。开关管理 DSH 固定的 `light` / `dark` 偏好（`role="switch"` + `aria-checked` 跟随实际生效的深浅色，星球只左右横移），「跟随系统」按钮写回 `system`（`aria-pressed`）；三态仍然都可从本页选择，选中态用 `--dsw-alias-brand-primary` 描边 + `--dsw-alias-bg-module-platform` 底色。开关配色是 Everforest 调色板数据（日侧取浅色系 accent blue / yellow 与 canvas，夜侧取深色系 `bgDim` / `fg` / `grey1`，松树取深色系 `bgGreen` / `bg5`），以 `--everforest-switch-*` 内联自定义属性下发，样式表里不写颜色字面量。
   - `深色` 分组：3 张卡（Hard / Medium / Soft，默认 Soft），每张含 5 段色带（`bg0`、`bg1`、`bg2`、`fg`、`aqua`；第 5 段 2026-10-24 起改用官方 accent，与 §16.1 一致）。
   - `浅色` 分组：同上（默认 Hard）。
   - ~~色彩模式区块（0.4.0）~~ **2026-10-24 已移除**（色彩模式改为默认提供、无开关，见 §13.9）：原区块位于两个强度分组之后、当前选择行之前，含标题 + 一行说明 + `role="switch"` 开关 + 当前 scheme 的 5 个强调色装饰片；现在整块不存在，设置页也不再渲染任何色彩模式文案。
@@ -472,10 +472,12 @@ export function apply(ctx) {
 用户给出 Uiverse 的 [`jolly-chicken-91`](https://uiverse.io/RiccardoRapelli/jolly-chicken-91)（MIT，RiccardoRapelli）并问能否用于「白天和黑夜模式的开关」。落地：设置页外观区由三张 DSH 同款卡片改为「太阳 ↔ 月亮」动画开关 + 一枚「跟随系统」按钮。
 
 - **取舍**：开关只有两态，而 DSH Appearance 有三态（light / dark / system）。开关负责固定偏好：`aria-checked` 跟随**实际生效**的 scheme，因此 `system` 下也显示真实的日/夜侧；点开关即写 `light` / `dark`。第三态用旁边的「跟随系统」按钮保留（`aria-pressed`），DSH 全局偏好仍是唯一真源，本插件不存 Appearance。用户 2026-11-07 明确选择「保留一个小按钮」。
-- **配色**：适配 Everforest 而非原版蓝/黑/黄——日侧取浅色系 `fg.blue`（天空）/ `fg.yellow`（太阳）/ `bg0`（云），夜侧取深色系 `bgDim`（夜空）/ `fg`（月亮与云）/ `grey1`（月坑），星星用 `fg`；全部经 `--everforest-switch-*` 内联在开关节点上，样式表保持无颜色字面量（沿用「调色板数据是 DOM 内联数据」的约定）。开关两侧与所选强度无关，固定为「浅色日 / 深色夜」。
-- **实现**：结构、云/星空位置与 0.4s 过渡/关键帧移植自该 Uiverse 组件，类名重写为 `.everforest-appearance-*`（不复用已删除色彩模式开关的 `.everforest-switch` 前缀），按钮有 `.5px` `--dsw-alias-border-l4` 描边保证深色页上夜侧可见；`prefers-reduced-motion: reduce` 下关闭旋转、飘云、闪烁与过渡。开关是原生 `<button role="switch">`，无隐藏 input，键盘 Enter / Space 直接触发。
+- **配色**：适配 Everforest 而非原版蓝/黑/黄——日侧取浅色系 `fg.blue`（天空）/ `fg.yellow`（太阳）/ `bg0`（光线），夜的云与月用深色系 `fg`、月坑用 `grey1`，夜空 `bgDim`，白天的松树取深色系 `bgGreen` / `bg5`；全部经 `--everforest-switch-*` 内联在开关节点上，样式表保持无颜色字面量（沿用「调色板数据是 DOM 内联数据」的约定）。开关两侧与所选强度无关，固定为「浅色日 / 深色夜」。
+- **场景**：白天 = 太阳 + 右下角一片松树；夜晚 = 月亮 + 星空 + 月亮云的云层（云只在夜里出现、松树只在白天出现，切换时做 0.4s 交叉淡入淡出，对应 2026-11-07 反馈「把白天右下角的云变成几个树」）。
+- **动效**：星球只做左右横移（`transform: translateX(26px)` 的 0.4s transition），**不做旋转**——第一版用了 `animation` 叠加 rotate，animation 会顶替 transition 并立即把球体放到终点，表现为「瞬移 + 原地旋转」；现在样式表里没有任何 `rotate(`，`prefers-reduced-motion: reduce` 下关闭飘云、闪烁与过渡。
+- **实现**：结构、云/星空位置与 0.4s 过渡/关键帧移植自该 Uiverse 组件，类名重写为 `.everforest-appearance-*`（不复用已删除色彩模式开关的 `.everforest-switch` 前缀），按钮有 `.5px` `--dsw-alias-border-l4` 描边保证深色页上夜侧可见；开关是原生 `<button role="switch">`，无隐藏 input，键盘 Enter / Space 直接触发。
 - **许可**：MIT，作者与条款记入 `THIRD_PARTY_NOTICES.md`。
-- **验证**：`tests/settings-page.test.mjs` 覆盖 16 个装饰 SVG（3 月坑 / 3 光线 / 6 云 / 4 星）、内联调色板变量、`aria-checked` 跟随与点击写入、跟随系统按钮、减弱动态规则；把构建产物经 desktop profile 的 junction 交给运行中 DSH 的 HMR 热替换后，在真实设置页截图目检浅色/深色两态，并用 UI Automation 读取 `TogglePattern`（Off→On→Off）确认开关真实交互、再点回原偏好。
+- **验证**：`tests/settings-page.test.mjs` 覆盖 19 个装饰 SVG（3 月坑 / 3 光线 / 6 云 / 3 松树 / 4 星）、内联调色板变量、`aria-checked` 跟随与点击写入、跟随系统按钮、云/树昼夜互斥与减弱动态规则，并断言样式表不含 `rotate(`；离线 token 页逐帧读取 transition 采样为纯 `translateX` 插值（0 → 10.6 → 20.9 → 25 → 26px，矩阵无旋转项）；把构建产物经 desktop profile 的 junction 交给运行中 DSH 的 HMR 热替换后，在真实设置页截图目检白天松树/夜晚星空两态，并用 UI Automation 读取 `TogglePattern`（Off→On→Off）确认开关真实交互、再点回原偏好。
 
 ## 7. 持久化（0.3.0 起：Host 侧持久化；2026-10-24 起只有两个强度）
 

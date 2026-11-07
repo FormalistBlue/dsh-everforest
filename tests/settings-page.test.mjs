@@ -258,6 +258,11 @@ test('SETTINGS_STYLES uses only design tokens for interface colors', () => {
     '.everforest-appearance-switch[aria-checked=\'true\'] .everforest-appearance-orb',
     '.everforest-appearance-moon-dot',
     '.everforest-appearance-ray',
+    '.everforest-appearance-cloud',
+    '.everforest-appearance-forest',
+    '.everforest-appearance-tree',
+    '.everforest-appearance-tree-front',
+    '.everforest-appearance-tree-back',
     '.everforest-appearance-stars',
     '.everforest-appearance-star',
     '.everforest-appearance-system',
@@ -621,7 +626,7 @@ test('switch mirrors the resolved scheme and toggles the fixed preference', () =
   assert.equal(findOne(updated, isAppearanceSwitch).props['aria-checked'], 'true')
 })
 
-test('switch renders the sixteen decorative scene SVGs and inlines palette colours', () => {
+test('switch renders the nineteen decorative scene SVGs and inlines palette colours', () => {
   const { tree } = renderPage()
   const switchButton = findOne(tree, isAppearanceSwitch)
   const dots = findAll(switchButton, byClass('everforest-appearance-moon-dot'))
@@ -632,13 +637,22 @@ test('switch renders the sixteen decorative scene SVGs and inlines palette colou
   assert.equal(clouds.length, 6)
   assert.equal(findAll(switchButton, byClass('everforest-appearance-cloud-shade')).length, 3)
   assert.equal(findAll(switchButton, byClass('everforest-appearance-cloud-light')).length, 3)
+  const trees = findAll(switchButton, byClass('everforest-appearance-tree'))
+  assert.equal(trees.length, 3)
+  assert.equal(findAll(switchButton, byClass('everforest-appearance-tree-front')).length, 1)
+  assert.equal(findAll(switchButton, byClass('everforest-appearance-tree-back')).length, 2)
   const stars = findAll(switchButton, byClass('everforest-appearance-star'))
   assert.equal(stars.length, 4)
   const svgs = findAll(switchButton, (node) => node.type === 'svg')
-  assert.equal(svgs.length, 16)
+  assert.equal(svgs.length, 19)
   for (const svg of svgs) {
     assert.equal(svg.props['aria-hidden'], 'true')
-    assert.equal(svg.props.viewBox, svg.props.className.includes('star') ? '0 0 20 20' : '0 0 100 100')
+    const expectedViewBox = svg.props.className.includes('star')
+      ? '0 0 20 20'
+      : svg.props.className.includes('tree')
+        ? '0 0 20 28'
+        : '0 0 100 100'
+    assert.equal(svg.props.viewBox, expectedViewBox)
   }
 
   // Artwork colours are inline Everforest palette data, not stylesheet literals.
@@ -649,12 +663,25 @@ test('switch renders the sixteen decorative scene SVGs and inlines palette colou
   assert.equal(style['--everforest-switch-moon'], palette.FOREGROUNDS.dark.fg)
   assert.equal(style['--everforest-switch-crater'], palette.FOREGROUNDS.dark.grey1)
   assert.equal(style['--everforest-switch-cloud'], palette.RAMPS.light.hard.bg0)
+  assert.equal(style['--everforest-switch-tree'], palette.RAMPS.dark.hard.bgGreen)
+  assert.equal(style['--everforest-switch-tree-back'], palette.RAMPS.dark.hard.bg5)
   assert.equal(style['--everforest-switch-star'], palette.FOREGROUNDS.dark.fg)
 
   const track = findOne(switchButton, byClass('everforest-appearance-track'))
   assert.ok(track)
   assert.equal(track.props['aria-hidden'], 'true')
+  assert.equal(findOne(switchButton, byClass('everforest-appearance-forest')).props['aria-hidden'], 'true')
   assert.equal(findOne(switchButton, byClass('everforest-appearance-stars')).props['aria-hidden'], 'true')
+
+  // Day/night scene is split: clouds only show at night, pines only by day.
+  assert.match(SETTINGS_STYLES, /\.everforest-appearance-cloud \{[^}]*opacity: 0/)
+  assert.match(SETTINGS_STYLES, /\[aria-checked='true'\] \.everforest-appearance-cloud \{[^}]*opacity: 1/)
+  assert.match(SETTINGS_STYLES, /\.everforest-appearance-forest \{[^}]*opacity: 1/)
+  assert.match(SETTINGS_STYLES, /\[aria-checked='true'\] \.everforest-appearance-forest \{[^}]*opacity: 0/)
+  // The orb must slide via its transition; a transform animation used to
+  // replace the transition and made it jump + spin in place.
+  assert.doesNotMatch(SETTINGS_STYLES, /rotate\(/)
+  assert.match(SETTINGS_STYLES, /\.everforest-appearance-orb \{[^}]*transition: transform \.4s/)
 })
 
 test('the removed explanatory copy is gone from the page', () => {
@@ -866,5 +893,7 @@ test('a missing palette module still renders the six default cards', () => {
   assert.ok(switchButton)
   assert.equal(switchButton.props.style['--everforest-switch-day-track'], '#3A94C5')
   assert.equal(switchButton.props.style['--everforest-switch-night-track'], '#1E2326')
-  assert.equal(findAll(switchButton, (node) => node.type === 'svg').length, 16)
+  assert.equal(switchButton.props.style['--everforest-switch-tree'], '#3C4841')
+  assert.equal(switchButton.props.style['--everforest-switch-tree-back'], '#4F5B58')
+  assert.equal(findAll(switchButton, (node) => node.type === 'svg').length, 19)
 })

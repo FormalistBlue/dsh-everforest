@@ -129,9 +129,10 @@ export const SETTINGS_STYLES = `
   transition: transform .4s, background-color .4s;
 }
 .everforest-appearance-switch[aria-checked='true'] .everforest-appearance-orb {
+  /* Slide only — a transform animation here would replace the transition and
+   * teleport the orb (the 2026-11-07 first pass rotated it in place). */
   transform: translateX(26px);
   background-color: var(--everforest-switch-moon);
-  animation: everforest-switch-turn .6s ease-in-out both;
 }
 .everforest-appearance-moon-dot {
   position: absolute;
@@ -157,7 +158,13 @@ export const SETTINGS_STYLES = `
 .everforest-appearance-ray-3 { left: -18px; top: -18px; width: 60px; height: 60px; }
 .everforest-appearance-cloud {
   position: absolute;
+  opacity: 0;
+  transition: opacity .4s;
   animation: everforest-switch-cloud 6s infinite;
+}
+.everforest-appearance-switch[aria-checked='true'] .everforest-appearance-cloud {
+  /* Clouds belong to the night sky; the day side grows a pine wood instead. */
+  opacity: 1;
 }
 .everforest-appearance-cloud-light { fill: var(--everforest-switch-cloud); }
 .everforest-appearance-cloud-shade {
@@ -170,6 +177,19 @@ export const SETTINGS_STYLES = `
 .everforest-appearance-cloud-4 { left: 36px; top: 18px; width: 40px; }
 .everforest-appearance-cloud-5 { left: 48px; top: 14px; width: 20px; }
 .everforest-appearance-cloud-6 { left: 22px; top: 26px; width: 30px; }
+.everforest-appearance-forest {
+  opacity: 1;
+  transition: opacity .4s;
+}
+.everforest-appearance-switch[aria-checked='true'] .everforest-appearance-forest {
+  opacity: 0;
+}
+.everforest-appearance-tree { position: absolute; }
+.everforest-appearance-tree-front { fill: var(--everforest-switch-tree); }
+.everforest-appearance-tree-back { fill: var(--everforest-switch-tree-back); }
+.everforest-appearance-tree-1 { left: 22px; bottom: 2px; width: 12px; }
+.everforest-appearance-tree-2 { left: 46px; bottom: 2px; width: 13px; }
+.everforest-appearance-tree-3 { left: 31px; bottom: 1px; width: 17px; }
 .everforest-appearance-stars {
   transform: translateY(-32px);
   opacity: 0;
@@ -213,10 +233,6 @@ export const SETTINGS_STYLES = `
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
-@keyframes everforest-switch-turn {
-  from { transform: translateX(26px) rotate(0deg); }
-  to { transform: translateX(26px) rotate(360deg); }
-}
 @keyframes everforest-switch-cloud {
   0% { transform: translateX(0); }
   40% { transform: translateX(4px); }
@@ -233,10 +249,11 @@ export const SETTINGS_STYLES = `
   .everforest-appearance-track,
   .everforest-appearance-orb,
   .everforest-appearance-moon-dot,
+  .everforest-appearance-cloud,
+  .everforest-appearance-forest,
   .everforest-appearance-stars {
     transition: none;
   }
-  .everforest-appearance-orb,
   .everforest-appearance-cloud,
   .everforest-appearance-star {
     animation: none;
@@ -387,9 +404,18 @@ const FALLBACK_SWITCH_ART = {
   crater: '#859289',
   cloud: '#FFFBEF',
   cloudShade: '#D3C6AA',
+  tree: '#3C4841',
+  treeBack: '#4F5B58',
   star: '#D3C6AA',
   ray: '#FFFBEF',
 }
+
+/**
+ * Pine silhouette of the day side: a two-tier pine with a short trunk in a
+ * 20×28 viewBox. Kept deliberately simple so it still reads as a tree at the
+ * 12–17px widths the switch gives it.
+ */
+const SWITCH_TREE_PATH = 'M10 0 L16 13 L12 13 L18.5 26 L11 26 L11 30 L9 30 L9 26 L1.5 26 L8 13 L4 13 Z'
 
 /** Fallback strength order, used when the palette module is not yet readable. */
 const FALLBACK_STRENGTHS = ['hard', 'medium', 'soft']
@@ -535,6 +561,8 @@ export function createSettingsComponent(dependencies) {
       crater: darkFg.grey1 ?? FALLBACK_SWITCH_ART.crater,
       cloud: lightHard.bg0 ?? FALLBACK_SWITCH_ART.cloud,
       cloudShade: darkFg.fg ?? FALLBACK_SWITCH_ART.cloudShade,
+      tree: darkHard.bgGreen ?? FALLBACK_SWITCH_ART.tree,
+      treeBack: darkHard.bg5 ?? FALLBACK_SWITCH_ART.treeBack,
       star: darkFg.fg ?? FALLBACK_SWITCH_ART.star,
       ray: lightHard.bg0 ?? FALLBACK_SWITCH_ART.ray,
     }
@@ -649,26 +677,33 @@ export function createSettingsComponent(dependencies) {
     }
 
     /**
-     * One decorative SVG of the switch scene: a 100×100 circle, or the 20×20
-     * four-point star path. Fill and position come from the stylesheet.
+     * One decorative SVG of the switch scene: a 100×100 circle (sun/moon,
+     * light rays, clouds), the 20×20 four-point star, or the 20×28 pine
+     * silhouette. Fill and position come from the stylesheet.
      */
     function renderSwitchSvg(kind, index, className) {
       const isStar = kind === 'star'
+      const isTree = kind === 'tree'
+      const shape = isStar
+        ? h('path', { d: 'M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z' })
+        : isTree
+          ? h('path', { d: SWITCH_TREE_PATH })
+          : h('circle', { cx: 50, cy: 50, r: 50 })
       return h('svg', {
         key: className + '-' + index,
         className,
-        viewBox: isStar ? '0 0 20 20' : '0 0 100 100',
+        viewBox: isStar ? '0 0 20 20' : isTree ? '0 0 20 28' : '0 0 100 100',
         'aria-hidden': 'true',
-      }, isStar
-        ? h('path', { d: 'M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z' })
-        : h('circle', { cx: 50, cy: 50, r: 50 }))
+      }, shape)
     }
 
     /**
      * The day/night switch: a native `<button role="switch">` whose sun/moon
-     * scene is the Everforest-adapted Uiverse switch. `aria-checked` mirrors the
-     * scheme that is actually showing, so `system` still reports the resolved
-     * side; toggling always fixes DSH Appearance to light/dark.
+     * scene is the Everforest-adapted Uiverse switch. The orb only slides
+     * left/right (no rotation), the day side grows a small pine wood and the
+     * night side gets clouds, stars and the cratered moon. `aria-checked`
+     * mirrors the scheme that is actually showing, so `system` still reports
+     * the resolved side; toggling always fixes DSH Appearance to light/dark.
      */
     function renderAppearanceSwitch() {
       const isDark = theme.colorScheme === 'dark'
@@ -682,6 +717,8 @@ export function createSettingsComponent(dependencies) {
         '--everforest-switch-crater': art.crater,
         '--everforest-switch-cloud': art.cloud,
         '--everforest-switch-cloud-shade': art.cloudShade,
+        '--everforest-switch-tree': art.tree,
+        '--everforest-switch-tree-back': art.treeBack,
         '--everforest-switch-star': art.star,
         '--everforest-switch-ray': art.ray,
       }
@@ -699,6 +736,12 @@ export function createSettingsComponent(dependencies) {
       ))
       const stars = [1, 2, 3, 4].map((index) => renderSwitchSvg(
         'star', index, 'everforest-appearance-star everforest-appearance-star-' + index,
+      ))
+      const forest = [1, 2, 3].map((index) => renderSwitchSvg(
+        'tree', index,
+        'everforest-appearance-tree ' +
+          (index === 3 ? 'everforest-appearance-tree-front ' : 'everforest-appearance-tree-back ') +
+          'everforest-appearance-tree-' + index,
       ))
       return h('button', {
         key: 'switch',
@@ -721,6 +764,7 @@ export function createSettingsComponent(dependencies) {
           ...rays,
           ...clouds,
         ]),
+        h('span', { key: 'forest', className: 'everforest-appearance-forest', 'aria-hidden': 'true' }, forest),
         h('span', { key: 'stars', className: 'everforest-appearance-stars', 'aria-hidden': 'true' }, stars),
       ]))
     }
