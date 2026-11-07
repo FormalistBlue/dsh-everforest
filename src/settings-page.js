@@ -147,15 +147,6 @@ export const SETTINGS_STYLES = `
 .everforest-appearance-dot-1 { left: 10px; top: 3px; width: 6px; height: 6px; }
 .everforest-appearance-dot-2 { left: 2px; top: 10px; width: 10px; height: 10px; }
 .everforest-appearance-dot-3 { left: 16px; top: 18px; width: 3px; height: 3px; }
-.everforest-appearance-ray {
-  position: absolute;
-  z-index: -1;
-  opacity: .1;
-  fill: var(--everforest-switch-ray);
-}
-.everforest-appearance-ray-1 { left: -8px; top: -8px; width: 43px; height: 43px; }
-.everforest-appearance-ray-2 { left: -50%; top: -50%; width: 55px; height: 55px; }
-.everforest-appearance-ray-3 { left: -18px; top: -18px; width: 60px; height: 60px; }
 .everforest-appearance-cloud {
   position: absolute;
   opacity: 0;
@@ -187,9 +178,12 @@ export const SETTINGS_STYLES = `
 .everforest-appearance-tree { position: absolute; }
 .everforest-appearance-tree-front { fill: var(--everforest-switch-tree); }
 .everforest-appearance-tree-back { fill: var(--everforest-switch-tree-back); }
-.everforest-appearance-tree-1 { left: 22px; bottom: 2px; width: 12px; }
-.everforest-appearance-tree-2 { left: 46px; bottom: 2px; width: 13px; }
-.everforest-appearance-tree-3 { left: 31px; bottom: 1px; width: 17px; }
+/* Five pines packed into the bottom-right corner, clear of the sun (x 4..30). */
+.everforest-appearance-tree-1 { left: 31px; bottom: 3px; width: 10px; }
+.everforest-appearance-tree-2 { left: 39px; bottom: 2px; width: 11px; }
+.everforest-appearance-tree-3 { left: 49px; bottom: 2px; width: 10px; }
+.everforest-appearance-tree-4 { left: 34px; bottom: 1px; width: 13px; }
+.everforest-appearance-tree-5 { left: 46px; bottom: 0px; width: 13px; }
 .everforest-appearance-stars {
   transform: translateY(-32px);
   opacity: 0;
@@ -393,7 +387,8 @@ const GROUP_SCHEMES = ['dark', 'light']
  * Fallback colours of the day/night switch artwork, used when the palette module
  * is not readable. These are palette1 values, not interface chrome: the day side
  * takes the light scheme's accent blue / yellow / canvas and the night side the
- * dark scheme's deepest canvas, cream foreground and grey.
+ * dark scheme's deepest canvas, cream foreground, greys and the two light greens
+ * of the evergreen pines.
  * @type {Record<string, string>}
  */
 const FALLBACK_SWITCH_ART = {
@@ -404,10 +399,9 @@ const FALLBACK_SWITCH_ART = {
   crater: '#859289',
   cloud: '#FFFBEF',
   cloudShade: '#D3C6AA',
-  tree: '#3C4841',
-  treeBack: '#4F5B58',
+  tree: '#A7C080',
+  treeBack: '#83C092',
   star: '#D3C6AA',
-  ray: '#FFFBEF',
 }
 
 /**
@@ -561,10 +555,9 @@ export function createSettingsComponent(dependencies) {
       crater: darkFg.grey1 ?? FALLBACK_SWITCH_ART.crater,
       cloud: lightHard.bg0 ?? FALLBACK_SWITCH_ART.cloud,
       cloudShade: darkFg.fg ?? FALLBACK_SWITCH_ART.cloudShade,
-      tree: darkHard.bgGreen ?? FALLBACK_SWITCH_ART.tree,
-      treeBack: darkHard.bg5 ?? FALLBACK_SWITCH_ART.treeBack,
+      tree: darkFg.green ?? FALLBACK_SWITCH_ART.tree,
+      treeBack: darkFg.aqua ?? FALLBACK_SWITCH_ART.treeBack,
       star: darkFg.fg ?? FALLBACK_SWITCH_ART.star,
-      ray: lightHard.bg0 ?? FALLBACK_SWITCH_ART.ray,
     }
   }
 
@@ -720,13 +713,9 @@ export function createSettingsComponent(dependencies) {
         '--everforest-switch-tree': art.tree,
         '--everforest-switch-tree-back': art.treeBack,
         '--everforest-switch-star': art.star,
-        '--everforest-switch-ray': art.ray,
       }
       const moonDots = [1, 2, 3].map((index) => renderSwitchSvg(
         'dot', index, 'everforest-appearance-moon-dot everforest-appearance-dot-' + index,
-      ))
-      const rays = [1, 2, 3].map((index) => renderSwitchSvg(
-        'ray', index, 'everforest-appearance-ray everforest-appearance-ray-' + index,
       ))
       const clouds = [1, 2, 3, 4, 5, 6].map((index) => renderSwitchSvg(
         'cloud', index,
@@ -737,10 +726,10 @@ export function createSettingsComponent(dependencies) {
       const stars = [1, 2, 3, 4].map((index) => renderSwitchSvg(
         'star', index, 'everforest-appearance-star everforest-appearance-star-' + index,
       ))
-      const forest = [1, 2, 3].map((index) => renderSwitchSvg(
+      const forest = [1, 2, 3, 4, 5].map((index) => renderSwitchSvg(
         'tree', index,
         'everforest-appearance-tree ' +
-          (index === 3 ? 'everforest-appearance-tree-front ' : 'everforest-appearance-tree-back ') +
+          (index >= 4 ? 'everforest-appearance-tree-front ' : 'everforest-appearance-tree-back ') +
           'everforest-appearance-tree-' + index,
       ))
       return h('button', {
@@ -761,7 +750,6 @@ export function createSettingsComponent(dependencies) {
       }, [
         h('span', { key: 'orb', className: 'everforest-appearance-orb' }, [
           ...moonDots,
-          ...rays,
           ...clouds,
         ]),
         h('span', { key: 'forest', className: 'everforest-appearance-forest', 'aria-hidden': 'true' }, forest),
