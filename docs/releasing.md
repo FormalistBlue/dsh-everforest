@@ -88,6 +88,15 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **市场「更新内容」**：1.4.0 小节 223 字符 / 493 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.3.0，§8.6）。
 > - **2026-11-07 已发布**：tag `v1.4.0`（commit `b7b9e76`）→ publish run `42253364321` → npm `latest` = `1.4.0`（`dist.shasum` `ec49ae73d399694e1e0f4f51641cf1fed63c8cca`，SLSA provenance v1，transparency log index `3721440653`），GitHub Release `v1.4.0` 已由 workflow 自动创建（发布说明取自 CHANGELOG 1.4.0 小节，223 字符 / 493 字节）；verify run `42253398080` 在 Linux / Windows × Node 20/22/24 全绿。工作流里 `npm view` 步骤发布瞬间仍读到上一版（1.3.0，CDN 缓存），约 5 分钟后 `GET .../1.4.0` 与 `dist-tags` 均已是 1.4.0。
 
+> **1.5.0 发布注意（待发布，2026-11-08 准备）**
+>
+> - **只改 Client 半部，升级不需要重启 DSH**：绿色交互层（`statusline1` 强调色）、选中会话行 / 聊天气泡 / 目录名与标题 / 下拉选中项 / 插件更新弹窗等常驻样式表都是 Client 侧；Host 半部与 `Config` schema 未变，插件升级后刷新页面即可（HMR 会热替换模块）。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交里重建）。
+> - **token / API 契约不变**：DSH 覆盖的 217 个颜色 token + 6 个辅助 token 名称与数量不变（`statusline1` 只是内部 `Foreground` 模型 18 → 19 色），`engines.dsh` 仍为 `>=0.2.1-rc.2 <0.3.0-0`，第三方插件读取的兼容别名不受影响。
+> - **验收口径**：`node --test` **321/321**；`npm run check`（palette / build / contrast / release-notes）全绿；`docs/reference/contrast.md` 已由脚本重新生成（新增 G18–G20，G18 按静止 / hover 分档）。
+> - **市场「更新内容」**：1.5.0 小节 433 字符 / 1,110 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.4.0，§8.6）。
+> - **发布后回填**：tag `v1.5.0` → publish run、`dist.shasum` 补到本文件顶部发布记录与 `design.md` §10。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。

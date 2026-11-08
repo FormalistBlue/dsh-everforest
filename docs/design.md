@@ -494,10 +494,10 @@ export function apply(ctx) {
 ## 8. 清单与构建
 
 ```jsonc
-// package.json（1.4.0 发布后更新；本快照随版本维护，发版时核对）
+// package.json（1.5.0 发布后更新；本快照随版本维护，发版时核对）
 {
   "name": "dsh-everforest",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Everforest color themes (Dark/Light × Hard/Medium/Soft) for DeepSeek Harness Web/Desktop.",
   "type": "module",
   "main": "index.js",
@@ -607,6 +607,7 @@ export function apply(ctx) {
 | 1.2.0 | **聊天表格边框与列宽拖动**（§18）：中性色阶外框 + 列分隔线；表头右缘 6px 拖动调列宽，fill 表相邻两列重分配、宽表（≥4 列）逐列独立改宽且表格总宽跟随列宽之和、最后一列右边框也可拖；宽表重新装箱为 Element 表格式固定视口（容器收在正文列内、列宽保持自然长度、放不下底部常驻横向滚动条）；双击复位、Esc 取消、64px 下限；2026-10-28 代码梳理（删 `dblclick` 死路径、合并锁定状态、统一拖动提交）；README 表格特性压成一句话 | `node --test` **239/239** + `npm run check` 全绿；`scenarios.mjs` 全场景矩阵 **106/106**（真实 CDP 鼠标输入，深 / 浅两套主题，含 fill / wide / 异常表 / 生命周期）；真机 fill + wide 复测见 §18.4；发布 tag `v1.2.0` → publish run `40713360126`（SLSA provenance），verify run `40713342591` 在 Linux / Windows × Node 20/22/24 全绿 |
 | 1.3.0 | **设置导航松树图标与第三方插件配色**：设置导航里的本插件行改用 DOM 标记 + MutationObserver 画松树图标（DSH 仍无 `icon` 字段，失效回退默认齿轮，§19）；新增 41 个猜测式 `--dsw-alias-*` 别名桥，让第三方插件页面跟随主题配色（不进官方 token 契约，启动探测让位宿主，§20）；任务列表复选框重绘（浅色绿 / 深色蓝、去掉多余圆点，§13.1）；表格列宽提示线改用 `header_aqua` 并加长到整列高（§18.2）。Host 半部与 `Config` schema 未变 | `node --test` **262/262** + `npm run check` 全绿（palette / build / contrast；`contrast.md` 已重新生成，25 个角色色值）；发布 tag `v1.3.0` → publish run `41075123199`（SLSA provenance），verify run `41075168286` 在 Linux / Windows × Node 20/22/24 全绿 |
 | 1.4.0 | **DSH 0.2.2-rc.1 适配与表格列宽记忆**：token 契约 206 → 217，补 illustration 六项与 `state-done-primary` 的映射、移除上游不再声明的 `--dsw-specific-sidebar-nav-item-hover`（§4 / §12）；设置导航图标改走官方 `settings.section.icon` 槽位，删除 DOM 标记 + MutationObserver 与导航图标样式表（§19，样式表回到 6 张）；聊天表格拖动后的列宽写入浏览器本地缓存，刷新 / 切换会话后恢复、双击边缘仍复位（§18.6）；表格最小列宽从 100px 降到 64px，与拖动下限对齐（§18.1）。Host 半部与 `Config` schema 未变 | `node --test` **295/295** + `npm run check` 全绿（palette / build / contrast；`contrast.md` 已重新生成）；发布 tag `v1.4.0` → publish run `42253364321`（SLSA provenance），verify run `42253398080` 在 Linux / Windows × Node 20/22/24 全绿 |
+| 1.5.0 | **绿色交互层与上游 `statusline1` 对齐**：交互强调色统一取上游 `statusline1`（浅色 `#93B259` / 深色 `#A7C080`），会话标题与目录名称改用文字绿 `green`（浅色 `#8DA101`）；选中会话行改为实色强调底 + 画布墨色，并补齐行内灰字 / 加载 spinner / 按钮 hover（§15 / §22 / §23）；下拉选中项与插件更新弹窗改为绿色强调（§24 / §25）；聊天气泡改为苔纸底 + 派生墨（§12）；A7 / A9 上游语义对齐（`bg4` hover 叠层、`grey0` 弱化文字族）；图标改为透明底鲸鱼。Host 半部与 `Config` schema 未变 | `node --test` **321/321** + `npm run check` 全绿（palette / build / contrast / release-notes）；发布 tag `v1.5.0` → publish run（待发布） |
 
 > **1.2.0 验收证据（2026-10-28，已发布）**：`node --test` **239/239**（1.1.0 的 224 项 + 本批 15 项，新增 `table-resize` 14 项与 `tests/support/css.mjs` 公共解析器）；`npm run check` 全绿（palette / build / contrast）；`client.js` 重建为 v1.2.0（md5 `b8d9adac…`）并同步 desktop profile；§18.4 的 `scenarios.mjs` 全场景矩阵 **106/106**（真实 CDP 鼠标输入，深 / 浅两套主题，覆盖 fill / wide / 异常表 / 生命周期）+ 真机 fill / wide 复测（fill `203.64 / 541.8 → 243.64 / 501.8`、表格 `745.44px` 不变；wide 最后一列 `353 → 232.5`、表格 `1192.47 → 1072px`，逐列拖窄到 `511px` 无滚动条，双击复位）；发布 tag `v1.2.0` → publish run `40713360126` → npm `latest` = 1.2.0（`dist.shasum` `480aadf8…`，SLSA provenance），GitHub Release `v1.2.0` 自动创建；verify run `40713342591`（Linux / Windows × Node 20/22/24）全绿。
 
