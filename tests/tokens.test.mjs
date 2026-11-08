@@ -246,22 +246,64 @@ test('translucent static tokens keep their alpha ratios (8-digit hex)', () => {
   }
 })
 
-test('brand mapping: official accent aqua with bg0 foreground, blue link', () => {
+test('brand mapping: official statusline1 accent with bg0 foreground, blue link', () => {
   const overlay = tokensFor(DEFAULT_STATE)
-  assert.equal(overlay['--dsw-alias-brand-primary'].light, FOREGROUNDS.light.aqua)
-  assert.equal(overlay['--dsw-alias-brand-primary'].dark, FOREGROUNDS.dark.aqua)
-  assert.equal(overlay['--dsw-alias-brand-primary-new-colorprimary-new-color'].light, FOREGROUNDS.light.aqua)
-  assert.equal(overlay['--dsw-alias-button-primary-fill'].dark, FOREGROUNDS.dark.aqua)
-  assert.equal(overlay['--dsw-alias-button-primary-hover'].light, FOREGROUNDS.light.blue)
-  assert.equal(overlay['--dsw-alias-button-info-fill'].dark, FOREGROUNDS.dark.blue)
+  assert.equal(overlay['--dsw-alias-brand-primary'].light, FOREGROUNDS.light.statusline1)
+  assert.equal(overlay['--dsw-alias-brand-primary'].dark, FOREGROUNDS.dark.statusline1)
+  assert.equal(overlay['--dsw-alias-brand-primary-new-colorprimary-new-color'].light, FOREGROUNDS.light.statusline1)
+  assert.equal(overlay['--dsw-alias-button-primary-fill'].dark, FOREGROUNDS.dark.statusline1)
   // Brand / primary-button foreground is bg0, never white.
   for (const name of ['--dsw-alias-label-primary-foreground', '--dsw-alias-brand-text']) {
     assert.equal(overlay[name].light, RAMPS.light.hard.bg0)
     assert.equal(overlay[name].dark, RAMPS.dark.soft.bg0)
   }
+  // Text / info roles keep the blue accent: only the interaction roles moved to
+  // green (2026-11-07).
   assert.equal(overlay['--dsw-alias-link'].light, FOREGROUNDS.light.blue)
   assert.equal(overlay['--dsw-alias-link'].dark, FOREGROUNDS.dark.blue)
-  assert.equal(overlay['--dsw-alias-label-deep-diving'].light, FOREGROUNDS.light.blue)
+  assert.equal(overlay['--shiki-token-keyword'].light, FOREGROUNDS.light.blue)
+})
+
+test('interaction emphasis follows the accent green, not DSH deepseek blue', () => {
+  // 2026-11-07 user report: the composer send button, the active workspace folder
+  // and the hero "预览版" pill all read blue. DSH paints them with its DeepSeek
+  // brand-blue roles — `button-info-fill` (`.GRgSLq_primary` background) and
+  // `state-business-primary` (active/selected rows and the focus-ring fallback,
+  // 225 uses across the built-in UI packages) — so they are interaction accents
+  // and follow the interaction accent (`statusline1`; 2026-11-08 light = #93B259);
+  // blue stays the text/info accent (link / syntax).
+  const overlay = tokensFor(DEFAULT_STATE)
+  const accent = { light: FOREGROUNDS.light.statusline1, dark: FOREGROUNDS.dark.statusline1 }
+  for (const name of [
+    '--dsw-alias-button-info-fill',
+    '--dsw-alias-state-business-primary',
+    '--dsw-alias-label-primary-bluish',
+    '--dsw-alias-label-deep-diving'
+  ]) {
+    assert.deepEqual(overlay[name], accent, `${name} must follow the interaction accent`)
+  }
+  // Hover lifts the same accent instead of jumping to blue.
+  assert.equal(
+    overlay['--dsw-alias-button-primary-hover'].light,
+    mix(FOREGROUNDS.light.statusline1, RAMPS.light.hard.bg0, 0.18)
+  )
+  assert.equal(
+    overlay['--dsw-alias-button-info-hover'].dark,
+    mix(FOREGROUNDS.dark.statusline1, FOREGROUNDS.dark.fg, 0.18)
+  )
+  // The soft pill surface stays the accent blended 85% into bg0.
+  assert.equal(
+    overlay['--dsw-alias-state-business-tertiary'].light,
+    mix(FOREGROUNDS.light.statusline1, RAMPS.light.hard.bg0, 0.85)
+  )
+  assert.equal(
+    overlay['--dsw-alias-state-business-tertiary'].dark,
+    mix(FOREGROUNDS.dark.statusline1, RAMPS.dark.soft.bg0, 0.85)
+  )
+  assert.equal(
+    overlay['--dsw-alias-label-deep-diving-shimmer'].light,
+    `color-mix(in srgb, ${FOREGROUNDS.light.statusline1} 40%, transparent)`
+  )
 })
 
 test('inline code is a background chip, not a foreground accent', () => {
@@ -329,10 +371,13 @@ test('chat bubble separates from bg-base while keeping primary text readable', (
   // DSH paints user messages with --dsw-specific-bubble and label-primary ink
   // (chat MessageItem.module.css). The old surface(p, 1) mapping produced
   // #FDFAEE on the #FFFBEF canvas (1.02:1): light bubbles blended into the
-  // background (2026-10-19 visual report). Light now uses a sage tint of
-  // header-aqua, except light·soft where the 4.5:1 ink cap forbids darkening, so
-  // the bubble flips to a raised pale-sage paper (2026-10-21: the earlier
-  // near-white card read as "the bubble turned white").
+  // background (2026-10-19 visual report). Since the 2026-11-08 bubble review
+  // (user picked option C "苔纸" for light / F "只换字色" for dark) light is a
+  // moss paper — bg_green pulled toward bg5 — guarded so the official ink stays
+  // AA; light·soft keeps the raised branch (its canvas has no contrast headroom)
+  // as a pale moss paper. Dark keeps the bg1 step. The derived bubble ink lives
+  // in src/chat-bubble.js and is covered by tests/chat-bubble.test.mjs.
+  const expectedLight = { hard: '#e7ead0', medium: '#e7e9cd', soft: '#f1f2e5' }
   for (const scheme of ['light', 'dark']) {
     for (const strength of STRENGTHS) {
       const overlay = tokensFor({ light: strength, dark: strength })
@@ -341,20 +386,22 @@ test('chat bubble separates from bg-base while keeping primary text readable', (
       assert.ok(isLegalColor(bubble), `${scheme}-${strength}: bubble must be a colour`)
       assert.notEqual(bubble, base)
       const boundary = contrastRatio(bubble, base)
-      // light·soft trades some luminance step for a pale-sage hue (the canvas is
+      // light·soft trades some luminance step for a pale moss hue (the canvas is
       // already at the 4.66:1 ink limit); its gate is 1.05 (user-approved 2026-10-21).
       const boundaryMin = scheme === 'light' && strength === 'soft' ? 1.05 : 1.1
       assert.ok(boundary >= boundaryMin, `${scheme}-${strength}: bubble/bg-base boundary = ${boundary.toFixed(3)} < ${boundaryMin}`)
       const textRatio = contrastRatio(overlay['--dsw-alias-label-primary'][scheme], bubble)
       assert.ok(textRatio >= 4.5, `${scheme}-${strength}: label-primary on the bubble = ${textRatio.toFixed(2)} < 4.5`)
 
-      // Direction: dark keeps the lighter bg1 step; light uses the darker sage
-      // tint for hard/medium and the raised card for soft.
+      // Direction: dark keeps the lighter bg1 step; light uses the darker moss
+      // for hard/medium and the raised moss paper for soft.
       const bubbleLuminance = relativeLuminance(bubble)
       const baseLuminance = relativeLuminance(base)
       const lightRaised = scheme === 'light' && strength === 'soft'
       assert.equal(bubbleLuminance > baseLuminance, lightRaised || scheme === 'dark', `${scheme}-${strength}: bubble luminance direction`)
-      if (scheme === 'dark') {
+      if (scheme === 'light') {
+        assert.equal(bubble.toLowerCase(), expectedLight[strength], `light-${strength}: bubble must keep the moss paper`)
+      } else {
         assert.equal(bubble.toLowerCase(), RAMPS.dark[strength].bg1.toLowerCase(), 'dark bubble keeps the bg1 step')
       }
     }
@@ -417,10 +464,13 @@ test('semantic state mapping follows Enchanted', () => {
   assert.equal(overlay['--dsw-alias-state-success-primary'].light, FOREGROUNDS.light.green)
   assert.equal(overlay['--dsw-alias-state-warn-primary'].light, FOREGROUNDS.light.yellow)
   assert.equal(overlay['--dsw-alias-state-error-primary'].light, FOREGROUNDS.light.red)
-  assert.equal(overlay['--dsw-alias-state-business-primary'].light, FOREGROUNDS.light.blue)
-  assert.equal(overlay['--dsw-alias-state-idle-primary'].light, FOREGROUNDS.light.grey2)
+  // DSH's `business` is its DeepSeek brand-blue role, painted on active/selected
+  // and focus states; it follows the interaction accent (2026-11-07; `statusline1`
+  // since 2026-11-08), while the success green stays the semantic `green`.
+  assert.equal(overlay['--dsw-alias-state-business-primary'].light, FOREGROUNDS.light.statusline1)
+  assert.equal(overlay['--dsw-alias-state-idle-primary'].light, FOREGROUNDS.light.grey0)
   assert.equal(overlay['--dsw-alias-label-secondary'].light, FOREGROUNDS.light.grey1)
-  assert.equal(overlay['--dsw-alias-label-tertiary'].light, FOREGROUNDS.light.grey2)
+  assert.equal(overlay['--dsw-alias-label-tertiary'].light, FOREGROUNDS.light.grey0)
 })
 
 test('0.2.2-rc.1 additions: illustration artwork and the violet done state', () => {
@@ -570,14 +620,18 @@ test('primary label passes WCAG AA on base and light layers for all six variants
   }
 })
 
-test('brand foreground on brand stays above the accepted 2.5 trade-off', () => {
+test('brand foreground on brand keeps the documented accent-pair floor', () => {
+  // 2026-11-08 third accent pass: the interaction accent is `statusline1` verbatim,
+  // so the bg0 ink on the filled brand surface sits at 2.00–2.32:1 in the light
+  // schemes (the reference tab pairs cream ink with the same green) and stays AA in
+  // the dark schemes. The floor pins that documented pair; the trade-off is
+  // recorded in docs/reference/contrast.md (gates 4 and 17).
   for (const scheme of ['light', 'dark']) {
     for (const strength of STRENGTHS) {
       const overlay = tokensFor({ light: strength, dark: strength })
       const value = (name) => overlay[name][scheme]
-      assert.ok(
-        contrastRatio(value('--dsw-alias-label-primary-foreground'), value('--dsw-alias-brand-primary')) >= 2.5
-      )
+      const ratio = contrastRatio(value('--dsw-alias-label-primary-foreground'), value('--dsw-alias-brand-primary'))
+      assert.ok(ratio >= (scheme === 'light' ? 1.95 : 4.5), `${scheme}-${strength}: brand ink = ${ratio.toFixed(2)}`)
     }
   }
 })

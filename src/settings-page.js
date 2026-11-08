@@ -412,14 +412,14 @@ export function createSettingsComponent(dependencies) {
     return EMPTY_STORE
   }
 
-  /** The five preview colors of one palette: bg0, bg1, bg2, fg, the accent aqua. */
+  /** The five preview colors of one palette: bg0, bg1, bg2, fg, the accent green. */
   function swatchColors(scheme, strength) {
     const ramps = palette.RAMPS && typeof palette.RAMPS === 'object' ? palette.RAMPS : {}
     const schemeRamps = ramps[scheme] && typeof ramps[scheme] === 'object' ? ramps[scheme] : {}
     const ramp = schemeRamps[strength] && typeof schemeRamps[strength] === 'object' ? schemeRamps[strength] : {}
     const foregrounds = palette.FOREGROUNDS && typeof palette.FOREGROUNDS === 'object' ? palette.FOREGROUNDS : {}
     const fg = foregrounds[scheme] && typeof foregrounds[scheme] === 'object' ? foregrounds[scheme] : {}
-    return [ramp.bg0, ramp.bg1, ramp.bg2, fg.fg, fg.aqua]
+    return [ramp.bg0, ramp.bg1, ramp.bg2, fg.fg, fg.green]
   }
 
   /**

@@ -39,8 +39,8 @@ const __mod_0_palette_js = (() => {
  */
 
 /**
- * Foreground, accent and header colors (18 `#RRGGBB` colors) shared by the three
- * strengths of one scheme.
+ * Foreground, accent, status-line and header colors (19 `#RRGGBB` colors) shared
+ * by the three strengths of one scheme.
  * @typedef {object} Foreground
  * @property {string} fg
  * @property {string} red
@@ -53,6 +53,7 @@ const __mod_0_palette_js = (() => {
  * @property {string} grey0
  * @property {string} grey1
  * @property {string} grey2
+ * @property {string} statusline1
  * @property {string} headerRed
  * @property {string} headerOrange
  * @property {string} headerYellow
@@ -213,6 +214,7 @@ const FOREGROUNDS = freezePaletteData({
     grey0: '#7A8478',
     grey1: '#859289',
     grey2: '#9DA9A0',
+    statusline1: '#A7C080',
     headerRed: '#DA6362',
     headerOrange: '#D77F48',
     headerYellow: '#BF983D',
@@ -233,6 +235,7 @@ const FOREGROUNDS = freezePaletteData({
     grey0: '#A6B0A0',
     grey1: '#939F91',
     grey2: '#829181',
+    statusline1: '#93B259',
     headerRed: '#F85552',
     headerOrange: '#F88F44',
     headerYellow: '#F3B931',
@@ -552,7 +555,7 @@ const __mod_2_tokens_js = (() => {
 //    - the four alpha statics get 8-digit hex values (alpha green/red).
 // 2. alias / specific / shiki: explicit semantic mapping to Everforest roles per
 //    docs/design.md §4 (bg layers, sidebar = one ramp step off bg0, labels,
-//    borders = bg5 alpha, brand = header-aqua, link = header-blue, states,
+//    borders = bg5 alpha, brand / interaction accent = green, link = blue, states,
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
 //    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
 //    = neutral luminance anchors, ...). No alias relies on automatic following:
@@ -569,6 +572,11 @@ const __mod_2_tokens_js = (() => {
 
 /** Minimum contrast for surfaces that carry `--dsw-alias-label-primary` text. */
 const SURFACE_CONTRAST_TARGET = 4.5
+
+// The brand / primary-button floor (`--dsw-alias-label-primary-foreground` on a
+// filled accent surface) is enforced by scripts/check-contrast.mjs (gate 4), not
+// here: since 2026-11-08 the interaction accent is `statusline1` verbatim, so the
+// light schemes sit at 2.00–2.32:1 by design (the reference tab does the same).
 
 /** How far light-scheme text surfaces are blended toward bg0 (flat-style baseline). */
 const LIGHT_SURFACE_MIX = 0.25
@@ -623,10 +631,10 @@ function rampSurface (p, step) {
  * Deterministic contrast guard for surfaces that carry label-primary text:
  * nudge the surface toward a lighter anchor until the primary label reaches
  * WCAG AA (4.5:1). `readableSurface` moves toward `bg0` (the scheme's lightest
- * colour); the chat bubble moves toward white instead, because moving toward
- * the warm canvas would erase the tint that makes it recognizable (see
- * `bubbleSurface`). Leaves the input untouched when it already passes, so most
- * tokens keep their exact design value.
+ * colour); the light chat bubble runs the same guard on its moss paper, and its
+ * light·soft variant is raised from white instead (see `bubbleSurface`).
+ * Leaves the input untouched when it already passes, so most tokens keep their
+ * exact design value.
  * @param {{ scheme: string, ramp: object, fg: object }} p
  * @param {string} color
  * @param {string} toward - colour mixed in until the text target is met.
@@ -657,6 +665,36 @@ function surface (p, step) {
   return readableSurface(p, rampSurface(p, step))
 }
 
+/**
+ * The interaction accent of a variant: upstream Everforest `statusline1`
+ * ("Menu Selection Background / Tab Line Label Background (active)"), the one
+ * green the plugin paints every selected / active chrome surface with (send
+ * button, selected session band, folder names, conversation title, dropdown
+ * selection). Dark is `#A7C080` (identical to `green`), light is `#93B259`
+ * (2026-11-08: the user cropped the same reference tab and asked for the
+ * lighter green; `green` `#8DA101` looked olive).
+ * @param {{ fg: object }} p
+ * @returns {string}
+ */
+function interactionAccent (p) {
+  return p.fg.statusline1
+}
+
+/**
+ * Filled interaction accent (brand mark / primary + info buttons). These surfaces
+ * carry the `bg0` ink (`--dsw-alias-label-primary-foreground`), and the accent is
+ * used verbatim: `statusline1` sits at 2.00–2.32:1 on the light canvases (the
+ * reference tab pairs cream ink with the same green) and 5.62–6.88:1 in the dark
+ * schemes. 2026-11-08 third pass dropped the earlier deepen-toward-`fg` guard:
+ * it kept light·soft at the 2.5:1 brand trade-off but pushed the fill off the
+ * reference colour, which is exactly what the user asked to stop.
+ * @param {{ scheme: string, ramp: object, fg: object }} p
+ * @returns {string}
+ */
+function accentFill (p) {
+  return interactionAccent(p)
+}
+
 /** How far the sidebar surface is blended from bg0 toward bg1. */
 const SIDEBAR_STEP_MIX = 0.8
 
@@ -684,16 +722,17 @@ function sidebarSurface (p) {
   return readableSurface(p, mix(p.ramp.bg0, p.ramp.bg1, SIDEBAR_STEP_MIX))
 }
 
-/** How far the tinted light chat bubble is mixed from bg0 toward header-aqua. */
-const BUBBLE_TINT_MIX = 0.16
+/** How far the light chat bubble is blended from `bg_green` toward `bg5`. */
+const BUBBLE_MOSS_MIX = 0.22
 
 /**
- * How far the raised (light·soft) bubble moves from white toward the scheme's
- * green ink. A plain (or barely aqua-tinted) white read as "the chat bubble turned
- * white" on the warm light·soft canvas (2026-10-21 user report), so the raised
- * branch is a pale sage paper instead.
+ * How far the raised (light·soft) bubble moves from white toward the moss paper.
+ *
+ * light·soft's canvas is already at the 4.5:1 ink limit, so a darker moss would
+ * fail AA; the bubble is raised instead. It is not near-white (the 2026-10-21
+ * "the bubble turned white" report), but a pale moss paper.
  */
-const BUBBLE_RAISED_MIX = 0.13
+const BUBBLE_RAISED_MIX = 0.4
 
 /**
  * Chat user-message bubble (`--dsw-specific-bubble`).
@@ -705,26 +744,32 @@ const BUBBLE_RAISED_MIX = 0.13
  * "聊天气泡和背景融为一体了"). The native light bubble is not a neutral ramp
  * step either: it is a pale blue tint (`static-deepseek-50` on white).
  *
- * The Everforest analogue is a sage tint of `header-aqua` on the canvas. The
- * bubble carries primary text, so the 4.5:1 gate applies on top: in light·hard
- * and light·medium the tint can darken to ~1.17 / 1.14:1 from bg0 while
- * keeping the ink at 4.6:1. In light·soft `bg0` is already 4.66:1 from the ink,
- * so a darker tint would fail the gate; there the bubble flips to the raised
- * direction — a pale sage paper (white pulled toward the scheme green) rather
- * than the previous stark near-white. It keeps the ink at ~4.9:1; the canvas
- * boundary is ~1.06:1 instead of 1.15:1, which is an accepted trade-off: the
- * green-vs-warm-cream hue difference carries the separation the luminance step
- * no longer does (the bubble gate is relaxed to 1.05 for light·soft).
+ * 2026-11-08: the user picked the "苔纸" direction (option C of the
+ * `.tmp/bubble-demo` comparison) for the light scheme — Everforest's own
+ * `bg_green` pulled toward `bg5` (a moss paper) instead of the old sage tint of
+ * `header-aqua`. The bubble is a text-bearing surface, so the `label-primary`
+ * gate still applies as the fallback: light·hard clears it with the raw moss
+ * (4.54:1), light·medium is nudged toward `bg0` by `readableSurface` (~4.50:1),
+ * and light·soft (whose `bg0` has only 4.66:1 of headroom) keeps the raised
+ * branch — now white pulled toward the same moss instead of toward `fg.green`,
+ * which keeps the green paper family while staying at 1.06:1 from the canvas
+ * (the accepted light·soft trade-off, gate 1.05).
  *
- * Dark keeps the existing `bg1` step (1.14–1.16:1 from bg0, ink ≥5.7:1).
+ * The ink on top is a scoped derived colour (`src/chat-bubble.js`): deep pine
+ * `#3E5647` in light, pale sage `#DAE2C7` in dark. The token itself keeps the
+ * official ink readable, so the bubble stays AA even if that selector is lost on
+ * a DSH upgrade.
+ *
+ * Dark keeps the existing `bg1` step (1.14–1.16:1 from bg0, ink ≥5.7:1); the
+ * 2026-11-08 dark pick was "只换字色", i.e. no background change there.
  * @param {{ scheme: string, strength: string, ramp: object, fg: object }} p
  * @returns {string}
  */
 function bubbleSurface (p) {
   if (p.scheme === 'dark') return surface(p, 1)
-  const tinted = readableToward(p, mix(p.ramp.bg0, p.fg.headerAqua, BUBBLE_TINT_MIX), '#ffffff')
-  const raised = mix('#ffffff', p.fg.green, BUBBLE_RAISED_MIX)
-  return contrastRatio(p.ramp.bg0, tinted) >= contrastRatio(p.ramp.bg0, raised) ? tinted : raised
+  const moss = mix(p.ramp.bgGreen, p.ramp.bg5, BUBBLE_MOSS_MIX)
+  if (p.strength === 'soft') return mix('#ffffff', moss, BUBBLE_RAISED_MIX)
+  return readableSurface(p, moss)
 }
 
 /** Code-block / markdown background (Everforest `bg_dim`; contrast guarded). */
@@ -1113,14 +1158,23 @@ const ALIAS_TOKENS = {
   '--dsw-alias-border-l3': (p) => border(p, 'l3'),
   '--dsw-alias-border-l4': (p) => border(p, 'l4'),
 
-  // Brand / primary buttons. 2026-10-24 accent trial: the official `fg.aqua` /
-  // `fg.blue` replace Enchanted's muted `header-aqua` / `header-blue` here and
-  // in the link / deep-diving / interaction tokens. `header-*` stays for the
-  // onboarding artwork, the shiki link colour and the light bubble tint.
-  '--dsw-alias-brand-primary': (p) => p.fg.aqua,
+  // Brand / primary buttons / interaction accent. The accent is the official
+  // `fg.green` — upstream paints its own UI with this green (menu selection
+  // background, active tab label, status-line mode indicator = `statusline1`,
+  // which is the same color in the dark scheme). `fg.blue` keeps the text / info
+  // roles (link, shiki keyword, inline-code chip); `fg.aqua` keeps the content
+  // decorations (list markers, quote bar, hr) of the color mode.
+  // 2026-10-24 accent trial moved these roles off Enchanted's muted `header-*`
+  // pair. 2026-11-07: `button-info-fill` / `state-business-*` /
+  // `label-primary-bluish` moved blue → accent (DSH paints the composer send
+  // button and the active/selected + focus-ring states with the DeepSeek brand
+  // blue roles); later the same day the user compared an official Everforest Vim
+  // screenshot and the accent settled on `fg.green` instead of `fg.aqua`
+  // (docs/design.md §21).
+  '--dsw-alias-brand-primary': (p) => accentFill(p),
   '--dsw-alias-brand-primary-invert': (p) => p.ramp.bg0,
   // Upstream token name carries a duplicated suffix; keep the exact CSS variable.
-  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => p.fg.aqua,
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => accentFill(p),
   '--dsw-alias-brand-text': (p) => p.ramp.bg0,
   '--dsw-alias-button-contrast-fill': (p) => p.fg.fg,
   '--dsw-alias-button-elevated-fill': (p) => surface(p, 2),
@@ -1129,12 +1183,12 @@ const ALIAS_TOKENS = {
   '--dsw-alias-button-ghost-active-border': (p) => border(p, 'l3'),
   '--dsw-alias-button-ghost-active-fill': (p) => surface(p, 2),
   '--dsw-alias-button-ghost-active-hover': (p) => surface(p, 3),
-  '--dsw-alias-button-info-fill': (p) => p.fg.blue,
-  '--dsw-alias-button-info-hover': (p) => lift(p, p.fg.blue, 0.18),
+  '--dsw-alias-button-info-fill': (p) => accentFill(p),
+  '--dsw-alias-button-info-hover': (p) => lift(p, accentFill(p), 0.18),
   // "dimmed" primary: desaturate toward the surface instead of changing the hue.
-  '--dsw-alias-button-primary-dimmed': (p) => mix(p.fg.aqua, surface(p, 2), 0.45),
-  '--dsw-alias-button-primary-fill': (p) => p.fg.aqua,
-  '--dsw-alias-button-primary-hover': (p) => p.fg.blue,
+  '--dsw-alias-button-primary-dimmed': (p) => mix(accentFill(p), surface(p, 2), 0.45),
+  '--dsw-alias-button-primary-fill': (p) => accentFill(p),
+  '--dsw-alias-button-primary-hover': (p) => lift(p, accentFill(p), 0.18),
   // Tool-bar material: bg2 + the upstream 45%-94% opacity range.
   '--dsw-alias-button-tool-bar-fill': (p) => alpha(surface(p, 2), 0.72),
   '--dsw-alias-button-tool-bar-fill-invisible': (p) => alpha(surface(p, 2), 0.45),
@@ -1150,21 +1204,34 @@ const ALIAS_TOKENS = {
   '--dsw-alias-file-diff-deleted-gutter': (p) => diffGutter(p, diffSurface(p, 'bgRed', p.fg.red)),
   '--dsw-alias-file-diff-deleted-marker': (p) => p.fg.red,
 
-  // Interactive feedback (subtle translucent overlays, as upstream) -----------
-  '--dsw-alias-interactive-bg-active': (p) => alpha(p.ramp.bg5, 0.28),
-  '--dsw-alias-interactive-bg-hover': (p) => alpha(p.ramp.bg5, 0.16),
-  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(p.fg.aqua, 0.16),
+  // Interactive feedback (subtle translucent overlays). Upstream defines no
+  // hover role and marks `bg5` "Not currently used", so the 2026-11-08 palette
+  // review moved these overlays off `bg5`: they are a neutral wash of the ramp's
+  // whitespace / separator step `bg4`. The selected menu item is no longer this
+  // overlay either — `src/ui-accents.js` paints it with `statusline1` (upstream:
+  // "Menu Selection Background").
+  '--dsw-alias-interactive-bg-active': (p) => alpha(p.ramp.bg4, 0.8),
+  '--dsw-alias-interactive-bg-hover': (p) => alpha(p.ramp.bg4, 0.5),
+  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(interactionAccent(p), 0.16),
   '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.red, 0.12),
   '--dsw-alias-interactive-bg-hover-solid': (p) => surface(p, 2),
 
   // Labels -------------------------------------------------------------------
-  '--dsw-alias-label-caption': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.25),
-  '--dsw-alias-label-deep-diving': (p) => p.fg.blue,
-  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(p.fg.blue, 40),
-  '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.55),
+  // 2026-11-08 palette review (A9): upstream assigns `grey2` only to the cursor
+  // line number and the inactive tab label, while `grey0` is the muted family
+  // (line numbers / fold columns / concealed text / foreground UI elements).
+  // DSH paints code line numbers with `label-tertiary`, so the muted family is
+  // `grey0` here; `grey2` stays out of the token layer.
+  '--dsw-alias-label-caption': (p) => mix(p.fg.grey0, p.ramp.bg0, 0.25),
+  // "deep diving" is the running-turn status label in chat: an activity cue, so
+  // it follows the interaction accent (2026-11-07: blue → aqua → green).
+  '--dsw-alias-label-deep-diving': (p) => interactionAccent(p),
+  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(interactionAccent(p), 40),
+  '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey0, p.ramp.bg0, 0.55),
   '--dsw-alias-label-document-preview': (p) => p.fg.grey1,
   '--dsw-alias-label-primary': (p) => p.fg.fg,
-  '--dsw-alias-label-primary-bluish': (p) => p.fg.blue,
+  // Inks the hero's "预览版" pill (`state-business-tertiary` tint below).
+  '--dsw-alias-label-primary-bluish': (p) => interactionAccent(p),
   '--dsw-alias-label-primary-dimmed': (p) => mix(p.fg.fg, p.ramp.bg0, 0.35),
   // Brand / primary-button foreground: bg0, not white (docs/design.md §4).
   '--dsw-alias-label-primary-foreground': (p) => p.ramp.bg0,
@@ -1173,7 +1240,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-label-primary-inverted': (p) => contrastInk(p),
   '--dsw-alias-label-secondary': (p) => p.fg.grey1,
   '--dsw-alias-label-shimmer': (p) => transparentMix(p.fg.fg, 30),
-  '--dsw-alias-label-tertiary': (p) => p.fg.grey2,
+  '--dsw-alias-label-tertiary': (p) => p.fg.grey0,
 
   // Links / markdown ---------------------------------------------------------
   '--dsw-alias-link': (p) => p.fg.blue,
@@ -1194,7 +1261,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-menu-icon': (p) => p.fg.grey1,
 
   // Onboarding (accent + 3 gradient stops + 3 fills = 7 tokens) --------------
-  '--dsw-alias-onboarding-accent': (p) => p.fg.aqua,
+  '--dsw-alias-onboarding-accent': (p) => interactionAccent(p),
   '--dsw-alias-onboarding-card-fill': (p) => alpha(surface(p, 2), 0.8),
   '--dsw-alias-onboarding-checkbox-border': (p) => border(p, 'l1'),
   '--dsw-alias-onboarding-secondary-fill': (p) => surface(p, 1),
@@ -1225,13 +1292,18 @@ const ALIAS_TOKENS = {
 
   // States (Enchanted semantics; semantic colours keep the upstream low-contrast
   // character and are reported, not "fixed", in docs/reference/contrast.md) -----
-  '--dsw-alias-state-business-primary': (p) => p.fg.blue,
-  '--dsw-alias-state-business-tertiary': (p) => tint(p, p.fg.blue, 0.85),
+  // `business` is the DeepSeek brand-blue role upstream (deepseek-500). DSH paints
+  // active / selected / focus with it, so it follows the interaction accent
+  // (`fg.green`, 2026-11-07); upstream also uses green for hint / menu-selection
+  // states, so the accent and `state-success` share the same green on purpose.
+  // The third-party `state-info-*` aliases ride along.
+  '--dsw-alias-state-business-primary': (p) => interactionAccent(p),
+  '--dsw-alias-state-business-tertiary': (p) => tint(p, interactionAccent(p), 0.85),
   // DSH's "done" state is violet, distinct from the success green.
   '--dsw-alias-state-done-primary': (p) => p.fg.purple,
   '--dsw-alias-state-error-primary': (p) => p.fg.red,
   '--dsw-alias-state-error-secondary': (p) => lift(p, p.fg.red, 0.25),
-  '--dsw-alias-state-idle-primary': (p) => p.fg.grey2,
+  '--dsw-alias-state-idle-primary': (p) => p.fg.grey0,
   '--dsw-alias-state-success-primary': (p) => p.fg.green,
   '--dsw-alias-state-success-secondary': (p) => lift(p, p.fg.green, 0.25),
   '--dsw-alias-state-success-tertiary': (p) => tint(p, p.fg.green, 0.82),
@@ -1260,7 +1332,7 @@ const SPECIFIC_TOKENS = {
   '--dsw-specific-selector': (p) => surface(p, 2),
   '--dsw-specific-sidebar-fill': (p) => sidebarSurface(p),
   '--dsw-specific-sidebar-nav-item-active': (p) => surface(p, 2),
-  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.aqua, 0.2),
+  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(interactionAccent(p), 0.2),
   '--dsw-specific-tip': (p) => surface(p, 2)
 }
 
@@ -1636,7 +1708,7 @@ const __mod_3_color_mode_js = (() => {
 //                            scheme's deep contrast ink (2026-10-24 restyle and
 //                            follow-ups, design doc §13.8.1); hover is one step
 //                            stronger.
-//       status dots warn / done orange / green, guarded on bg-base AND sidebar
+//       status dots warn / done orange / blue, guarded on bg-base AND sidebar
 //
 //     Thresholds: large/bold headings h1–h4 and the decorations/checkbox accent
 //     are non-body text -> 3:1; accent text (h5/h6, emphasis, inline code,
@@ -1727,10 +1799,13 @@ const COLOR_MODE_ATTRS = Object.freeze({
  *   amber surface with the deep contrast ink instead (design doc §13.8.1).
  * @property {string} rowWarnHover - `rowWarn` moved toward `fg.yellow` (re-guarded).
  * @property {string} rowDone - finished, not yet opened session row: solid fill
- *   from the palette's `bg_green`.
+ *   from the palette's `bg_blue`. Blue came back on 2026-11-08 (design §22): the
+ *   open session row owns the green accent band, and the "finished,
+ *   not read" row must stay out of that hue; `bg_blue` is the palette1 status
+ *   surface the plugin used before the green accent pass.
  * @property {string} rowDoneHover - `rowDone` with the fill one step stronger.
  * @property {string} dotWarn - waiting session status dot (orange).
- * @property {string} dotDone - finished session status dot (green).
+ * @property {string} dotDone - finished session status dot (blue).
  */
 
 /** Minimum contrast for a large / bold coloured heading or a decoration. */
@@ -1765,15 +1840,18 @@ const QUOTE_TINT = 0.08
 /**
  * Session-row fills come straight from Everforest's palette1 background
  * accents (sainnhe/everforest `palette.md`): `bg_yellow` for a waiting row,
- * `bg_green` for a finished one. These are the upstream's own dedicated status
+ * `bg_blue` for a finished one. These are the upstream's own dedicated status
  * surfaces, so the hue never drifts the way a derived tint does (the 0.4.0 sRGB
  * blend read as neutral grey; an OKLab-derived tint still looked off in dark
- * mode — 2026-10-24 user reports). Both schemes use the palette pair; the
- * contrast guard only nudges when a soft-strength value misses 4.5:1.
+ * mode — 2026-10-24 user reports). The finished row moved from `bg_green` to
+ * `bg_blue` on 2026-11-08 (design §22): green now marks the open session row, so
+ * the status surfaces keep blue for "finished, not read". Both schemes use the
+ * palette pair; the contrast guard only nudges when a soft-strength value misses
+ * 4.5:1.
  */
 const ROW_RAMP = {
   warn: { fill: 'bgYellow', accent: 'yellow' },
-  done: { fill: 'bgGreen', accent: 'green' }
+  done: { fill: 'bgBlue', accent: 'blue' }
 }
 
 /** How far a hovered row moves toward its accent (re-guarded to 4.5:1). */
@@ -1792,6 +1870,16 @@ const ROW_HOVER_TINT = 0.16
 const ROW_WARN_SEPARATION = 3.5
 
 /**
+ * Minimum CIE L* step between a finished-row fill (`bg_blue`) and the sidebar.
+ * Light `bg_blue` is a near-canvas wash and dark·soft lands only ~3 L* from the
+ * sidebar, so the fill is deepened toward `fg.blue` until it clears this floor,
+ * stopping where the 4.5:1 text gate runs out. That is the same ramp the blue
+ * selected row used before 2026-11-07 (design §15), so the "finished, not read"
+ * row keeps the look the user asked back on 2026-11-08 (design §22).
+ */
+const ROW_DONE_SEPARATION = 4.5
+
+/**
  * Deepen a row fill toward its accent until it is `target` L* away from the
  * sidebar, keeping the last step that still passes the text gate.
  * @param {string} color - guarded palette fill.
@@ -1801,7 +1889,7 @@ const ROW_WARN_SEPARATION = 3.5
  * @param {number} target - minimum CIE L* distance from the sidebar.
  * @returns {string}
  */
-function liftWarnFill (color, sidebar, ink, accent, target) {
+function liftRowFill (color, sidebar, ink, accent, target) {
   const distance = (fill) => Math.abs(labLightness(fill) - labLightness(sidebar))
   if (distance(color) >= target) return color
   let best = color
@@ -1949,15 +2037,16 @@ function buildColorModeRoles () {
     const tableHandle = fg.headerAqua
     // Status dots sit on both the canvas and the sidebar.
     const dotWarn = guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink)
-    const dotDone = guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
+    const dotDone = guardTo(fg.blue, [bg, sidebar], DOT_CONTRAST, ink)
     /**
-     * Session-row fill from the palette's `bg_yellow` / `bg_green`. The light
+     * Session-row fill from the palette's `bg_yellow` / `bg_blue`. The light
      * waiting rows are deepened toward their accent when the palette value sits
      * too close to the sidebar (§13.8.1); the dark waiting rows invert instead —
      * a bright amber surface that carries the scheme's deep contrast ink, because
      * Everforest's dark `bg_yellow` cannot read as yellow under the light ink.
-     * Hover moves the fill one accent step further and is re-guarded, so the four
-     * fills stay on one ramp.
+     * Finished rows use the `bg_blue` status surface and are deepened toward
+     * `fg.blue` until they clear the visibility floor (§22). Hover moves the fill
+     * one accent step further and is re-guarded, so the fills stay on one ramp.
      */
     const rowFill = (preset) => {
       const warn = preset.startsWith('warn')
@@ -1973,9 +2062,13 @@ function buildColorModeRoles () {
         return readableDeepInk(mix(amber, fg.yellow, ROW_HOVER_TINT), deepInk, palette.ramp.bgDim)
       }
       const paletteFill = readableRowFill(palette.ramp[ramp.fill], palette.ramp.bg0, labelPrimary)
-      const fill = warn
-        ? liftWarnFill(paletteFill, sidebar, labelPrimary, fg[ramp.accent], ROW_WARN_SEPARATION)
-        : paletteFill
+      const fill = liftRowFill(
+        paletteFill,
+        sidebar,
+        labelPrimary,
+        fg[ramp.accent],
+        warn ? ROW_WARN_SEPARATION : ROW_DONE_SEPARATION
+      )
       if (!preset.endsWith('Hover')) return fill
       const hover = mix(fill, fg[ramp.accent], ROW_HOVER_TINT)
       return readableRowFill(hover, palette.ramp.bg0, labelPrimary)
@@ -3861,9 +3954,8 @@ function selectionStyles() {
 // ---------------------------------------------------------------- src/active-session.js
 const __mod_8_active_session_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
-  const { contrastRatio, labLightness, mix } = __mod_1_color_js
-  const { tokensFor } = __mod_2_tokens_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+  const { alpha } = __mod_1_color_js
 
 // Everforest "active session" surface for the DSH workspace list.
 //
@@ -3872,35 +3964,74 @@ const __mod_8_active_session_js = (() => {
 //   .wnFoaW_sessionRow:hover,
 //   .wnFoaW_sessionRow.wnFoaW_selected { background: var(--dsw-alias-interactive-bg-hover) }
 //
-// (ui-workspace `Rows` CSS module, verified against the installed 0.2.1-rc.3
-// bundle and the live DOM). That token is a 16% alpha overlay of the ramp
-// border colour, which is only a ~2.6 L* step away from the sidebar fill — in
-// both schemes the open session is hard to find, and it is indistinguishable
-// from hovering any other row (2026-10-24 user report). DSH exposes no
-// dedicated "selected row" token, so this module emits one always-on rule on
-// the row's stable `aria-selected` anchor and paints it with a palette surface
-// instead.
+// (ui-workspace `Rows` CSS module, verified against the installed bundle and the
+// live DOM). That token is a 16% alpha overlay of the ramp border colour, which
+// is only a ~2.6 L* step away from the sidebar fill — in both schemes the open
+// session is hard to find, and it is indistinguishable from hovering any other
+// row (2026-10-24 user report). DSH exposes no dedicated "selected row" token,
+// so this module emits one always-on rule on the row's stable `aria-selected`
+// anchor and paints it with the theme accent instead.
 //
-// Why the blue surface: the color mode already spends `bg_red` on "waiting for
-// the user" and `bg_green` on "finished, not read" session rows, so the active
-// row must avoid those two hues. `bg_blue` is the remaining semantic background
-// of Everforest's palette1, and blue is also DSH's business/primary accent, so
-// "this is the session you have open" rides an existing meaning instead of
-// inventing one.
+// Why the solid green surface: the row marks "this is the session you have open",
+// i.e. the theme's interaction / active accent. That is Everforest's
+// `statusline1` — upstream's own "Menu Selection Background / Tab Line Label
+// Background (active)" colour: `#A7C080` dark (identical to `green`) and
+// `#93B259` light. 2026-11-08 third accent pass (design §23.1): the user cropped
+// the very same reference tab (light soft canvas `#F3EAD3` around a `#93B259`
+// band) and asked for "浅绿色", so the light schemes use `statusline1` instead of
+// the olive `green` `#8DA101` — one accent green per scheme for *backgrounds*:
+// the selected row, the selected dropdown option fill and the primary buttons.
+// (The 2026-11-08 palette review, A7, kept this surface; the conversation title
+// and workspace folder names later came back as green *text*, which uses the
+// palette foreground `green` instead — same hex in the dark schemes, the
+// deeper `#8DA101` in the light ones.) The
+// fill is the palette value verbatim — no tint, no opacity, no blend — and the
+// text is the scheme canvas `bg0`, the same "accent fill + canvas ink" pairing
+// the rest of the accent layer uses (buttons, badge). The earlier "accent tint
+// mixed into the canvas + 3px marker bar" design is gone (green is now reserved
+// for the open session: the color mode's "finished, not read" rows use palette1
+// `bg_blue`).
 //
-// Visibility vs legibility: the palette value alone is a strong step in the
-// dark schemes but only a hue tint in the light ones. The fill is therefore
-// blended toward `fg.blue` until it is `ACTIVE_SESSION_SEPARATION` L* away from
-// the sidebar fill, and the blend stops before `label-primary` drops under the
-// 4.5:1 text gate. In light·soft the sidebar itself already sits on the 4.5:1
-// gate (`docs/reference/contrast.md`), so that push has no headroom: the row
-// keeps the palette hue with the small L* step the gate allows. That ceiling is
-// the same one documented for the color-mode rows (design doc §13.7 / §15).
+// Visibility vs legibility: the solid accent band is strong in every variant.
+// In the dark schemes the canvas ink is a WCAG AA pair (5.6–6.9:1). In the light
+// schemes the same "accent + bg0" pairing is softer (2.00–2.32:1) — that is what
+// the reference tab itself does (cream ink on `statusline1`), and the trade-off is
+// recorded in `docs/reference/contrast.md` §2g rather than silently guarded away.
+//
+// The row's own children restate their `label-tertiary` / `label-caption`
+// colours: the leading status slot, the trailing time cell (wrapped in DSH's
+// `rowResting` cell), the pin marker and the hover action buttons. On the solid
+// accent band those greys collapse to ~1.2–1.6:1, so the rules paint the canvas
+// ink onto every child cell that carries its own grey, *explicitly* — an
+// `inherit` chain is not enough because `rowResting` / `rowActions` set their own
+// `label-tertiary` (2026-11-08 bug: the selector list was built with the scope
+// prefix repeated in every entry, so only the direct-child rule matched and the
+// time / pin / action cells stayed grey — see `tests/active-session.test.mjs`).
+// The status *dots* keep their semantic colour (`[data-state]` rules in
+// `src/color-mode.js`): they are standalone glyphs whose hue carries the session
+// state, not text on the band, so the `svg` hook excludes `[data-state]`. The one
+// exception is the *neutral* loading spinner: ui-primitives'
+// `StateDot(state="ongoing")` is an `<svg data-state="ongoing">` ring painted
+// `label-tertiary` (a grey, not a semantic hue), so on the band it collapsed into
+// an almost invisible circle (`grey2` = 1.22–1.39:1 — 2026-11-08 report:
+// "整块高亮的时候，前面这个转圈的图标显示不明显"). It gets the band ink like the
+// other chrome; `done` / `warning` / `error` dots keep their hues.
+//
+// Row action buttons (the "…" menu, archive, pin and any plugin-contributed
+// row action such as a reminder bell) need a third rule: DSH / third-party
+// primitives paint a hovered ghost button with a *solid* surface token
+// (`--dsw-alias-button-ghost-active-fill` / `interactive-bg-hover-solid` = `bg2`),
+// which assumes a normal row background and shows up as an opaque slate square on
+// the solid band — while the ink-coloured glyph sits on top of it (2026-11-08
+// user report: "这个铃铛 hover 的时候显示还有点问题"). The rule replaces that fill
+// with a 16% wash of the band ink and points the focus ring at the ink too (DSH's
+// ring defaults to the accent, which is invisible on an accent band).
 //
 // Always-on and independent of the color mode: this is navigation, not content
-// colouring, and it has to work with the mode off. The six rules are keyed by
-// the strength attributes the token layer always writes on <html> plus DSH's own
-// `body[data-ds-dark-theme]` flag — the same pattern as `src/selection.js`.
+// colouring, and it has to work with the mode off. The eighteen rules (three per
+// variant) are keyed by the strength attributes the token layer always writes on
+// <html> plus DSH's own `body[data-ds-dark-theme]` flag — the same pattern as
+// `src/selection.js`.
 //
 // The row anchor is `[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`,
 // the attributes `src/color-mode.js` already relies on. Deliberately *not* the
@@ -3912,135 +4043,703 @@ const __mod_8_active_session_js = (() => {
 const ACTIVE_SESSION_ROW =
   '[role="treeitem"][data-row-key^="session:"][aria-selected="true"]'
 
-/** Minimum contrast for `label-primary` on the active row fill (WCAG AA body text). */
-const ACTIVE_SESSION_INK_CONTRAST = 4.5
+/**
+ * The always-on (color-mode independent) stylesheet's rules are the three blocks
+ * emitted per variant: the row band itself, the ink for the children DSH gives
+ * its own grey colours, and the hover / focus paint of the row's action buttons.
+ */
+const ACTIVE_SESSION_RULES_PER_VARIANT = 3
 
 /**
- * Minimum perceptual (CIE L*) distance between the active row fill and the
- * sidebar fill. 4.5 is about the smallest step that still reads as a distinct
- * band at row height; the CSS guards cap it where the text gate runs out first.
+ * Opacity of the row buttons' hover / focus wash on the accent band. DSH paints
+ * hovered chrome with a solid surface token (`button-ghost-active-fill` /
+ * `interactive-bg-hover-solid` = `bg2`), which is designed for a normal row
+ * background and turns into an opaque slate square on the solid band; a wash of
+ * the band ink keeps both the surface and the now ink-coloured glyph readable
+ * (2026-11-08: "这个铃铛 hover 的时候显示还有点问题").
  */
-const ACTIVE_SESSION_SEPARATION = 4.5
-
-/** Palette background accent the active row starts from. */
-const ACTIVE_FILL_SOURCE = 'bgBlue'
-
-/** Step of the accent blend used to reach the separation target (1% per step). */
-const ACCENT_STEP = 0.01
+const ROW_BUTTON_WASH = 0.16
 
 /**
- * Pull a fill toward the scheme canvas (`bg0`) until `label-primary` reaches
- * `ACTIVE_SESSION_INK_CONTRAST`. Blending toward `bg0` is safe in both
- * directions (dark canvases darken the fill, light canvases lighten it), so the
- * guard never guesses a direction — the same rule the color-mode row fills use.
- * @param {string} color - palette background accent.
- * @param {string} bg0 - the scheme's canvas colour.
- * @param {string} ink - text colour the surface must stay readable with.
- * @returns {string}
+ * The active-row surface of one variant: the palette accent green plus the
+ * canvas ink the accent layer pairs it with.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {{ fill: string, ink: string }} both opaque `#RRGGBB`.
  */
-function readableFill (color, bg0, ink) {
-  if (contrastRatio(ink, color) >= ACTIVE_SESSION_INK_CONTRAST) return color
-  for (let weight = ACCENT_STEP; weight <= 1.0001; weight += ACCENT_STEP) {
-    const next = mix(color, bg0, weight)
-    if (contrastRatio(ink, next) >= ACTIVE_SESSION_INK_CONTRAST) return next
-  }
-  return mix(color, bg0, 1)
+function activeRowFor (scheme, strength) {
+  const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
+  return { fill: palette.fg.statusline1, ink: palette.ramp.bg0 }
 }
 
 /**
- * Push the fill toward the blue accent until it is `ACTIVE_SESSION_SEPARATION`
- * L* away from the sidebar, keeping the last step that still passes the text
- * gate. Returns the fill untouched when the palette value already clears the
- * separation (the dark schemes) or when the text gate leaves no headroom
- * (light·soft).
- * @param {string} fill - guarded palette fill.
- * @param {string} sidebar - the sidebar surface the row sits on.
- * @param {string} ink - text colour of the row.
- * @param {string} accent - `fg.blue` of the scheme.
- * @returns {string}
- */
-function separatedFill (fill, sidebar, ink, accent) {
-  const distance = (color) => Math.abs(labLightness(color) - labLightness(sidebar))
-  if (distance(fill) >= ACTIVE_SESSION_SEPARATION) return fill
-  let best = fill
-  for (let weight = ACCENT_STEP; weight <= 1.0001; weight += ACCENT_STEP) {
-    const next = mix(fill, accent, weight)
-    if (contrastRatio(ink, next) < ACTIVE_SESSION_INK_CONTRAST) break
-    best = next
-    if (distance(next) >= ACTIVE_SESSION_SEPARATION) return next
-  }
-  return best
-}
-
-/**
- * Compute the active-row fill of one palette variant.
- * @param {string} scheme - `light` or `dark`.
- * @param {string} strength - `hard`, `medium` or `soft`.
- * @returns {string} opaque `#RRGGBB`.
- */
-function activeFillFor (scheme, strength) {
-  const state = { ...DEFAULT_STATE, [scheme]: strength }
-  const palette = resolvePalette(state)[scheme]
-  const overlay = tokensFor(state)
-  const pick = (name) => {
-    const entry = overlay[name]
-    if (!entry) throw new Error(`activeSessionRoles: tokensFor() has no ${name}`)
-    return entry[scheme]
-  }
-  const ink = pick('--dsw-alias-label-primary')
-  const sidebar = pick('--dsw-specific-sidebar-fill')
-  const source = palette.ramp[ACTIVE_FILL_SOURCE]
-  if (!source) throw new Error(`activeSessionRoles: the palette has no ${ACTIVE_FILL_SOURCE}`)
-  const readable = readableFill(source, palette.ramp.bg0, ink)
-  return separatedFill(readable, sidebar, ink, palette.fg.blue)
-}
-
-/**
- * The six active-row fills, keyed by `${scheme}-${strength}`.
- * @returns {Record<string, { fill: string }>} keyed `light-hard` … `dark-soft`.
+ * The six active-row surfaces, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, { fill: string, ink: string }>} keyed `light-hard` … `dark-soft`.
  */
 function activeSessionRoles () {
   const roles = {}
   for (const scheme of SCHEMES) {
     for (const strength of STRENGTHS) {
-      roles[`${scheme}-${strength}`] = { fill: activeFillFor(scheme, strength) }
+      roles[`${scheme}-${strength}`] = activeRowFor(scheme, strength)
     }
   }
   return roles
 }
 
 /**
- * One active-row rule for a scheme + strength.
+ * One variant's scope: the strength attribute the token layer writes on <html>
+ * plus DSH's own dark-theme flag on <body>.
  * @param {'light' | 'dark'} scheme
  * @param {'hard' | 'medium' | 'soft'} strength
- * @param {string} fill
  * @returns {string}
  */
-function activeSessionRule (scheme, strength, fill) {
-  const scope = scheme === 'dark'
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
     ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
     : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
-  return `${scope} ${ACTIVE_SESSION_ROW} {\n  background-color: ${fill};\n}`
 }
 
 /**
- * The complete active-row stylesheet (six rules, one per variant).
+ * The three rules of one variant: the solid band, the canvas ink for the
+ * grey-coloured children, and the hover / focus paint of the row buttons.
+ * `time` is a nested span inside DSH's `rowResting` cell (verified against the
+ * installed 0.2.2-rc.1 bundle), so the trailing time cell needs its own class
+ * hook next to the direct-child spans.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {{ fill: string, ink: string }} role
+ * @returns {string}
+ */
+function activeSessionRules (scheme, strength, role) {
+  const row = `${scopeFor(scheme, strength)} ${ACTIVE_SESSION_ROW}`
+  // The prefix is already part of every selector: build the suffixes and join
+  // them *as a selector list* (2026-11-08: the first version re-prefixed each
+  // entry, which produced `row row [class*="time"]` and matched nothing — only
+  // the direct-child rule survived, so the nested time/pin/action cells stayed
+  // `label-tertiary` grey on the band).
+  const inkSelectors = [
+    '> span',
+    '[class*="time"]',
+    '[class*="pinIndicator"]',
+    '[class*="iconButton"]',
+    'button',
+    'svg:not([data-state])',
+    // The "running" loading spinner is ui-primitives' `StateDot(state="ongoing")`:
+    // an `<svg data-state="ongoing">` whose ring / arc are `label-tertiary` greys.
+    // `svg:not([data-state])` deliberately leaves the semantic dots alone, so the
+    // neutral spinner needs its own hook (2026-11-08: faint on the solid band).
+    '[data-state="ongoing"]'
+  ].map((suffix) => `${row} ${suffix}`)
+  const hoverSelectors = ['button:hover', 'button:focus-visible'].map((suffix) => `${row} ${suffix}`)
+  return [
+    `${row} {\n  background-color: ${role.fill};\n  color: ${role.ink};\n}`,
+    // The ink is written out instead of `inherit`: the cells sit inside DSH's
+    // `rowResting` / `rowActions` wrappers which restate `label-tertiary`, and
+    // only an explicit value is independent of that inheritance chain.
+    `${inkSelectors.join(',\n')} {\n  color: ${role.ink};\n}`,
+    // Hover / focus: a wash of the ink instead of DSH's solid surface fill (which
+    // reads as an opaque slate box on the band and hides the ink glyph), plus an
+    // ink-coloured focus ring (DSH's ring defaults to the accent, invisible here).
+    `${hoverSelectors.join(',\n')} {\n  background-color: ${alpha(role.ink, ROW_BUTTON_WASH)};\n  outline-color: ${role.ink};\n}`
+  ].join('\n\n')
+}
+
+/**
+ * The complete active-row stylesheet (six variants × three rules).
  * @returns {string}
  */
 function activeSessionStyles () {
   const roles = activeSessionRoles()
   return SCHEMES
     .flatMap((scheme) => STRENGTHS.map((strength) =>
-      activeSessionRule(scheme, strength, roles[`${scheme}-${strength}`].fill)
-    ))
+      activeSessionRules(scheme, strength, roles[`${scheme}-${strength}`])))
     .join('\n\n')
 }
 
-  return { ACTIVE_SESSION_ROW, ACTIVE_SESSION_INK_CONTRAST, ACTIVE_SESSION_SEPARATION, activeSessionRoles, activeSessionStyles }
+  return { ACTIVE_SESSION_ROW, ACTIVE_SESSION_RULES_PER_VARIANT, activeSessionRoles, activeSessionStyles }
+})()
+
+// ---------------------------------------------------------------- src/workspace-labels.js
+const __mod_9_workspace_labels_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Everforest "workspace folder name" colour for the DSH sidebar.
+//
+// DSH paints every workspace (project) row title with `label-primary`
+// (ui-workspace `Rows` CSS module: `.projectRow { color: var(--dsw-alias-label-primary) }`
+// with `.title` inheriting it), and only the *active* folder glyph gets the
+// business accent (`.folderActive`). 2026-11-08 user requests: "工作区的每个目录
+// 名称也用绿色显示" and, after the first guarded version looked too olive, "浅色
+// 目录名称还是用原绿色" — the names use the palette accent verbatim, not a
+// deepened variant. The 2026-11-08 third pass briefly used the background green
+// `statusline1`; the same-day review (the user compared the two upstream
+// greens) settled the *text* roles on the foreground `green`: folder names and
+// the conversation title use `green`, while selected / active *backgrounds*
+// (session row, menu selection, primary buttons) keep `statusline1`.
+//
+// The colour is the scheme's `fg.green` — upstream's *foreground* green
+// ("Function Names, Method Names, Strings, Characters, Search Highlights"), the
+// colour Everforest uses for green text. It is deliberately not `statusline1`:
+// upstream defines that one as a *background* ("Menu Selection Background, Tab
+// Line Label Background (active), Status Line Mode Indicator"), which in the
+// light scheme is the lighter `#93B259` while the text green is `#8DA101`. In
+// the dark schemes both are `#A7C080`, so the split only changes the light
+// schemes. 2026-11-08 review: the user compared the two greens and confirmed
+// the text one is deeper, which is exactly this split.
+//
+// No contrast guard is applied: resting rows keep the dark schemes at
+// 5.00–6.17:1 (WCAG AA) and the light schemes at 2.35–2.68:1; A7's 50% `bg4`
+// hover wash makes the hovered row the weakest surface (dark 4.01–4.98:1, light
+// 2.13–2.47:1). The measured values are pinned in `docs/reference/contrast.md`
+// §2h (G18) instead of being corrected away.
+//
+// The selector uses only stable hooks: `[role="treeitem"]` + the
+// `data-row-key="workspace:…"` prefix DSH uses for project rows (the same
+// contract `src/active-session.js` relies on), plus the CSS-module class
+// substring `projectText` (DSH hashes the prefix, keeps the local name —
+// verified against the installed 0.2.2-rc.1 bundle). The hover chevron / folder
+// glyphs are siblings of that text cell and keep their own colours.
+//
+// Always-on and independent of the color mode: like the active-session band this
+// is navigation chrome, not markdown content colouring.
+
+
+/** The workspace (project) rows of the sidebar tree. */
+const WORKSPACE_ROW = '[role="treeitem"][data-row-key^="workspace:"]'
+
+/** The row's title cell: `projectText` wraps the single `.title` span. */
+const WORKSPACE_LABEL = `${WORKSPACE_ROW} [class*="projectText"]`
+
+/**
+ * Measured resting-row floor of the dark schemes: the unmodified text green on
+ * the sidebar is 5.00–6.17:1, a *bona fide* WCAG AA pair, so the gate demands AA
+ * for the resting row (a resting-row regression below 4.5:1 is a real
+ * legibility regression, not the documented hover trade-off).
+ */
+const WORKSPACE_LABEL_DARK_RESTING_CONTRAST = 4.5
+
+/**
+ * Documented hover floor of the dark schemes: A7's 50% `bg4` hover wash drops
+ * the green to 4.01–4.98:1. The user asked for the accent verbatim, so the gate
+ * pins the measured hover minimum instead of requiring a guarded hue.
+ */
+const WORKSPACE_LABEL_DARK_HOVER_CONTRAST = 4.0
+
+/**
+ * Measured resting-row floor of the light schemes: the palette text green on the
+ * cream sidebar is 2.35–2.68:1 (the light palette offers no deeper text green
+ * without leaving the upstream colour), so the gate pins 2.3.
+ */
+const WORKSPACE_LABEL_LIGHT_RESTING_CONTRAST = 2.3
+
+/**
+ * Documented hover floor of the light schemes (2.13–2.47:1; light·soft on the
+ * hover fill is the weakest). The user asked for upstream's text green verbatim,
+ * so the gate pins the measured hover minimum instead of requiring a guarded 3:1
+ * hue.
+ */
+const WORKSPACE_LABEL_LIGHT_HOVER_CONTRAST = 2.1
+
+/**
+ * The folder-name colour of one variant: the palette `green` (foreground text
+ * green), untouched.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string} opaque `#RRGGBB`.
+ */
+function workspaceLabelFor (scheme, strength) {
+  return resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme].fg.green
+}
+
+/**
+ * The six folder-name colours, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, string>} keyed `light-hard` … `dark-soft`.
+ */
+function workspaceLabelRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = workspaceLabelFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * One folder-name rule for a scheme + strength.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {string} color
+ * @returns {string}
+ */
+function workspaceLabelRule (scheme, strength, color) {
+  const scope = scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+  return `${scope} ${WORKSPACE_LABEL} {\n  color: ${color};\n}`
+}
+
+/**
+ * The complete workspace folder-name stylesheet (six rules).
+ * @returns {string}
+ */
+function workspaceLabelStyles () {
+  const roles = workspaceLabelRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      workspaceLabelRule(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { WORKSPACE_ROW, WORKSPACE_LABEL, WORKSPACE_LABEL_DARK_RESTING_CONTRAST, WORKSPACE_LABEL_DARK_HOVER_CONTRAST, WORKSPACE_LABEL_LIGHT_RESTING_CONTRAST, WORKSPACE_LABEL_LIGHT_HOVER_CONTRAST, workspaceLabelRoles, workspaceLabelStyles }
+})()
+
+// ---------------------------------------------------------------- src/ui-accents.js
+const __mod_10_ui_accents_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Everforest accent labels for DSH chrome: the conversation title and the
+// selected options inside dropdown menus.
+//
+// The conversation title is painted with the palette **text green** `green`
+// (upstream: "Function Names, Method Names, Strings, Characters, Search
+// Highlights"; dark `#A7C080`, light `#8DA101`). The selected dropdown option
+// is a *background*: the palette `statusline1` (upstream: "Menu Selection
+// Background, Tab Line Label Background (active), Status Line Mode Indicator";
+// dark `#A7C080`, light `#93B259`) as a solid fill with the scheme canvas `bg0`
+// as its label / check ink. 2026-11-08 review: the user compared the two greens
+// in upstream Everforest and confirmed the text one is deeper — in the light
+// scheme they are two different colours (`#8DA101` vs `#93B259`), while in the
+// dark schemes both are `#A7C080`; only the light schemes change.
+//
+// - the conversation title is the current crumb of the session header
+//   (`ui-conversation` skeleton: `.crumbCurrent { color: var(--dsw-alias-label-
+//   primary) }`, verified in the installed 0.2.2-rc.1 bundle as
+//   `_<hash>_crumbCurrent`). 2026-11-08 user request "上面标题的名称也改为绿色";
+//   the palette review (A7) briefly reverted the green labels to DSH's own
+//   `label-primary`, and the follow-up review put the title back because the
+//   user asked for the green labels again;
+// - a selected dropdown option is either a Menu item (`role="menuitem"`, check
+//   / fill selection mode, class `_selected_<hash>` or `_selectedFill_<hash>`)
+//   or a radio-style option (`role="menuitemradio"`, `aria-checked="true"`,
+//   e.g. the model / reasoning effort panes of `ui-model-selection`); their
+//   check glyph is the `check` child. Upstream defines `statusline1` as a
+//   *background* colour, so the option is a solid `statusline1` fill with the
+//   scheme canvas `bg0` as label and check ink (2026-11-08 palette review, A7)
+//   — not tinted text.
+//
+// The option's *contents* need the same ink. DSH restates a colour token on
+// every nested part instead of inheriting one: the leading icon of a Menu item
+// is `color: var(--dsw-alias-menu-icon)` (`_itemIcon_<hash>`, e.g. the folder
+// glyph of the workspace picker), an option's own label cell is
+// `var(--dsw-alias-label-primary)`, and its second line / shortcut / path
+// suffix are `label-caption` / `label-secondary` (the agent-preset chip's
+// `_itemName_` / `_itemDesc_` pair, the workspace picker's `pathSuffix`). An
+// inherited `color` cannot reach those, so they kept DSH's neutral greys on the
+// green band (2026-11-08 user report: the selected workspace's icon and the
+// selected mode option's text read in the wrong colour). The selected-option
+// rule therefore re-points the option's text / icon tokens at the band ink for
+// that option's subtree only (`MENU_INK_TOKENS`).
+//
+// Contrast: the canvas ink is a WCAG AA pair in the dark schemes (5.62–6.88:1);
+// in the light schemes it sits at 2.00–2.32:1 — the palette's own ceiling for
+// cream ink on `statusline1`, which is what the upstream reference tab does.
+// The text green keeps the palette's own numbers (dark AA 5.62–6.88:1, light
+// 2.36–2.81:1 — deeper than `statusline1` on the same cream surfaces).
+// The measured values are pinned in `docs/reference/contrast.md` §2h / §2i
+// instead of being corrected away.
+//
+// Selectors use stable hooks only: the CSS-module local name `crumbCurrent` and
+// the ARIA menu roles, never a hashed class prefix. Always-on and independent of
+// the color mode (navigation / selection chrome, not markdown content).
+
+
+/** The conversation title (current breadcrumb in the session header). */
+const HEADER_TITLE = '[class*="crumbCurrent"]'
+
+/** A selected Menu item, in fill or check selection mode. */
+const MENU_SELECTED = '[role="menu"] [role="menuitem"][class*="selected"]'
+
+/** A checked radio-style option (model / reasoning effort lists). */
+const MENU_SELECTED_RADIO = '[role="menu"] [role="menuitemradio"][aria-checked="true"]'
+
+/** The trailing check glyph of a selected menu item. */
+const MENU_CHECK = `${MENU_SELECTED} [class*="check"]`
+
+/** The trailing check glyph of a checked radio-style option. */
+const MENU_CHECK_RADIO = `${MENU_SELECTED_RADIO} [class*="check"]`
+
+/**
+ * The text / icon colour tokens DSH restates inside a dropdown option. On the
+ * solid accent band each one is re-pointed at the band ink, scoped to the
+ * selected option's subtree:
+ *
+ * - `--dsw-alias-menu-icon`: the leading icon of a Menu item
+ *   (`_itemIcon_<hash>`: the workspace picker's folder, model cells' chevron);
+ * - `--dsw-alias-label-primary`: an option's own label cell and the check
+ *   glyph (`_itemName_<hash>`, the agent-preset mode options);
+ * - `--dsw-alias-label-secondary` / `-tertiary` / `-caption` / `-dimmed`: the
+ *   second line, shortcut keys and path suffixes (`_itemDesc_<hash>`,
+ *   `_shortcutKeys_<hash>`, the workspace picker's `pathSuffix`).
+ *
+ * Redefining the tokens on the option element keeps the scope local: the
+ * unselected rows of the same menu keep DSH's neutral palette.
+ * @type {string[]}
+ */
+const MENU_INK_TOKENS = [
+  '--dsw-alias-menu-icon',
+  '--dsw-alias-label-primary',
+  '--dsw-alias-label-secondary',
+  '--dsw-alias-label-tertiary',
+  '--dsw-alias-label-caption',
+  '--dsw-alias-label-dimmed'
+]
+
+/** The absolutely positioned fill child DSH paints under a selected item. */
+const MENU_SELECTED_FILL = `${MENU_SELECTED} [class*="selectedFill"]`
+
+/** The fill child of a checked radio-style option (same menu primitive). */
+const MENU_SELECTED_FILL_RADIO = `${MENU_SELECTED_RADIO} [class*="selectedFill"]`
+
+/**
+ * Minimum contrast the green title keeps on the header surface (WCAG AA) and on
+ * the translucent menu card (4.28–5.32:1 measured, the weaker of the two).
+ */
+const UI_ACCENT_DARK_CONTRAST = 4.0
+
+/**
+ * Documented floor of the light schemes' text green on the header / menu
+ * surfaces (2.36–2.81:1; the light·soft menu card is the weakest).
+ */
+const UI_ACCENT_LIGHT_CONTRAST = 2.3
+
+/**
+ * Minimum contrast the dark schemes keep between the canvas ink and the accent
+ * fill (5.62–6.88:1 measured, WCAG AA).
+ */
+const UI_ACCENT_DARK_INK_CONTRAST = 4.5
+
+/**
+ * Documented floor of the light schemes' canvas ink on `statusline1`
+ * (2.00–2.32:1; the light palette offers no deeper ink, and the upstream
+ * reference tab pairs cream with the same green).
+ */
+const UI_ACCENT_LIGHT_INK_CONTRAST = 1.95
+
+/**
+ * One variant's accents: the palette `green` (title text — upstream foreground
+ * green), the `statusline1` background fill, and the scheme canvas `bg0` ink
+ * used on that fill.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {{ green: string, fill: string, ink: string }} all opaque `#RRGGBB`.
+ */
+function accentFor (scheme, strength) {
+  const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
+  return { green: palette.fg.green, fill: palette.fg.statusline1, ink: palette.ramp.bg0 }
+}
+
+/**
+ * The six accent surfaces, keyed by `${scheme}-${strength}`. `green` is the
+ * text green, `fill` the `statusline1` selection background, `ink` the scheme
+ * canvas used on that fill.
+ * @returns {Record<string, { green: string, fill: string, ink: string }>} keyed `light-hard` … `dark-soft`.
+ */
+function uiAccentRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = accentFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * One variant's scope: the strength attribute the token layer writes on <html>
+ * plus DSH's own dark-theme flag on <body>.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+}
+
+/**
+ * One rule from a selector list and declarations.
+ * @param {string} scope
+ * @param {string[]} selectors
+ * @param {Array<[string, string]>} declarations
+ * @returns {string}
+ */
+function accentRule (scope, selectors, declarations) {
+  const body = declarations.map(([property, value]) => `  ${property}: ${value};`).join('\n')
+  return `${selectors.map((selector) => `${scope} ${selector}`).join(',\n')} {\n${body}\n}`
+}
+
+/**
+ * One variant's four rules: the green conversation title, the selected row
+ * surface, its fill child and the check glyph.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {{ green: string, fill: string, ink: string }} roles
+ * @returns {string}
+ */
+function uiAccentRules (scheme, strength, roles) {
+  const scope = scopeFor(scheme, strength)
+  return [
+    accentRule(scope, [HEADER_TITLE], [['color', roles.green]]),
+    accentRule(scope, [MENU_SELECTED, MENU_SELECTED_RADIO], [
+      ['background', roles.fill],
+      ['color', roles.ink],
+      // The option's nested text / icon cells restate their own colour tokens,
+      // so the band ink is written onto the tokens themselves (MENU_INK_TOKENS).
+      ...MENU_INK_TOKENS.map((token) => [token, roles.ink])
+    ]),
+    accentRule(scope, [MENU_SELECTED_FILL, MENU_SELECTED_FILL_RADIO], [['background', roles.fill]]),
+    accentRule(scope, [MENU_CHECK, MENU_CHECK_RADIO], [['color', roles.ink]])
+  ].join('\n\n')
+}
+
+/**
+ * The complete chrome accent stylesheet (six variants × four rules).
+ * @returns {string}
+ */
+function uiAccentStyles () {
+  const roles = uiAccentRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      uiAccentRules(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { HEADER_TITLE, MENU_SELECTED, MENU_SELECTED_RADIO, MENU_CHECK, MENU_CHECK_RADIO, MENU_INK_TOKENS, MENU_SELECTED_FILL, MENU_SELECTED_FILL_RADIO, UI_ACCENT_DARK_CONTRAST, UI_ACCENT_LIGHT_CONTRAST, UI_ACCENT_DARK_INK_CONTRAST, UI_ACCENT_LIGHT_INK_CONTRAST, uiAccentRoles, uiAccentStyles }
+})()
+
+// ---------------------------------------------------------------- src/plugin-update.js
+const __mod_11_plugin_update_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Everforest treatment for DSH's plugin-update dialog (ui-plugin-manager).
+//
+// 2026-11-08 user report on the “更新 dsh-ops” dialog: the step rows read in the
+// theme's info blue and the done badges look too pale. DSH renders the dialog
+// body as `[data-plugin-update]` (a stable data hook), the outcome row as a
+// `[role="status"]` div whose glyph carries `[data-tone]`, and one
+// `<li data-state>` per step; a finished step gets a 20px dot filled with a 12%
+// success tint and a bare label span that inherits the dialog ink. Those are the
+// surfaces this module repaints:
+//
+//  - a finished step's label is the theme's green accent (the same green as the
+//    dialog's 完成 button and the check glyph); a failed step keeps the semantic
+//    red; every other state stays the primary ink;
+//  - the done badge is filled solid with that green and the scheme canvas `bg0`
+//    as ink (5.62–6.88:1 in the dark schemes), so the check reads as a badge
+//    instead of a faint tint. The large outcome glyph (the 32px circle above
+//    the steps) gets the same solid treatment.
+//
+// The green is the interaction accent `statusline1` (upstream: Menu Selection
+// Background / Tab Line Label Background (active)) — the one green the theme
+// paints every selected / active chrome surface with: dark `#A7C080` (= the
+// semantic `fg.green`), light `#93B259` (the lighter green of the 完成 button
+// and the selected session row, design §21 / §23). 2026-11-08 follow-up: the
+// first version used `fg.green` (`#8DA101` in the light schemes) and the user
+// asked the light dialog to use `#93B259` instead; the dark schemes are
+// unchanged because both roles share `#A7C080` there. The light pairing is the
+// palette's documented ceiling (1.95–2.26:1 text, 2.00–2.32:1 ink on the solid
+// badge — the same trade-off as §2g / §2i / §2j).
+//
+// Selectors use the dialog's own stable hooks only (`data-plugin-update`,
+// `data-state`, `role="status"`, `data-tone`), never a hashed CSS-module class.
+// Always-on and independent of the color mode: the update dialog is chrome, not
+// markdown content.
+
+
+/** The update dialog body: DSH puts the update phase on this data hook. */
+const PLUGIN_UPDATE_BODY = '[data-plugin-update]'
+
+/** One update step: DSH writes `done` / `failed` / `running` / `unknown`. */
+const UPDATE_STEP = `${PLUGIN_UPDATE_BODY} [data-state]`
+
+/** The step label (the dot is the first span, the text the last one). */
+const UPDATE_STEP_LABEL = `${UPDATE_STEP} > span:last-child`
+
+/** The step's round badge (the glyph container). */
+const UPDATE_STEP_DOT = `${UPDATE_STEP} > span:first-child`
+
+/** The outcome row's large success glyph (the 32px circle). */
+const UPDATE_OUTCOME_GLYPH = `${PLUGIN_UPDATE_BODY} > [role="status"] > [data-tone="success"]`
+
+/**
+ * Minimum contrast the dark schemes keep for the green step text on the steps
+ * surface (4.22–5.24:1 measured; dark·soft is the weakest).
+ */
+const PLUGIN_UPDATE_TEXT_DARK_CONTRAST = 4.0
+
+/**
+ * Documented floor of the light schemes' green step text on the cream steps
+ * surface (1.95–2.26:1; the palette has no darker `statusline1` than `#93B259`
+ * and the user asked for that exact green).
+ */
+const PLUGIN_UPDATE_TEXT_LIGHT_CONTRAST = 1.9
+
+/**
+ * Minimum contrast the dark schemes keep for the canvas ink on the solid green
+ * badge (5.62–6.88:1 measured).
+ */
+const PLUGIN_UPDATE_BADGE_DARK_CONTRAST = 4.5
+
+/**
+ * Documented floor of the light schemes' canvas ink on the solid green badge
+ * (2.00–2.32:1; the same cream-on-green pairing as the brand fill, §2g).
+ */
+const PLUGIN_UPDATE_BADGE_LIGHT_CONTRAST = 1.95
+
+/**
+ * The four role colours of one variant.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {{ green: string, red: string, ink: string, label: string }}
+ */
+function rolesFor (scheme, strength) {
+  const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
+  return {
+    // The interaction accent, not `fg.green`: the light schemes must read
+    // `#93B259` like the dialog's 完成 button (2026-11-08 follow-up); the dark
+    // schemes keep `#A7C080`, where both roles are the same colour.
+    green: palette.fg.statusline1,
+    red: palette.fg.red,
+    ink: palette.ramp.bg0,
+    label: palette.fg.fg,
+  }
+}
+
+/**
+ * The four role colours of all six variants, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, { green: string, red: string, ink: string, label: string }>}
+ */
+function pluginUpdateRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = rolesFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * One variant's scope: the strength attribute the token layer writes on <html>
+ * plus DSH's own dark-theme flag on <body>.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+}
+
+/**
+ * One variant's five rules: base label ink, done label, failed label, solid
+ * done badge, solid outcome glyph.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {{ green: string, red: string, ink: string, label: string }} roles
+ * @returns {string}
+ */
+function pluginUpdateRules (scheme, strength, roles) {
+  const scope = scopeFor(scheme, strength)
+  const rule = (selector, body) => `${scope} ${selector} {\n  ${body}\n}`
+  return [
+    rule(UPDATE_STEP_LABEL, `color: ${roles.label};`),
+    rule(`${UPDATE_STEP}[data-state="done"] > span:last-child`, `color: ${roles.green};`),
+    rule(`${UPDATE_STEP}[data-state="failed"] > span:last-child`, `color: ${roles.red};`),
+    rule(`${UPDATE_STEP}[data-state="done"] > span:first-child`, `background: ${roles.green};\n  color: ${roles.ink};`),
+    rule(UPDATE_OUTCOME_GLYPH, `background: ${roles.green};\n  color: ${roles.ink};`),
+  ].join('\n\n')
+}
+
+/**
+ * The complete plugin-update dialog stylesheet (six variants × five rules).
+ * @returns {string}
+ */
+function pluginUpdateStyles () {
+  const roles = pluginUpdateRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      pluginUpdateRules(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { PLUGIN_UPDATE_BODY, UPDATE_STEP, UPDATE_STEP_LABEL, UPDATE_STEP_DOT, UPDATE_OUTCOME_GLYPH, PLUGIN_UPDATE_TEXT_DARK_CONTRAST, PLUGIN_UPDATE_TEXT_LIGHT_CONTRAST, PLUGIN_UPDATE_BADGE_DARK_CONTRAST, PLUGIN_UPDATE_BADGE_LIGHT_CONTRAST, pluginUpdateRoles, pluginUpdateStyles }
+})()
+
+// ---------------------------------------------------------------- src/chat-bubble.js
+const __mod_12_chat_bubble_js = (() => {
+// Everforest ink for DSH's user-message bubble (the "只换字色" half of the
+// 2026-11-08 bubble review; the light background is the moss paper from
+// `bubbleSurface` in `src/tokens.js`).
+//
+// DSH's chat `MessageItem.module.css` paints `.bubble` with
+// `color: var(--dsw-alias-label-primary)`, and the token layer cannot give the
+// bubble its own ink without recolouring every primary label. A small always-on
+// stylesheet is therefore the only way to ink the bubble separately. The token
+// layer still keeps `label-primary` readable on the bubble surface, so losing
+// this sheet only loses the tint, not WCAG AA.
+//
+// The 2026-11-08 review picked "苔纸" (C) for light and "只换字色" (F) for dark:
+//   - light: deep pine `#3E5647` on the moss `bg_green` paper (6.45–7.07:1).
+//     Hand-tuned derived ink: the official `fg` `#5C6A72` reads blue-grey on the
+//     green paper and sits at 4.54:1 on the hard variant.
+//   - dark: pale sage `#DAE2C7` on the unchanged `bg1` bubble (7.26–8.98:1).
+//
+// Rules are scoped under the color-mode attribute (already on `<html>`) and
+// matched on the chat package's class-name fragments. DSH 0.2.x ships the user
+// message row as `LOmM4q_userStack` / `LOmM4q_bubble` (the published client
+// bundle keeps that fixed prefix); the `[class*="..."]` form also covers the
+// hashed `_bubble_...` build variant, while requiring the `userStack` ancestor
+// keeps the tooltip bubble (`_bubble_44yfq_1`, also a `_bubble` class) untouched.
+//
+// The module is a pure ESM source: no DOM, no state. `scripts/build.mjs` bundles
+// it into `client.js`; `src/client-entry.js` owns the `<style>` element.
+
+/**
+ * Bubble ink per colour scheme (derived, not an Everforest palette role).
+ * @type {Readonly<{ light: string, dark: string }>}
+ */
+const CHAT_BUBBLE_INK = Object.freeze({
+  light: '#3E5647',
+  dark: '#DAE2C7'
+})
+
+/**
+ * The always-on bubble-ink stylesheet.
+ * @returns {string}
+ */
+function chatBubbleStyles () {
+  return [
+    'html[data-everforest-color-mode="on"] body:not([data-ds-dark-theme]) [class*="_userStack"] [class*="_bubble"] {',
+    `  color: ${CHAT_BUBBLE_INK.light};`,
+    '}',
+    'html[data-everforest-color-mode="on"] body[data-ds-dark-theme] [class*="_userStack"] [class*="_bubble"] {',
+    `  color: ${CHAT_BUBBLE_INK.dark};`,
+    '}'
+  ].join('\n')
+}
+
+  return { CHAT_BUBBLE_INK, chatBubbleStyles }
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_9_nav_icon_js = (() => {
+const __mod_13_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -4102,7 +4801,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_10_state_js = (() => {
+const __mod_14_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -4396,9 +5095,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_11_durable_js = (() => {
+const __mod_15_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_10_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_14_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -4563,7 +5262,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_12_locale_js = (() => {
+const __mod_16_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -4646,7 +5345,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_13_settings_page_js = (() => {
+const __mod_17_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -5061,14 +5760,14 @@ function createSettingsComponent(dependencies) {
     return EMPTY_STORE
   }
 
-  /** The five preview colors of one palette: bg0, bg1, bg2, fg, the accent aqua. */
+  /** The five preview colors of one palette: bg0, bg1, bg2, fg, the accent green. */
   function swatchColors(scheme, strength) {
     const ramps = palette.RAMPS && typeof palette.RAMPS === 'object' ? palette.RAMPS : {}
     const schemeRamps = ramps[scheme] && typeof ramps[scheme] === 'object' ? ramps[scheme] : {}
     const ramp = schemeRamps[strength] && typeof schemeRamps[strength] === 'object' ? schemeRamps[strength] : {}
     const foregrounds = palette.FOREGROUNDS && typeof palette.FOREGROUNDS === 'object' ? palette.FOREGROUNDS : {}
     const fg = foregrounds[scheme] && typeof foregrounds[scheme] === 'object' ? foregrounds[scheme] : {}
-    return [ramp.bg0, ramp.bg1, ramp.bg2, fg.fg, fg.aqua]
+    return [ramp.bg0, ramp.bg1, ramp.bg2, fg.fg, fg.green]
   }
 
   /**
@@ -5286,7 +5985,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_14_theme_spotlight_js = (() => {
+const __mod_18_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -5593,7 +6292,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_15_client_entry_js = (() => {
+const __mod_19_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -5601,13 +6300,17 @@ const __mod_15_client_entry_js = (() => {
   const { installTableScrollbarHover } = __mod_6_table_scrollbar_js
   const { selectionStyles } = __mod_7_selection_js
   const { activeSessionStyles } = __mod_8_active_session_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_9_nav_icon_js
+  const { workspaceLabelStyles } = __mod_9_workspace_labels_js
+  const { uiAccentStyles } = __mod_10_ui_accents_js
+  const { pluginUpdateStyles } = __mod_11_plugin_update_js
+  const { chatBubbleStyles } = __mod_12_chat_bubble_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_13_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_10_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_11_durable_js
-  const { EN, NS, ZH } = __mod_12_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_13_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_14_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_14_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_15_durable_js
+  const { EN, NS, ZH } = __mod_16_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_17_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_18_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -5640,6 +6343,11 @@ const __mod_15_client_entry_js = (() => {
  *    browser text selection with the current variant's `bg_visual` colour while
  *    keeping each element's own text colour; DSH declares the document-selection
  *    token but never reads it (2026-10-24).
+ *  - a small always-on **chat-bubble ink** stylesheet (`src/chat-bubble.js`):
+ *    DSH hard-codes the user bubble's text to `label-primary`, so the 2026-11-08
+ *    "苔纸 / 只换字色" pair (light moss paper + deep-pine ink, dark `bg1` +
+ *    pale-sage ink) needs one scoped rule for the ink. The token layer keeps
+ *    `label-primary` readable on the bubble as the fallback.
  *  - the markdown **table treatment**: the frame / column hairlines live in the
  *    color-mode sheet (they are content styling built from the border ramp) and
  *    the draggable-column interaction lives in `src/table-resize.js`, which
@@ -6012,7 +6720,11 @@ function apply(ctx) {
   // the same `interactive-bg-hover` token as hover, which in Everforest's ramps
   // is only a ~2.6 L* step from the sidebar — the open session is hard to find
   // (2026-10-24 user report). No dedicated token exists, so one rule on the
-  // row's stable `aria-selected` anchor paints a palette-blue surface. Also
+  // row's stable `aria-selected` anchor paints the solid accent band with the
+  // canvas colour as ink (2026-11-08 reference-tab look), a second rule inks the
+  // row's grey child cells (including the neutral `ongoing` loading spinner,
+  // 2026-11-08: "转圈图标显示不明显"), and a third replaces the row buttons'
+  // solid hover fill with an ink wash (2026-11-08: "铃铛 hover" grey block). Also
   // always-on and color-mode independent: this is navigation, not content.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
@@ -6024,7 +6736,85 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: active session styles')
 
-  // 1e. Table column resize: stylesheet + the DOM interaction. DSH renders a
+  // 1e. Workspace folder-name stylesheet. DSH paints every project row title
+  // with `label-primary` (`ui-workspace` `.projectRow`; only the active folder
+  // glyph gets the business accent), while the 2026-11-08 user asked for green
+  // directory names ("工作区的每个目录名称也用绿色显示"). One rule paints
+  // `[data-row-key^="workspace:"] [class*="projectText"]` with the palette text
+  // green `green` (upstream: Function Names / Strings / Search Highlights; same
+  // hex as `statusline1` in the dark schemes, the deeper `#8DA101` in the light
+  // ones — the user confirmed the text green is the deeper of the two), no
+  // contrast guard: the light palette cannot go higher, so the measured floor
+  // is pinned in contrast.md §2h (G18). Always-on, same injection pattern —
+  // navigation chrome, not markdown content.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/workspace-labels'
+    tag.textContent = workspaceLabelStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: workspace folder names')
+
+  // 1f. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
+  // the palette text green `green` (2026-11-08 user request: "上面标题的名称也
+  // 改为绿色"; the user later confirmed the text green is deeper than the
+  // selection background green); every dropdown's selected option is a
+  // `statusline1` solid fill with the scheme canvas `bg0` as its label / check
+  // ink — upstream `palette.md` defines `statusline1` as a *background* colour
+  // ("Menu Selection Background"), which is what the palette review (A7)
+  // aligned the dropdown to. The option's
+  // nested cells (leading icon, second line, shortcut, path suffix) restate
+  // their own `--dsw-alias-menu-icon` / `label-*` tokens instead of inheriting
+  // a colour, so the rule re-points those tokens at the same ink for the
+  // selected option's subtree (2026-11-08 follow-up: "第一个图中 icon 颜色不对，
+  // 第二个图中文字的颜色不对"). Always-on navigation chrome, same pattern.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/ui-accents'
+    tag.textContent = uiAccentStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: chrome accent styles')
+
+  // 1g. Plugin-update dialog. 2026-11-08 user report on the “更新 dsh-ops”
+  // dialog: the step rows read in DSH's info blue instead of the success green,
+  // and the finished steps' badges only get a 12% success tint, which looks
+  // washed out on the dark dialog. `src/plugin-update.js` paints the finished
+  // step labels with the semantic success green, failed ones with the semantic
+  // red, and fills the done badge / the large outcome glyph solid with the
+  // scheme canvas as ink. Always-on chrome, same injection pattern as 1d–1g.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/plugin-update'
+    tag.textContent = pluginUpdateStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: plugin update dialog')
+
+  // 1h. Chat-bubble ink. DSH paints the user-message bubble with
+  // `label-primary`; the 2026-11-08 bubble review picked the "苔纸" light /
+  // "只换字色" dark pair, whose derived inks (deep pine / pale sage) cannot ride
+  // the token layer without recolouring every primary label. `src/chat-bubble.js`
+  // owns the rules; the token layer still keeps `label-primary` readable on the
+  // bubble, so this sheet is a hue upgrade, not the AA guarantee. Always-on,
+  // same injection pattern as 1c–1g.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/chat-bubble'
+    tag.textContent = chatBubbleStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: chat bubble ink')
+
+  // 1i. Table column resize: stylesheet + the DOM interaction. DSH renders a
   // markdown table as a scroll wrapper around a bare table with no React
   // extension point (MarkdownText is a memoized mdast switch), so a table gets
   // explicit per-column widths and a drag handle on the header-cell right
@@ -6062,7 +6852,7 @@ function apply(ctx) {
     }
   }, 'everforest: table column resize')
 
-  // 1f. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // 1j. Table scrollbar hover animation. The color-mode sheet reserves a 10px
   // scrollbar track and paints a 5px inset pill; this controller grows the pill
   // to the full track while the pointer is on the bar. Chromium never runs CSS
   // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset
@@ -6544,6 +7334,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_15_client_entry_js
+    return __mod_19_client_entry_js
   },
 })

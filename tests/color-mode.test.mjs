@@ -7,7 +7,7 @@ import {
   colorModeRoles,
   colorModeStyles
 } from '../src/color-mode.js'
-import { contrastRatio, hexToRgb, labLightness } from '../src/color.js'
+import { contrastRatio, hexToRgb, labLightness, mix } from '../src/color.js'
 import { DEFAULT_STATE, STRENGTHS, VARIANT_NAMES, resolvePalette } from '../src/palette.js'
 import { tokensFor } from '../src/tokens.js'
 import { declarationsOf, styleRules } from './support/css.mjs'
@@ -35,12 +35,12 @@ const ROLE_KEYS = [
  * sidebar, design.md §13.9). Hover is one accent step stronger and re-guarded.
  */
 const EXPECTED_ROLES = {
-  'dark-hard': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#569D79', faint: '#9DA9A0', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#39423e', zebra: '#2f3738', tableHover: '#343d3b', quoteBg: '#2e3a3b', rowWarn: '#b19a6b', rowWarnHover: '#b89f6e', rowDone: '#3C4841', rowDoneHover: '#4a5749', dotWarn: '#E69875', dotDone: '#A7C080' },
-  'dark-medium': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#5b9f7b', faint: '#9DA9A0', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#3e4845', zebra: '#343d3f', tableHover: '#394342', quoteBg: '#344042', rowWarn: '#b39c6d', rowWarnHover: '#b9a170', rowDone: '#425047', rowDoneHover: '#49574b', dotWarn: '#E69875', dotDone: '#A7C080' },
-  'dark-soft': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#6ea582', faint: '#9DA9A0', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#434e4c', zebra: '#3a4447', tableHover: '#3f4949', quoteBg: '#394749', rowWarn: '#b49d6f', rowWarnHover: '#baa272', rowDone: '#48574e', rowDoneHover: '#49574f', dotWarn: '#E69875', dotDone: '#A7C080' },
-  'light-hard': { h1: '#F85552', h2: '#d87934', h3: '#b18d28', h4: '#889b0d', h5: '#3d90bd', h6: '#c369ab', emphasis: '#c369ab', inlineCode: '#3A94C5', linkInternal: '#579478', faint: '#829181', marker: '#37a47c', tableHandle: '#569D79', check: '#3f9779', band: '#efeece', zebra: '#f8f6e1', tableHover: '#f4f2d7', quoteBg: '#eff4e6', rowWarn: '#fbeac0', rowWarnHover: '#f9e6b5', rowDone: '#F3F5D9', rowDoneHover: '#e7ebbe', dotWarn: '#d07838', dotDone: '#849715' },
-  'light-medium': { h1: '#F85552', h2: '#d07838', h3: '#ac8b2c', h4: '#849715', h5: '#3f8db8', h6: '#bc69a7', emphasis: '#bc69a7', inlineCode: '#3c91c0', linkInternal: '#589077', faint: '#829181', marker: '#39a07b', tableHandle: '#569D79', check: '#419379', band: '#edeac3', zebra: '#f6f1d5', tableHover: '#f2eecc', quoteBg: '#edf0db', rowWarn: '#f8e6bb', rowWarnHover: '#f8e6b9', rowDone: '#F0F1D2', rowDoneHover: '#e9eac1', dotWarn: '#c7773d', dotDone: '#81931d' },
-  'light-soft': { h1: '#e45856', h2: '#bc7642', h3: '#9c843a', h4: '#7d8f25', h5: '#408cb6', h6: '#b969a5', emphasis: '#b969a5', inlineCode: '#408cb5', linkInternal: '#588f77', faint: '#829181', marker: '#409579', tableHandle: '#569D79', check: '#429279', band: '#efe7cb', zebra: '#efe7cb', tableHover: '#efe7cb', quoteBg: '#ede8d0', rowWarn: '#f2e6c9', rowWarnHover: '#f2e6c7', rowDone: '#ebe8cb', rowDoneHover: '#eee7ca', dotWarn: '#b67545', dotDone: '#7a8c2c' }
+  'dark-hard': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#569D79', faint: '#7A8478', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#39423e', zebra: '#2f3738', tableHover: '#343d3b', quoteBg: '#2e3a3b', rowWarn: '#b19a6b', rowWarnHover: '#b89f6e', rowDone: '#384B55', rowDoneHover: '#40575e', dotWarn: '#E69875', dotDone: '#7FBBB3' },
+  'dark-medium': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#5b9f7b', faint: '#7A8478', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#3e4845', zebra: '#343d3f', tableHover: '#394342', quoteBg: '#344042', rowWarn: '#b39c6d', rowWarnHover: '#b9a170', rowDone: '#3A515D', rowDoneHover: '#3f575f', dotWarn: '#E69875', dotDone: '#7FBBB3' },
+  'dark-soft': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#6ea582', faint: '#7A8478', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#434e4c', zebra: '#3a4447', tableHover: '#3f4949', quoteBg: '#394749', rowWarn: '#b49d6f', rowWarnHover: '#baa272', rowDone: '#3f5764', rowDoneHover: '#415760', dotWarn: '#E69875', dotDone: '#7FBBB3' },
+  'light-hard': { h1: '#F85552', h2: '#d87934', h3: '#b18d28', h4: '#889b0d', h5: '#3d90bd', h6: '#c369ab', emphasis: '#c369ab', inlineCode: '#3A94C5', linkInternal: '#579478', faint: '#A6B0A0', marker: '#37a47c', tableHandle: '#569D79', check: '#3f9779', band: '#efeece', zebra: '#f8f6e1', tableHover: '#f4f2d7', quoteBg: '#eff4e6', rowWarn: '#fbeac0', rowWarnHover: '#f9e6b5', rowDone: '#dcece9', rowDoneHover: '#dceae8', dotWarn: '#d07838', dotDone: '#3A94C5' },
+  'light-medium': { h1: '#F85552', h2: '#d07838', h3: '#ac8b2c', h4: '#849715', h5: '#3f8db8', h6: '#bc69a7', emphasis: '#bc69a7', inlineCode: '#3c91c0', linkInternal: '#589077', faint: '#A6B0A0', marker: '#39a07b', tableHandle: '#569D79', check: '#419379', band: '#edeac3', zebra: '#f6f1d5', tableHover: '#f2eecc', quoteBg: '#edf0db', rowWarn: '#f8e6bb', rowWarnHover: '#f8e6b9', rowDone: '#ddeae6', rowDoneHover: '#e0e9e2', dotWarn: '#c7773d', dotDone: '#3b93c3' },
+  'light-soft': { h1: '#e45856', h2: '#bc7642', h3: '#9c843a', h4: '#7d8f25', h5: '#408cb6', h6: '#b969a5', emphasis: '#b969a5', inlineCode: '#408cb5', linkInternal: '#588f77', faint: '#A6B0A0', marker: '#409579', tableHandle: '#569D79', check: '#429279', band: '#efe7cb', zebra: '#efe7cb', tableHover: '#efe7cb', quoteBg: '#ede8d0', rowWarn: '#f2e6c9', rowWarnHover: '#f2e6c7', rowDone: '#e6e8da', rowDoneHover: '#ece7d4', dotWarn: '#b67545', dotDone: '#408cb6' }
 }
 
 /** Role key → CSS custom property name (camelCase → kebab-case). */
@@ -356,20 +356,33 @@ test('session-row fills come from the palette background accents', () => {
     const state = { ...DEFAULT_STATE, [scheme]: strength }
     const palette = resolvePalette(state)[scheme]
     const { label, inverted, sidebar } = surfacesOf(variant)
-    // Done: `bg_green` verbatim in hard / medium; dark·soft's green sits at
-    // 4.47:1 so it is nudged toward bg0, and light·soft is nudged toward its
-    // (lighter) bg0 — both stay on the accent→bg0 line.
-    const done = hexToRgb(roles[variant].rowDone)
-    const green = hexToRgb(palette.ramp.bgGreen)
     const bg0 = hexToRgb(palette.ramp.bg0)
-    assert.ok(contrastRatio(label, roles[variant].rowDone) >= 4.5, `${variant}.rowDone must keep label-primary >= 4.5:1`)
-    for (const channel of ['r', 'g', 'b']) {
-      const low = Math.min(green[channel], bg0[channel])
-      const high = Math.max(green[channel], bg0[channel])
-      assert.ok(done[channel] >= low - 1 && done[channel] <= high + 1, `${variant}.rowDone.${channel} is off the bg_green→bg0 line`)
+    // Finished rows: palette1 `bg_blue`, deepened toward `fg.blue` for the
+    // light strengths' near-canvas wash, stopping where the 4.5:1 text gate
+    // runs out (2026-11-08: blue is back for "finished, not read", design §22).
+    const endpoints = [palette.ramp.bgBlue, palette.ramp.bg0, palette.fg.blue].map(hexToRgb)
+    for (const role of ['rowDone', 'rowDoneHover']) {
+      assert.ok(contrastRatio(label, roles[variant][role]) >= 4.5, `${variant}.${role} must keep label-primary >= 4.5:1`)
+      const fill = hexToRgb(roles[variant][role])
+      for (const channel of ['r', 'g', 'b']) {
+        const low = Math.min(...endpoints.map((entry) => entry[channel])) - 1
+        const high = Math.max(...endpoints.map((entry) => entry[channel])) + 1
+        assert.ok(
+          fill[channel] >= low && fill[channel] <= high,
+          `${variant}.${role}.${channel} left the bg_blue → bg0 / fg.blue range`
+        )
+      }
     }
-    if (strength !== 'soft') {
-      assert.equal(roles[variant].rowDone.toLowerCase(), palette.ramp.bgGreen.toLowerCase(), `${variant}.rowDone`)
+    // The resting fill sits on the legibility / visibility ceiling: one more
+    // step toward `fg.blue` must break the ink gate, unless the fill already
+    // cleared the separation target.
+    const done = roles[variant].rowDone
+    if (Math.abs(labLightness(done) - labLightness(sidebar)) < 4.5) {
+      const next = mix(done, palette.fg.blue, 0.01)
+      assert.ok(
+        contrastRatio(label, next) < 4.5,
+        `${variant}.rowDone could still move toward fg.blue without hurting legibility (${contrastRatio(label, next).toFixed(2)})`
+      )
     }
 
     const warn = roles[variant].rowWarn

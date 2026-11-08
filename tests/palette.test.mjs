@@ -57,6 +57,7 @@ const FOREGROUND_KEYS = [
   'grey0',
   'grey1',
   'grey2',
+  'statusline1',
   'headerRed',
   'headerOrange',
   'headerYellow',
@@ -80,10 +81,10 @@ const EXPECTED_RAMPS = {
   }
 }
 
-/** Foreground / accent / header colors from docs/reference/palette.md section 4. */
+/** Foreground / accent / statusline / header colors from docs/reference/palette.md section 4. */
 const EXPECTED_FOREGROUNDS = {
-  dark: ['#D3C6AA', '#E67E80', '#E69875', '#DBBC7F', '#A7C080', '#83C092', '#7FBBB3', '#D699B6', '#7A8478', '#859289', '#9DA9A0', '#DA6362', '#D77F48', '#BF983D', '#899C40', '#569D79', '#5A93A2', '#B87B9D'],
-  light: ['#5C6A72', '#F85552', '#F57D26', '#DFA000', '#8DA101', '#35A77C', '#3A94C5', '#DF69BA', '#A6B0A0', '#939F91', '#829181', '#F85552', '#F88F44', '#F3B931', '#ABD113', '#569D79', '#5A93A2', '#DD2B8D']
+  dark: ['#D3C6AA', '#E67E80', '#E69875', '#DBBC7F', '#A7C080', '#83C092', '#7FBBB3', '#D699B6', '#7A8478', '#859289', '#9DA9A0', '#A7C080', '#DA6362', '#D77F48', '#BF983D', '#899C40', '#569D79', '#5A93A2', '#B87B9D'],
+  light: ['#5C6A72', '#F85552', '#F57D26', '#DFA000', '#8DA101', '#35A77C', '#3A94C5', '#DF69BA', '#A6B0A0', '#939F91', '#829181', '#93B259', '#F85552', '#F88F44', '#F3B931', '#ABD113', '#569D79', '#5A93A2', '#DD2B8D']
 }
 
 const HEX_PATTERN = /^#[0-9A-F]{6}$/
@@ -256,7 +257,13 @@ test('--check exits non-zero when src/palette.js is missing or stale', () => {
 test('docs/reference/palette.md tables match the generated palette', () => {
   const docPath = join(ROOT_DIR, 'docs', 'reference', 'palette.md')
   const doc = readFileSync(docPath, 'utf8')
-  const foregroundRoles = ['fg', 'red', 'orange', 'yellow', 'green', 'aqua', 'blue', 'purple', 'grey0', 'grey1', 'grey2']
+  const foregroundRoles = ['fg', 'red', 'orange', 'yellow', 'green', 'aqua', 'blue', 'purple', 'grey0', 'grey1', 'grey2', 'statusline1']
+  // Upstream also documents two extra statusline foregrounds; they are archival
+  // data (no DSH consumer) and intentionally stay out of the Foreground model,
+  // but the doc table must still be pinned to the upstream values so a silent
+  // edit cannot drift it (2026-11-08 palette review, test-gap item 9).
+  const archivalForegroundRoles = ['statusline2', 'statusline3']
+  const docArchivalForegrounds = {}
   const headerRoles = ['header-red', 'header-orange', 'header-yellow', 'header-green', 'header-aqua', 'header-blue', 'header-purple']
   const cellsOf = (line) => line.split('|').slice(1, -1).map((cell) => cell.trim())
   const plain = (cell) => cell.replace(/`/g, '').trim()
@@ -287,7 +294,12 @@ test('docs/reference/palette.md tables match the generated palette', () => {
     }
 
     if (/^##\s*4\.\s*前景/.test(section)) {
-      if (cells.length !== 3 || !foregroundRoles.includes(cells[0])) continue
+      if (cells.length !== 3) continue
+      if (archivalForegroundRoles.includes(cells[0])) {
+        docArchivalForegrounds[cells[0]] = { dark: plain(cells[1]), light: plain(cells[2]) }
+        continue
+      }
+      if (!foregroundRoles.includes(cells[0])) continue
       docForegrounds.dark[cells[0]] = plain(cells[1])
       docForegrounds.light[cells[0]] = plain(cells[2])
       continue
@@ -329,6 +341,28 @@ test('docs/reference/palette.md tables match the generated palette', () => {
   for (const role of foregroundRoles) {
     assert.equal(FOREGROUNDS.light[role], docForegrounds.light[role], `light foreground drift: ${role}`)
     assert.equal(FOREGROUNDS.dark[role], docForegrounds.dark[role], `dark foreground drift: ${role}`)
+  }
+
+  // Archival statusline rows: pinned to the upstream palette so a silent edit
+  // cannot drift them. They are documentation only — no DSH consumer reads them,
+  // so they stay out of the 19-colour Foreground model on purpose.
+  const ARCHIVAL_FOREGROUND_VALUES = {
+    statusline2: { dark: '#D3C6AA', light: '#708089' },
+    statusline3: { dark: '#E67E80', light: '#E66868' }
+  }
+  assert.deepEqual(
+    Object.keys(docArchivalForegrounds).sort(),
+    [...archivalForegroundRoles].sort(),
+    'palette.md archival foreground coverage'
+  )
+  for (const role of archivalForegroundRoles) {
+    assert.deepEqual(
+      docArchivalForegrounds[role],
+      ARCHIVAL_FOREGROUND_VALUES[role],
+      `palette.md archival foreground drift: ${role}`
+    )
+    assert.equal(FOREGROUNDS.light[role], undefined, `${role} stays out of the Foreground model`)
+    assert.equal(FOREGROUNDS.dark[role], undefined, `${role} stays out of the Foreground model`)
   }
 
   const headerKeys = headerRoles

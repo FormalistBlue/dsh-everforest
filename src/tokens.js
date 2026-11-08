@@ -50,7 +50,7 @@
 //    - the four alpha statics get 8-digit hex values (alpha green/red).
 // 2. alias / specific / shiki: explicit semantic mapping to Everforest roles per
 //    docs/design.md §4 (bg layers, sidebar = one ramp step off bg0, labels,
-//    borders = bg5 alpha, brand = header-aqua, link = header-blue, states,
+//    borders = bg5 alpha, brand / interaction accent = green, link = blue, states,
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
 //    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
 //    = neutral luminance anchors, ...). No alias relies on automatic following:
@@ -73,6 +73,11 @@ import { alpha, contrastRatio, interpolateRamp, mix } from './color.js'
 
 /** Minimum contrast for surfaces that carry `--dsw-alias-label-primary` text. */
 const SURFACE_CONTRAST_TARGET = 4.5
+
+// The brand / primary-button floor (`--dsw-alias-label-primary-foreground` on a
+// filled accent surface) is enforced by scripts/check-contrast.mjs (gate 4), not
+// here: since 2026-11-08 the interaction accent is `statusline1` verbatim, so the
+// light schemes sit at 2.00–2.32:1 by design (the reference tab does the same).
 
 /** How far light-scheme text surfaces are blended toward bg0 (flat-style baseline). */
 const LIGHT_SURFACE_MIX = 0.25
@@ -127,10 +132,10 @@ function rampSurface (p, step) {
  * Deterministic contrast guard for surfaces that carry label-primary text:
  * nudge the surface toward a lighter anchor until the primary label reaches
  * WCAG AA (4.5:1). `readableSurface` moves toward `bg0` (the scheme's lightest
- * colour); the chat bubble moves toward white instead, because moving toward
- * the warm canvas would erase the tint that makes it recognizable (see
- * `bubbleSurface`). Leaves the input untouched when it already passes, so most
- * tokens keep their exact design value.
+ * colour); the light chat bubble runs the same guard on its moss paper, and its
+ * light·soft variant is raised from white instead (see `bubbleSurface`).
+ * Leaves the input untouched when it already passes, so most tokens keep their
+ * exact design value.
  * @param {{ scheme: string, ramp: object, fg: object }} p
  * @param {string} color
  * @param {string} toward - colour mixed in until the text target is met.
@@ -161,6 +166,36 @@ function surface (p, step) {
   return readableSurface(p, rampSurface(p, step))
 }
 
+/**
+ * The interaction accent of a variant: upstream Everforest `statusline1`
+ * ("Menu Selection Background / Tab Line Label Background (active)"), the one
+ * green the plugin paints every selected / active chrome surface with (send
+ * button, selected session band, folder names, conversation title, dropdown
+ * selection). Dark is `#A7C080` (identical to `green`), light is `#93B259`
+ * (2026-11-08: the user cropped the same reference tab and asked for the
+ * lighter green; `green` `#8DA101` looked olive).
+ * @param {{ fg: object }} p
+ * @returns {string}
+ */
+function interactionAccent (p) {
+  return p.fg.statusline1
+}
+
+/**
+ * Filled interaction accent (brand mark / primary + info buttons). These surfaces
+ * carry the `bg0` ink (`--dsw-alias-label-primary-foreground`), and the accent is
+ * used verbatim: `statusline1` sits at 2.00–2.32:1 on the light canvases (the
+ * reference tab pairs cream ink with the same green) and 5.62–6.88:1 in the dark
+ * schemes. 2026-11-08 third pass dropped the earlier deepen-toward-`fg` guard:
+ * it kept light·soft at the 2.5:1 brand trade-off but pushed the fill off the
+ * reference colour, which is exactly what the user asked to stop.
+ * @param {{ scheme: string, ramp: object, fg: object }} p
+ * @returns {string}
+ */
+function accentFill (p) {
+  return interactionAccent(p)
+}
+
 /** How far the sidebar surface is blended from bg0 toward bg1. */
 const SIDEBAR_STEP_MIX = 0.8
 
@@ -188,16 +223,17 @@ function sidebarSurface (p) {
   return readableSurface(p, mix(p.ramp.bg0, p.ramp.bg1, SIDEBAR_STEP_MIX))
 }
 
-/** How far the tinted light chat bubble is mixed from bg0 toward header-aqua. */
-const BUBBLE_TINT_MIX = 0.16
+/** How far the light chat bubble is blended from `bg_green` toward `bg5`. */
+const BUBBLE_MOSS_MIX = 0.22
 
 /**
- * How far the raised (light·soft) bubble moves from white toward the scheme's
- * green ink. A plain (or barely aqua-tinted) white read as "the chat bubble turned
- * white" on the warm light·soft canvas (2026-10-21 user report), so the raised
- * branch is a pale sage paper instead.
+ * How far the raised (light·soft) bubble moves from white toward the moss paper.
+ *
+ * light·soft's canvas is already at the 4.5:1 ink limit, so a darker moss would
+ * fail AA; the bubble is raised instead. It is not near-white (the 2026-10-21
+ * "the bubble turned white" report), but a pale moss paper.
  */
-const BUBBLE_RAISED_MIX = 0.13
+const BUBBLE_RAISED_MIX = 0.4
 
 /**
  * Chat user-message bubble (`--dsw-specific-bubble`).
@@ -209,26 +245,32 @@ const BUBBLE_RAISED_MIX = 0.13
  * "聊天气泡和背景融为一体了"). The native light bubble is not a neutral ramp
  * step either: it is a pale blue tint (`static-deepseek-50` on white).
  *
- * The Everforest analogue is a sage tint of `header-aqua` on the canvas. The
- * bubble carries primary text, so the 4.5:1 gate applies on top: in light·hard
- * and light·medium the tint can darken to ~1.17 / 1.14:1 from bg0 while
- * keeping the ink at 4.6:1. In light·soft `bg0` is already 4.66:1 from the ink,
- * so a darker tint would fail the gate; there the bubble flips to the raised
- * direction — a pale sage paper (white pulled toward the scheme green) rather
- * than the previous stark near-white. It keeps the ink at ~4.9:1; the canvas
- * boundary is ~1.06:1 instead of 1.15:1, which is an accepted trade-off: the
- * green-vs-warm-cream hue difference carries the separation the luminance step
- * no longer does (the bubble gate is relaxed to 1.05 for light·soft).
+ * 2026-11-08: the user picked the "苔纸" direction (option C of the
+ * `.tmp/bubble-demo` comparison) for the light scheme — Everforest's own
+ * `bg_green` pulled toward `bg5` (a moss paper) instead of the old sage tint of
+ * `header-aqua`. The bubble is a text-bearing surface, so the `label-primary`
+ * gate still applies as the fallback: light·hard clears it with the raw moss
+ * (4.54:1), light·medium is nudged toward `bg0` by `readableSurface` (~4.50:1),
+ * and light·soft (whose `bg0` has only 4.66:1 of headroom) keeps the raised
+ * branch — now white pulled toward the same moss instead of toward `fg.green`,
+ * which keeps the green paper family while staying at 1.06:1 from the canvas
+ * (the accepted light·soft trade-off, gate 1.05).
  *
- * Dark keeps the existing `bg1` step (1.14–1.16:1 from bg0, ink ≥5.7:1).
+ * The ink on top is a scoped derived colour (`src/chat-bubble.js`): deep pine
+ * `#3E5647` in light, pale sage `#DAE2C7` in dark. The token itself keeps the
+ * official ink readable, so the bubble stays AA even if that selector is lost on
+ * a DSH upgrade.
+ *
+ * Dark keeps the existing `bg1` step (1.14–1.16:1 from bg0, ink ≥5.7:1); the
+ * 2026-11-08 dark pick was "只换字色", i.e. no background change there.
  * @param {{ scheme: string, strength: string, ramp: object, fg: object }} p
  * @returns {string}
  */
 function bubbleSurface (p) {
   if (p.scheme === 'dark') return surface(p, 1)
-  const tinted = readableToward(p, mix(p.ramp.bg0, p.fg.headerAqua, BUBBLE_TINT_MIX), '#ffffff')
-  const raised = mix('#ffffff', p.fg.green, BUBBLE_RAISED_MIX)
-  return contrastRatio(p.ramp.bg0, tinted) >= contrastRatio(p.ramp.bg0, raised) ? tinted : raised
+  const moss = mix(p.ramp.bgGreen, p.ramp.bg5, BUBBLE_MOSS_MIX)
+  if (p.strength === 'soft') return mix('#ffffff', moss, BUBBLE_RAISED_MIX)
+  return readableSurface(p, moss)
 }
 
 /** Code-block / markdown background (Everforest `bg_dim`; contrast guarded). */
@@ -617,14 +659,23 @@ const ALIAS_TOKENS = {
   '--dsw-alias-border-l3': (p) => border(p, 'l3'),
   '--dsw-alias-border-l4': (p) => border(p, 'l4'),
 
-  // Brand / primary buttons. 2026-10-24 accent trial: the official `fg.aqua` /
-  // `fg.blue` replace Enchanted's muted `header-aqua` / `header-blue` here and
-  // in the link / deep-diving / interaction tokens. `header-*` stays for the
-  // onboarding artwork, the shiki link colour and the light bubble tint.
-  '--dsw-alias-brand-primary': (p) => p.fg.aqua,
+  // Brand / primary buttons / interaction accent. The accent is the official
+  // `fg.green` — upstream paints its own UI with this green (menu selection
+  // background, active tab label, status-line mode indicator = `statusline1`,
+  // which is the same color in the dark scheme). `fg.blue` keeps the text / info
+  // roles (link, shiki keyword, inline-code chip); `fg.aqua` keeps the content
+  // decorations (list markers, quote bar, hr) of the color mode.
+  // 2026-10-24 accent trial moved these roles off Enchanted's muted `header-*`
+  // pair. 2026-11-07: `button-info-fill` / `state-business-*` /
+  // `label-primary-bluish` moved blue → accent (DSH paints the composer send
+  // button and the active/selected + focus-ring states with the DeepSeek brand
+  // blue roles); later the same day the user compared an official Everforest Vim
+  // screenshot and the accent settled on `fg.green` instead of `fg.aqua`
+  // (docs/design.md §21).
+  '--dsw-alias-brand-primary': (p) => accentFill(p),
   '--dsw-alias-brand-primary-invert': (p) => p.ramp.bg0,
   // Upstream token name carries a duplicated suffix; keep the exact CSS variable.
-  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => p.fg.aqua,
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': (p) => accentFill(p),
   '--dsw-alias-brand-text': (p) => p.ramp.bg0,
   '--dsw-alias-button-contrast-fill': (p) => p.fg.fg,
   '--dsw-alias-button-elevated-fill': (p) => surface(p, 2),
@@ -633,12 +684,12 @@ const ALIAS_TOKENS = {
   '--dsw-alias-button-ghost-active-border': (p) => border(p, 'l3'),
   '--dsw-alias-button-ghost-active-fill': (p) => surface(p, 2),
   '--dsw-alias-button-ghost-active-hover': (p) => surface(p, 3),
-  '--dsw-alias-button-info-fill': (p) => p.fg.blue,
-  '--dsw-alias-button-info-hover': (p) => lift(p, p.fg.blue, 0.18),
+  '--dsw-alias-button-info-fill': (p) => accentFill(p),
+  '--dsw-alias-button-info-hover': (p) => lift(p, accentFill(p), 0.18),
   // "dimmed" primary: desaturate toward the surface instead of changing the hue.
-  '--dsw-alias-button-primary-dimmed': (p) => mix(p.fg.aqua, surface(p, 2), 0.45),
-  '--dsw-alias-button-primary-fill': (p) => p.fg.aqua,
-  '--dsw-alias-button-primary-hover': (p) => p.fg.blue,
+  '--dsw-alias-button-primary-dimmed': (p) => mix(accentFill(p), surface(p, 2), 0.45),
+  '--dsw-alias-button-primary-fill': (p) => accentFill(p),
+  '--dsw-alias-button-primary-hover': (p) => lift(p, accentFill(p), 0.18),
   // Tool-bar material: bg2 + the upstream 45%-94% opacity range.
   '--dsw-alias-button-tool-bar-fill': (p) => alpha(surface(p, 2), 0.72),
   '--dsw-alias-button-tool-bar-fill-invisible': (p) => alpha(surface(p, 2), 0.45),
@@ -654,21 +705,34 @@ const ALIAS_TOKENS = {
   '--dsw-alias-file-diff-deleted-gutter': (p) => diffGutter(p, diffSurface(p, 'bgRed', p.fg.red)),
   '--dsw-alias-file-diff-deleted-marker': (p) => p.fg.red,
 
-  // Interactive feedback (subtle translucent overlays, as upstream) -----------
-  '--dsw-alias-interactive-bg-active': (p) => alpha(p.ramp.bg5, 0.28),
-  '--dsw-alias-interactive-bg-hover': (p) => alpha(p.ramp.bg5, 0.16),
-  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(p.fg.aqua, 0.16),
+  // Interactive feedback (subtle translucent overlays). Upstream defines no
+  // hover role and marks `bg5` "Not currently used", so the 2026-11-08 palette
+  // review moved these overlays off `bg5`: they are a neutral wash of the ramp's
+  // whitespace / separator step `bg4`. The selected menu item is no longer this
+  // overlay either — `src/ui-accents.js` paints it with `statusline1` (upstream:
+  // "Menu Selection Background").
+  '--dsw-alias-interactive-bg-active': (p) => alpha(p.ramp.bg4, 0.8),
+  '--dsw-alias-interactive-bg-hover': (p) => alpha(p.ramp.bg4, 0.5),
+  '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(interactionAccent(p), 0.16),
   '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.red, 0.12),
   '--dsw-alias-interactive-bg-hover-solid': (p) => surface(p, 2),
 
   // Labels -------------------------------------------------------------------
-  '--dsw-alias-label-caption': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.25),
-  '--dsw-alias-label-deep-diving': (p) => p.fg.blue,
-  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(p.fg.blue, 40),
-  '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey2, p.ramp.bg0, 0.55),
+  // 2026-11-08 palette review (A9): upstream assigns `grey2` only to the cursor
+  // line number and the inactive tab label, while `grey0` is the muted family
+  // (line numbers / fold columns / concealed text / foreground UI elements).
+  // DSH paints code line numbers with `label-tertiary`, so the muted family is
+  // `grey0` here; `grey2` stays out of the token layer.
+  '--dsw-alias-label-caption': (p) => mix(p.fg.grey0, p.ramp.bg0, 0.25),
+  // "deep diving" is the running-turn status label in chat: an activity cue, so
+  // it follows the interaction accent (2026-11-07: blue → aqua → green).
+  '--dsw-alias-label-deep-diving': (p) => interactionAccent(p),
+  '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(interactionAccent(p), 40),
+  '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey0, p.ramp.bg0, 0.55),
   '--dsw-alias-label-document-preview': (p) => p.fg.grey1,
   '--dsw-alias-label-primary': (p) => p.fg.fg,
-  '--dsw-alias-label-primary-bluish': (p) => p.fg.blue,
+  // Inks the hero's "预览版" pill (`state-business-tertiary` tint below).
+  '--dsw-alias-label-primary-bluish': (p) => interactionAccent(p),
   '--dsw-alias-label-primary-dimmed': (p) => mix(p.fg.fg, p.ramp.bg0, 0.35),
   // Brand / primary-button foreground: bg0, not white (docs/design.md §4).
   '--dsw-alias-label-primary-foreground': (p) => p.ramp.bg0,
@@ -677,7 +741,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-label-primary-inverted': (p) => contrastInk(p),
   '--dsw-alias-label-secondary': (p) => p.fg.grey1,
   '--dsw-alias-label-shimmer': (p) => transparentMix(p.fg.fg, 30),
-  '--dsw-alias-label-tertiary': (p) => p.fg.grey2,
+  '--dsw-alias-label-tertiary': (p) => p.fg.grey0,
 
   // Links / markdown ---------------------------------------------------------
   '--dsw-alias-link': (p) => p.fg.blue,
@@ -698,7 +762,7 @@ const ALIAS_TOKENS = {
   '--dsw-alias-menu-icon': (p) => p.fg.grey1,
 
   // Onboarding (accent + 3 gradient stops + 3 fills = 7 tokens) --------------
-  '--dsw-alias-onboarding-accent': (p) => p.fg.aqua,
+  '--dsw-alias-onboarding-accent': (p) => interactionAccent(p),
   '--dsw-alias-onboarding-card-fill': (p) => alpha(surface(p, 2), 0.8),
   '--dsw-alias-onboarding-checkbox-border': (p) => border(p, 'l1'),
   '--dsw-alias-onboarding-secondary-fill': (p) => surface(p, 1),
@@ -729,13 +793,18 @@ const ALIAS_TOKENS = {
 
   // States (Enchanted semantics; semantic colours keep the upstream low-contrast
   // character and are reported, not "fixed", in docs/reference/contrast.md) -----
-  '--dsw-alias-state-business-primary': (p) => p.fg.blue,
-  '--dsw-alias-state-business-tertiary': (p) => tint(p, p.fg.blue, 0.85),
+  // `business` is the DeepSeek brand-blue role upstream (deepseek-500). DSH paints
+  // active / selected / focus with it, so it follows the interaction accent
+  // (`fg.green`, 2026-11-07); upstream also uses green for hint / menu-selection
+  // states, so the accent and `state-success` share the same green on purpose.
+  // The third-party `state-info-*` aliases ride along.
+  '--dsw-alias-state-business-primary': (p) => interactionAccent(p),
+  '--dsw-alias-state-business-tertiary': (p) => tint(p, interactionAccent(p), 0.85),
   // DSH's "done" state is violet, distinct from the success green.
   '--dsw-alias-state-done-primary': (p) => p.fg.purple,
   '--dsw-alias-state-error-primary': (p) => p.fg.red,
   '--dsw-alias-state-error-secondary': (p) => lift(p, p.fg.red, 0.25),
-  '--dsw-alias-state-idle-primary': (p) => p.fg.grey2,
+  '--dsw-alias-state-idle-primary': (p) => p.fg.grey0,
   '--dsw-alias-state-success-primary': (p) => p.fg.green,
   '--dsw-alias-state-success-secondary': (p) => lift(p, p.fg.green, 0.25),
   '--dsw-alias-state-success-tertiary': (p) => tint(p, p.fg.green, 0.82),
@@ -764,7 +833,7 @@ const SPECIFIC_TOKENS = {
   '--dsw-specific-selector': (p) => surface(p, 2),
   '--dsw-specific-sidebar-fill': (p) => sidebarSurface(p),
   '--dsw-specific-sidebar-nav-item-active': (p) => surface(p, 2),
-  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(p.fg.aqua, 0.2),
+  '--dsw-specific-sidebar-nav-item-active-accent': (p) => alpha(interactionAccent(p), 0.2),
   '--dsw-specific-tip': (p) => surface(p, 2)
 }
 

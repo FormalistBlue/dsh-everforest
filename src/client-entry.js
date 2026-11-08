@@ -29,6 +29,11 @@
  *    browser text selection with the current variant's `bg_visual` colour while
  *    keeping each element's own text colour; DSH declares the document-selection
  *    token but never reads it (2026-10-24).
+ *  - a small always-on **chat-bubble ink** stylesheet (`src/chat-bubble.js`):
+ *    DSH hard-codes the user bubble's text to `label-primary`, so the 2026-11-08
+ *    "苔纸 / 只换字色" pair (light moss paper + deep-pine ink, dark `bg1` +
+ *    pale-sage ink) needs one scoped rule for the ink. The token layer keeps
+ *    `label-primary` readable on the bubble as the fallback.
  *  - the markdown **table treatment**: the frame / column hairlines live in the
  *    color-mode sheet (they are content styling built from the border ramp) and
  *    the draggable-column interaction lives in `src/table-resize.js`, which
@@ -60,6 +65,10 @@ import { installColumnResize, tableResizeStyles } from './table-resize.js'
 import { installTableScrollbarHover } from './table-scrollbar.js'
 import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
+import { workspaceLabelStyles } from './workspace-labels.js'
+import { uiAccentStyles } from './ui-accents.js'
+import { pluginUpdateStyles } from './plugin-update.js'
+import { chatBubbleStyles } from './chat-bubble.js'
 import { createSettingsNavIcon, NAV_ICON_SLOT } from './nav-icon.js'
 import { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
@@ -432,7 +441,11 @@ export function apply(ctx) {
   // the same `interactive-bg-hover` token as hover, which in Everforest's ramps
   // is only a ~2.6 L* step from the sidebar — the open session is hard to find
   // (2026-10-24 user report). No dedicated token exists, so one rule on the
-  // row's stable `aria-selected` anchor paints a palette-blue surface. Also
+  // row's stable `aria-selected` anchor paints the solid accent band with the
+  // canvas colour as ink (2026-11-08 reference-tab look), a second rule inks the
+  // row's grey child cells (including the neutral `ongoing` loading spinner,
+  // 2026-11-08: "转圈图标显示不明显"), and a third replaces the row buttons'
+  // solid hover fill with an ink wash (2026-11-08: "铃铛 hover" grey block). Also
   // always-on and color-mode independent: this is navigation, not content.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
@@ -444,7 +457,85 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: active session styles')
 
-  // 1e. Table column resize: stylesheet + the DOM interaction. DSH renders a
+  // 1e. Workspace folder-name stylesheet. DSH paints every project row title
+  // with `label-primary` (`ui-workspace` `.projectRow`; only the active folder
+  // glyph gets the business accent), while the 2026-11-08 user asked for green
+  // directory names ("工作区的每个目录名称也用绿色显示"). One rule paints
+  // `[data-row-key^="workspace:"] [class*="projectText"]` with the palette text
+  // green `green` (upstream: Function Names / Strings / Search Highlights; same
+  // hex as `statusline1` in the dark schemes, the deeper `#8DA101` in the light
+  // ones — the user confirmed the text green is the deeper of the two), no
+  // contrast guard: the light palette cannot go higher, so the measured floor
+  // is pinned in contrast.md §2h (G18). Always-on, same injection pattern —
+  // navigation chrome, not markdown content.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/workspace-labels'
+    tag.textContent = workspaceLabelStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: workspace folder names')
+
+  // 1f. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
+  // the palette text green `green` (2026-11-08 user request: "上面标题的名称也
+  // 改为绿色"; the user later confirmed the text green is deeper than the
+  // selection background green); every dropdown's selected option is a
+  // `statusline1` solid fill with the scheme canvas `bg0` as its label / check
+  // ink — upstream `palette.md` defines `statusline1` as a *background* colour
+  // ("Menu Selection Background"), which is what the palette review (A7)
+  // aligned the dropdown to. The option's
+  // nested cells (leading icon, second line, shortcut, path suffix) restate
+  // their own `--dsw-alias-menu-icon` / `label-*` tokens instead of inheriting
+  // a colour, so the rule re-points those tokens at the same ink for the
+  // selected option's subtree (2026-11-08 follow-up: "第一个图中 icon 颜色不对，
+  // 第二个图中文字的颜色不对"). Always-on navigation chrome, same pattern.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/ui-accents'
+    tag.textContent = uiAccentStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: chrome accent styles')
+
+  // 1g. Plugin-update dialog. 2026-11-08 user report on the “更新 dsh-ops”
+  // dialog: the step rows read in DSH's info blue instead of the success green,
+  // and the finished steps' badges only get a 12% success tint, which looks
+  // washed out on the dark dialog. `src/plugin-update.js` paints the finished
+  // step labels with the semantic success green, failed ones with the semantic
+  // red, and fills the done badge / the large outcome glyph solid with the
+  // scheme canvas as ink. Always-on chrome, same injection pattern as 1d–1g.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/plugin-update'
+    tag.textContent = pluginUpdateStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: plugin update dialog')
+
+  // 1h. Chat-bubble ink. DSH paints the user-message bubble with
+  // `label-primary`; the 2026-11-08 bubble review picked the "苔纸" light /
+  // "只换字色" dark pair, whose derived inks (deep pine / pale sage) cannot ride
+  // the token layer without recolouring every primary label. `src/chat-bubble.js`
+  // owns the rules; the token layer still keeps `label-primary` readable on the
+  // bubble, so this sheet is a hue upgrade, not the AA guarantee. Always-on,
+  // same injection pattern as 1c–1g.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/chat-bubble'
+    tag.textContent = chatBubbleStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: chat bubble ink')
+
+  // 1i. Table column resize: stylesheet + the DOM interaction. DSH renders a
   // markdown table as a scroll wrapper around a bare table with no React
   // extension point (MarkdownText is a memoized mdast switch), so a table gets
   // explicit per-column widths and a drag handle on the header-cell right
@@ -482,7 +573,7 @@ export function apply(ctx) {
     }
   }, 'everforest: table column resize')
 
-  // 1f. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // 1j. Table scrollbar hover animation. The color-mode sheet reserves a 10px
   // scrollbar track and paints a 5px inset pill; this controller grows the pill
   // to the full track while the pointer is on the bar. Chromium never runs CSS
   // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset

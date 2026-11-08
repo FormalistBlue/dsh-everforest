@@ -50,7 +50,7 @@
 //                            scheme's deep contrast ink (2026-10-24 restyle and
 //                            follow-ups, design doc §13.8.1); hover is one step
 //                            stronger.
-//       status dots warn / done orange / green, guarded on bg-base AND sidebar
+//       status dots warn / done orange / blue, guarded on bg-base AND sidebar
 //
 //     Thresholds: large/bold headings h1–h4 and the decorations/checkbox accent
 //     are non-body text -> 3:1; accent text (h5/h6, emphasis, inline code,
@@ -144,10 +144,13 @@ export const COLOR_MODE_ATTRS = Object.freeze({
  *   amber surface with the deep contrast ink instead (design doc §13.8.1).
  * @property {string} rowWarnHover - `rowWarn` moved toward `fg.yellow` (re-guarded).
  * @property {string} rowDone - finished, not yet opened session row: solid fill
- *   from the palette's `bg_green`.
+ *   from the palette's `bg_blue`. Blue came back on 2026-11-08 (design §22): the
+ *   open session row owns the green accent band, and the "finished,
+ *   not read" row must stay out of that hue; `bg_blue` is the palette1 status
+ *   surface the plugin used before the green accent pass.
  * @property {string} rowDoneHover - `rowDone` with the fill one step stronger.
  * @property {string} dotWarn - waiting session status dot (orange).
- * @property {string} dotDone - finished session status dot (green).
+ * @property {string} dotDone - finished session status dot (blue).
  */
 
 /** Minimum contrast for a large / bold coloured heading or a decoration. */
@@ -182,15 +185,18 @@ const QUOTE_TINT = 0.08
 /**
  * Session-row fills come straight from Everforest's palette1 background
  * accents (sainnhe/everforest `palette.md`): `bg_yellow` for a waiting row,
- * `bg_green` for a finished one. These are the upstream's own dedicated status
+ * `bg_blue` for a finished one. These are the upstream's own dedicated status
  * surfaces, so the hue never drifts the way a derived tint does (the 0.4.0 sRGB
  * blend read as neutral grey; an OKLab-derived tint still looked off in dark
- * mode — 2026-10-24 user reports). Both schemes use the palette pair; the
- * contrast guard only nudges when a soft-strength value misses 4.5:1.
+ * mode — 2026-10-24 user reports). The finished row moved from `bg_green` to
+ * `bg_blue` on 2026-11-08 (design §22): green now marks the open session row, so
+ * the status surfaces keep blue for "finished, not read". Both schemes use the
+ * palette pair; the contrast guard only nudges when a soft-strength value misses
+ * 4.5:1.
  */
 const ROW_RAMP = {
   warn: { fill: 'bgYellow', accent: 'yellow' },
-  done: { fill: 'bgGreen', accent: 'green' }
+  done: { fill: 'bgBlue', accent: 'blue' }
 }
 
 /** How far a hovered row moves toward its accent (re-guarded to 4.5:1). */
@@ -209,6 +215,16 @@ const ROW_HOVER_TINT = 0.16
 const ROW_WARN_SEPARATION = 3.5
 
 /**
+ * Minimum CIE L* step between a finished-row fill (`bg_blue`) and the sidebar.
+ * Light `bg_blue` is a near-canvas wash and dark·soft lands only ~3 L* from the
+ * sidebar, so the fill is deepened toward `fg.blue` until it clears this floor,
+ * stopping where the 4.5:1 text gate runs out. That is the same ramp the blue
+ * selected row used before 2026-11-07 (design §15), so the "finished, not read"
+ * row keeps the look the user asked back on 2026-11-08 (design §22).
+ */
+const ROW_DONE_SEPARATION = 4.5
+
+/**
  * Deepen a row fill toward its accent until it is `target` L* away from the
  * sidebar, keeping the last step that still passes the text gate.
  * @param {string} color - guarded palette fill.
@@ -218,7 +234,7 @@ const ROW_WARN_SEPARATION = 3.5
  * @param {number} target - minimum CIE L* distance from the sidebar.
  * @returns {string}
  */
-function liftWarnFill (color, sidebar, ink, accent, target) {
+function liftRowFill (color, sidebar, ink, accent, target) {
   const distance = (fill) => Math.abs(labLightness(fill) - labLightness(sidebar))
   if (distance(color) >= target) return color
   let best = color
@@ -366,15 +382,16 @@ function buildColorModeRoles () {
     const tableHandle = fg.headerAqua
     // Status dots sit on both the canvas and the sidebar.
     const dotWarn = guardTo(fg.orange, [bg, sidebar], DOT_CONTRAST, ink)
-    const dotDone = guardTo(fg.green, [bg, sidebar], DOT_CONTRAST, ink)
+    const dotDone = guardTo(fg.blue, [bg, sidebar], DOT_CONTRAST, ink)
     /**
-     * Session-row fill from the palette's `bg_yellow` / `bg_green`. The light
+     * Session-row fill from the palette's `bg_yellow` / `bg_blue`. The light
      * waiting rows are deepened toward their accent when the palette value sits
      * too close to the sidebar (§13.8.1); the dark waiting rows invert instead —
      * a bright amber surface that carries the scheme's deep contrast ink, because
      * Everforest's dark `bg_yellow` cannot read as yellow under the light ink.
-     * Hover moves the fill one accent step further and is re-guarded, so the four
-     * fills stay on one ramp.
+     * Finished rows use the `bg_blue` status surface and are deepened toward
+     * `fg.blue` until they clear the visibility floor (§22). Hover moves the fill
+     * one accent step further and is re-guarded, so the fills stay on one ramp.
      */
     const rowFill = (preset) => {
       const warn = preset.startsWith('warn')
@@ -390,9 +407,13 @@ function buildColorModeRoles () {
         return readableDeepInk(mix(amber, fg.yellow, ROW_HOVER_TINT), deepInk, palette.ramp.bgDim)
       }
       const paletteFill = readableRowFill(palette.ramp[ramp.fill], palette.ramp.bg0, labelPrimary)
-      const fill = warn
-        ? liftWarnFill(paletteFill, sidebar, labelPrimary, fg[ramp.accent], ROW_WARN_SEPARATION)
-        : paletteFill
+      const fill = liftRowFill(
+        paletteFill,
+        sidebar,
+        labelPrimary,
+        fg[ramp.accent],
+        warn ? ROW_WARN_SEPARATION : ROW_DONE_SEPARATION
+      )
       if (!preset.endsWith('Hover')) return fill
       const hover = mix(fill, fg[ramp.accent], ROW_HOVER_TINT)
       return readableRowFill(hover, palette.ramp.bg0, labelPrimary)

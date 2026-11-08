@@ -32,8 +32,8 @@
  */
 
 /**
- * Foreground, accent and header colors (18 `#RRGGBB` colors) shared by the three
- * strengths of one scheme.
+ * Foreground, accent, status-line and header colors (19 `#RRGGBB` colors) shared
+ * by the three strengths of one scheme.
  * @typedef {object} Foreground
  * @property {string} fg
  * @property {string} red
@@ -46,6 +46,7 @@
  * @property {string} grey0
  * @property {string} grey1
  * @property {string} grey2
+ * @property {string} statusline1
  * @property {string} headerRed
  * @property {string} headerOrange
  * @property {string} headerYellow
@@ -206,6 +207,7 @@ export const FOREGROUNDS = freezePaletteData({
     grey0: '#7A8478',
     grey1: '#859289',
     grey2: '#9DA9A0',
+    statusline1: '#A7C080',
     headerRed: '#DA6362',
     headerOrange: '#D77F48',
     headerYellow: '#BF983D',
@@ -226,6 +228,7 @@ export const FOREGROUNDS = freezePaletteData({
     grey0: '#A6B0A0',
     grey1: '#939F91',
     grey2: '#829181',
+    statusline1: '#93B259',
     headerRed: '#F85552',
     headerOrange: '#F88F44',
     headerYellow: '#F3B931',

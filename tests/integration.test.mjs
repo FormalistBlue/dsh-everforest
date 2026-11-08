@@ -630,7 +630,7 @@ test('bundle registers under the package id with the Client entry shape', () => 
 })
 
 test('src half imports no Harness Client package', () => {
-  for (const relative of ['palette.js', 'color.js', 'color-mode.js', 'tokens.js', 'state.js', 'durable.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
+  for (const relative of ['palette.js', 'color.js', 'color-mode.js', 'tokens.js', 'chat-bubble.js', 'state.js', 'durable.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
     const source = read(`src/${relative}`)
     assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, `${relative} imports a Harness package`)
     assert.doesNotMatch(source, /require\(['"]@deepseek-ai\//, `${relative} requires a Harness package`)
@@ -709,6 +709,37 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(activeSessionStylesheets[0].textContent.includes('[aria-selected="true"]'))
   assert.ok(activeSessionStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
+  // The always-on workspace folder-name stylesheet paints every workspace
+  // directory name with the interaction accent (2026-11-08 user request).
+  const workspaceLabelStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels')
+  assert.equal(workspaceLabelStylesheets.length, 1, 'workspace-labels stylesheet was not injected')
+  assert.ok(workspaceLabelStylesheets[0].textContent.includes('data-row-key^="workspace:"'))
+  assert.ok(workspaceLabelStylesheets[0].textContent.includes('projectText'))
+  assert.ok(workspaceLabelStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
+  // The always-on chrome accent stylesheet paints the conversation title and
+  // the selected dropdown option with the interaction accent (the option as a
+  // solid fill plus the canvas ink — upstream "Menu Selection Background"
+  // semantics, A7 of the 2026-11-08 palette review).
+  const uiAccentStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents')
+  assert.equal(uiAccentStylesheets.length, 1, 'chrome-accent stylesheet was not injected')
+  assert.ok(uiAccentStylesheets[0].textContent.includes('crumbCurrent'))
+  assert.ok(uiAccentStylesheets[0].textContent.includes('menuitemradio'))
+  assert.ok(uiAccentStylesheets[0].textContent.includes('selectedFill'))
+  assert.ok(uiAccentStylesheets[0].textContent.includes('background'))
+  assert.ok(uiAccentStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
+  // The always-on chat-bubble ink stylesheet replaces DSH's hard-coded
+  // label-primary ink on the user bubble (2026-11-08 bubble review: light
+  // "苔纸" + deep-pine ink, dark "只换字色" + pale-sage ink).
+  const chatBubbleStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble')
+  assert.equal(chatBubbleStylesheets.length, 1, 'chat-bubble stylesheet was not injected')
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('[class*="_userStack"]'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('[class*="_bubble"]'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('#3E5647'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('#DAE2C7'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('data-everforest-color-mode="on"'))
+
   // The table column-resize stylesheet and its DOM interaction are mounted with
   // the token layer, not with the Settings UI.
   const tableResizeStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize')
@@ -724,6 +755,10 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     effectLabels.includes('everforest: table scrollbar hover'),
     'the table scrollbar hover controller must be mounted with the token layer'
   )
+  assert.ok(
+    effectLabels.includes('everforest: chat bubble ink'),
+    'the chat-bubble ink stylesheet must be mounted with the token layer'
+  )
 
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
@@ -733,7 +768,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 6, 'exactly six <style> elements (color mode + table resize + selection + active session + theme spotlight + settings)')
+  assert.equal(styleTags.length, 10, 'exactly ten <style> elements (color mode + table resize + selection + active session + workspace labels + chrome accents + plugin update + chat bubble + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -873,9 +908,13 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/theme-spotlight').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/selection').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 5)
+  assert.equal(styleTags.length, 9)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -888,7 +927,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 6)
+  assert.equal(styleTags.length, 10)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1444,9 +1483,13 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/theme-spotlight').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/selection').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 6)
+  assert.equal(styleTags.length, 10)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 
@@ -1612,11 +1655,19 @@ test('token values follow the design decisions', async () => {
   assert.equal(layer('--dsw-alias-label-primary').light, '#5C6A72')
   assert.equal(layer('--dsw-alias-label-primary').dark, '#D3C6AA')
   // 2026-10-24 accent trial: the UI accent tokens use the official palette
-  // accents (fg.aqua / fg.blue), not Enchanted's muted header-* pair.
-  assert.equal(layer('--dsw-alias-brand-primary').light, '#35A77C')
-  assert.equal(layer('--dsw-alias-brand-primary').dark, '#83C092')
+  // accents (fg.blue for text, the interaction accent for filled surfaces), not
+  // Enchanted's muted header-* pair. 2026-11-08: the interaction accent is the
+  // upstream `statusline1` (dark #A7C080, light #93B259).
+  assert.equal(layer('--dsw-alias-brand-primary').light, '#93B259')
+  assert.equal(layer('--dsw-alias-brand-primary').dark, '#A7C080')
   assert.equal(layer('--dsw-alias-link').light, '#3A94C5')
   assert.equal(layer('--dsw-alias-link').dark, '#7FBBB3')
+  // 2026-11-07: the DSH roles that paint the primary action (send button, active
+  // workspace row, hero preview pill) follow the same accent green; blue stays on
+  // the text / info roles above.
+  assert.equal(layer('--dsw-alias-button-info-fill').dark, '#A7C080')
+  assert.equal(layer('--dsw-alias-state-business-primary').light, '#93B259')
+  assert.equal(layer('--dsw-alias-label-primary-bluish').dark, '#A7C080')
   assert.match(layer('--dsw-alias-bg-document-selection').light, /transparent/)
   assert.match(layer('--dsw-alias-bg-document-selection').light, /40%/)
   // The code block and the shiki canvas share the same design role (bg_dim);
