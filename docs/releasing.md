@@ -20,11 +20,12 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 | 1.2.0 | 2026-10-28 | GitHub Actions + Trusted Publishing（tag `v1.2.0`，run `40713360126`） | `latest` | `480aadf87f10b969c1c2cbdf16e4aec530afa60b` | 有（SLSA v1） |
 | 1.3.0 | 2026-10-30 | GitHub Actions + Trusted Publishing（tag `v1.3.0`，run `41075123199`） | `latest` | `8e6bf013a39963c6976612c4c0bae1d3c8aca301` | 有（SLSA v1） |
 | 1.4.0 | 2026-11-07 | GitHub Actions + Trusted Publishing（tag `v1.4.0`，run `42253364321`） | `latest` | `ec49ae73d399694e1e0f4f51641cf1fed63c8cca` | 有（SLSA v1） |
+| 1.5.0 | 2026-11-08 | GitHub Actions + Trusted Publishing（tag `v1.5.0`，run `42494099760`） | `latest` | `b713cb066b4ff82d805e30d7435acb43c203155a` | 有（SLSA v1） |
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
 - 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.2.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。本机 npm 默认 registry 是 `registry.npmmirror.com`（镜像同步有延迟），验证时务必显式指定 npmjs.org。
 - **发布后 registry 有分层传播**（0.2.0 实测）：版本元数据先出现（`https://registry.npmjs.org/dsh-everforest/0.2.0` 200），npm 命令在约 2 分钟内仍可能对 tarball 返回 404；直接 `GET .../-/dsh-everforest-0.2.0.tgz` 成功后再用空缓存安装即可。workflow 里的 `npm view` 校验步骤同理可能仍显示上一版，以 run 日志里的 `+ dsh-everforest@x.y.z` 为准。
-- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.3.0 / 0.4.0 / 1.0.0 / 1.1.0 / 1.2.0 / 1.3.0 / 1.4.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
+- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.3.0 / 0.4.0 / 1.0.0 / 1.1.0 / 1.2.0 / 1.3.0 / 1.4.0 / 1.5.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
 
 > **0.3.0 发布注意**（首个把强度偏好迁到 Host 配置的版本）
 >
@@ -88,14 +89,14 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **市场「更新内容」**：1.4.0 小节 223 字符 / 493 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.3.0，§8.6）。
 > - **2026-11-07 已发布**：tag `v1.4.0`（commit `b7b9e76`）→ publish run `42253364321` → npm `latest` = `1.4.0`（`dist.shasum` `ec49ae73d399694e1e0f4f51641cf1fed63c8cca`，SLSA provenance v1，transparency log index `3721440653`），GitHub Release `v1.4.0` 已由 workflow 自动创建（发布说明取自 CHANGELOG 1.4.0 小节，223 字符 / 493 字节）；verify run `42253398080` 在 Linux / Windows × Node 20/22/24 全绿。工作流里 `npm view` 步骤发布瞬间仍读到上一版（1.3.0，CDN 缓存），约 5 分钟后 `GET .../1.4.0` 与 `dist-tags` 均已是 1.4.0。
 
-> **1.5.0 发布注意（待发布，2026-11-08 准备）**
+> **1.5.0 发布注意（已发布，2026-11-08）**
 >
 > - **只改 Client 半部，升级不需要重启 DSH**：绿色交互层（`statusline1` 强调色）、选中会话行 / 聊天气泡 / 目录名与标题 / 下拉选中项 / 插件更新弹窗等常驻样式表都是 Client 侧；Host 半部与 `Config` schema 未变，插件升级后刷新页面即可（HMR 会热替换模块）。
 > - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交里重建）。
 > - **token / API 契约不变**：DSH 覆盖的 217 个颜色 token + 6 个辅助 token 名称与数量不变（`statusline1` 只是内部 `Foreground` 模型 18 → 19 色），`engines.dsh` 仍为 `>=0.2.1-rc.2 <0.3.0-0`，第三方插件读取的兼容别名不受影响。
 > - **验收口径**：`node --test` **321/321**；`npm run check`（palette / build / contrast / release-notes）全绿；`docs/reference/contrast.md` 已由脚本重新生成（新增 G18–G20，G18 按静止 / hover 分档）。
-> - **市场「更新内容」**：1.5.0 小节 433 字符 / 1,110 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.4.0，§8.6）。
-> - **发布后回填**：tag `v1.5.0` → publish run、`dist.shasum` 补到本文件顶部发布记录与 `design.md` §10。
+> - **市场「更新内容」**：1.5.0 小节 434 字符 / 1,110 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.4.0，§8.6）。
+> - **2026-11-08 已发布**：tag `v1.5.0`（commit `acf9970`）→ publish run `42494099760` → npm `latest` = `1.5.0`（`dist.shasum` `b713cb066b4ff82d805e30d7435acb43c203155a`，SLSA provenance v1，transparency log index `3756537238`），GitHub Release `v1.5.0` 已由 workflow 自动创建（发布说明取自 CHANGELOG 1.5.0 小节，434 字符 / 1,110 字节）；verify run `42494087912` 在 Linux / Windows × Node 20/22/24 全绿。工作流里 `npm view` 步骤发布瞬间仍读到上一版（1.4.0，CDN 缓存），随后 `dist-tags` 与 `GET .../1.5.0` 均已是 1.5.0。
 
 ## 0. 发布前必须确认
 
