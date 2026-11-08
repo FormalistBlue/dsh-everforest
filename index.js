@@ -12,7 +12,12 @@
  *     values persist in the active profile's `cordis.patch.yml`, so every
  *     browser of that profile shares one choice instead of each origin
  *     keeping its own `localStorage` copy.
- *  3. Contribute the **first-paint palette row** to DSH's boot HTML.
+ *  3. Contribute the **first-paint palette row** to DSH's boot HTML, plus the
+ *     small `style` row that drops DSH's own artwork frame around this
+ *     bundle's Plugin Manager card (the icon is a transparent whale now, so
+ *     the 48px frame read as a ring around it — 2026-11-08 user request).
+ *     Both rows are static data and disappear from the next index render once
+ *     the bundle is disabled.
  *
  * Why (3) exists: before any Client plugin loads, DSH colors the document from
  * `webserver/index-inject` rows. ui-theme ships the last word there — a head
@@ -90,6 +95,49 @@ export const BOOT_TOKENS = Object.freeze([
 
 /** Browser global carrying the resolved first-paint pair to the Client half. */
 const BOOT_HINT_GLOBAL = '__EVERFOREST_BOOT__'
+
+/**
+ * Package name the Plugin Manager frame rule is scoped to (matches
+ * `package.json`).
+ * @type {string}
+ */
+export const PLUGIN_PACKAGE = 'dsh-everforest'
+
+/**
+ * CSS that drops DSH's own artwork frame around this bundle's Plugin Manager
+ * cards. The icon is a transparent whale, so the 48px `.cardIcon` frame
+ * (`.5px solid var(--dsw-alias-border-l3)`, shared by the installed card, the
+ * detail head, the bundle's part rows and the market card) reads as a ring
+ * around it (2026-11-08 user request). DSH has no metadata switch for that
+ * frame, so this clears the border colour for this package only: layout,
+ * spacing and the frame's hit area stay DSH's, and every other plugin keeps
+ * the stock frame. Selectors are anchored on DSH's data attributes
+ * (`data-plugin-package`, `data-plugin-detail`, `data-market-entry`) rather
+ * than on the CSS-module class names, which are build hashes; the `[class*=…]`
+ * fallbacks only pick the hashed frame classes under those anchors, so a
+ * renamed class drops the rule instead of bleeding into unrelated UI.
+ * @returns {string}
+ */
+export function pluginFrameStyles () {
+  const selectors = [
+    `[data-plugin-package="${PLUGIN_PACKAGE}"] [class*="_cardIcon"]`,
+    `[data-plugin-detail="${PLUGIN_PACKAGE}"] [class*="_cardIcon"]`,
+    `[data-plugin-detail="${PLUGIN_PACKAGE}"] [class*="_rowIcon"]`,
+    `[data-market-entry="${PLUGIN_PACKAGE}"] > span[aria-hidden="true"]`
+  ]
+  return `${selectors.join(',\n')} {\n  border-color: transparent;\n}`
+}
+
+/**
+ * The `style` row appended to `webserver/index-inject` next to the palette
+ * script. DSH's renderers turn `{ kind: 'style', text }` into a `<style>` in
+ * the document head (served index HTML on Web, the equivalent page-side row on
+ * Desktop), so the rule is in place before the Plugin Manager can paint.
+ * @returns {{ kind: 'style', text: string }}
+ */
+export function pluginFrameRow () {
+  return { kind: 'style', text: pluginFrameStyles() }
+}
 
 /**
  * Build the `{ 'light-hard': [...], …, 'dark-soft': [...] }` value table.
@@ -241,5 +289,9 @@ export function apply (ctx, config) {
     // Read the volatile references at emit time: the Loader updates them in
     // place when the profile patch changes, without remounting the plugin.
     table.push({ kind: 'script', placement: 'body', text: createBootScript(hostState(config)) })
+    // Static, package-scoped style: clears DSH's artwork frame around this
+    // bundle's cards (see pluginFrameStyles()). A `style` row needs no
+    // placement — DSH's renderer always puts it in the document head.
+    table.push(pluginFrameRow())
   })
 }

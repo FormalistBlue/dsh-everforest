@@ -140,13 +140,17 @@ function createHostHarness ({ settings = true, injectThrows = false, configureTh
   return { ctx, recorded }
 }
 
-/** Emit the index-inject table once and return the row the plugin appended. */
+/** Emit the index-inject table once and return the palette script row the plugin appended. */
 function emitRow (harness) {
   const table = []
   assert.equal(harness.recorded.listeners.length, 1, 'the Host half must subscribe once')
   harness.recorded.listeners[0](table)
-  assert.equal(table.length, 1, 'the Host half must add exactly one row')
-  return table[0]
+  // Two rows: the first-paint palette script and the static Plugin Manager
+  // frame style (see `pluginFrameStyles()` in index.js).
+  assert.equal(table.length, 2, 'the Host half must add the palette row and the frame style row')
+  const row = table.find((entry) => entry.kind === 'script')
+  assert.ok(row, 'the palette row is missing')
+  return row
 }
 
 /** Mutable volatile config references, like the Loader's in-place updates. */
@@ -270,16 +274,16 @@ test('a throwing settings.configure never fails the Host plugin', () => {
   }
 })
 
-test('the row is appended for every index-inject emit (fresh table each time)', () => {
+test('the rows are appended for every index-inject emit (fresh table each time)', () => {
   const { ctx, recorded } = createHostHarness()
   apply(ctx)
   const first = []
   const second = []
   recorded.listeners[0](first)
   recorded.listeners[0](second)
-  assert.equal(first.length, 1)
-  assert.equal(second.length, 1)
-  assert.deepEqual(first[0], second[0])
+  assert.equal(first.length, 2)
+  assert.equal(second.length, 2)
+  assert.deepEqual(first, second)
 })
 
 test('every emit reads the current Host value instead of freezing it at apply()', () => {
