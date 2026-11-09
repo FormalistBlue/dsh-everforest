@@ -184,7 +184,7 @@
 | 10 | `client.js` 改动后的生效路径 | 已由用户真机确认（2026-10-22）：Plugins 页停用→启用（Host 重新快照 bundle）或重启 Host；单纯刷新页面预计不会换 bundle 字节。**Host 半部（`index.js` / `src/host-config.js`）改动需要重启 Host 进程**才生效（`Config` 注册与首帧 row 在启动期装载）；运行中改强度走 settings 通道，不需要重启 |
 | 11 | Host boot row 的 JSON / HTML 安全与顺序 | **已由测试覆盖**：row 是纯 JSON、无 `</script`、脚本幂等、无 `!important`；Host 值再按枚举校验并做 JSON / U+2028 / U+2029 转义；顺序依赖 ui-theme 的 `{ prepend: true }`（源码已证） |
 | 12 | `settings` / `configForms` 对第三方 entry 可用性 | **已解决（2026-10-22，0.3.0）**：Host `Config` 的 volatile 字段被投影为表单、`ctx.configForms.get('everforest')` 提供读写与订阅（源码 + 集成测试契约）；`settings.configure({ auto: false })` 让 DSH 不再生成重复自动表单。剩真机「选强度 → patch 出现 config → 换浏览器 / 重启仍在」与写入被拒降级确认 |
-| 13 | 常驻样式表（色彩模式 / 当前会话行 / 文本选区 / 聚光灯）的注入、卸载与锚点 | **已由测试覆盖（1.0.0）**：`tests/integration.test.mjs` 断言常驻样式表 9 张、含设置页 10 张且卸载后清空；锚点 / 取值由 `color-mode` / `active-session` / `workspace-labels` / `ui-accents` / `plugin-update` / `chat-bubble` / `selection` / `theme-spotlight` 各自单测钉住；真机目检见 §19 |
+| 13 | 常驻样式表（色彩模式 / 当前会话行 / 文本选区 / 聚光灯）的注入、卸载与锚点 | **已由测试覆盖（1.0.0）**：`tests/integration.test.mjs` 断言常驻样式表 11 张、含设置页 12 张且卸载后清空；锚点 / 取值由 `color-mode` / `active-session` / `workspace-labels` / `ui-accents` / `plugin-update` / `chat-bubble` / `hero-title` / `selection` / `theme-spotlight` 各自单测钉住；真机目检见 §19 |
 
 > **2026-10-22 真机目检**：用户确认 0.3.0 真机目检通过（按 [`releasing.md`](releasing.md) §5 清单：导航与设置页、跨浏览器共享 / 重启保持、0.2.1 迁移播种、首帧与「Host 半部需重启」等）；上表各「剩真机 / 待真机」项视为已确认（未逐项记录细节）。
 
@@ -469,7 +469,7 @@
 **验证与证据**
 
 - 自动化：`node --test` **220/220** 通过（14 个测试文件；`theme-spotlight` 9 / `active-session` 8 / `selection` 4 / `dev-panel` 16 / `color-mode` 19 / `integration` 41 等）；`npm run check` 全绿（palette / build / contrast，`docs/reference/contrast.md` 由脚本重新生成）；`npm pack --dry-run` 清单含 `icon.svg`（`tests/integration.test.mjs` 断言自包含与尺寸上限）。
-- 样式表：常驻 4 张（色彩模式 / 当前会话行 / 文本选区 / 聚光灯）+ 设置页 1 张 = 5 张；集成测试断言注入与卸载后清空（2026-11-08 起常驻 9 张 / 含设置页 10 张，见 design.md §12 / §22–§25.6）。
+- 样式表：常驻 4 张（色彩模式 / 当前会话行 / 文本选区 / 聚光灯）+ 设置页 1 张 = 5 张；集成测试断言注入与卸载后清空（2026-11-09 起常驻 11 张 / 含设置页 12 张，见 design.md §12 / §22–§28）。
 - 对比度：当前会话行新增 **G17**（合法色值 + 文本 ≥4.5:1 + 相对侧栏 ≥0.02 L*）写入报告 §2g（2026-11-08 起改为实色 `statusline1` + 画布墨色、G17 按 scheme 判定并新增目录名称 G18，见 design.md §22）；6 档实测 light-hard `#DCECE9`(4.58) / light-medium `#DDEAE6`(4.52) / light-soft `#E6E8DB`(4.50) / dark-hard `#384B55`(5.39) / dark-medium `#3A515D`(4.94) / dark-soft `#3F5764`(4.51)。（2026-11-08 第三轮起选中行为实色 `statusline1` + 画布墨色，现行取值与守卫见 design §15 / §23 / §25.6。）
 - 真机验收（2026-10-24/25，Desktop 1294×857）记录见 design §14 / §15 / §16.2 / §17：当前会话行在 light·hard / dark·soft 下与黄 / 绿状态行并排可辨；文本选区在 h2 / strong / 行内 code 上保留各自颜色；聚光灯深浅两向、闪白修复、reduced-motion 兜底；dev 面板展开 / 折叠 / 拖动 / 写 Host 全部走通。
 - 发布：tag `v1.0.0`（commit `aa3781f`）→ publish run `40116912287` → npm `latest` = `1.0.0`（`dist.shasum` `162d8c59…`，SLSA provenance），GitHub Release 由 workflow 自动创建。见 [`releasing.md`](releasing.md)「发布记录」。

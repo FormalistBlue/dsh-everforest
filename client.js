@@ -4462,8 +4462,147 @@ function workspaceLabelStyles () {
   return { WORKSPACE_ROW, WORKSPACE_LABEL, WORKSPACE_LABEL_DARK_RESTING_CONTRAST, WORKSPACE_LABEL_DARK_HOVER_CONTRAST, WORKSPACE_LABEL_LIGHT_RESTING_CONTRAST, WORKSPACE_LABEL_LIGHT_HOVER_CONTRAST, workspaceLabelRoles, workspaceLabelStyles }
 })()
 
+// ---------------------------------------------------------------- src/hero-title.js
+const __mod_11_hero_title_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Everforest green for the new-session hero: the whale mark and its title.
+//
+// DSH's new-session welcome screen (ui-conversation `HeroShell`, verified
+// against the installed 0.2.2-rc.1 client bundle) paints the brand mark and the
+// "探索未至之境" headline with one shared ink:
+//
+//   .WOwLGG_headline { color: var(--dsw-alias-label-primary); }
+//   .WOwLGG_titleGroup > span   (the title text inherits the headline ink)
+//   .WOwLGG_fish { color: var(--dsw-alias-label-primary); }  // path fill="currentColor"
+//
+// 2026-11-09 user request (an annotated screenshot of the welcome screen): "帮
+// 我把这里的也改成绿色" — the whale + title pair takes the palette **text
+// green** `green` (upstream: "Function Names, Method Names, Strings,
+// Characters, Search Highlights"; dark `#A7C080`, light `#8DA101`), the same
+// role the sidebar workspace names use (`src/workspace-labels.js`). It is
+// deliberately not the selection background `statusline1`: upstream defines
+// that one as a *background* colour (`#93B259` in the light schemes), and the
+// lighter tint reads as a wash on a 26px headline.
+//
+// The hero is identified by structure, not by a hashed class: the CSS-module
+// local name `headline` alone also matches the context-meter popover
+// (`.A6Bq1a_headline`, `label-tertiary`), while the welcome headline is the one
+// that contains the `fishHitbox` brand-mark wrapper. `:has()` keeps the rule on
+// the hero without pinning the build's module hash. The brand mark is re-inked
+// on its own because DSH restates `color` on the fish instead of letting it
+// inherit (the SVG path paints with `fill="currentColor"`).
+//
+// No contrast guard is applied: the dark schemes keep 5.62–6.88:1 (WCAG AA);
+// the light schemes sit at 2.42–2.81:1, the palette's own ceiling for the text
+// green on the canvas (the same trade-off `src/workspace-labels.js` documents).
+// The measured values are pinned in `tests/hero-title.test.mjs` and recorded in
+// `docs/design.md` §28.
+//
+// Always-on and independent of the color mode: it is chrome, not markdown
+// content colouring.
+
+
+/**
+ * The new-session hero headline: the only `headline` that carries the brand
+ * mark. `fishHitbox` is DSH's own wrapper around the `conversation.hero.brand.mark`
+ * slot, so the hook survives a plugin that replaces the default whale.
+ */
+const HERO_HEADLINE = '[class*="headline"]:has([class*="fishHitbox"])'
+
+/**
+ * The whale brand mark inside that headline. The substring covers both the
+ * fallback `HeroFish` SVG and a slot-provided mark that applies the `fish`
+ * className DSH passes it.
+ */
+const HERO_BRAND_MARK = `${HERO_HEADLINE} [class*="fish"]`
+
+/**
+ * Minimum contrast the dark schemes keep for the green title on the canvas
+ * (5.62–6.88:1 measured, WCAG AA).
+ */
+const HERO_TITLE_DARK_CONTRAST = 4.5
+
+/**
+ * Documented floor of the light schemes' text green on the canvas
+ * (2.42–2.81:1; the palette offers no deeper text green without leaving the
+ * upstream colour, and the user asked for the upstream green verbatim).
+ */
+const HERO_TITLE_LIGHT_CONTRAST = 2.3
+
+/**
+ * The hero ink of one variant: the palette text green, untouched.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string} opaque `#RRGGBB`.
+ */
+function heroTitleFor (scheme, strength) {
+  return resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme].fg.green
+}
+
+/**
+ * The six hero colours, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, string>} keyed `light-hard` … `dark-soft`.
+ */
+function heroTitleRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = heroTitleFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * One variant's scope: the strength attribute the token layer writes on <html>
+ * plus DSH's own dark-theme flag on <body> — the same pattern as
+ * `src/workspace-labels.js` and `src/ui-accents.js`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+}
+
+/**
+ * One variant's rule: the headline and its brand mark on the text green.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {string} color
+ * @returns {string}
+ */
+function heroTitleRule (scheme, strength, color) {
+  const scope = scopeFor(scheme, strength)
+  return [
+    `${scope} ${HERO_HEADLINE},`,
+    `${scope} ${HERO_BRAND_MARK} {`,
+    `  color: ${color};`,
+    '}'
+  ].join('\n')
+}
+
+/**
+ * The complete hero-title stylesheet (six rules).
+ * @returns {string}
+ */
+function heroTitleStyles () {
+  const roles = heroTitleRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      heroTitleRule(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { HERO_HEADLINE, HERO_BRAND_MARK, HERO_TITLE_DARK_CONTRAST, HERO_TITLE_LIGHT_CONTRAST, heroTitleRoles, heroTitleStyles }
+})()
+
 // ---------------------------------------------------------------- src/ui-accents.js
-const __mod_11_ui_accents_js = (() => {
+const __mod_12_ui_accents_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -4669,7 +4808,7 @@ function uiAccentStyles () {
 })()
 
 // ---------------------------------------------------------------- src/plugin-update.js
-const __mod_12_plugin_update_js = (() => {
+const __mod_13_plugin_update_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -4830,7 +4969,7 @@ function pluginUpdateStyles () {
 })()
 
 // ---------------------------------------------------------------- src/chat-bubble.js
-const __mod_13_chat_bubble_js = (() => {
+const __mod_14_chat_bubble_js = (() => {
 // Everforest ink for DSH's user-message bubble (the "只换字色" half of the
 // 2026-11-08 bubble review; the light background is the moss paper from
 // `bubbleSurface` in `src/tokens.js`).
@@ -4886,7 +5025,7 @@ function chatBubbleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_14_nav_icon_js = (() => {
+const __mod_15_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -4948,7 +5087,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_15_state_js = (() => {
+const __mod_16_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -5242,9 +5381,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_16_durable_js = (() => {
+const __mod_17_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_15_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_16_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -5409,7 +5548,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_17_locale_js = (() => {
+const __mod_18_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -5492,7 +5631,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_18_settings_page_js = (() => {
+const __mod_19_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -6132,7 +6271,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_19_theme_spotlight_js = (() => {
+const __mod_20_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -6439,7 +6578,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_20_client_entry_js = (() => {
+const __mod_21_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -6449,16 +6588,17 @@ const __mod_20_client_entry_js = (() => {
   const { activeSessionStyles } = __mod_8_active_session_js
   const { navAccentStyles } = __mod_9_nav_accent_js
   const { workspaceLabelStyles } = __mod_10_workspace_labels_js
-  const { uiAccentStyles } = __mod_11_ui_accents_js
-  const { pluginUpdateStyles } = __mod_12_plugin_update_js
-  const { chatBubbleStyles } = __mod_13_chat_bubble_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_14_nav_icon_js
+  const { heroTitleStyles } = __mod_11_hero_title_js
+  const { uiAccentStyles } = __mod_12_ui_accents_js
+  const { pluginUpdateStyles } = __mod_13_plugin_update_js
+  const { chatBubbleStyles } = __mod_14_chat_bubble_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_15_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_15_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_16_durable_js
-  const { EN, NS, ZH } = __mod_17_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_18_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_19_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_16_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_17_durable_js
+  const { EN, NS, ZH } = __mod_18_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_19_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_20_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -6985,7 +7125,23 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: chat bubble ink')
 
-  // 1j. Table column resize: stylesheet + the DOM interaction. DSH renders a
+  // 1j. New-session hero ink. DSH's welcome screen paints the whale brand mark
+  // and the "探索未至之境" title with the same `label-primary`; the 2026-11-09
+  // user annotated that pair and asked for green ("帮我把这里的也改成绿色").
+  // `src/hero-title.js` re-inks the headline plus the mark (the SVG restates
+  // its own colour) with the palette text green — the same role the workspace
+  // folder names use. Always-on chrome, same injection pattern as 1c–1i.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/hero-title'
+    tag.textContent = heroTitleStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: hero title ink')
+
+  // 1k. Table column resize: stylesheet + the DOM interaction. DSH renders a
   // markdown table as a scroll wrapper around a bare table with no React
   // extension point (MarkdownText is a memoized mdast switch), so a table gets
   // explicit per-column widths and a drag handle on the header-cell right
@@ -7023,7 +7179,7 @@ function apply(ctx) {
     }
   }, 'everforest: table column resize')
 
-  // 1k. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // 1l. Table scrollbar hover animation. The color-mode sheet reserves a 10px
   // scrollbar track and paints a 5px inset pill; this controller grows the pill
   // to the full track while the pointer is on the bar. Chromium never runs CSS
   // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset
@@ -7505,6 +7661,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_20_client_entry_js
+    return __mod_21_client_entry_js
   },
 })

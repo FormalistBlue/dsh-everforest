@@ -752,6 +752,14 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(chatBubbleStylesheets[0].textContent.includes('#DAE2C7'))
   assert.ok(chatBubbleStylesheets[0].textContent.includes('data-everforest-color-mode="on"'))
 
+  // The always-on hero stylesheet paints the new-session whale mark and title
+  // with the palette text green (2026-11-09 user request on the welcome screen).
+  const heroTitleStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/hero-title')
+  assert.equal(heroTitleStylesheets.length, 1, 'hero-title stylesheet was not injected')
+  assert.ok(heroTitleStylesheets[0].textContent.includes('fishHitbox'))
+  assert.ok(heroTitleStylesheets[0].textContent.includes(':has('))
+  assert.ok(heroTitleStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
   // The table column-resize stylesheet and its DOM interaction are mounted with
   // the token layer, not with the Settings UI.
   const tableResizeStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize')
@@ -771,6 +779,10 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     effectLabels.includes('everforest: chat bubble ink'),
     'the chat-bubble ink stylesheet must be mounted with the token layer'
   )
+  assert.ok(
+    effectLabels.includes('everforest: hero title ink'),
+    'the hero-title ink stylesheet must be mounted with the token layer'
+  )
 
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
@@ -780,7 +792,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 11, 'exactly eleven <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + theme spotlight + settings)')
+  assert.equal(styleTags.length, 12, 'exactly twelve <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + hero title + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -925,9 +937,10 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hero-title').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 10)
+  assert.equal(styleTags.length, 11)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -940,7 +953,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 11)
+  assert.equal(styleTags.length, 12)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1501,9 +1514,10 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hero-title').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 11)
+  assert.equal(styleTags.length, 12)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

@@ -52,6 +52,7 @@ const SOURCES = [
   'active-session.js',
   'nav-accent.js',
   'workspace-labels.js',
+  'hero-title.js',
   'ui-accents.js',
   'plugin-update.js',
   'chat-bubble.js',

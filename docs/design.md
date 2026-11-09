@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.1（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.1（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27）；同日按用户要求把新会话首屏的鲸鱼标志与「探索未至之境」标题改为文字绿（§28））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 11 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十一张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 12 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -427,7 +427,7 @@ export function apply(ctx) {
 
 1. **主题聚光灯**（§17）：`createThemeSpotlight()` → 卸载时 `dispose()`；注入 `data-plugin-css="dsh-everforest/theme-spotlight"` 样式表；`spotlight.trackOrigin()` 记录最后一次 `pointerdown`；包装 `ctx.theme.setTheme`（仅跨深浅走 `spotlight.run`，卸载按「原方法是否自有属性」还原）。见 `src/client-entry.js` L212–274。
 2. **token 层与状态属性**：`applyLayer()` = `overrideTokens`（pair 未变时不重栈）+ `applyStateAttributes()`（写 `data-everforest-color-mode` / `-light` / `-dark` 三个属性）。
-3. **常驻样式表（十张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
+3. **常驻样式表（十一张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
 4. **表单胶水**（把 §7 落到代码）：`queuedWrite`、`hasUserLayer`、`shouldSeed`、`seedHost(snapshot)`（播种时才带 `snapshot.revision`）、`adoptHostState()`、`writeToHost(ops, failureMessage)`（不带 revision）、`warnRefusedOnce()`、`writesInFlight` + `beginWrite()` / `flushQueuedWrite()`。`select()` 的跨深浅分支把 `applyLayer() + ctx.theme.setTheme(scheme)` 一起包进 `spotlight.run()`，同深浅分支只重栈（瞬切），`notify()` 在切换之后；`reset()` 先回默认状态，`persistReset()` 在 `writesInFlight > 0` 时把 unset 排到在途写入之后。
 5. **其它**：`setPreference()`（外观三卡 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
 
@@ -585,6 +585,7 @@ export function apply(ctx) {
 | 当前会话行（1.0.0，§15 / §22 / §23） | 选中会话行（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）恒为交互强调色 `statusline1` 实色底 + 方案画布 `bg0` 文字（2026-11-08 第三轮起：dark `#A7C080` / light `#93B259`；原为 `bg_blue` 蓝底 → 2026-11-07 绿色强调底 → 同日第二轮 `fg.green`），行内 tertiary 灰（状态槽 / 时间 / pin / 操作按钮 / spinner）**显式**写成墨色（时间嵌在 `rowResting` 内且父级自带 `label-tertiary`，`inherit` 会被截断），状态点保留语义色；与「待确认」黄底 /「已完成」蓝底并排可一眼区分；6 档实测见 §15 表格（深色 5.62–6.88:1；浅色 2.00–2.32:1，见 §2g）；hover 其他行不再与选中态混淆；卸载后样式表移除；**无行首竖条**（2026-11-08 移除） |
 | 工作区目录名称（§22.3 / §25） | 侧栏工作区（项目）行的标题（`[role="treeitem"][data-row-key^="workspace:"] [class*="projectText"]`）为**文字绿 `green`**（dark `#A7C080` / light `#8DA101`，原值不做守卫；上游把 `green` 当前景文字色、`statusline1` 当背景色，两者在浅色档差一档）；2026-11-08 用户两次要求绿色，A7 曾短暂撤回 `label-primary`，同日复核后恢复；静止行深色 5.00–6.17:1（AA）、A7 的 50% `bg4` hover 叠加底 4.01–4.98:1，浅色 2.35–2.68 / 2.13–2.47:1（见 `contrast.md` §2h）；卸载后样式表移除 |
 | 下拉选中项（§25 / §27） | 下拉列表选中项（`menuitem` / `menuitemradio`）以 `statusline1`（浅色 `#93B259`）实底 + 画布 `bg0` 文字与勾勾，选中项内的前导图标与次要文字（`--dsw-alias-menu-icon`、`label-*` 族：模式选项的标题 / 说明、工作区路径后缀、快捷键）同样取该墨色（2026-11-08 追加）：深色档墨色 5.62–6.88:1（AA），浅色档 2.00–2.32:1（`contrast.md` §2i）；会话标题曾取文字绿 `green`（2026-11-08 – 11-09），现回到 DSH 原生 `label-primary`（§27）；卸载后样式表移除 |
+| 新会话首屏鲸鱼 + 标题（§28） | 欢迎页 `HeroShell` 的鲸鱼标志与「探索未至之境」标题取**文字绿 `green`**（dark `#A7C080` / light `#8DA101`，与目录名称同角色，6 档 5.62–6.88 / 2.42–2.81:1）；`[class*="headline"]:has([class*="fishHitbox"])` 结构锚点只命中首屏 headline、不误伤上下文弹层的 `A6Bq1a_headline`，鲸鱼单独重墨（`.fish` 自带 `color`）；「预览版」角标保持 `statusline1`；卸载后样式表移除 |
 | 文本选区（1.0.0，§16.2） | 六档 `::selection` 底色 = 各变体 `bg_visual`（light 统一 `#DED8DB`；dark `#4C3743` / `#543A48` / `#5C3F4F`），`color: inherit` 保留元素自身颜色（h2 / strong / 行内 code 选中后仍是原色）；与色彩模式解耦、常驻；不改变 `user-select` 与复制行为 |
 | dev 调试面板（1.0.0，§14） | `npm run build:dev` 后主界面出现浮动面板，可切换外观与两套强度、拖动、折叠成 38×38 圆钮且折叠 / 展开态都保留样式与内联兜底；`npm run build` 后消失；`--check` / CI / `prepack` 拒绝停留在开发产物；生产 `client.js` 无面板代码 |
 | 图标与 README 截图（1.0.0） | `icon.svg` 为自包含 SVG（无脚本 / 无外链，约 3.1 KB）：绿色鲸鱼 + 远景山脊 `#4D5960` / 森林山脊 `#A7C080` / 两棵松 `#293136`，36px 下均可辨；`README.md` / `README.en.md` 各只有 2 张真机截图（dark-soft / light-hard，1263×981 未裁剪），仓库根 `screenshots.json` 2 项与 README 引用逐项一致，README / 图标断言通过 |
@@ -1278,7 +1279,7 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
 - `src/client-entry.js`：import 与 5 段接线（卸载 `spotlight.dispose()`、样式表、原点跟踪、`setTheme` 包装与 `publish` 包装各自还原）、`select()`、`setPreference()`。
 - `scripts/build.mjs` 的 `SOURCES` 已含 `theme-spotlight.js`（本轮未改）；`client.js` 已重新构建入库。
 - `tests/theme-spotlight.test.mjs`（11 项：样式表禁用 cross-fade 与 z-order、`resolveSchemePreference`、`shouldRevealSystemFlip` 的窄门六分支、无 View Transitions 兜底、reduced motion、快照→换色→揭示顺序与中心原点/半径、两方向都从指针点扩张、`origin: 'center'` 忽略旧指针、重入、dispose、无 DOM）；`tests/integration.test.mjs` 覆盖同深浅瞬切、无 prepend 监听、无 `data-everforest-transition`、服务包装在无 View Transitions 时瞬切与卸载还原，以及本轮新增的「OS 翻转走揭示」与「其他 publish 仍瞬切 / setTheme 只揭示一次」两项。
-- 常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），含设置页样式共 5 张；2026-10-27 新增表格列宽样式表后为 5 / 6 张（§18）；2026-10-30 曾为设置导航图标加过一张样式表（5 / 7 张），2026-11-06 改走官方 `settings.section.icon` 槽位后删除，回到 5 / 6 张（§19）；2026-11-08 新增工作区目录名称样式表后为常驻 6 张 / 含设置页 7 张（§22）；同日插件更新弹窗与下拉选中项样式表后为 8 / 9 张，A7 删除目录名样式表后为 7 / 8 张，复核恢复后回到 8 / 9 张（§25）；同日聊天气泡样式表加入后**现行常驻 9 张 / 含设置页 10 张**（§12）。
+- 常驻样式表共 4 张（含 `dsh-everforest/theme-spotlight`），含设置页样式共 5 张；2026-10-27 新增表格列宽样式表后为 5 / 6 张（§18）；2026-10-30 曾为设置导航图标加过一张样式表（5 / 7 张），2026-11-06 改走官方 `settings.section.icon` 槽位后删除，回到 5 / 6 张（§19）；2026-11-08 新增工作区目录名称样式表后为常驻 6 张 / 含设置页 7 张（§22）；同日插件更新弹窗与下拉选中项样式表后为 8 / 9 张，A7 删除目录名样式表后为 7 / 8 张，复核恢复后回到 8 / 9 张（§25）；同日聊天气泡样式表加入后为常驻 9 张 / 含设置页 10 张；2026-11-09 设置导航选中行（§26）与新会话首屏（§28）各加一张，**现行常驻 11 张 / 含设置页 12 张**（§12）。
 
 **门禁**：`node --test` 全量 **224/224**（2026-10-25 追加跟随系统 OS 翻转后）与 `npm run check`（palette / build / contrast）全绿；本轮只动 Client 侧接线，token 层、24 个角色色值与 6 档强度均未改动。
 
@@ -1335,7 +1336,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - `scripts/build.mjs`：`SOURCES` 增 `table-resize.js`（`color-mode.js` 之后、`client-entry.js` 之前）；`client.js` 重建。
 - `src/table-resize.js`：`onWrapperResize` 只服务 fill 表（宽表保持列宽、由包装层滚动，不观察容器）。
 - `tests/color-mode.test.mjs`：literal 规则表更新为上面的 8 条并补 `border-l1..l3` 外部变量白名单；宽表回归测试钉住重新装箱的 6 条声明（`width/max-content`、`max-width/100%`、`margin-left/padding-left: 0`、`overflow-x/auto`、`padding-bottom/0`），并断言表格不得再被 `max-width` 收窄、单元格不得改 `min-width`、**其它**规则不得再碰重新装箱的属性、fill 表包装层不得改动、宽表框必须落在 `> table` 上。`tests/integration.test.mjs`：常驻样式表 5 → 6 张、新增 table-resize 样式表断言。
-- 常驻样式表 5 张（color-mode / table-resize / selection / active-session / theme-spotlight），含设置页样式共 6 张；2026-10-30 曾另有导航图标样式表（共 7 张），2026-11-06 改走官方 `settings.section.icon` 槽位后删除，当时回到 6 张（§19；现行 10 / 11 张，见 §12 / §26）。
+- 常驻样式表 5 张（color-mode / table-resize / selection / active-session / theme-spotlight），含设置页样式共 6 张；2026-10-30 曾另有导航图标样式表（共 7 张），2026-11-06 改走官方 `settings.section.icon` 槽位后删除，当时回到 6 张（§19；现行 11 / 12 张，见 §12 / §26 / §28）。
 - 2026-10-31（§18.6）：新增 `src/colwidth-store.js` 与 `tests/colwidth-store.test.mjs`；`src/table-resize.js` 增加列宽记忆（`memoryWidths` / `tableMemoryKey` / 首帧扫描 + MutationObserver / 拖动结束写 / 双击删）；`src/client-entry.js` 1e effect 接线；`scripts/build.mjs` 的 `SOURCES` 插入 `colwidth-store.js`；`client.js` 重建。
 
 ### 18.4 验证
@@ -1418,7 +1419,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 
 - **只保留组件**（`src/nav-icon.js`）：`createSettingsNavIcon({ h })` 返回一个 React 组件，按 `{ size, active }` 画 16px 方形 SVG（`viewBox="0 0 16 16"`、`fill="currentColor"`、`aria-hidden`），松树 path 是 nav-icon.js 的内置常量 `NAV_GLYPH_PATH`（沿用旧包图标的 glyph；2026-11-08 图标改为鲸鱼后仍保留）；`NAV_ICON_SLOT` 导出槽位名，`NAV_GLYPH_PATH` 导出 path。
 - **注册**（`src/client-entry.js` 的 `setupSettingsUi()`）：`slots.inject('settings.section.icon', () => slots.register({ name, id: ENTRY_ID, order: 25 }, SettingsNavIcon))`；**id 必须等于 `settings.section` 的 id**（`ENTRY_ID = 'everforest'`），shell 才会在该行渲染它并替换默认齿轮。slot 声明由 settings shell 在挂载时给出，`slots.inject` 会等待。
-- **旧宿主**：0.2.1-rc.x 不声明该槽位，`slots.inject` 不触发，设置导航回退默认齿轮；主题与其它功能不受影响（不再需要 DOM hack，也不再注入 `everforest/settings-nav-icon` 样式表，当时设置 UI 挂载时共 6 张样式表；现行 10 / 11 张，见 §12 / §26）。
+- **旧宿主**：0.2.1-rc.x 不声明该槽位，`slots.inject` 不触发，设置导航回退默认齿轮；主题与其它功能不受影响（不再需要 DOM hack，也不再注入 `everforest/settings-nav-icon` 样式表，当时设置 UI 挂载时共 6 张样式表；现行 11 / 12 张，见 §12 / §26 / §28）。
 - **验证**：`tests/nav-icon.test.mjs` 4 项（槽位名与松树 path 契约、按 size 画 currentColor SVG、默认 16px 与非法 size 回退、缺少 `h` 时报错）；`tests/integration.test.mjs` 断言注册项 `{ name: 'settings.section.icon', id: 'everforest', order: 25 }`、组件返回 `svg`、以及 dev 包 `slotInjectKeys` 顺序为 `settings.section` → `settings.section.icon` → `shell.overlay`。真机：设置对话框 Everforest 行只剩松树，normal / hover / 选中随行 `currentColor`。
 
 ## 20. 2026-10-30 第三方插件兼容别名桥（compat aliases）
@@ -1607,7 +1608,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - `src/active-session.js`（fill = `statusline1`，墨色规则重写）、`src/workspace-labels.js`、`src/ui-accents.js`；
 - `scripts/check-contrast.mjs`：G4 阈值 2.5 → 1.95，G17 浅色下限 2.3 → 1.95，G18 分档（深色静止 4.5 / hover 4.0、浅色静止 2.3 / hover 2.1），G19 标题深 4.0（另查 AA 4.5）/ 浅 2.3，重新生成 `contrast.md` §2g / §2h / §2i；
 - 测试：`tests/active-session.test.mjs`（fill / 墨色值 + 6 档对比度 + 选择器回归）、`tests/palette.test.mjs`（19 色 + 文档表）、`tests/tokens.test.mjs`（brand / 交互强调 / 语义状态 / 品牌前景下限）、`tests/workspace-labels.test.mjs`、`tests/ui-accents.test.mjs`、`tests/integration.test.mjs`；
-- 结果（第三轮当时）：`node --test` **304/304**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建（8 张样式表）；现行全量 **329/329**、常驻 10 张 / 含设置页 11 张（§12）。
+- 结果（第三轮当时）：`node --test` **304/304**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建（8 张样式表）；现行全量 **336/336**、常驻 11 张 / 含设置页 12 张（§12）。
 - **边界**：浅色档墨色 2.00–2.32:1、目录名称 1.94–2.21:1、菜单卡 1.95–2.26:1 —— 这是上游参考 tab 本身的配对（奶油墨 on `statusline1`），
   浅色调色板没有更深的墨；发送按钮图标仍是 DSH 硬编码 `#fff`（浅色档 2.90:1、深色档 2.00:1），本轮未改。
 
@@ -1721,7 +1722,7 @@ DSH `ui-plugin-manager` 的 `UpdateDialog`（安装包 0.2.2-rc.1 已核对）�
 - `scripts/build.mjs` 的 `SOURCES` 增一项；`tests/integration.test.mjs` 的常驻样式表断言当时 8 → 9（含设置页），并补 `plugin-update` owner 断言；
 - `scripts/check-contrast.mjs` 新增 **G20**：深色档步骤文字 ≥ 4.0:1、实底徽标墨色 ≥ 4.5:1；浅色档固定 1.9 / 1.95 的已记录下限；失败步骤的语义红文字只测量 / 打印、不设门槛；重新生成 `contrast.md` §2j；
 - 6 档实测（`contrast.md` §2j）：dark 步骤文字 4.22–5.24、徽标 5.62–6.88；light 步骤文字 1.95–2.26、徽标 2.00–2.32；失败步骤红字 2.66–3.82（仅报告，无门槛）；
-- 结果（插件更新弹窗轮当时）：`node --test` **313/313**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建（7107 行；当时常驻样式表 8 张、含设置页 9 张）；现行全量 **329/329**、常驻 10 张 / 含设置页 11 张（§12）。
+- 结果（插件更新弹窗轮当时）：`node --test` **313/313**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建（7107 行；当时常驻样式表 8 张、含设置页 9 张）；现行全量 **336/336**、常驻 11 张 / 含设置页 12 张（§12）。
 - 验证：共享 Chrome 里用安装包真实 CSS（`ui-plugin-manager` 的 `V7pFBG_*` + 壳层 Modal / Button）+ 同构 DOM 复现弹窗（`.tmp/update-dialog-preview.html`）：
   改前步骤文字计算值 `rgb(127,187,179)`（= `#7FBBB3`，与用户截图同值）、圆点底 `color(srgb .65 .75 .50 / .12)`、勾 `rgb(167,192,128)`；
   改后步骤文字 `rgb(167,192,128)`（交互强调色）、圆点底实色 `rgb(167,192,128)`、勾 `rgb(51,60,67)`（dark·soft 5.62:1）；前 / 后对照截图见 `.tmp/update-dialog-preview.png`。
@@ -1737,7 +1738,7 @@ DSH `ui-plugin-manager` 的 `UpdateDialog`（安装包 0.2.2-rc.1 已核对）�
 
 - 上游把 `statusline1` 定义为**背景**色（Menu Selection Background / 活动 tab 底 / statusline 模式块），`bg5` 标注「Not currently used」。
 - `src/ui-accents.js` 重写：A7 当下先把会话标题、菜单文字的染色撤掉，只给下拉菜单 / 单选列表的**选中项**染色——`statusline1` 实色底 + 方案画布 `bg0` 文字与勾勾，粒度 6 档 × 3 条规则（25.6 复核时按用户要求把标题规则加回，变为 6 档 × 4 条规则）。命中的稳定钩子：`[role="menu"] [role="menuitem"][class*="selected"]`、`[role="menu"] [role="menuitemradio"][aria-checked="true"]`，以及 DSH 菜单的 `[class*="selectedFill"]` 填充子元素与 `[class*="check"]` 勾勾。
-- `src/workspace-labels.js` 与 `dsh-everforest/workspace-labels` 常驻样式表在本轮删除，工作区目录名称、会话标题回到 DSH 原生 `label-primary`（`client-entry.js` 常驻样式表 8 → 7 张、含设置页 9 → 8 张）；25.6 复核时按用户要求恢复（8 / 9 张）；聊天气泡样式表随后加入，现行 10 / 11 张（§12 / §26）。
+- `src/workspace-labels.js` 与 `dsh-everforest/workspace-labels` 常驻样式表在本轮删除，工作区目录名称、会话标题回到 DSH 原生 `label-primary`（`client-entry.js` 常驻样式表 8 → 7 张、含设置页 9 → 8 张）；25.6 复核时按用户要求恢复（8 / 9 张）；聊天气泡样式表随后加入为 10 / 11 张；2026-11-09 新会话首屏样式表加入后现行 11 / 12 张（§12 / §26 / §28）。
 - `src/tokens.js`：`interactive-bg-hover` / `-active` 从 `bg5` 的 16% / 28% 改为 `bg4` 的 50% / 80% 半透明叠层（上游没有 hover 角色；`bg5` 退出交互层，边框仍按 Enchanted 语义取 `bg5`，见 §4）。
 - 对比度：深色档画布墨 on `statusline1` = 5.62–6.88:1（AA）；浅色档 2.00–2.32:1，是调色板奶油墨的自身上限（上游参考 tab 同配对），G19 记 1.95 下限并新增「对菜单卡 ≥ 0.02 L* 步长」检查。
 
@@ -1769,7 +1770,7 @@ DSH `ui-plugin-manager` 的 `UpdateDialog`（安装包 0.2.2-rc.1 已核对）�
 - `src/workspace-labels.js` 恢复：侧栏项目行标题（`[role="treeitem"][data-row-key^="workspace:"] [class*="projectText"]`，6 档 × 1 条规则，不做对比度守卫）；`src/ui-accents.js` 加回标题规则（`[class*="crumbCurrent"]`），6 档 × 4 条规则：标题文字 / 选中项实底 / 填充子元素 / 勾勾。
 - **复核修正（同日）**：恢复的第一版让文字也取 `statusline1`，用户对照上游配色指出「纯文字的绿色，和选中的背景块绿色不是同一种，文字的好像更深」。查 `palette.md`：上游 `green` 是前景色（Function Names / Strings / Search Highlights 等），`statusline1` 是背景色（Menu Selection Background / 活动 tab 底）——浅色档 `#8DA101` vs `#93B259`，深色档两者同为 `#A7C080`。于是文字（标题、目录名）改用 `fg.green`，选中块实底仍取 `statusline1`；深色档无变化，浅色档文字明显加深，同时也把浅色档的实测对比度从 1.94–2.32:1 抬到 2.13–2.81:1。
 - 对比度：A7 把 hover 叠加层换成 `bg4` 50%，目录名在 hover 行最强弱——深色静止 5.00–6.17:1 / hover 4.01–4.98:1，浅色静止 2.35–2.68:1 / hover 2.13–2.47:1；G18 下限因此定为深色静止 4.5 / hover 4.0、浅色静止 2.3 / hover 2.1（实测值见 `contrast.md` §2h），G19 标题门槛保持深 4.0（另要求标题本身 ≥4.5:1 的 AA）/ 浅 2.3，选中项墨色仍为深 4.5 / 浅 1.95。
-- 落点：常驻样式表当时回到 8 张（含设置页 9 张），聊天气泡样式表加入后现行 10 / 11 张（§12 / §26）、`tests/integration.test.mjs` 样式表数量当时 7 → 8 / 8 → 9（现行断言 10 / 11）、`tests/workspace-labels.test.mjs` 恢复（期望值改为 `green`）、`tests/ui-accents.test.mjs` 改为 4 条规则并新增标题对比度断言（文字绿 ≠ 选中块绿）、`scripts/check-contrast.mjs` 恢复 G18 并扩展 G19（标题取 `green`、选中底取 `statusline1`）、`contrast.md` §2h 恢复 + §2i 重写；`palette.md` 偏差 10 / §5 表同步。
+- 落点：常驻样式表当时回到 8 张（含设置页 9 张），聊天气泡样式表加入后为 10 / 11 张（现行 11 / 12，§12 / §26 / §28）、`tests/integration.test.mjs` 样式表数量当时 7 → 8 / 8 → 9（现行断言 11 / 12）、`tests/workspace-labels.test.mjs` 恢复（期望值改为 `green`）、`tests/ui-accents.test.mjs` 改为 4 条规则并新增标题对比度断言（文字绿 ≠ 选中块绿）、`scripts/check-contrast.mjs` 恢复 G18 并扩展 G19（标题取 `green`、选中底取 `statusline1`）、`contrast.md` §2h 恢复 + §2i 重写；`palette.md` 偏差 10 / §5 表同步。
 - **2026-11-09 撤回（现行）**：用户贴出对话区标题截图要求「这里调整一下，标题不需要绿色显示了」，会话标题规则（`[class*="crumbCurrent"]`）删除，标题回到 DSH 原生 `label-primary`；`ui-accents` 由 6 档 × 4 条规则收缩为 6 档 × 3 条（标题 / 选中项实底 / 填充子元素 / 勾勾 → 后三条），G19 只剩选中项一张表。详见 §27。
 
 ## 26. 2026-11-09 选中导航行高亮（nav-accent）
@@ -1911,3 +1912,58 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme])
 - 边界：`[class*="crumbCurrent"]` 是 CSS-module 本地名（哈希前缀后保留），本轮删除后不再依赖它；若以后又要标题绿色，
   恢复一条规则 + G19 标题检查即可。桌面 app 未开 CDP、Web GUI 需 token（§26.4 同一约束），真机窗口目检仍需用户
   刷新页面确认。
+
+## 28. 2026-11-09 新会话首屏：鲸鱼标志 + 标题改绿（hero-title）
+
+> 触发：用户贴出新会话欢迎页截图（红框标出鲸鱼标志 +「探索未至之境」标题）：「帮我把这里的也改成绿色，我看看效果」。
+
+### 28.1 表面与决策
+
+- 首屏标题是 `ui-conversation` 的 `HeroShell`（0.2.2-rc.1 安装包 `@deepseek-ai/dsh-client-ui-conversation/lib/client.js` 的
+  `HeroShell.module.css` 核对）：`.headline { color: var(--dsw-alias-label-primary) }`、`.titleGroup > span`
+  （标题文字继承 headline 墨色）、`.fish { color: var(--dsw-alias-label-primary) }`（鲸鱼 SVG path 用
+  `fill="currentColor"`）、「预览版」角标 `.previewBadge { color: var(--dsw-alias-label-primary-bluish);
+  background: var(--dsw-alias-state-business-tertiary) }` —— 即鲸鱼与标题共用 `label-primary`（本主题 `fg`：
+  浅色 `#5C6A72`、深色 `#D3C6AA`）；角标已有自己的主题色。
+- 决策：鲸鱼 + 标题取调色板**文字绿 `green`**（浅色 `#8DA101` / 深色 `#A7C080`），与侧栏目录名称（§22.3）同一角色；
+  不用背景绿 `statusline1`（浅色 `#93B259` 更浅，26px 大字上像一层水洗）。「预览版」角标不动。
+- **否决**：把 `label-primary` 全局改绿（会连带所有正文）；改用 `conversation.hero.brand.mark` 槽位换插件自己的鲸鱼图标
+  （用户要的是颜色，不是换图形；占用槽位还会盖掉 DSH 的 hover 游动动效）。
+
+### 28.2 做法
+
+- 常驻样式表 `src/hero-title.js`（`<style data-plugin-css="dsh-everforest/hero-title">`），6 档 × 1 条规则：
+  选择器 = `[class*="headline"]:has([class*="fishHitbox"])` 及其下的 `[class*="fish"]`。
+  为什么不裸用 `[class*="headline"]`：同一个安装包里上下文用量弹层也有 `.A6Bq1a_headline`（`label-tertiary`），
+  而首屏 headline 是唯一含 `fishHitbox`（`conversation.hero.brand.mark` 槽的包裹层）的那个 —— 这是结构锚点，
+  不依赖 CSS-module 哈希。鲸鱼单独写一条选择器，是因为 DSH 在 `.fish` 上重述了 `color`，不继承 headline 的墨色。
+- 取值：`heroTitleRoles()` = palette `fg.green` 原值，零推导。
+
+| 变体 | 鲸鱼 + 标题 | 画布（bg-base） | 对比度 |
+|---|---:|---:|---:|
+| light-hard | `#8DA101` | `#FFFBEF` | 2.81 |
+| light-medium | `#8DA101` | `#FDF6E3` | 2.69 |
+| light-soft | `#8DA101` | `#F3EAD3` | 2.42 |
+| dark-hard | `#A7C080` | `#272E33` | 6.88 |
+| dark-medium | `#A7C080` | `#2D353B` | 6.23 |
+| dark-soft | `#A7C080` | `#333C43` | 5.62 |
+
+  深色三档是 WCAG AA；浅色三档 2.42–2.81:1 是调色板文字绿对奶油画布的自身上限（与目录名称同一取舍），不做对比度守卫，
+  门槛由 `tests/hero-title.test.mjs` 分档钉死（深色 ≥4.5、浅色 ≥2.3）。
+
+### 28.3 落点与门禁
+
+- 代码：`src/hero-title.js`（新增，`heroTitleRoles()` / `heroTitleStyles()`）、`src/client-entry.js`（1j 常驻样式表，
+  其后表列编号顺延）、`scripts/build.mjs`（SOURCES 增加 `hero-title.js`）；token 层零改动。
+- 测试：`tests/hero-title.test.mjs`（7 项）——6 档颜色钉死为 palette 文字绿、深 / 浅分档对比度门禁、常量字面量、
+  每档一条规则且两条选择器各带一次作用域、结构锚点（含 `:has(` / `fishHitbox`，不含 `WOwLGG` 哈希 / `crumbCurrent`）、
+  无 `!important` / 不挂色彩模式；`tests/integration.test.mjs` 的常驻样式表断言 11 / 12 张并新增本表。
+- 验证：`node --test` **336/336**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建
+  （7667 行 / 331,730 字节）；**DOM 实测**：用安装包真实的 `HeroShell.module.css` + `tokensFor()` 六档 token 层 +
+  `heroTitleStyles()` 输出搭同构页面（`.headline` / `.fishHitbox` / `.fish` / `.titleGroup` / `.previewBadge`
+  类名与 DSH 一致，六档 `<html>` 强度属性齐全），共享调试 Chrome 读数：改后标题与鲸鱼 = `rgb(141,161,1)` `#8DA101`
+  （浅色三档）/ `rgb(167,192,128)` `#A7C080`（深色三档）；改前 = `label-primary`（`#5C6A72` / `#D3C6AA`）；
+  「预览版」角标保持 `statusline1`（`#93B259` / `#A7C080`）—— 说明选择器命中且未误伤角标。
+- 边界：`:has()` 需 Chromium ≥105（桌面端 Electron 39 / Chromium 142，Web GUI 同内核）；依赖 `fishHitbox` 这个
+  CSS-module 本地名，DSH 若重命名会静默失效、回落到 `label-primary`（文字仍可读，只是不绿）。真机窗口目检需用户刷新
+  页面（桌面 app 未开 CDP、Web GUI 需 token，§26.4 / §27.3 同一约束）。

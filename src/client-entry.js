@@ -67,6 +67,7 @@ import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
 import { navAccentStyles } from './nav-accent.js'
 import { workspaceLabelStyles } from './workspace-labels.js'
+import { heroTitleStyles } from './hero-title.js'
 import { uiAccentStyles } from './ui-accents.js'
 import { pluginUpdateStyles } from './plugin-update.js'
 import { chatBubbleStyles } from './chat-bubble.js'
@@ -559,7 +560,23 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: chat bubble ink')
 
-  // 1j. Table column resize: stylesheet + the DOM interaction. DSH renders a
+  // 1j. New-session hero ink. DSH's welcome screen paints the whale brand mark
+  // and the "探索未至之境" title with the same `label-primary`; the 2026-11-09
+  // user annotated that pair and asked for green ("帮我把这里的也改成绿色").
+  // `src/hero-title.js` re-inks the headline plus the mark (the SVG restates
+  // its own colour) with the palette text green — the same role the workspace
+  // folder names use. Always-on chrome, same injection pattern as 1c–1i.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/hero-title'
+    tag.textContent = heroTitleStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: hero title ink')
+
+  // 1k. Table column resize: stylesheet + the DOM interaction. DSH renders a
   // markdown table as a scroll wrapper around a bare table with no React
   // extension point (MarkdownText is a memoized mdast switch), so a table gets
   // explicit per-column widths and a drag handle on the header-cell right
@@ -597,7 +614,7 @@ export function apply(ctx) {
     }
   }, 'everforest: table column resize')
 
-  // 1k. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // 1l. Table scrollbar hover animation. The color-mode sheet reserves a 10px
   // scrollbar track and paints a 5px inset pill; this controller grows the pill
   // to the full track while the pointer is on the bar. Chromium never runs CSS
   // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset
