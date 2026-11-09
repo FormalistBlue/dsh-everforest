@@ -65,6 +65,7 @@ import { installColumnResize, tableResizeStyles } from './table-resize.js'
 import { installTableScrollbarHover } from './table-scrollbar.js'
 import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
+import { navAccentStyles } from './nav-accent.js'
 import { workspaceLabelStyles } from './workspace-labels.js'
 import { uiAccentStyles } from './ui-accents.js'
 import { pluginUpdateStyles } from './plugin-update.js'
@@ -457,7 +458,30 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: active session styles')
 
-  // 1e. Workspace folder-name stylesheet. DSH paints every project row title
+  // 1e. Selected navigation rows. Two chrome surfaces are marked current by
+  // DSH but read as "nothing selected": the Settings dialog's active nav cell
+  // (`--dsw-specific-sidebar-nav-item-active` maps to the panel fill, so the
+  // selection vanishes — 2026-11-09: "选中某一项过后，目录栏的高亮显示没有了")
+  // and the sidebar panel list's active row (`.panelActive` reuses the *hover*
+  // token — 2026-11-09: "帮我把这里也加上选中变色"). No token value can fix
+  // the first one (a visible fill would drop `label-primary` under 4.5:1 on the
+  // light panel) and the second has no token at all, so the chrome sheet paints
+  // both with the pairing used by every other selected surface in the theme:
+  // the solid `statusline1` band with the canvas `bg0` as ink. Anchors are
+  // DSH's contracts (`data-shortcut-modal` + `aria-current="true"` for the
+  // settings cell, `[data-slot="sidebar"]` + `aria-current="page"` for the
+  // panel row), never the CSS-module hashes.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/nav-accent'
+    tag.textContent = navAccentStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: navigation selection')
+
+  // 1f. Workspace folder-name stylesheet. DSH paints every project row title
   // with `label-primary` (`ui-workspace` `.projectRow`; only the active folder
   // glyph gets the business accent), while the 2026-11-08 user asked for green
   // directory names ("工作区的每个目录名称也用绿色显示"). One rule paints
@@ -478,7 +502,7 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: workspace folder names')
 
-  // 1f. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
+  // 1g. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
   // the palette text green `green` (2026-11-08 user request: "上面标题的名称也
   // 改为绿色"; the user later confirmed the text green is deeper than the
   // selection background green); every dropdown's selected option is a
@@ -501,7 +525,7 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: chrome accent styles')
 
-  // 1g. Plugin-update dialog. 2026-11-08 user report on the “更新 dsh-ops”
+  // 1h. Plugin-update dialog. 2026-11-08 user report on the “更新 dsh-ops”
   // dialog: the step rows read in DSH's info blue instead of the success green,
   // and the finished steps' badges only get a 12% success tint, which looks
   // washed out on the dark dialog. `src/plugin-update.js` paints the finished
@@ -518,7 +542,7 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: plugin update dialog')
 
-  // 1h. Chat-bubble ink. DSH paints the user-message bubble with
+  // 1i. Chat-bubble ink. DSH paints the user-message bubble with
   // `label-primary`; the 2026-11-08 bubble review picked the "苔纸" light /
   // "只换字色" dark pair, whose derived inks (deep pine / pale sage) cannot ride
   // the token layer without recolouring every primary label. `src/chat-bubble.js`
@@ -535,7 +559,7 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: chat bubble ink')
 
-  // 1i. Table column resize: stylesheet + the DOM interaction. DSH renders a
+  // 1j. Table column resize: stylesheet + the DOM interaction. DSH renders a
   // markdown table as a scroll wrapper around a bare table with no React
   // extension point (MarkdownText is a memoized mdast switch), so a table gets
   // explicit per-column widths and a drag handle on the header-cell right
@@ -573,7 +597,7 @@ export function apply(ctx) {
     }
   }, 'everforest: table column resize')
 
-  // 1j. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // 1k. Table scrollbar hover animation. The color-mode sheet reserves a 10px
   // scrollbar track and paints a 5px inset pill; this controller grows the pill
   // to the full track while the pointer is on the bar. Chromium never runs CSS
   // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset

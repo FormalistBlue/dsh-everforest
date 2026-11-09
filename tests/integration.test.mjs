@@ -709,6 +709,17 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(activeSessionStylesheets[0].textContent.includes('[aria-selected="true"]'))
   assert.ok(activeSessionStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
+  // The always-on navigation-selection stylesheet restores the selected Settings
+  // cell (DSH's nav-active token equals the panel fill) and the selected sidebar
+  // panel row (DSH reuses the hover token for it) — 2026-11-09.
+  const navAccentStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/nav-accent')
+  assert.equal(navAccentStylesheets.length, 1, 'nav-accent stylesheet was not injected')
+  assert.ok(navAccentStylesheets[0].textContent.includes('[data-shortcut-modal="settings"]'))
+  assert.ok(navAccentStylesheets[0].textContent.includes('button[aria-current="true"]'))
+  assert.ok(navAccentStylesheets[0].textContent.includes('[data-slot="sidebar"]'))
+  assert.ok(navAccentStylesheets[0].textContent.includes('button[aria-current="page"]'))
+  assert.ok(navAccentStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
   // The always-on workspace folder-name stylesheet paints every workspace
   // directory name with the interaction accent (2026-11-08 user request).
   const workspaceLabelStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels')
@@ -768,7 +779,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 10, 'exactly ten <style> elements (color mode + table resize + selection + active session + workspace labels + chrome accents + plugin update + chat bubble + theme spotlight + settings)')
+  assert.equal(styleTags.length, 11, 'exactly eleven <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -908,13 +919,14 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/theme-spotlight').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/selection').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/nav-accent').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 9)
+  assert.equal(styleTags.length, 10)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -927,7 +939,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 10)
+  assert.equal(styleTags.length, 11)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1483,13 +1495,14 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/theme-spotlight').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/selection').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/nav-accent').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 10)
+  assert.equal(styleTags.length, 11)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

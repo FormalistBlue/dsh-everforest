@@ -50,6 +50,7 @@ const SOURCES = [
   'table-scrollbar.js',
   'selection.js',
   'active-session.js',
+  'nav-accent.js',
   'workspace-labels.js',
   'ui-accents.js',
   'plugin-update.js',

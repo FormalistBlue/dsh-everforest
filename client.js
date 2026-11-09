@@ -4159,8 +4159,175 @@ function activeSessionStyles () {
   return { ACTIVE_SESSION_ROW, ACTIVE_SESSION_RULES_PER_VARIANT, activeSessionRoles, activeSessionStyles }
 })()
 
+// ---------------------------------------------------------------- src/nav-accent.js
+const __mod_9_nav_accent_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Everforest surface for the *selected* navigation rows.
+//
+// Two navigation surfaces join the theme's interaction layer here:
+//
+//  1. the Settings dialog's left navigation — DSH paints the active cell with
+//     `--dsw-specific-sidebar-nav-item-active` (ui-settings-general
+//     `SettingsRoot.module.css`: `.navCell.active { background: var(…) }`,
+//     verified against the installed 0.2.2-rc.1 bundle). Upstream that token is
+//     a neutral emphasis step (`neutral-bluish-100` on a white panel,
+//     `neutral-bluish-750` on `neutral-bluish-850` in dark); the Everforest
+//     token layer maps it to `surface(p, 2)` — the exact value it gives the
+//     panel's `--dsw-alias-bg-layer-2` — so the active row is painted the panel
+//     colour and the selection vanishes (2026-11-09 report: "选中某一项过后，
+//     目录栏的高亮显示没有了");
+//  2. the sidebar's panel list (插件市场 / 自动化任务 / 上下文洞察 / …) —
+//     ui-sidebar `SidebarRoot.module.css` paints the active row with
+//     `.panelRow.panelActive { background-color:
+//     var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary) }`,
+//     i.e. the *hover* token, so the current page is only a neutral wash and is
+//     indistinguishable from hovering any other row; there is no dedicated
+//     selected token at all (2026-11-09 report: "帮我把这里也加上选中变色").
+//
+// The settings-navigation token cannot fix case 1 on its own: the panel sits on
+// `bg-layer-2` and the light schemes' `label-primary` already sits at
+// 4.53–5.26:1 on it (light·soft has 0.03 headroom), so any fill dark enough to
+// read as a highlight drops the label under 4.5:1, while any fill light enough
+// to keep the label AA is an imperceptible ~1–2 L* step from the panel (the
+// canvas is the lightest palette surface). Case 2 has no token to fix in the
+// first place. Both rows are chrome, though, and every other *selected* chrome
+// surface in this theme is the solid interaction accent `statusline1` with the
+// scheme canvas `bg0` as ink: the open session row (`src/active-session.js`),
+// the selected dropdown option (`src/ui-accents.js`), the send button, the
+// preview badge. This sheet gives both rows the same pairing, so "selected"
+// means the same thing everywhere.
+//
+// Anchors are DSH's accessibility contracts and slot contract, not CSS-module
+// hashes: the Settings modal is `[data-shortcut-modal="settings"]` (the modal id
+// DSH's shortcut layer keys off) with the active cell as its `<button
+// aria-current="true">`; the sidebar panel row is a `<button
+// aria-current="page">` inside the `<nav>` rendered by the layout's `sidebar`
+// slot (`[data-slot="sidebar"]`, the `display:contents` outlet wrapper every
+// DSH slot gets). All verified against the installed 0.2.2-rc.1 and
+// 0.2.1-rc.5 bundles. Both selectors outrank the upstream `.navCell:hover` /
+// `.navCell.active` / `.panelRow:hover` / `.panelRow.panelActive` declarations
+// on specificity, so hovering the selected row keeps the accent band instead of
+// trading it back for the translucent hover wash. The button's `color` is the
+// canvas ink and its children (the icon / glyph spans and the title span, plus
+// plugin glyphs that paint with `currentColor`) inherit it — without that the
+// upstream `label-primary` text would sit on the accent at ~1.4–1.6:1. The
+// `:focus-visible` ring is re-inked too: DSH's ring defaults to the accent, so
+// on the accent band it would be invisible (the selected session row solved the
+// same problem the same way).
+//
+// Always-on, color-mode independent (it is navigation chrome, not content
+// colouring) and injected with the same always-on pattern as the other chrome
+// sheets; the rules only ever match rows that DSH itself marks as current.
+
+
+/** The element DSH gives the Settings modal (shortcut-layer modal id). */
+const SETTINGS_PANEL_ANCHOR = '[data-shortcut-modal="settings"]'
+
+/**
+ * The active Settings-navigation cell. `aria-current="true"` is the same
+ * accessibility contract the session list exposes via `aria-selected`; the
+ * CSS-module class (`AnXs9G_active`) is build output and must not be used.
+ */
+const SETTINGS_NAV_ROW = `${SETTINGS_PANEL_ANCHOR} nav button[aria-current="true"]`
+
+/**
+ * The selected sidebar panel row (插件市场 / 自动化任务 / …). `aria-current="page"`
+ * is the accessibility contract; the CSS-module class (`wtg9ga_panelActive`) is
+ * build output, and the layout's `data-sidebar-collapsed` attribute only exists
+ * while the rail is collapsed, so it cannot scope the expanded state. The
+ * `[data-slot="sidebar"]` anchor is the layout's own slot name.
+ */
+const SIDEBAR_PANEL_ROW = '[data-slot="sidebar"] nav button[aria-current="page"]'
+
+/** The two selected-navigation selectors, in stylesheet order. */
+const NAV_ROWS = Object.freeze([SETTINGS_NAV_ROW, SIDEBAR_PANEL_ROW])
+
+/**
+ * Two rules per variant: the accent band + ink (both rows share the same
+ * declarations, so they are one selector list) and the focus-ring ink.
+ */
+const NAV_ACCENT_RULES_PER_VARIANT = 2
+
+/**
+ * The selected-row surface of one variant: the palette interaction accent
+ * (`statusline1`, upstream's "Menu Selection Background / Tab Line Label
+ * Background (active)") plus the canvas `bg0` it is paired with across the
+ * accent layer — both palette values verbatim, no derivation.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {{ fill: string, ink: string }} both opaque `#RRGGBB`.
+ */
+function activeNavRowFor (scheme, strength) {
+  const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
+  return { fill: palette.fg.statusline1, ink: palette.ramp.bg0 }
+}
+
+/**
+ * The six selected-row surfaces, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, { fill: string, ink: string }>} keyed `light-hard` … `dark-soft`.
+ */
+function navAccentRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = activeNavRowFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * One variant's scope: the strength attribute the token layer writes on <html>
+ * plus DSH's own dark-theme flag on <body> — the same pattern as
+ * `src/active-session.js` and `src/selection.js`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+}
+
+/**
+ * The two rules of a variant: the solid accent band + canvas ink on both
+ * selected rows, and an ink focus ring (DSH's ring defaults to the accent,
+ * which disappears on the accent band).
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {{ fill: string, ink: string }} role
+ * @returns {string}
+ */
+function navAccentRules (scheme, strength, role) {
+  const scope = scopeFor(scheme, strength)
+  const rowSelectors = NAV_ROWS.map((row) => `${scope} ${row}`)
+  const focusSelectors = NAV_ROWS.map((row) => `${scope} ${row}:focus-visible`)
+  return [
+    `${rowSelectors.join(',\n')} {\n  background-color: ${role.fill};\n  color: ${role.ink};\n}`,
+    `${focusSelectors.join(',\n')} {\n  outline-color: ${role.ink};\n}`
+  ].join('\n\n')
+}
+
+/**
+ * The complete selected-navigation stylesheet (six variants × two rules).
+ * @returns {string}
+ */
+function navAccentStyles () {
+  const roles = navAccentRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      navAccentRules(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { SETTINGS_PANEL_ANCHOR, SETTINGS_NAV_ROW, SIDEBAR_PANEL_ROW, NAV_ROWS, NAV_ACCENT_RULES_PER_VARIANT, navAccentRoles, navAccentStyles }
+})()
+
 // ---------------------------------------------------------------- src/workspace-labels.js
-const __mod_9_workspace_labels_js = (() => {
+const __mod_10_workspace_labels_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -4296,7 +4463,7 @@ function workspaceLabelStyles () {
 })()
 
 // ---------------------------------------------------------------- src/ui-accents.js
-const __mod_10_ui_accents_js = (() => {
+const __mod_11_ui_accents_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -4522,7 +4689,7 @@ function uiAccentStyles () {
 })()
 
 // ---------------------------------------------------------------- src/plugin-update.js
-const __mod_11_plugin_update_js = (() => {
+const __mod_12_plugin_update_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -4683,7 +4850,7 @@ function pluginUpdateStyles () {
 })()
 
 // ---------------------------------------------------------------- src/chat-bubble.js
-const __mod_12_chat_bubble_js = (() => {
+const __mod_13_chat_bubble_js = (() => {
 // Everforest ink for DSH's user-message bubble (the "只换字色" half of the
 // 2026-11-08 bubble review; the light background is the moss paper from
 // `bubbleSurface` in `src/tokens.js`).
@@ -4739,7 +4906,7 @@ function chatBubbleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_13_nav_icon_js = (() => {
+const __mod_14_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -4801,7 +4968,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_14_state_js = (() => {
+const __mod_15_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -5095,9 +5262,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_15_durable_js = (() => {
+const __mod_16_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_14_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_15_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -5262,7 +5429,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_16_locale_js = (() => {
+const __mod_17_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -5345,7 +5512,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_17_settings_page_js = (() => {
+const __mod_18_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -5985,7 +6152,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_18_theme_spotlight_js = (() => {
+const __mod_19_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -6292,7 +6459,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_19_client_entry_js = (() => {
+const __mod_20_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -6300,17 +6467,18 @@ const __mod_19_client_entry_js = (() => {
   const { installTableScrollbarHover } = __mod_6_table_scrollbar_js
   const { selectionStyles } = __mod_7_selection_js
   const { activeSessionStyles } = __mod_8_active_session_js
-  const { workspaceLabelStyles } = __mod_9_workspace_labels_js
-  const { uiAccentStyles } = __mod_10_ui_accents_js
-  const { pluginUpdateStyles } = __mod_11_plugin_update_js
-  const { chatBubbleStyles } = __mod_12_chat_bubble_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_13_nav_icon_js
+  const { navAccentStyles } = __mod_9_nav_accent_js
+  const { workspaceLabelStyles } = __mod_10_workspace_labels_js
+  const { uiAccentStyles } = __mod_11_ui_accents_js
+  const { pluginUpdateStyles } = __mod_12_plugin_update_js
+  const { chatBubbleStyles } = __mod_13_chat_bubble_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_14_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_14_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_15_durable_js
-  const { EN, NS, ZH } = __mod_16_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_17_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_18_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_15_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_16_durable_js
+  const { EN, NS, ZH } = __mod_17_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_18_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_19_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -6736,7 +6904,30 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: active session styles')
 
-  // 1e. Workspace folder-name stylesheet. DSH paints every project row title
+  // 1e. Selected navigation rows. Two chrome surfaces are marked current by
+  // DSH but read as "nothing selected": the Settings dialog's active nav cell
+  // (`--dsw-specific-sidebar-nav-item-active` maps to the panel fill, so the
+  // selection vanishes — 2026-11-09: "选中某一项过后，目录栏的高亮显示没有了")
+  // and the sidebar panel list's active row (`.panelActive` reuses the *hover*
+  // token — 2026-11-09: "帮我把这里也加上选中变色"). No token value can fix
+  // the first one (a visible fill would drop `label-primary` under 4.5:1 on the
+  // light panel) and the second has no token at all, so the chrome sheet paints
+  // both with the pairing used by every other selected surface in the theme:
+  // the solid `statusline1` band with the canvas `bg0` as ink. Anchors are
+  // DSH's contracts (`data-shortcut-modal` + `aria-current="true"` for the
+  // settings cell, `[data-slot="sidebar"]` + `aria-current="page"` for the
+  // panel row), never the CSS-module hashes.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/nav-accent'
+    tag.textContent = navAccentStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: navigation selection')
+
+  // 1f. Workspace folder-name stylesheet. DSH paints every project row title
   // with `label-primary` (`ui-workspace` `.projectRow`; only the active folder
   // glyph gets the business accent), while the 2026-11-08 user asked for green
   // directory names ("工作区的每个目录名称也用绿色显示"). One rule paints
@@ -6757,7 +6948,7 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: workspace folder names')
 
-  // 1f. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
+  // 1g. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
   // the palette text green `green` (2026-11-08 user request: "上面标题的名称也
   // 改为绿色"; the user later confirmed the text green is deeper than the
   // selection background green); every dropdown's selected option is a
@@ -6780,7 +6971,7 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: chrome accent styles')
 
-  // 1g. Plugin-update dialog. 2026-11-08 user report on the “更新 dsh-ops”
+  // 1h. Plugin-update dialog. 2026-11-08 user report on the “更新 dsh-ops”
   // dialog: the step rows read in DSH's info blue instead of the success green,
   // and the finished steps' badges only get a 12% success tint, which looks
   // washed out on the dark dialog. `src/plugin-update.js` paints the finished
@@ -6797,7 +6988,7 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: plugin update dialog')
 
-  // 1h. Chat-bubble ink. DSH paints the user-message bubble with
+  // 1i. Chat-bubble ink. DSH paints the user-message bubble with
   // `label-primary`; the 2026-11-08 bubble review picked the "苔纸" light /
   // "只换字色" dark pair, whose derived inks (deep pine / pale sage) cannot ride
   // the token layer without recolouring every primary label. `src/chat-bubble.js`
@@ -6814,7 +7005,7 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: chat bubble ink')
 
-  // 1i. Table column resize: stylesheet + the DOM interaction. DSH renders a
+  // 1j. Table column resize: stylesheet + the DOM interaction. DSH renders a
   // markdown table as a scroll wrapper around a bare table with no React
   // extension point (MarkdownText is a memoized mdast switch), so a table gets
   // explicit per-column widths and a drag handle on the header-cell right
@@ -6852,7 +7043,7 @@ function apply(ctx) {
     }
   }, 'everforest: table column resize')
 
-  // 1j. Table scrollbar hover animation. The color-mode sheet reserves a 10px
+  // 1k. Table scrollbar hover animation. The color-mode sheet reserves a 10px
   // scrollbar track and paints a 5px inset pill; this controller grows the pill
   // to the full track while the pointer is on the bar. Chromium never runs CSS
   // transitions on scrollbar pseudo-elements (verified 2026-10-29), so the inset
@@ -7334,6 +7525,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_19_client_entry_js
+    return __mod_20_client_entry_js
   },
 })
