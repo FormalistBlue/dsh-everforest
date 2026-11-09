@@ -4467,27 +4467,26 @@ const __mod_11_ui_accents_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
-// Everforest accent labels for DSH chrome: the conversation title and the
-// selected options inside dropdown menus.
+// Everforest accent label for DSH chrome: the selected option inside dropdown
+// menus.
 //
-// The conversation title is painted with the palette **text green** `green`
-// (upstream: "Function Names, Method Names, Strings, Characters, Search
-// Highlights"; dark `#A7C080`, light `#8DA101`). The selected dropdown option
-// is a *background*: the palette `statusline1` (upstream: "Menu Selection
-// Background, Tab Line Label Background (active), Status Line Mode Indicator";
-// dark `#A7C080`, light `#93B259`) as a solid fill with the scheme canvas `bg0`
-// as its label / check ink. 2026-11-08 review: the user compared the two greens
-// in upstream Everforest and confirmed the text one is deeper — in the light
-// scheme they are two different colours (`#8DA101` vs `#93B259`), while in the
-// dark schemes both are `#A7C080`; only the light schemes change.
+// The selected dropdown option is painted with the palette **background**
+// green: `statusline1` (upstream: "Menu Selection Background, Tab Line Label
+// Background (active), Status Line Mode Indicator"; dark `#A7C080`, light
+// `#93B259`) as a solid fill with the scheme canvas `bg0` as its label / check
+// ink. 2026-11-08 review: upstream defines `statusline1` as a *background*
+// colour, which is what the palette review (A7) aligned this surface to.
 //
-// - the conversation title is the current crumb of the session header
-//   (`ui-conversation` skeleton: `.crumbCurrent { color: var(--dsw-alias-label-
-//   primary) }`, verified in the installed 0.2.2-rc.1 bundle as
-//   `_<hash>_crumbCurrent`). 2026-11-08 user request "上面标题的名称也改为绿色";
-//   the palette review (A7) briefly reverted the green labels to DSH's own
-//   `label-primary`, and the follow-up review put the title back because the
-//   user asked for the green labels again;
+// The conversation title used to be painted here as well — the palette text
+// green `green` (`[class*="crumbCurrent"]`, 2026-11-08 user request "上面标题的
+// 名称也改为绿色"). 2026-11-09 the user asked to drop it ("标题不需要绿色显示
+// 了"): the title is chrome, not a selection, and the light schemes' green reads
+// as a highlight on an otherwise plain header. The rule is gone and DSH's own
+// `label-primary` is back; `tests/ui-accents.test.mjs` pins the absence (the
+// sheet must not carry `crumbCurrent`). The sidebar folder names keep their
+// green — that is a separate surface with its own user request
+// (`src/workspace-labels.js`).
+//
 // - a selected dropdown option is either a Menu item (`role="menuitem"`, check
 //   / fill selection mode, class `_selected_<hash>` or `_selectedFill_<hash>`)
 //   or a radio-style option (`role="menuitemradio"`, `aria-checked="true"`,
@@ -4513,18 +4512,14 @@ const __mod_11_ui_accents_js = (() => {
 // Contrast: the canvas ink is a WCAG AA pair in the dark schemes (5.62–6.88:1);
 // in the light schemes it sits at 2.00–2.32:1 — the palette's own ceiling for
 // cream ink on `statusline1`, which is what the upstream reference tab does.
-// The text green keeps the palette's own numbers (dark AA 5.62–6.88:1, light
-// 2.36–2.81:1 — deeper than `statusline1` on the same cream surfaces).
-// The measured values are pinned in `docs/reference/contrast.md` §2h / §2i
-// instead of being corrected away.
+// The measured values are pinned in `docs/reference/contrast.md` §2i instead of
+// being corrected away.
 //
-// Selectors use stable hooks only: the CSS-module local name `crumbCurrent` and
-// the ARIA menu roles, never a hashed class prefix. Always-on and independent of
-// the color mode (navigation / selection chrome, not markdown content).
+// Selectors use stable hooks only: the ARIA menu roles and DSH's `selected` /
+// `selectedFill` / `check` CSS-module local names, never a hashed class prefix.
+// Always-on and independent of the color mode (selection chrome, not markdown
+// content).
 
-
-/** The conversation title (current breadcrumb in the session header). */
-const HEADER_TITLE = '[class*="crumbCurrent"]'
 
 /** A selected Menu item, in fill or check selection mode. */
 const MENU_SELECTED = '[role="menu"] [role="menuitem"][class*="selected"]'
@@ -4571,18 +4566,6 @@ const MENU_SELECTED_FILL = `${MENU_SELECTED} [class*="selectedFill"]`
 const MENU_SELECTED_FILL_RADIO = `${MENU_SELECTED_RADIO} [class*="selectedFill"]`
 
 /**
- * Minimum contrast the green title keeps on the header surface (WCAG AA) and on
- * the translucent menu card (4.28–5.32:1 measured, the weaker of the two).
- */
-const UI_ACCENT_DARK_CONTRAST = 4.0
-
-/**
- * Documented floor of the light schemes' text green on the header / menu
- * surfaces (2.36–2.81:1; the light·soft menu card is the weakest).
- */
-const UI_ACCENT_LIGHT_CONTRAST = 2.3
-
-/**
  * Minimum contrast the dark schemes keep between the canvas ink and the accent
  * fill (5.62–6.88:1 measured, WCAG AA).
  */
@@ -4596,23 +4579,21 @@ const UI_ACCENT_DARK_INK_CONTRAST = 4.5
 const UI_ACCENT_LIGHT_INK_CONTRAST = 1.95
 
 /**
- * One variant's accents: the palette `green` (title text — upstream foreground
- * green), the `statusline1` background fill, and the scheme canvas `bg0` ink
- * used on that fill.
+ * One variant's accent surface: the `statusline1` background fill and the
+ * scheme canvas `bg0` ink used on that fill.
  * @param {'light' | 'dark'} scheme
  * @param {'hard' | 'medium' | 'soft'} strength
- * @returns {{ green: string, fill: string, ink: string }} all opaque `#RRGGBB`.
+ * @returns {{ fill: string, ink: string }} both opaque `#RRGGBB`.
  */
 function accentFor (scheme, strength) {
   const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
-  return { green: palette.fg.green, fill: palette.fg.statusline1, ink: palette.ramp.bg0 }
+  return { fill: palette.fg.statusline1, ink: palette.ramp.bg0 }
 }
 
 /**
- * The six accent surfaces, keyed by `${scheme}-${strength}`. `green` is the
- * text green, `fill` the `statusline1` selection background, `ink` the scheme
- * canvas used on that fill.
- * @returns {Record<string, { green: string, fill: string, ink: string }>} keyed `light-hard` … `dark-soft`.
+ * The six accent surfaces, keyed by `${scheme}-${strength}`. `fill` is the
+ * `statusline1` selection background, `ink` the scheme canvas used on it.
+ * @returns {Record<string, { fill: string, ink: string }>} keyed `light-hard` … `dark-soft`.
  */
 function uiAccentRoles () {
   const roles = {}
@@ -4650,17 +4631,16 @@ function accentRule (scope, selectors, declarations) {
 }
 
 /**
- * One variant's four rules: the green conversation title, the selected row
- * surface, its fill child and the check glyph.
+ * One variant's three rules: the selected row surface, its fill child and the
+ * check glyph.
  * @param {'light' | 'dark'} scheme
  * @param {'hard' | 'medium' | 'soft'} strength
- * @param {{ green: string, fill: string, ink: string }} roles
+ * @param {{ fill: string, ink: string }} roles
  * @returns {string}
  */
 function uiAccentRules (scheme, strength, roles) {
   const scope = scopeFor(scheme, strength)
   return [
-    accentRule(scope, [HEADER_TITLE], [['color', roles.green]]),
     accentRule(scope, [MENU_SELECTED, MENU_SELECTED_RADIO], [
       ['background', roles.fill],
       ['color', roles.ink],
@@ -4674,7 +4654,7 @@ function uiAccentRules (scheme, strength, roles) {
 }
 
 /**
- * The complete chrome accent stylesheet (six variants × four rules).
+ * The complete chrome accent stylesheet (six variants × three rules).
  * @returns {string}
  */
 function uiAccentStyles () {
@@ -4685,7 +4665,7 @@ function uiAccentStyles () {
     .join('\n\n')
 }
 
-  return { HEADER_TITLE, MENU_SELECTED, MENU_SELECTED_RADIO, MENU_CHECK, MENU_CHECK_RADIO, MENU_INK_TOKENS, MENU_SELECTED_FILL, MENU_SELECTED_FILL_RADIO, UI_ACCENT_DARK_CONTRAST, UI_ACCENT_LIGHT_CONTRAST, UI_ACCENT_DARK_INK_CONTRAST, UI_ACCENT_LIGHT_INK_CONTRAST, uiAccentRoles, uiAccentStyles }
+  return { MENU_SELECTED, MENU_SELECTED_RADIO, MENU_CHECK, MENU_CHECK_RADIO, MENU_INK_TOKENS, MENU_SELECTED_FILL, MENU_SELECTED_FILL_RADIO, UI_ACCENT_DARK_INK_CONTRAST, UI_ACCENT_LIGHT_INK_CONTRAST, uiAccentRoles, uiAccentStyles }
 })()
 
 // ---------------------------------------------------------------- src/plugin-update.js
@@ -6948,10 +6928,7 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: workspace folder names')
 
-  // 1g. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
-  // the palette text green `green` (2026-11-08 user request: "上面标题的名称也
-  // 改为绿色"; the user later confirmed the text green is deeper than the
-  // selection background green); every dropdown's selected option is a
+  // 1g. Chrome accent stylesheet. Every dropdown's selected option is a
   // `statusline1` solid fill with the scheme canvas `bg0` as its label / check
   // ink — upstream `palette.md` defines `statusline1` as a *background* colour
   // ("Menu Selection Background"), which is what the palette review (A7)
@@ -6960,7 +6937,10 @@ function apply(ctx) {
   // their own `--dsw-alias-menu-icon` / `label-*` tokens instead of inheriting
   // a colour, so the rule re-points those tokens at the same ink for the
   // selected option's subtree (2026-11-08 follow-up: "第一个图中 icon 颜色不对，
-  // 第二个图中文字的颜色不对"). Always-on navigation chrome, same pattern.
+  // 第二个图中文字的颜色不对"). The conversation title is *not* painted here:
+  // it took the text green until 2026-11-09, when the user asked for it back to
+  // neutral ("标题不需要绿色显示了") — DSH's own `label-primary` now wins.
+  // Always-on navigation chrome, same pattern.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')

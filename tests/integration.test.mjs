@@ -728,16 +728,17 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(workspaceLabelStylesheets[0].textContent.includes('projectText'))
   assert.ok(workspaceLabelStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
-  // The always-on chrome accent stylesheet paints the conversation title and
-  // the selected dropdown option with the interaction accent (the option as a
-  // solid fill plus the canvas ink — upstream "Menu Selection Background"
-  // semantics, A7 of the 2026-11-08 palette review).
+  // The always-on chrome accent stylesheet paints the selected dropdown option
+  // (a solid fill plus the canvas ink — upstream "Menu Selection Background"
+  // semantics, A7 of the 2026-11-08 palette review). The conversation title is
+  // deliberately *not* painted any more (2026-11-09: "标题不需要绿色显示了"),
+  // so the sheet must not carry the crumb hook.
   const uiAccentStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents')
   assert.equal(uiAccentStylesheets.length, 1, 'chrome-accent stylesheet was not injected')
-  assert.ok(uiAccentStylesheets[0].textContent.includes('crumbCurrent'))
   assert.ok(uiAccentStylesheets[0].textContent.includes('menuitemradio'))
   assert.ok(uiAccentStylesheets[0].textContent.includes('selectedFill'))
   assert.ok(uiAccentStylesheets[0].textContent.includes('background'))
+  assert.ok(!uiAccentStylesheets[0].textContent.includes('crumbCurrent'), 'the conversation title must stay native')
   assert.ok(uiAccentStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
   // The always-on chat-bubble ink stylesheet replaces DSH's hard-coded

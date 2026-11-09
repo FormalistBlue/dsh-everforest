@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.1（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.1（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、会话标题与下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 11 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 11 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -427,7 +427,7 @@ export function apply(ctx) {
 
 1. **主题聚光灯**（§17）：`createThemeSpotlight()` → 卸载时 `dispose()`；注入 `data-plugin-css="dsh-everforest/theme-spotlight"` 样式表；`spotlight.trackOrigin()` 记录最后一次 `pointerdown`；包装 `ctx.theme.setTheme`（仅跨深浅走 `spotlight.run`，卸载按「原方法是否自有属性」还原）。见 `src/client-entry.js` L212–274。
 2. **token 层与状态属性**：`applyLayer()` = `overrideTokens`（pair 未变时不重栈）+ `applyStateAttributes()`（写 `data-everforest-color-mode` / `-light` / `-dark` 三个属性）。
-3. **常驻样式表（十张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、会话标题与下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
+3. **常驻样式表（十张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
 4. **表单胶水**（把 §7 落到代码）：`queuedWrite`、`hasUserLayer`、`shouldSeed`、`seedHost(snapshot)`（播种时才带 `snapshot.revision`）、`adoptHostState()`、`writeToHost(ops, failureMessage)`（不带 revision）、`warnRefusedOnce()`、`writesInFlight` + `beginWrite()` / `flushQueuedWrite()`。`select()` 的跨深浅分支把 `applyLayer() + ctx.theme.setTheme(scheme)` 一起包进 `spotlight.run()`，同深浅分支只重栈（瞬切），`notify()` 在切换之后；`reset()` 先回默认状态，`persistReset()` 在 `writesInFlight > 0` 时把 unset 排到在途写入之后。
 5. **其它**：`setPreference()`（外观三卡 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
 
@@ -584,7 +584,7 @@ export function apply(ctx) {
 | 聚光灯（1.0.0，§17；2026-10-25 追加跟随系统 OS 翻转） | 跨深浅切换：新主题从点击点圆形扩张 400ms，无灰峰（颜色插值中途仅 1.01:1）、浅→深结束无闪白；DSH Appearance 行 / 插件色卡 / 设置页外观控件三个入口都走揭示；`system` 偏好下 OS 翻转也走揭示（从视口中心扩张、不建立第二段过渡）；跨窗口广播、同深浅强度切换、reduced-motion、无 View Transitions 均瞬切；插件卸载后 `ctx.theme.setTheme` 与 `publish` 都恢复原方法；常驻样式表共 9 张（含 `dsh-everforest/theme-spotlight`），`<html>` 上无 `data-everforest-transition` |
 | 当前会话行（1.0.0，§15 / §22 / §23） | 选中会话行（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）恒为交互强调色 `statusline1` 实色底 + 方案画布 `bg0` 文字（2026-11-08 第三轮起：dark `#A7C080` / light `#93B259`；原为 `bg_blue` 蓝底 → 2026-11-07 绿色强调底 → 同日第二轮 `fg.green`），行内 tertiary 灰（状态槽 / 时间 / pin / 操作按钮 / spinner）**显式**写成墨色（时间嵌在 `rowResting` 内且父级自带 `label-tertiary`，`inherit` 会被截断），状态点保留语义色；与「待确认」黄底 /「已完成」蓝底并排可一眼区分；6 档实测见 §15 表格（深色 5.62–6.88:1；浅色 2.00–2.32:1，见 §2g）；hover 其他行不再与选中态混淆；卸载后样式表移除；**无行首竖条**（2026-11-08 移除） |
 | 工作区目录名称（§22.3 / §25） | 侧栏工作区（项目）行的标题（`[role="treeitem"][data-row-key^="workspace:"] [class*="projectText"]`）为**文字绿 `green`**（dark `#A7C080` / light `#8DA101`，原值不做守卫；上游把 `green` 当前景文字色、`statusline1` 当背景色，两者在浅色档差一档）；2026-11-08 用户两次要求绿色，A7 曾短暂撤回 `label-primary`，同日复核后恢复；静止行深色 5.00–6.17:1（AA）、A7 的 50% `bg4` hover 叠加底 4.01–4.98:1，浅色 2.35–2.68 / 2.13–2.47:1（见 `contrast.md` §2h）；卸载后样式表移除 |
-| 会话标题与下拉选中项（§25） | 会话标题（`crumbCurrent`）为**文字绿 `green`**（A7 曾撤回、复核后恢复；深色 `#A7C080` / 浅色 `#8DA101`）；下拉列表选中项（`menuitem` / `menuitemradio`）以 `statusline1`（浅色 `#93B259`）实底 + 画布 `bg0` 文字与勾勾，选中项内的前导图标与次要文字（`--dsw-alias-menu-icon`、`label-*` 族：模式选项的标题 / 说明、工作区路径后缀、快捷键）同样取该墨色（2026-11-08 追加）：深色档墨色 5.62–6.88:1（AA）、标题 5.62–6.88:1，浅色档墨色 2.00–2.32:1、标题 2.36–2.81:1（`contrast.md` §2i）；卸载后样式表移除 |
+| 下拉选中项（§25 / §27） | 下拉列表选中项（`menuitem` / `menuitemradio`）以 `statusline1`（浅色 `#93B259`）实底 + 画布 `bg0` 文字与勾勾，选中项内的前导图标与次要文字（`--dsw-alias-menu-icon`、`label-*` 族：模式选项的标题 / 说明、工作区路径后缀、快捷键）同样取该墨色（2026-11-08 追加）：深色档墨色 5.62–6.88:1（AA），浅色档 2.00–2.32:1（`contrast.md` §2i）；会话标题曾取文字绿 `green`（2026-11-08 – 11-09），现回到 DSH 原生 `label-primary`（§27）；卸载后样式表移除 |
 | 文本选区（1.0.0，§16.2） | 六档 `::selection` 底色 = 各变体 `bg_visual`（light 统一 `#DED8DB`；dark `#4C3743` / `#543A48` / `#5C3F4F`），`color: inherit` 保留元素自身颜色（h2 / strong / 行内 code 选中后仍是原色）；与色彩模式解耦、常驻；不改变 `user-select` 与复制行为 |
 | dev 调试面板（1.0.0，§14） | `npm run build:dev` 后主界面出现浮动面板，可切换外观与两套强度、拖动、折叠成 38×38 圆钮且折叠 / 展开态都保留样式与内联兜底；`npm run build` 后消失；`--check` / CI / `prepack` 拒绝停留在开发产物；生产 `client.js` 无面板代码 |
 | 图标与 README 截图（1.0.0） | `icon.svg` 为自包含 SVG（无脚本 / 无外链，约 3.1 KB）：绿色鲸鱼 + 远景山脊 `#4D5960` / 森林山脊 `#A7C080` / 两棵松 `#293136`，36px 下均可辨；`README.md` / `README.en.md` 各只有 2 张真机截图（dark-soft / light-hard，1263×981 未裁剪），仓库根 `screenshots.json` 2 项与 README 引用逐项一致，README / 图标断言通过 |
@@ -1076,7 +1076,7 @@ dark warn 走 `fg.yellow → bgDim` 且深色文字 4.5:1）、方向校验（da
 > **2026-11-08 更新（现行行为，第三轮）**：用户先贴 Everforest 官方 Neovim 活动 tab 裁图，要求「选中的不需要左边的边框显示，直接绿色显示，不改变绿色的透明度了」；
 > 同日第二轮又要求「浅色目录名称还是用原绿色」「发送按钮的绿色感觉也有点不一样」——全部绿色 UI 曾收敛到 `fg.green`；
 > 同日第三轮用户再贴浅色裁图（`#93B259` 底）指出「浅色模式的绿色不对…绿色应该是浅绿色」，于是**现行**取值 = 上游交互绿 `statusline1`
-> （dark `#A7C080` / light `#93B259`），选中行与发送按钮 / 角标 / 下拉选中项共用它；目录名称 / 标题另取文字绿 `green`（浅色 `#8DA101`、深色同值，见 §25.6）。3px 行首竖条与「先守卫再可见」的混色算法一并移除；
+> （dark `#A7C080` / light `#93B259`），选中行与发送按钮 / 角标 / 下拉选中项共用它；目录名称另取文字绿 `green`（浅色 `#8DA101`、深色同值，见 §25.6；会话标题 2026-11-09 起回 `label-primary`，见 §27）。3px 行首竖条与「先守卫再可见」的混色算法一并移除；
 > 「已完成未读」行改回 palette1 `bg_blue` 蓝底（§22.2），绿色只属于当前会话与交互强调。第三轮细节（含时间 / 图标不可见的 bug）见 §23。
 
 **问题**：`@deepseek-ai/dsh-client-ui-workspace` 的 `Rows` CSS 模块把「选中」与 hover 合并成同一条规则：
@@ -1094,7 +1094,7 @@ DSH 的 a11y 契约，不用 CSS modules 哈希类名）。不使用 `!important
 
 | 项 | 取值 | 说明 |
 |---|---|---|
-| 行底 | 该 scheme 的 `statusline1`：dark `#A7C080`、light `#93B259` | 与发送按钮 / 下拉选中项同一个交互强调色；目录名称 / 标题用文字绿 `green`（§25.6）；实色、不混色、不设透明度 |
+| 行底 | 该 scheme 的 `statusline1`：dark `#A7C080`、light `#93B259` | 与发送按钮 / 下拉选中项同一个交互强调色；目录名称用文字绿 `green`（§25.6；标题自 2026-11-09 起回 `label-primary`，§27）；实色、不混色、不设透明度 |
 | 文字 | 该变体的 `ramp.bg0`：light `#FFFBEF` / `#FDF6E3` / `#F3EAD3`，dark `#272E33` / `#2D353B` / `#333C43` | 强调实底 + 画布墨的既定配对（按钮 / 角标同款），也是上游参考 tab 的配对 |
 | 行内灰字 | 规则把行内直接子 `span`、`[class*="time"]`、`[class*="pinIndicator"]`、`[class*="iconButton"]`、`button`、`svg:not([data-state])`、`[data-state="ongoing"]` **显式**写成墨色（不是 `inherit`） | DSH 给状态槽 / 时间 / pin / hover 操作按钮都写了 `label-tertiary` / `label-caption`，在实色绿底上只剩 1.2–1.6:1；`rowResting` / `rowActions` 自己带灰，`inherit` 会被那一层截断（2026-11-08 第三轮修复，见 §23.2）；运行中的加载 spinner 是中性灰（`label-tertiary`，不是语义色），一并改成墨色（第四轮，见 §23.6） |
 | 状态点 | 保持语义色（未被覆盖） | 状态点是独立图形、不是绿底上的文字；选中行通常是已读状态，点本身多为空。例外：`data-state="ongoing"` 的加载 spinner 是中性环（DSH 用 `label-tertiary`），已改为行墨色（§23.6） |
@@ -1113,7 +1113,7 @@ DSH 的 a11y 契约，不用 CSS modules 哈希类名）。不使用 `!important
 **为什么是实色 `statusline1`**：2026-11-07 的强调色归位已把品牌 / 交互强调统一到绿色（§21）；2026-11-08 用户先按参考图要求
 选中行「直接绿色显示、不要透明度、不要左边框」，第三轮又指出浅色档「绿色应该是浅绿色」——而参考图里 tab 底正是上游 `statusline1`
 （`palette.md`：Menu Selection Background / Tab Line Label Background (active)）。因此选中行与发送按钮 / 角标 /
-下拉选中项共用 `statusline1` 原值：dark `#A7C080`（与 `green` 同值）、light `#93B259`；目录名称 / 标题另取文字绿 `green`（浅色 `#8DA101`，§25.6）。**不再**混入画布制造「淡绿」，也不再加 3px 竖条。
+下拉选中项共用 `statusline1` 原值：dark `#A7C080`（与 `green` 同值）、light `#93B259`；目录名称另取文字绿 `green`（浅色 `#8DA101`，§25.6；标题自 2026-11-09 起回 DSH 的 `label-primary`，§27）。**不再**混入画布制造「淡绿」，也不再加 3px 竖条。
 
 **对比度取舍**：深色三档是 WCAG AA 配对（5.62–6.88:1）。浅色三档是上游参考 tab 的同一配对——浅色调色板里最亮的墨色就是画布
 `bg0`，与 `statusline1` 只有 2.00–2.32:1，没有任何更深的浅色墨可用。G17 因此按 scheme 分开：深色要求 ≥4.5:1，浅色固定 1.95 的**已记录下限**
@@ -1123,7 +1123,7 @@ DSH 的 a11y 契约，不用 CSS modules 哈希类名）。不使用 `!important
 **与色彩模式的关系**：**常驻**、与色彩模式无关（色彩模式自 2026-10-24 起也没有设置开关）——导航可见性不属于
 「内容着色」，与 `selection.js` 同级。2026-11-08 同批改动把「已完成未读」行改回蓝色（§22.2），所以绿色不再与状态行撞色。
 因此 0.4.0 文档里「色彩模式关闭 = 与 0.3.0 逐字节一致」的表述在本版不再成立：token 层与 markdown 内容仍与基线一致，
-但选中会话行、目录名称、标题与下拉选中项是本版新增的常驻样式。
+但选中会话行、目录名称与下拉选中项是本版新增的常驻样式（会话标题的绿色已于 2026-11-09 按用户要求撤掉，见 §27）。
 
 **边界**：浅色三档 2.00–2.32:1 的墨色对比是统一 accent 的取舍（上游参考 tab 也是同一配对）；选中行同时带 warning / done 状态时，状态行底仍被
 `:not([aria-selected="true"])` 排除、显示绿底，状态由状态点表达；`aria-selected` 是唯一的选中锚点，若未来 DSH 改用它表示别的含义需要复核。
@@ -1491,6 +1491,8 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 > 同时报告选中行的时间 / 图标仍看不清 —— 浅色档交互绿因此改为上游 `statusline1` `#93B259`（dark 仍 `#A7C080`），
 > `statusline1` 纳入 Foreground 模型（19 色），并修掉 active-session 的选择器拼接 bug（时间 / pin / 图标此前压根没拿到墨色）。
 > §22 以下保留第二轮的过程记录，现行值以 §23 为准。
+>
+> **2026-11-09 更新**：会话标题的文字绿已按用户要求撤掉（「标题不需要绿色显示了」，见 §27），§22 / §25.6 里「标题改绿」的记录只作历史；侧栏目录名称仍为文字绿 `green`。
 
 ### 22.1 选中会话行：实色 `fg.green` 底 + 画布墨色
 
@@ -1768,6 +1770,7 @@ DSH `ui-plugin-manager` 的 `UpdateDialog`（安装包 0.2.2-rc.1 已核对）�
 - **复核修正（同日）**：恢复的第一版让文字也取 `statusline1`，用户对照上游配色指出「纯文字的绿色，和选中的背景块绿色不是同一种，文字的好像更深」。查 `palette.md`：上游 `green` 是前景色（Function Names / Strings / Search Highlights 等），`statusline1` 是背景色（Menu Selection Background / 活动 tab 底）——浅色档 `#8DA101` vs `#93B259`，深色档两者同为 `#A7C080`。于是文字（标题、目录名）改用 `fg.green`，选中块实底仍取 `statusline1`；深色档无变化，浅色档文字明显加深，同时也把浅色档的实测对比度从 1.94–2.32:1 抬到 2.13–2.81:1。
 - 对比度：A7 把 hover 叠加层换成 `bg4` 50%，目录名在 hover 行最强弱——深色静止 5.00–6.17:1 / hover 4.01–4.98:1，浅色静止 2.35–2.68:1 / hover 2.13–2.47:1；G18 下限因此定为深色静止 4.5 / hover 4.0、浅色静止 2.3 / hover 2.1（实测值见 `contrast.md` §2h），G19 标题门槛保持深 4.0（另要求标题本身 ≥4.5:1 的 AA）/ 浅 2.3，选中项墨色仍为深 4.5 / 浅 1.95。
 - 落点：常驻样式表当时回到 8 张（含设置页 9 张），聊天气泡样式表加入后现行 10 / 11 张（§12 / §26）、`tests/integration.test.mjs` 样式表数量当时 7 → 8 / 8 → 9（现行断言 10 / 11）、`tests/workspace-labels.test.mjs` 恢复（期望值改为 `green`）、`tests/ui-accents.test.mjs` 改为 4 条规则并新增标题对比度断言（文字绿 ≠ 选中块绿）、`scripts/check-contrast.mjs` 恢复 G18 并扩展 G19（标题取 `green`、选中底取 `statusline1`）、`contrast.md` §2h 恢复 + §2i 重写；`palette.md` 偏差 10 / §5 表同步。
+- **2026-11-09 撤回（现行）**：用户贴出对话区标题截图要求「这里调整一下，标题不需要绿色显示了」，会话标题规则（`[class*="crumbCurrent"]`）删除，标题回到 DSH 原生 `label-primary`；`ui-accents` 由 6 档 × 4 条规则收缩为 6 档 × 3 条（标题 / 选中项实底 / 填充子元素 / 勾勾 → 后三条），G19 只剩选中项一张表。详见 §27。
 
 ## 26. 2026-11-09 选中导航行高亮（nav-accent）
 
@@ -1855,3 +1858,56 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme])
   后者属公开槽位契约），未来改名会让对应规则静默失效 → 回落到现状（设置行无高亮 / 面板行中性洗色，文字仍可读）；
   `aria-current` 是 a11y 契约，风险更低。真机窗口目检仍待用户确认（桌面 app 未开 CDP、Web GUI 需 token，
   与会话内既有约束一致）。
+
+## 27. 2026-11-09 会话标题去掉绿色（ui-accents 收缩）
+
+> 触发：用户贴出对话区头部截图（红框标出当前会话标题「修复目录栏选中高亮」）：「这里调整一下，标题不需要绿色显示了」。
+
+### 27.1 表面与决策
+
+- 会话标题是 `ui-conversation` 头部的当前 crumb：`ConversationRoot` 的 `conversation.session.header` 渲染
+  `span.crumb.crumbCurrent`（ancestry 最后一段），上游 CSS 是
+  `.crumbCurrent { color: var(--dsw-alias-label-primary); cursor: default; font-weight: 500 }`
+  （0.2.2-rc.1 安装包 `@deepseek-ai/dsh-client-ui-conversation/lib/client.js` 核对；同一类名在
+  `ui-input-trigger` 的菜单面包屑里也出现，但那是 11px 的菜单触发器，本规则此前一并命中）。
+- 2026-11-08 用户要求标题改文字绿（§22 / §25.6），`src/ui-accents.js` 用 `[class*="crumbCurrent"]` 覆盖成
+  `fg.green`；G19 另有「标题对标题表面 / 菜单卡」两项对比度检查。
+- 决策：**删除标题规则**，标题回到 DSH 自己的 `label-primary`（token 层映射为本主题 `fg`：浅色 `#5C6A72`、
+  深色 `#D3C6AA`）。理由：① 标题是「位置」信息，不是「选中 / 当前操作」语义，绿色在本主题里专属于交互强调
+  （§15 / §23）；② 浅色档文字绿对奶油底只有 2.42–2.81:1，作为常驻标题是一块亮色，页面一打开就抢注意力
+  （用户截图红框标出的正是这一点）。
+- **否决**：改用别的强调色（同样抢眼，且破坏「绿色 = 当前 / 选中」的既定分工）；给标题加粗 / 加底色
+  （超出「去掉绿色」的范围，属另一轮设计）。**保留**：侧栏工作区目录名称仍是文字绿 `green`
+  （`src/workspace-labels.js`，2026-11-08 的独立用户要求，本轮截图只针对对话标题）。
+
+### 27.2 落点
+
+- `src/ui-accents.js`：删除 `HEADER_TITLE` 导出、`UI_ACCENT_DARK_CONTRAST` / `UI_ACCENT_LIGHT_CONTRAST`
+  两个标题门槛常量以及每档的标题规则；`uiAccentRoles()` 由 `{ green, fill, ink }` 收缩为 `{ fill, ink }`，
+  样式表 6 档 × **3 条规则**（选中项实底 / 填充子元素 / 勾勾）。常量只剩 `UI_ACCENT_DARK_INK_CONTRAST`（4.5）与
+  `UI_ACCENT_LIGHT_INK_CONTRAST`（1.95）。常驻样式表数量与顺序不变（仍 10 张 / 含设置页 11 张，§12）。
+- `src/client-entry.js`：1g 注释同步（不再描述标题规则）。
+- `scripts/check-contrast.mjs`：G19 收缩为「下拉选中项」单表——删除标题合法色、标题对标题表面 / 菜单卡两项检查与
+  `titleThreshold`，只保留选中项 fill / ink 合法性、墨色阈值与对菜单卡的 L* 步长；§1 门槛 19、§2g / §2i 文案同步，
+  `contrast.md` 重新生成（§2i 由两张表变一张，标题表删除）。
+- `tests/ui-accents.test.mjs`：去掉 `HEADER_TITLE` / `EXPECTED_GREEN` / 标题对比度用例与两条标题门槛；规则数 4 → 3；
+  新增「会话标题不由本样式表染色」回归断言（`!css.includes('crumbCurrent')`，并钉住 `projectText` 不在本表）。
+  `tests/integration.test.mjs`：`ui-accents` 样式表断言由「包含 `crumbCurrent`」反转为「不包含」。
+- 未改：token 层、`src/workspace-labels.js`、其它常驻样式表；`client.js` 随本轮重建（7511 行 / 325,332 字节）。
+
+### 27.3 验证与边界
+
+- `node --test` **329/329**（`ui-accents` 仍 7 项：删一条标题对比度、加一条「标题不染色」，总数不变）、
+  `npm run check` 全绿（palette / build / contrast），`contrast.md` 已重生成。
+- DOM 实测（2026-11-09）：用安装包真实的 `ConversationRoot.module.css`（`header` / `titleCluster` / `crumbs` /
+  `crumbSeg` / `crumb` / `crumbCurrent`）+ `tokensFor()` 六档 token 层 + `uiAccentStyles()` 输出搭同构页面，
+  共享调试 Chrome 读数（light / dark 各三档，用 `data-everforest-*` 属性切档）：
+  - 标题 `color` = `rgb(92,106,114)` `#5C6A72`（浅色三档）/ `rgb(211,198,170)` `#D3C6AA`（深色三档），即本变体
+    `label-primary`；`font-weight` 仍为上游的 500。
+  - 灵敏度对照：在页面里注入已删除的旧规则（`[class*="crumbCurrent"] { color: #8DA101 }`）后标题立刻变成
+    `rgb(141,161,1)`，移除即回到 `#5C6A72` —— 说明测量能抓住旧行为，修复后的中性色不是「规则没命中」。
+  - 下拉选中项未受影响：底 = `rgb(147,178,89)` `#93B259`（浅）/ `rgb(167,192,128)` `#A7C080`（深），
+    文字 / 勾勾 / 前导图标 = 该档画布 `bg0`，`selectedFill` 子元素同色；未选中行透明。
+- 边界：`[class*="crumbCurrent"]` 是 CSS-module 本地名（哈希前缀后保留），本轮删除后不再依赖它；若以后又要标题绿色，
+  恢复一条规则 + G19 标题检查即可。桌面 app 未开 CDP、Web GUI 需 token（§26.4 同一约束），真机窗口目检仍需用户
+  刷新页面确认。

@@ -2,11 +2,9 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { COLOR_MODE_ATTRS } from '../src/color-mode.js'
-import { contrastRatio, hexToRgb, mix, rgbToHex } from '../src/color.js'
+import { contrastRatio } from '../src/color.js'
 import { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } from '../src/palette.js'
-import { tokensFor } from '../src/tokens.js'
 import {
-  HEADER_TITLE,
   MENU_CHECK,
   MENU_CHECK_RADIO,
   MENU_INK_TOKENS,
@@ -14,9 +12,7 @@ import {
   MENU_SELECTED_FILL,
   MENU_SELECTED_FILL_RADIO,
   MENU_SELECTED_RADIO,
-  UI_ACCENT_DARK_CONTRAST,
   UI_ACCENT_DARK_INK_CONTRAST,
-  UI_ACCENT_LIGHT_CONTRAST,
   UI_ACCENT_LIGHT_INK_CONTRAST,
   uiAccentRoles,
   uiAccentStyles
@@ -47,24 +43,13 @@ const EXPECTED_INK = {
 }
 
 /**
- * Pinned 2026-11-08 review text green (upstream `green`, the foreground colour):
- * deeper than `statusline1` in the light schemes, identical in the dark ones.
+ * The 2026-11-09 floors that are left once the conversation title rule is gone
+ * (the title no longer has a surface of its own: it is DSH's `label-primary`).
+ * Pinned as literals so weakening the source constant cannot make both the
+ * checker and this suite green at the same time.
  */
-const EXPECTED_GREEN = {
-  'light-hard': '#8DA101',
-  'light-medium': '#8DA101',
-  'light-soft': '#8DA101',
-  'dark-hard': '#A7C080',
-  'dark-medium': '#A7C080',
-  'dark-soft': '#A7C080'
-}
-
-test('the four accent floors are pinned to literals', () => {
-  // Pinned as literals (not just imported) so weakening the constant cannot
-  // make both the checker and this suite green at the same time.
-  assert.equal(UI_ACCENT_DARK_CONTRAST, 4.0)
+test('the two accent ink floors are pinned to literals', () => {
   assert.equal(UI_ACCENT_DARK_INK_CONTRAST, 4.5)
-  assert.equal(UI_ACCENT_LIGHT_CONTRAST, 2.3)
   assert.equal(UI_ACCENT_LIGHT_INK_CONTRAST, 1.95)
 })
 
@@ -83,15 +68,15 @@ test('one accent + canvas pair per variant, pinned to the palette', () => {
   for (const variant of VARIANT_NAMES) {
     assert.equal(roles[variant].fill.toLowerCase(), EXPECTED_FILL[variant].toLowerCase(), `${variant} fill`)
     assert.equal(roles[variant].ink.toLowerCase(), EXPECTED_INK[variant].toLowerCase(), `${variant} ink`)
-    assert.equal(roles[variant].green.toLowerCase(), EXPECTED_GREEN[variant].toLowerCase(), `${variant} green`)
     const [scheme, strength] = variant.split('-')
     const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
     assert.equal(roles[variant].fill, palette.fg.statusline1, `${variant}: fill must be the palette statusline1`)
-    assert.equal(roles[variant].green, palette.fg.green, `${variant}: title must be the palette text green`)
     assert.equal(roles[variant].ink, palette.ramp.bg0, `${variant}: ink must be the scheme canvas bg0`)
     assert.match(roles[variant].fill, /^#[0-9a-f]{6}$/i, `${variant}: the selected fill is opaque`)
-    assert.match(roles[variant].green, /^#[0-9a-f]{6}$/i, `${variant}: the title green is opaque`)
     assert.match(roles[variant].ink, /^#[0-9a-f]{6}$/i, `${variant}: the ink is opaque`)
+    // 2026-11-09: the conversation title is no longer painted here, so a role
+    // table with only { fill, ink } is the contract.
+    assert.deepEqual(Object.keys(roles[variant]).sort(), ['fill', 'ink'])
   }
 })
 
@@ -114,34 +99,22 @@ test('the canvas ink keeps its documented contrast on the accent fill', () => {
   }
 })
 
-test('the green conversation title keeps the documented accent contrast', () => {
-  const roles = uiAccentRoles()
-  for (const variant of VARIANT_NAMES) {
-    const [scheme, strength] = variant.split('-')
-    const tokens = tokensFor({ ...DEFAULT_STATE, [scheme]: strength })
-    const header = tokens['--dsw-alias-bg-base'][scheme]
-    const { r, g, b, a } = hexToRgb(tokens['--dsw-menu-surface-fill'][scheme])
-    const menu = mix(header, rgbToHex({ r, g, b, a: 1 }), a)
-    const headerRatio = contrastRatio(roles[variant].green, header)
-    const menuRatio = contrastRatio(roles[variant].green, menu)
-    const floor = scheme === 'dark' ? UI_ACCENT_DARK_CONTRAST : UI_ACCENT_LIGHT_CONTRAST
-    assert.ok(menuRatio >= floor, `${variant}: title on the menu card = ${menuRatio.toFixed(2)} < ${floor}`)
-    if (scheme === 'dark') {
-      assert.ok(headerRatio >= 4.5, `${variant}: dark title must stay WCAG AA (${headerRatio.toFixed(2)})`)
-    } else {
-      // The light palette's text green is the deeper of the two greens
-      // (2.36–2.81:1 here) — still below AA because the cream canvas is the
-      // limiting surface, but visibly stronger than the old statusline1 text.
-      assert.ok(headerRatio <= 3.0, `${variant}: light title unexpectedly deepened (${headerRatio.toFixed(2)})`)
-    }
-  }
+test('the conversation title is left to DSH, not painted by this sheet', () => {
+  // 2026-11-09 user request "标题不需要绿色显示了": the title rule was removed
+  // and the header falls back to DSH's own `.crumbCurrent { color:
+  // var(--dsw-alias-label-primary) }` — which the token layer already maps to
+  // the scheme `fg`. Pin the absence so the rule cannot creep back in.
+  const css = uiAccentStyles()
+  assert.ok(!css.includes('crumbCurrent'), 'the conversation title must stay at DSH\'s label-primary')
+  assert.ok(!css.includes('crumb'), 'no crumb surface belongs to this sheet')
+  // The sidebar folder names keep their green — that is a different sheet.
+  assert.ok(!css.includes('projectText'), 'folder names are `dsh-everforest/workspace-labels`, not part of this sheet')
 })
 
-test('the sheet emits four rules per variant with the stable menu hooks', () => {
+test('the sheet emits three rules per variant with the stable menu hooks', () => {
   const css = uiAccentStyles()
   const rules = styleRules(css)
-  assert.equal(rules.length, SCHEMES.length * STRENGTHS.length * 4)
-  assert.equal(HEADER_TITLE, '[class*="crumbCurrent"]')
+  assert.equal(rules.length, SCHEMES.length * STRENGTHS.length * 3)
   assert.equal(MENU_SELECTED, '[role="menu"] [role="menuitem"][class*="selected"]')
   assert.equal(MENU_SELECTED_RADIO, '[role="menu"] [role="menuitemradio"][aria-checked="true"]')
   assert.equal(MENU_CHECK, `${MENU_SELECTED} [class*="check"]`)
@@ -152,9 +125,6 @@ test('the sheet emits four rules per variant with the stable menu hooks', () => 
     for (const strength of STRENGTHS) {
       const variant = `${scheme}-${strength}`
       const scope = scopeOf(scheme, strength)
-      const title = rules.find((rule) => rule.startsWith(`${scope} ${HEADER_TITLE} {`))
-      assert.ok(title, `${variant}: missing the conversation-title rule`)
-      assert.ok(title.includes(`color: ${EXPECTED_GREEN[variant]}`), `${variant}: title must be the text green`)
       const selected = rules.find((rule) => rule.startsWith(`${scope} ${MENU_SELECTED},`))
       assert.ok(selected, `${variant}: missing the selected-item rule`)
       assert.ok(selected.includes(`background: ${EXPECTED_FILL[variant]}`), `${variant}: wrong selected fill`)
@@ -209,8 +179,8 @@ test('the chrome accent sheet is always-on, un-gated and uses no !important', ()
   assert.ok(!css.includes('!important'))
   assert.ok(css.includes('body[data-ds-dark-theme]'))
   assert.ok(css.includes('body:not([data-ds-dark-theme])'))
-  // The conversation title is green again (2026-11-08 user request); it is the
-  // one place the accent is used as text, which is documented as a deviation
-  // from upstream's "statusline1 is a background" reading.
-  assert.ok(css.includes('crumbCurrent'), 'the conversation title must use the green accent')
+  // The accent is used as a *background* only (upstream's `statusline1`
+  // semantics); the conversation title is no longer painted here (2026-11-09).
+  assert.ok(css.includes('background: '), 'the selected option needs its solid fill')
+  assert.ok(!css.includes('color: #8DA101'), 'the text green must not be used by this sheet')
 })

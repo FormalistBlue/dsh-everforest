@@ -502,10 +502,7 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: workspace folder names')
 
-  // 1g. Chrome accent stylesheet. The conversation title (`crumbCurrent`) takes
-  // the palette text green `green` (2026-11-08 user request: "上面标题的名称也
-  // 改为绿色"; the user later confirmed the text green is deeper than the
-  // selection background green); every dropdown's selected option is a
+  // 1g. Chrome accent stylesheet. Every dropdown's selected option is a
   // `statusline1` solid fill with the scheme canvas `bg0` as its label / check
   // ink — upstream `palette.md` defines `statusline1` as a *background* colour
   // ("Menu Selection Background"), which is what the palette review (A7)
@@ -514,7 +511,10 @@ export function apply(ctx) {
   // their own `--dsw-alias-menu-icon` / `label-*` tokens instead of inheriting
   // a colour, so the rule re-points those tokens at the same ink for the
   // selected option's subtree (2026-11-08 follow-up: "第一个图中 icon 颜色不对，
-  // 第二个图中文字的颜色不对"). Always-on navigation chrome, same pattern.
+  // 第二个图中文字的颜色不对"). The conversation title is *not* painted here:
+  // it took the text green until 2026-11-09, when the user asked for it back to
+  // neutral ("标题不需要绿色显示了") — DSH's own `label-primary` now wins.
+  // Always-on navigation chrome, same pattern.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')

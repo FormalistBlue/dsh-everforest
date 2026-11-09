@@ -80,17 +80,19 @@
  *         >= 2.1:1 (measured 2.13-2.47:1, light·soft is the weakest).
  *
  * The always-on chrome accent surface (src/ui-accents.js) adds gate 19:
- *  19. the conversation title (`crumbCurrent`) is the text green `green` (legal
- *      #RRGGBB): dark >= 4.5:1 on the header (AA) and >= 4.0:1 on the
- *      translucent menu card; light pinned to the measured 2.3 floor. A selected
- *      dropdown option (menu item / radio option, label + check) is a solid
- *      `statusline1` fill with the scheme canvas `bg0` as ink: dark ink >= 4.5:1
- *      (5.62-6.88:1); light pinned to the measured 1.95 floor (2.00-2.32:1,
- *      design §23). The option's nested cells restate their own colour tokens
- *      (leading icon `--dsw-alias-menu-icon`, label / second line / shortcuts
- *      under the `label-*` family), so the same ink is re-pointed onto those
- *      tokens for the selected option's subtree; the measured pairs do not
- *      change, only the parts that were left neutral on the band.
+ *  19. a selected dropdown option (menu item / radio option, label + check) is
+ *      a solid `statusline1` fill with the scheme canvas `bg0` as ink: dark ink
+ *      >= 4.5:1 (5.62-6.88:1); light pinned to the measured 1.95 floor
+ *      (2.00-2.32:1, design §23). The fill also has to stay >= 0.02 L* away from
+ *      the menu card it is painted on. The option's nested cells restate their
+ *      own colour tokens (leading icon `--dsw-alias-menu-icon`, label / second
+ *      line / shortcuts under the `label-*` family), so the same ink is
+ *      re-pointed onto those tokens for the selected option's subtree; the
+ *      measured pairs do not change, only the parts that were left neutral on
+ *      the band. The conversation title (`crumbCurrent`) used to be gated here
+ *      as the text green; 2026-11-09 the user asked for it back to DSH's
+ *      `label-primary` ("标题不需要绿色显示了"), so that surface no longer
+ *      exists and its checks are gone.
  *
  * The always-on plugin-update dialog surface (src/plugin-update.js) adds gate 20:
  *  20. finished update steps read in the interaction accent `statusline1`
@@ -123,9 +125,7 @@ import {
   WORKSPACE_LABEL_LIGHT_RESTING_CONTRAST
 } from '../src/workspace-labels.js'
 import {
-  UI_ACCENT_DARK_CONTRAST,
   UI_ACCENT_DARK_INK_CONTRAST,
-  UI_ACCENT_LIGHT_CONTRAST,
   UI_ACCENT_LIGHT_INK_CONTRAST,
   uiAccentRoles
 } from '../src/ui-accents.js'
@@ -725,7 +725,7 @@ for (const variant of states) {
   }
 }
 
-/* ---- Gate 19: chrome accent (header title + selected dropdown option) ----- */
+/* ---- Gate 19: chrome accent (selected dropdown option) -------------------- */
 const UI_ACCENT_ROLES = uiAccentRoles()
 const uiAccentRows = []
 for (const variant of states) {
@@ -734,51 +734,34 @@ for (const variant of states) {
     recordFailure(`g19:${variant.variant}`, `${variant.variant}: src/ui-accents.js has no fill/ink pair for this variant`)
     continue
   }
-  const { green, fill, ink } = roles
+  // Only the selected dropdown option is covered: the conversation title rule
+  // was removed on 2026-11-09 ("标题不需要绿色显示了") and the header is DSH's
+  // own `label-primary` again.
+  const { fill, ink } = roles
   const header = variant.get('--dsw-alias-bg-base')
   const menuToken = variant.get('--dsw-menu-surface-fill')
   const { r, g, b, a } = hexToRgb(menuToken)
   const menu = mix(header, rgbToHex({ r, g, b, a: 1 }), a)
-  const headerRatio = contrastRatio(green, header)
-  const menuRatio = contrastRatio(green, menu)
   const ratio = contrastRatio(ink, fill)
   const step = Math.abs(labLightness(fill) - labLightness(menu))
-  const titleThreshold = variant.scheme === 'dark' ? UI_ACCENT_DARK_CONTRAST : UI_ACCENT_LIGHT_CONTRAST
   const inkThreshold = variant.scheme === 'dark' ? UI_ACCENT_DARK_INK_CONTRAST : UI_ACCENT_LIGHT_INK_CONTRAST
   uiAccentRows.push({
     variant: variant.variant,
     scheme: variant.scheme,
-    green,
     fill,
     ink,
-    header,
     menu,
-    headerRatio,
-    menuRatio,
     ratio,
     step,
-    titleThreshold,
     inkThreshold,
     threshold: inkThreshold,
-    legal: LEGAL_ROLE_COLOR.test(green) && LEGAL_ROLE_COLOR.test(fill) && LEGAL_ROLE_COLOR.test(ink),
+    legal: LEGAL_ROLE_COLOR.test(fill) && LEGAL_ROLE_COLOR.test(ink),
   })
-  if (!LEGAL_ROLE_COLOR.test(green)) {
-    recordFailure(`g19:${variant.variant}:green-legal`, `${variant.variant}: text green is not a #RRGGBB colour: ${green}`)
-  }
   if (!LEGAL_ROLE_COLOR.test(fill)) {
     recordFailure(`g19:${variant.variant}:legal`, `${variant.variant}: accent green is not a #RRGGBB colour: ${fill}`)
   }
   if (!LEGAL_ROLE_COLOR.test(ink)) {
     recordFailure(`g19:${variant.variant}:ink-legal`, `${variant.variant}: selected ink is not a #RRGGBB colour: ${ink}`)
-  }
-  if (headerRatio < titleThreshold) {
-    recordFailure(`g19:${variant.variant}:header`, `${variant.variant}: accent title = ${headerRatio.toFixed(2)} < ${titleThreshold}`)
-  }
-  if (variant.scheme === 'dark' && headerRatio < PRIMARY_THRESHOLD) {
-    recordFailure(`g19:${variant.variant}:header-aa`, `${variant.variant}: dark accent title = ${headerRatio.toFixed(2)} < 4.5`)
-  }
-  if (menuRatio < titleThreshold) {
-    recordFailure(`g19:${variant.variant}:menu`, `${variant.variant}: accent on the menu card = ${menuRatio.toFixed(2)} < ${titleThreshold}`)
   }
   if (ratio < inkThreshold) {
     recordFailure(`g19:${variant.variant}:ink`, `${variant.variant}: canvas ink on the selected fill = ${ratio.toFixed(2)} < ${inkThreshold}`)
@@ -900,7 +883,7 @@ function renderMarkdown () {
     '16. 色彩模式（中彩）强调文字（h5 / h6 / emphasis / 内部链接 / 行内 code）对其可能落到的每个 markdown 表面 ≥ 3.0:1（6 档）：浅色档调色板强调色本身达不到 4.5:1（Enchanted 同类文本约 2.6:1），本实现抬到 3.0:1 并保留色相，正文 `label-primary` 仍保持 4.5:1；',
     '17. 工作区当前会话行（`src/active-session.js`，常驻、与色彩模式无关）：底色是合法 `#RRGGBB` 的交互强调色 `statusline1`、文字墨色是方案画布 `bg0`（两者都是合法色值，无混色 / 无透明度）；墨色同时覆盖行内灰字与中性的加载 spinner（`[data-state="ongoing"]`，§23.6），语义状态点保持语义色；深色档墨色在其上 ≥ 4.5:1（5.62–6.88:1），浅色档是上游参考 tab 的同一配对（2.00–2.32:1，浅色盘没有更深的墨），门槛记为 1.95 并在 §2g 说明；6 档实测值见 §2g；',
     '18. 工作区目录名称（`src/workspace-labels.js`，常驻、与色彩模式无关）：颜色是合法 `#RRGGBB` 的**文字绿 `green`**（上游 foreground green，浅色 `#8DA101` 比背景绿 `statusline1` `#93B259` 深一档；深色两者同为 `#A7C080`）；深色档静止行 ≥4.5:1（AA 下限，实测 5.00–6.17）、A7 的 50% `bg4` hover 叠加底上 ≥4.0:1（已记录取舍）；浅色档静止行 ≥2.3、hover 底固定 2.1 的已记录下限（文字绿实测下限）；6 档实测值见 §2h；',
-    '19. 会话标题与下拉选中项（`src/ui-accents.js`，常驻、与色彩模式无关）：会话标题（`crumbCurrent`）是合法 `#RRGGBB` 的**文字绿 `green`**（深色档标题 ≥ 4.5:1、菜单卡 ≥ 4.0:1，浅色档固定 2.3 下限）；菜单 / 单选列表的选中项以`statusline1`（浅色 `#93B259`）作实色底、方案画布 `bg0` 作文字与勾勾墨色（深色档墨色 ≥ 4.5:1，浅色档 1.95 已记录下限），选中项内由 DSH 单独上色的图标与次要文字（`--dsw-alias-menu-icon` 与 `label-*` 族）同样取该墨色，并对菜单卡保持 ≥ 0.02 的 L* 步长；6 档实测值见 §2i；',
+    '19. 下拉选中项（`src/ui-accents.js`，常驻、与色彩模式无关）：菜单 / 单选列表的选中项以`statusline1`（浅色 `#93B259`）作实色底、方案画布 `bg0` 作文字与勾勾墨色（深色档墨色 ≥ 4.5:1，浅色档 1.95 已记录下限），选中项内由 DSH 单独上色的图标与次要文字（`--dsw-alias-menu-icon` 与 `label-*` 族）同样取该墨色，并对菜单卡保持 ≥ 0.02 的 L* 步长；会话标题自 2026-11-09 起回到 DSH 原生 `label-primary`（用户「标题不需要绿色显示了」），不再由本样式表染色；6 档实测值见 §2i；',
     '20. 插件更新弹窗（`src/plugin-update.js`，常驻、与色彩模式无关）：完成步骤的文字是合法 `#RRGGBB` 的交互强调色 `statusline1`（浅色档即 `#93B259`，与弹窗「完成」按钮同色）、失败步骤是语义红 `fg.red`（语义色，仅报告不设门槛，实测 2.66–3.82:1）、其余状态回到 `label-primary`；完成步骤的 20px 圆点与结果大图标改为「`statusline1` 实底 + 方案画布 `bg0` 墨色」；深色档文字 ≥ 4.0:1、徽标墨色 ≥ 4.5:1，浅色档固定 1.9 / 1.95 的已记录下限；6 档实测值见 §2j；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
@@ -1054,7 +1037,7 @@ function renderMarkdown () {
       '`src/active-session.js` 因此用一行常驻规则（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）' +
       '把选中行画成交互强调色 `statusline1` 的**实色**底、文字取方案画布 `bg0`（2026-11-08：按用户要求「不要左边框、不要透明度」；' +
       '同日第三轮用户贴出上游活动 tab 的浅色裁图（底色正是 `statusline1` `#93B259`）并要求「绿色应该是浅绿色」，' +
-      '于是选中行与发送按钮统一改用 `statusline1`（下拉选中项同样取它作背景）；标题与目录名称取文字绿 `green`（§2h / §2i）：选中块深色 `#A7C080`、浅色 `#93B259`。' +
+      '于是选中行与发送按钮统一改用 `statusline1`（下拉选中项同样取它作背景）；目录名称取文字绿 `green`（§2h）：选中块深色 `#A7C080`、浅色 `#93B259`。' +
       '行内自己的 tertiary 灰（状态槽、时间、pin、hover 操作按钮）在实色绿底上只剩 1.2–1.6:1，因此规则把这些子元素**显式**写成画布墨色；' +
       '其中时间嵌在 `rowResting` 单元格内、pin / 操作按钮在 `rowActions` 内，父级自带 `label-tertiary`，`color: inherit` 会被那一层截断。' +
       '2026-11-08 的第一次实现还有一个选择器拼接 bug：每条选择器都被重复拼了作用域前缀（`row row [class*="time"]`），实际只有 `> span` 生效，' +
@@ -1100,36 +1083,19 @@ function renderMarkdown () {
   }
   push(
     '',
-    '## 2i. 会话标题与下拉选中项（ui-accents，硬门槛 G19）',
+    '## 2i. 下拉选中项（ui-accents，硬门槛 G19）',
     '',
-    '2026-11-08 用户要求「上面标题的名称也改为绿色」「模型选择、推理强度、权限等下拉选项打开后，选中的内容文字和勾勾也改为绿色」。' +
-      '被命中的两处 DSH 原生都是 `label-primary`：会话标题是 `ui-conversation` 头部的 `crumbCurrent`；' +
-      '下拉选中项是 `[role="menu"]` 里的 `menuitem`（Menu 的 check 选择模式）或 `menuitemradio[aria-checked="true"]`（模型 / 推理强度列表），勾勾是它们的 `check` 子元素。' +
-      '`src/ui-accents.js` 用 `[class*="crumbCurrent"]` 与 ARIA 角色 / `aria-checked` 选中这两个表面：标题取 **文字绿 `green`**（深色 `#A7C080`、浅色 `#8DA101`）；' +
-      '下拉选中项按上游「`statusline1` = Menu Selection Background」的语义（A7）改成 `statusline1`（浅色 `#93B259`）**实底** + 方案画布 `bg0` 文字与勾勾。' +
-      '上游符合性评估（A7）曾把标题撤回 `label-primary`，2026-11-08 复核时用户再次要求标题绿色，于是恢复。' +
+    '2026-11-08 用户要求「模型选择、推理强度、权限等下拉选项打开后，选中的内容文字和勾勾也改为绿色」。' +
+      '被命中的表面 DSH 原生是 `label-primary`：下拉选中项是 `[role="menu"]` 里的 `menuitem`（Menu 的 check 选择模式）或 `menuitemradio[aria-checked="true"]`（模型 / 推理强度列表），勾勾是它们的 `check` 子元素。' +
+      '`src/ui-accents.js` 用 ARIA 角色 / `aria-checked` 选中这个表面，并按上游「`statusline1` = Menu Selection Background」的语义（A7）改成 `statusline1`（浅色 `#93B259`）**实底** + 方案画布 `bg0` 文字与勾勾。' +
       '同日后续反馈「第一个图中 icon 颜色不对，第二个图中文字的颜色不对」：选中项内的前导图标（`_itemIcon_`，取 `--dsw-alias-menu-icon`）、' +
       '模式选项的标题与说明（`_itemName_` / `_itemDesc_`，取 `label-primary` / `label-caption`）、工作区路径后缀（`pathSuffix`，取 `label-secondary`）' +
       '各自写死颜色 token、不吃父级 `color`，因此在实色绿底上仍留在中性灰；规则改为把这些 token 在选中项子树内一并指向画布墨色（`MENU_INK_TOKENS`），' +
-      '对比度数值不变（同一墨色），只是原先漏掉的部件也落到同一配对。',
+      '对比度数值不变（同一墨色），只是原先漏掉的部件也落到同一配对。' +
+      '会话标题（`crumbCurrent`，`ui-conversation` 头部）2026-11-08 曾同样取文字绿 `green`（A7 撤回、复核加回）；2026-11-09 用户要求「标题不需要绿色显示了」，' +
+      '该规则已删除，标题回到 DSH 原生 `label-primary`（即本主题的 `fg`）——G19 因此只剩选中项一张表（见 design.md §27）。',
     '',
-    '先看标题：会话标题（`crumbCurrent`）对标题表面与菜单卡（`menu-surface-fill` 叠在 `bg-base` 上）的对比度。',
-    '',
-    '| 变体 | 文字绿（green） | 标题表面 | 标题对比度 | 菜单卡表面 | 菜单对比度 | 阈值 | 结果 |',
-    '|---|---|---|---:|---|---:|---:|---|'
-  )
-  for (const row of uiAccentRows) {
-    const ok = row.legal &&
-      row.headerRatio >= row.titleThreshold &&
-      row.menuRatio >= row.titleThreshold &&
-      !(row.scheme === 'dark' && row.headerRatio < PRIMARY_THRESHOLD)
-    push(
-      `| ${row.variant} | \`${row.green}\` | \`${row.header}\` | ${format(row.headerRatio)} | \`${row.menu}\` | ${format(row.menuRatio)} | ${row.titleThreshold} | ${pass(ok)} |`
-    )
-  }
-  push(
-    '',
-    '再看下拉选中项：`statusline1` 实底 + 方案画布 `bg0` 墨色（勾勾、前导图标与选项内的次要文字同墨），并检查实底带相对菜单卡不会被压平。',
+    '下拉选中项：`statusline1` 实底 + 方案画布 `bg0` 墨色（勾勾、前导图标与选项内的次要文字同墨），并检查实底带相对菜单卡不会被压平。',
     '',
     '| 变体 | 选中底（statusline1） | 墨色（bg0） | 菜单卡表面 | 墨色对比度 | L* 步长 | 墨色阈值 | 结果 |',
     '|---|---|---|---|---:|---:|---:|---|'
@@ -1142,9 +1108,9 @@ function renderMarkdown () {
   }
   push(
     '',
-    '深色档标题本身仍是 AA（5.62–6.88:1），菜单卡（`menu-surface-fill` 叠在 `bg-base` 上）为 4.28–5.32:1；画布墨色在 `statusline1` 上是 WCAG AA（5.62–6.88:1）。' +
-      '浅色档标题 2.42–2.81:1、菜单卡 2.36–2.73:1、画布墨色 2.00–2.32:1 —— 文本绿比背景绿深一档，正是上游 `green` / `statusline1` 的分工（§2h 同一取舍）。' +
-      'G19 因此按 scheme 分阈值：深色标题 ≥4.0:1（标题本身另要求 ≥4.5:1 的 AA）、画布墨色 ≥4.5:1；浅色标题固定 2.3、画布墨色固定 1.95 的已记录下限，并对菜单卡要求 ≥ 0.02 的 L* 步长（实色绿带不会消失在菜单材质里）。',
+    '画布墨色在 `statusline1` 上是 WCAG AA（深色 5.62–6.88:1）；浅色档 2.00–2.32:1 —— 调色板奶油墨的自身上限（上游参考 tab 同一配对）。' +
+      'G19 因此按 scheme 分阈值：深色墨色 ≥4.5:1，浅色墨色固定 1.95 的已记录下限，并对菜单卡要求 ≥ 0.02 的 L* 步长（实色绿带不会消失在菜单材质里）。' +
+      '会话标题不再参与本门槛：它已回到 DSH 的 `label-primary`，对比度由门槛 1 的 `label-primary` 规则覆盖。',
   )
   push(
     '',
