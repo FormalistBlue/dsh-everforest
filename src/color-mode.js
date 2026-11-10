@@ -719,6 +719,18 @@ const LITERAL_RULES = [
   // the transparent border is not painted over.
   [`${TABLE_FRAME}::-webkit-scrollbar`, [['height', '10px']]],
   [`${TABLE_FRAME}::-webkit-scrollbar-thumb`, [['border-top', '0'], ['border-bottom', 'var(--everforest-table-scrollbar-inset, 5px) solid transparent'], ['background-clip', 'content-box']]],
+  // The wide table's outer frame is drawn on the `<table>` (§18.1), so its
+  // horizontal scrollbar sits below that frame with nothing under it. Draw the
+  // missing bottom rule on the scrollbar's own track: the track only exists
+  // while the table really overflows, so the rule appears exactly when the bar
+  // is painted — no JS, no layout space, nothing to restore. Fill tables keep
+  // their wrapper frame, so the rule is scoped to the wide re-boxing. A `.5px`
+  // border rasterizes like the rest of the plugin's hairlines (1px at DPR 1,
+  // one device pixel at DPR 2); a `.5px` background-gradient stop does not
+  // paint at DPR 1 (verified 2026-11-10), hence a border rather than a
+  // background image. The thumb's transparent bottom inset lets the rule show
+  // through under the resting pill.
+  [`${TABLE_FRAME}.md-table-wide::-webkit-scrollbar-track`, [['border-bottom', '.5px solid var(--dsw-alias-border-l3)']]],
   // Dark waiting rows: deep contrast ink on the amber surface (design §13.8.1).
   // The row actions that appear on hover (the "…" menu, archive, pin) carry
   // `label-tertiary` / `label-primary` and would vanish on the amber fill, so

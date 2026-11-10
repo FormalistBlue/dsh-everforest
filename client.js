@@ -2374,6 +2374,18 @@ const LITERAL_RULES = [
   // the transparent border is not painted over.
   [`${TABLE_FRAME}::-webkit-scrollbar`, [['height', '10px']]],
   [`${TABLE_FRAME}::-webkit-scrollbar-thumb`, [['border-top', '0'], ['border-bottom', 'var(--everforest-table-scrollbar-inset, 5px) solid transparent'], ['background-clip', 'content-box']]],
+  // The wide table's outer frame is drawn on the `<table>` (§18.1), so its
+  // horizontal scrollbar sits below that frame with nothing under it. Draw the
+  // missing bottom rule on the scrollbar's own track: the track only exists
+  // while the table really overflows, so the rule appears exactly when the bar
+  // is painted — no JS, no layout space, nothing to restore. Fill tables keep
+  // their wrapper frame, so the rule is scoped to the wide re-boxing. A `.5px`
+  // border rasterizes like the rest of the plugin's hairlines (1px at DPR 1,
+  // one device pixel at DPR 2); a `.5px` background-gradient stop does not
+  // paint at DPR 1 (verified 2026-11-10), hence a border rather than a
+  // background image. The thumb's transparent bottom inset lets the rule show
+  // through under the resting pill.
+  [`${TABLE_FRAME}.md-table-wide::-webkit-scrollbar-track`, [['border-bottom', '.5px solid var(--dsw-alias-border-l3)']]],
   // Dark waiting rows: deep contrast ink on the amber surface (design §13.8.1).
   // The row actions that appear on hover (the "…" menu, archive, pin) carry
   // `label-tertiary` / `label-primary` and would vanish on the amber fill, so
@@ -4970,62 +4982,360 @@ function pluginUpdateStyles () {
 
 // ---------------------------------------------------------------- src/chat-bubble.js
 const __mod_14_chat_bubble_js = (() => {
-// Everforest ink for DSH's user-message bubble (the "只换字色" half of the
-// 2026-11-08 bubble review; the light background is the moss paper from
-// `bubbleSurface` in `src/tokens.js`).
+  const { FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
+
+// Everforest paint for DSH's user-message bubble.
 //
-// DSH's chat `MessageItem.module.css` paints `.bubble` with
-// `color: var(--dsw-alias-label-primary)`, and the token layer cannot give the
-// bubble its own ink without recolouring every primary label. A small always-on
-// stylesheet is therefore the only way to ink the bubble separately. The token
-// layer still keeps `label-primary` readable on the bubble surface, so losing
-// this sheet only loses the tint, not WCAG AA.
+// DSH's chat `UserMessageBubble` paints the bubble with
 //
-// The 2026-11-08 review picked "苔纸" (C) for light and "只换字色" (F) for dark:
-//   - light: deep pine `#3E5647` on the moss `bg_green` paper (6.45–7.07:1).
-//     Hand-tuned derived ink: the official `fg` `#5C6A72` reads blue-grey on the
-//     green paper and sits at 4.54:1 on the hard variant.
-//   - dark: pale sage `#DAE2C7` on the unchanged `bg1` bubble (7.26–8.98:1).
+//   .bubble {
+//     background: var(--dsw-specific-bubble);
+//     color: var(--dsw-alias-label-primary);
+//   }
 //
-// Rules are scoped under the color-mode attribute (already on `<html>`) and
-// matched on the chat package's class-name fragments. DSH 0.2.x ships the user
-// message row as `LOmM4q_userStack` / `LOmM4q_bubble` (the published client
-// bundle keeps that fixed prefix); the `[class*="..."]` form also covers the
-// hashed `_bubble_...` build variant, while requiring the `userStack` ancestor
-// keeps the tooltip bubble (`_bubble_44yfq_1`, also a `_bubble` class) untouched.
+// (verified against the installed 0.2.2-rc.1 frontend CSS; the class hash and
+// the primitive wrapper change per build, the rule shape does not). The token
+// layer owns the *fallback* surface (`--dsw-specific-bubble`: the moss paper in
+// the light schemes, the `bg1` step in the dark ones), but the accent paint
+// below cannot ride a token: the bubble's fallback ink is `label-primary`, and
+// neither cream-on-moss nor pale-sage-on-accent is a readable combination, so an
+// accent-filled token would turn an unreadable block into the DSH-upgrade
+// fallback. This small always-on sheet paints the bubble directly instead, and
+// losing the sheet restores the old readable pair.
+//
+// History
+//
+//   - 2026-11-08 review picked "苔纸" (C) for light and "只换字色" (F) for dark:
+//     light = moss paper + derived deep pine `#3E5647`; dark = unchanged `bg1`
+//     surface + derived pale sage `#DAE2C7` (both inked by this sheet).
+//   - 2026-11-10 report: the dark bubble read as "有点淡" — it sat only 1.16:1
+//     from the canvas. The user asked for the selected sidebar row's look
+//     verbatim: "试试直接改成侧边栏选中那种绿色和文字颜色", then extended it to the
+//     light scheme the same day: "浅色气泡的也和侧边栏颜色保持一致".
+//   - 2026-11-10 long-message test: cream on the light accent green is only
+//     2.00–2.32:1, thin for a paragraph. A derived deep ink `#2F3B33` (4.88:1)
+//     was tried and then rejected: "文字还是换回白色吧". The light bubble is
+//     back to the sidebar pair verbatim — same `statusline1` fill, same canvas
+//     `bg0` cream ink. That is the accent layer's documented trade-off
+//     (`docs/reference/contrast.md` §2i), now an explicit user choice rather than
+//     a silent correction; the deep ink lives only in this history note.
+//
+// Current pairs:
+//
+//   light-hard   #93B259 + #FFFBEF  2.32:1
+//   light-medium #93B259 + #FDF6E3  2.22:1
+//   light-soft   #93B259 + #F3EAD3  2.00:1
+//   dark-hard    #A7C080 + #272E33  6.88:1
+//   dark-medium  #A7C080 + #2D353B  6.23:1
+//   dark-soft    #A7C080 + #333C43  5.62:1
+//
+// The dark pair is WCAG AA. The light pair is the palette's own ceiling for cream
+// ink on `statusline1` — exactly what the selected session row, the selected
+// navigation row and the send button already use. The fallback path (sheet lost,
+// token surface + `label-primary`) stays AA in every variant, and the dark
+// schemes keep AA either way.
+//
+// Nested content: the bubble text inherits the painted ink, and session
+// reference chips restate their own colour through
+// `--dsw-alias-state-business-primary`, so that token is re-pointed at the band
+// ink inside the bubble's subtree (the same idea as `MENU_INK_TOKENS` in
+// `src/ui-accents.js`). Other nested cards (`JsonBlock` for extra content
+// blocks) keep their own surface + ink tokens and are left alone.
+//
+// Scope: the always-on color-mode attribute on `<html>` plus the strength
+// attribute the token layer writes, and DSH's own `body[data-ds-dark-theme]`
+// flag — the pattern every always-on sheet in this theme uses. The
+// `[class*="_userStack"]` ancestor keeps the tooltip bubble (`_bubble_44yfq_1`,
+// also a `_bubble` class) out of the rule.
 //
 // The module is a pure ESM source: no DOM, no state. `scripts/build.mjs` bundles
 // it into `client.js`; `src/client-entry.js` owns the `<style>` element.
 
+
+/** Light-scheme bubble fill: the interaction accent (selected-row green). */
+const CHAT_BUBBLE_LIGHT_FILL = FOREGROUNDS.light.statusline1
+
 /**
- * Bubble ink per colour scheme (derived, not an Everforest palette role).
- * @type {Readonly<{ light: string, dark: string }>}
+ * Light-scheme bubble ink per strength: the scheme canvas `bg0`, the accent
+ * layer's own ink for `statusline1` fills (cream ink, 2.00–2.32:1 — the
+ * documented accent trade-off, kept because the user chose it explicitly).
+ * @type {Readonly<Record<'hard' | 'medium' | 'soft', string>>}
  */
-const CHAT_BUBBLE_INK = Object.freeze({
-  light: '#3E5647',
-  dark: '#DAE2C7'
+const CHAT_BUBBLE_LIGHT_INK = Object.freeze({
+  hard: RAMPS.light.hard.bg0,
+  medium: RAMPS.light.medium.bg0,
+  soft: RAMPS.light.soft.bg0
+})
+
+/** Dark-scheme bubble fill: the interaction accent (selected-row green). */
+const CHAT_BUBBLE_DARK_FILL = FOREGROUNDS.dark.statusline1
+
+/**
+ * Dark-scheme bubble ink per strength: the scheme canvas `bg0`, the accent
+ * layer's own ink for `statusline1` fills.
+ * @type {Readonly<Record<'hard' | 'medium' | 'soft', string>>}
+ */
+const CHAT_BUBBLE_DARK_INK = Object.freeze({
+  hard: RAMPS.dark.hard.bg0,
+  medium: RAMPS.dark.medium.bg0,
+  soft: RAMPS.dark.soft.bg0
 })
 
 /**
- * The always-on bubble-ink stylesheet.
+ * The bubble element. DSH's chat package renders the user row as
+ * `_userStack` and the bubble as `_bubble`; the hashed class prefixes are build
+ * output, the fragments are the published bundle's stable shapes.
+ */
+const CHAT_BUBBLE_SELECTOR = '[class*="_userStack"] [class*="_bubble"]'
+
+/**
+ * One variant's bubble paint: the accent fill and its canvas ink.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {{ fill: string, ink: string }} both opaque `#RRGGBB`.
+ */
+function chatBubbleRole (scheme, strength) {
+  return scheme === 'light'
+    ? { fill: CHAT_BUBBLE_LIGHT_FILL, ink: CHAT_BUBBLE_LIGHT_INK[strength] }
+    : { fill: CHAT_BUBBLE_DARK_FILL, ink: CHAT_BUBBLE_DARK_INK[strength] }
+}
+
+/** The color-mode-on prefix every rule in this sheet is scoped under. */
+const COLOR_MODE_ON = 'html[data-everforest-color-mode="on"]'
+
+/**
+ * One variant's scope: the strength attribute the token layer writes plus DSH's
+ * own dark-theme flag on <body>.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'light'
+    ? `${COLOR_MODE_ON}[data-everforest-light="${strength}"] body:not([data-ds-dark-theme])`
+    : `${COLOR_MODE_ON}[data-everforest-dark="${strength}"] body[data-ds-dark-theme]`
+}
+
+/**
+ * The always-on bubble stylesheet: one rule per variant, each painting the
+ * accent fill, the canvas ink and the reference-chip ink token.
  * @returns {string}
  */
 function chatBubbleStyles () {
+  const rules = []
+  for (const scheme of ['light', 'dark']) {
+    for (const strength of STRENGTHS) {
+      const { fill, ink } = chatBubbleRole(scheme, strength)
+      rules.push([
+        `${scopeFor(scheme, strength)} ${CHAT_BUBBLE_SELECTOR} {`,
+        `  background: ${fill};`,
+        `  color: ${ink};`,
+        // Session reference chips restate their own colour token; re-point it at
+        // the band ink so a chip stays readable on the accent fill.
+        `  --dsw-alias-state-business-primary: ${ink};`,
+        '}'
+      ].join('\n'))
+    }
+  }
+  return rules.join('\n\n')
+}
+
+  return { CHAT_BUBBLE_LIGHT_FILL, CHAT_BUBBLE_LIGHT_INK, CHAT_BUBBLE_DARK_FILL, CHAT_BUBBLE_DARK_INK, CHAT_BUBBLE_SELECTOR, chatBubbleRole, chatBubbleStyles }
+})()
+
+// ---------------------------------------------------------------- src/work-steps.js
+const __mod_15_work_steps_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+  const { mix } = __mod_1_color_js
+
+// Ink for the chat "work steps" list (工作步骤): the per-step rows, the
+// collapsible group header, the settled turn's fold summary and the expanded
+// reasoning body.
+//
+// DSH renders every step line through ui-primitives' `DisclosureRow`, whose row
+// carries
+//
+//   ._row_<hash> { color: var(--dsw-alias-label-tertiary) }
+//   ._row_<hash>:hover { color: var(--dsw-alias-label-secondary) }
+//
+// (verified against the installed 0.2.2-rc.1 `dsh-web-frontend` index CSS: the
+// module hash changes per build, the rule shape does not), the group header
+// button is the same grey (`ChatGroupSeat.module.css`:
+// `.title { color: var(--dsw-alias-label-tertiary) }`), so is the settled turn's
+// fold-summary row (`TurnProcessNodeView.module.css`:
+// `.root { color: var(--dsw-alias-label-tertiary) }`) and so is the expanded
+// reasoning body (`MarkdownText`'s compact variant:
+// `.compact { color: var(--dsw-alias-label-tertiary) }`, used only by the
+// reasoning content factory). An expanded or folded turn process therefore read
+// as one flat grey block.
+//
+// Everforest maps `label-tertiary` to the upstream muted grey `grey0` (light
+// `#A6B0A0`, dark `#7A8478`), i.e. 1.88–3.54:1 on the canvas. DSH's native
+// tertiary is far brighter than that on its near-black canvas, so the native
+// prominence the grey was chosen for does not survive the palette mapping.
+// 2026-11-10 user report (screenshot of the step list): "现在颜色太浅了，
+// 看不清楚，改成和正常文字差不多的深浅".
+//
+// The first pass painted the list with `label-primary` verbatim (the assistant
+// answer's ink). The same-day follow-up asked for hierarchy instead: "改稍微浅
+// 一点点，和正文形成差距，但还是要比改之前深。包括展开的内容的文字颜色，也同样
+// 处理". The ink is therefore the palette `fg` mixed `WORK_STEP_DIM` (15%) toward
+// the scheme canvas `bg0`: one deliberate step below body text (7.8–8.8 CIE L*
+// darker in the dark schemes, 7.8–8.8 L* lighter in the light ones) while still
+// far above the old `label-tertiary`. Measured on the canvas:
+//
+//   light-hard 3.93:1 · light-medium 3.81:1 · light-soft 3.52:1
+//   dark-hard 6.33:1 · dark-medium 5.79:1 · dark-soft 5.29:1
+//
+// The dark schemes keep WCAG AA. The light schemes cannot: their body text is
+// already only 4.66–5.40:1 on the cream canvas, so any visible hierarchy step
+// drops below 4.5 — the measured 3.5 floor is pinned in the tests as the
+// user-approved trade-off (still nearly twice the old tertiary contrast). Hover
+// deliberately keeps the same ink: DSH's own hover rules dim the row / header to
+// `label-secondary`, which would read as a flicker back towards the old grey;
+// the hover affordance keeps its icon -> chevron swap.
+//
+// The scope is the chat flow only, and the anchors are DSH's layout contracts,
+// never the CSS-module hash prefixes:
+//   - `[data-chat-flow-key]` is written on every chat flow item and on the
+//     process group wrapper (`ChatView` / `ChatGroupSeat` in ui-chat);
+//   - `[data-disclosure-row]` is the row element the `DisclosureRow` primitive
+//     renders (its header wrapper carries `data-disclosure-header`);
+//   - `[data-process-activity]` is the group header button;
+//   - `[data-turn-process]` is the settled turn's fold-summary button;
+//   - `[data-markdown-variant="compact"]` is the expanded reasoning body
+//     (`MarkdownText`'s compact variant; ReasoningContent is its only user in
+//     the installed bundles). The compact sheet makes links, code and headings
+//     inherit its ink, so one rule recolours the prose without fighting the
+//     syntax palette.
+//
+// Always-on and independent of the color mode: this is chat chrome, not
+// markdown content styling (the same bucket as `src/chat-bubble.js`). The token
+// layer is untouched.
+
+
+/** One work-step row of the chat flow (`DisclosureRow`). */
+const WORK_STEP_ROW = '[data-chat-flow-key] [data-disclosure-row]'
+
+/** The collapsible header of a grouped work-step run. */
+const WORK_STEP_GROUP_HEADER = '[data-chat-flow-key] [data-process-activity]'
+
+/**
+ * The settled turn's process summary row ("用时 … · 已调用工具 …", the disclosure
+ * that folds the whole run). `TurnProcessNodeView` paints it with
+ * `label-tertiary` as well, so it would otherwise stay faint next to the
+ * recoloured rows and the group header.
+ */
+const WORK_STEP_FOLD_SUMMARY = '[data-chat-flow-key] [data-turn-process]'
+
+/**
+ * The expanded reasoning body (the compact markdown variant). It carries its own
+ * `label-tertiary`; without a rule it would stay faint under a recoloured
+ * "思考" row (2026-11-10 follow-up: "包括展开的内容的文字颜色，也同样处理").
+ */
+const WORK_STEP_EXPANDED_BODY = '[data-chat-flow-key] [data-markdown-variant="compact"]'
+
+/**
+ * How far the work-step ink is mixed from the scheme foreground `fg` toward the
+ * canvas `bg0`. 0 = normal body text, 1 = canvas. 15% is the "slightly lighter
+ * than body, but clearly readable" step of the 2026-11-10 follow-up: 7.8–8.8 CIE
+ * L* away from `label-primary` in every variant.
+ */
+const WORK_STEP_DIM = 0.15
+
+/**
+ * Minimum contrast the step text keeps on the chat canvas in the dark schemes
+ * (measured 5.29–6.33:1 — a real WCAG AA pair).
+ */
+const WORK_STEP_DARK_CONTRAST = 4.5
+
+/**
+ * Measured floor of the light schemes (3.52–3.93:1). The cream canvas has only
+ * 4.66–5.40:1 of body-text headroom, so a visible hierarchy step cannot stay at
+ * AA; the user asked for the hierarchy, so the measured floor is pinned instead
+ * of being guarded away (still nearly twice the old `label-tertiary` contrast).
+ */
+const WORK_STEP_LIGHT_CONTRAST = 3.5
+
+/**
+ * The step ink of one variant: palette `fg` mixed `WORK_STEP_DIM` toward the
+ * scheme canvas `bg0` — the same anchor `--dsw-alias-label-primary` and
+ * `--dsw-alias-bg-base` use.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string} opaque `#RRGGBB`.
+ */
+function workStepInkFor (scheme, strength) {
+  const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
+  return mix(palette.fg.fg, palette.ramp.bg0, WORK_STEP_DIM)
+}
+
+/**
+ * The six step inks, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, string>} keyed `light-hard` … `dark-soft`.
+ */
+function workStepRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = workStepInkFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * One variant's scope: the strength attribute the token layer writes on <html>
+ * plus DSH's own dark-theme flag on <body> — the same pattern as
+ * `src/workspace-labels.js` and `src/hero-title.js`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+}
+
+/**
+ * One variant's rule: the step row, the group header, the turn's fold summary
+ * and the expanded reasoning body on the dimmed text ink.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {string} ink
+ * @returns {string}
+ */
+function workStepRule (scheme, strength, ink) {
+  const scope = scopeFor(scheme, strength)
   return [
-    'html[data-everforest-color-mode="on"] body:not([data-ds-dark-theme]) [class*="_userStack"] [class*="_bubble"] {',
-    `  color: ${CHAT_BUBBLE_INK.light};`,
-    '}',
-    'html[data-everforest-color-mode="on"] body[data-ds-dark-theme] [class*="_userStack"] [class*="_bubble"] {',
-    `  color: ${CHAT_BUBBLE_INK.dark};`,
+    `${scope} ${WORK_STEP_ROW},`,
+    `${scope} ${WORK_STEP_GROUP_HEADER},`,
+    `${scope} ${WORK_STEP_FOLD_SUMMARY},`,
+    `${scope} ${WORK_STEP_EXPANDED_BODY} {`,
+    `  color: ${ink};`,
     '}'
   ].join('\n')
 }
 
-  return { CHAT_BUBBLE_INK, chatBubbleStyles }
+/**
+ * The complete work-step ink stylesheet (six rules).
+ * @returns {string}
+ */
+function workStepStyles () {
+  const roles = workStepRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      workStepRule(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { WORK_STEP_ROW, WORK_STEP_GROUP_HEADER, WORK_STEP_FOLD_SUMMARY, WORK_STEP_EXPANDED_BODY, WORK_STEP_DIM, WORK_STEP_DARK_CONTRAST, WORK_STEP_LIGHT_CONTRAST, workStepRoles, workStepStyles }
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_15_nav_icon_js = (() => {
+const __mod_16_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -5087,7 +5397,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_16_state_js = (() => {
+const __mod_17_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -5381,9 +5691,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_17_durable_js = (() => {
+const __mod_18_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_16_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_17_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -5548,7 +5858,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_18_locale_js = (() => {
+const __mod_19_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -5631,7 +5941,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_19_settings_page_js = (() => {
+const __mod_20_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -6271,7 +6581,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_20_theme_spotlight_js = (() => {
+const __mod_21_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -6578,7 +6888,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_21_client_entry_js = (() => {
+const __mod_22_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -6592,13 +6902,14 @@ const __mod_21_client_entry_js = (() => {
   const { uiAccentStyles } = __mod_12_ui_accents_js
   const { pluginUpdateStyles } = __mod_13_plugin_update_js
   const { chatBubbleStyles } = __mod_14_chat_bubble_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_15_nav_icon_js
+  const { workStepStyles } = __mod_15_work_steps_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_16_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_16_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_17_durable_js
-  const { EN, NS, ZH } = __mod_18_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_19_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_20_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_17_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_18_durable_js
+  const { EN, NS, ZH } = __mod_19_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_20_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_21_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -6631,11 +6942,19 @@ const __mod_21_client_entry_js = (() => {
  *    browser text selection with the current variant's `bg_visual` colour while
  *    keeping each element's own text colour; DSH declares the document-selection
  *    token but never reads it (2026-10-24).
- *  - a small always-on **chat-bubble ink** stylesheet (`src/chat-bubble.js`):
- *    DSH hard-codes the user bubble's text to `label-primary`, so the 2026-11-08
- *    "苔纸 / 只换字色" pair (light moss paper + deep-pine ink, dark `bg1` +
- *    pale-sage ink) needs one scoped rule for the ink. The token layer keeps
- *    `label-primary` readable on the bubble as the fallback.
+ *  - a small always-on **chat-bubble paint** stylesheet (`src/chat-bubble.js`):
+ *    DSH hard-codes the user bubble's background to `--dsw-specific-bubble` and
+ *    its ink to `label-primary`. Since 2026-11-10 both schemes paint the bubble
+ *    with the interaction accent `statusline1` fill and the canvas `bg0` ink
+ *    (dark 6.88 / 6.23 / 5.62:1, AA; light 2.32 / 2.22 / 2.00:1, the accent
+ *    layer's documented cream-ink ceiling the user explicitly picked over a
+ *    deep-ink experiment). The token layer keeps the moss paper / `bg1` fallback
+ *    readable if the sheet is ever lost.
+ *  - a small always-on **work-step ink** stylesheet (`src/work-steps.js`): DSH
+ *    paints the chat process rows and their group header with `label-tertiary`,
+ *    which the palette maps to its muted grey (1.88–3.54:1 on the canvas). The
+ *    2026-11-10 user report asked for normal-text depth, so the rows take the
+ *    scheme foreground `fg` (WCAG AA in all six variants).
  *  - the markdown **table treatment**: the frame / column hairlines live in the
  *    color-mode sheet (they are content styling built from the border ramp) and
  *    the draggable-column interaction lives in `src/table-resize.js`, which
@@ -7108,13 +7427,15 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: plugin update dialog')
 
-  // 1i. Chat-bubble ink. DSH paints the user-message bubble with
-  // `label-primary`; the 2026-11-08 bubble review picked the "苔纸" light /
-  // "只换字色" dark pair, whose derived inks (deep pine / pale sage) cannot ride
-  // the token layer without recolouring every primary label. `src/chat-bubble.js`
-  // owns the rules; the token layer still keeps `label-primary` readable on the
-  // bubble, so this sheet is a hue upgrade, not the AA guarantee. Always-on,
-  // same injection pattern as 1c–1g.
+  // 1i. Chat-bubble paint. DSH paints the user-message bubble with
+  // `label-primary`, so the accent paint cannot ride the token layer without
+  // recolouring every primary label. `src/chat-bubble.js` owns the rules: the
+  // 2026-11-10 requests moved the bubble onto the selected-row accent pair in
+  // both schemes ("试试直接改成侧边栏选中那种绿色和文字颜色" / "浅色气泡的也和侧边栏
+  // 颜色保持一致"); a deep-ink experiment for the light long-message case was
+  // reverted the same day ("文字还是换回白色吧"). The token layer still keeps
+  // `label-primary` readable on the fallback surface, so the sheet is a hue/ink
+  // upgrade, not the AA guarantee. Always-on, same injection pattern as 1c–1g.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')
@@ -7123,7 +7444,7 @@ function apply(ctx) {
     tag.textContent = chatBubbleStyles()
     document.head.appendChild(tag)
     return () => tag.remove()
-  }, 'everforest: chat bubble ink')
+  }, 'everforest: chat bubble paint')
 
   // 1j. New-session hero ink. DSH's welcome screen paints the whale brand mark
   // and the "探索未至之境" title with the same `label-primary`; the 2026-11-09
@@ -7203,6 +7524,25 @@ function apply(ctx) {
       if (typeof dispose === 'function') dispose()
     }
   }, 'everforest: table scrollbar hover')
+
+  // 1m. Work-step rows. DSH paints every chat process row (ui-primitives'
+  // `DisclosureRow`) and the process group header with `label-tertiary`; the
+  // palette maps that to the muted `grey0` — 1.88–3.54:1 on the canvas, i.e. the
+  // whole step list reads as one faint block (2026-11-10 user report: "现在颜色
+  // 太浅了，看不清楚，改成和正常文字差不多的深浅"). `src/work-steps.js` repaints
+  // the chat-flow rows and their group header with the scheme's normal text ink
+  // (`label-primary` = palette `fg`, WCAG AA in all six variants). Always-on
+  // chat chrome, independent of the color mode, the same injection pattern as
+  // 1c–1j.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/work-steps'
+    tag.textContent = workStepStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: work-step ink')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
@@ -7661,6 +8001,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_21_client_entry_js
+    return __mod_22_client_entry_js
   },
 })

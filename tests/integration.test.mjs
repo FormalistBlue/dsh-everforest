@@ -630,7 +630,7 @@ test('bundle registers under the package id with the Client entry shape', () => 
 })
 
 test('src half imports no Harness Client package', () => {
-  for (const relative of ['palette.js', 'color.js', 'color-mode.js', 'tokens.js', 'chat-bubble.js', 'state.js', 'durable.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
+  for (const relative of ['palette.js', 'color.js', 'color-mode.js', 'tokens.js', 'chat-bubble.js', 'work-steps.js', 'state.js', 'durable.js', 'locale.js', 'settings-page.js', 'client-entry.js']) {
     const source = read(`src/${relative}`)
     assert.doesNotMatch(source, /from ['"]@deepseek-ai\//, `${relative} imports a Harness package`)
     assert.doesNotMatch(source, /require\(['"]@deepseek-ai\//, `${relative} requires a Harness package`)
@@ -741,15 +741,18 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(!uiAccentStylesheets[0].textContent.includes('crumbCurrent'), 'the conversation title must stay native')
   assert.ok(uiAccentStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
-  // The always-on chat-bubble ink stylesheet replaces DSH's hard-coded
+  // The always-on chat-bubble stylesheet replaces DSH's hard-coded
   // label-primary ink on the user bubble (2026-11-08 bubble review: light
-  // "苔纸" + deep-pine ink, dark "只换字色" + pale-sage ink).
+  // "苔纸"; 2026-11-10: both schemes take the selected-row accent pair —
+  // `statusline1` fill + canvas ink).
   const chatBubbleStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble')
   assert.equal(chatBubbleStylesheets.length, 1, 'chat-bubble stylesheet was not injected')
   assert.ok(chatBubbleStylesheets[0].textContent.includes('[class*="_userStack"]'))
   assert.ok(chatBubbleStylesheets[0].textContent.includes('[class*="_bubble"]'))
-  assert.ok(chatBubbleStylesheets[0].textContent.includes('#3E5647'))
-  assert.ok(chatBubbleStylesheets[0].textContent.includes('#DAE2C7'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('#93B259'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('#FFFBEF'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('#A7C080'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('--dsw-alias-state-business-primary'))
   assert.ok(chatBubbleStylesheets[0].textContent.includes('data-everforest-color-mode="on"'))
 
   // The always-on hero stylesheet paints the new-session whale mark and title
@@ -759,6 +762,21 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(heroTitleStylesheets[0].textContent.includes('fishHitbox'))
   assert.ok(heroTitleStylesheets[0].textContent.includes(':has('))
   assert.ok(heroTitleStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
+  // The always-on work-step ink stylesheet raises the chat process rows (and
+  // their group header / expanded reasoning body) from the palette's muted grey
+  // to one deliberate step below body text (2026-11-10 user report: "现在颜色
+  // 太浅了，看不清楚"; follow-up: "改稍微浅一点点，和正文形成差距").
+  const workStepStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/work-steps')
+  assert.equal(workStepStylesheets.length, 1, 'work-steps stylesheet was not injected')
+  assert.ok(workStepStylesheets[0].textContent.includes('[data-chat-flow-key]'))
+  assert.ok(workStepStylesheets[0].textContent.includes('[data-disclosure-row]'))
+  assert.ok(workStepStylesheets[0].textContent.includes('[data-process-activity]'))
+  assert.ok(workStepStylesheets[0].textContent.includes('[data-turn-process]'))
+  assert.ok(workStepStylesheets[0].textContent.includes('[data-markdown-variant="compact"]'))
+  assert.ok(workStepStylesheets[0].textContent.includes('#748085'))
+  assert.ok(workStepStylesheets[0].textContent.includes('#bbb19b'))
+  assert.ok(workStepStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
   // The table column-resize stylesheet and its DOM interaction are mounted with
   // the token layer, not with the Settings UI.
@@ -776,12 +794,16 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     'the table scrollbar hover controller must be mounted with the token layer'
   )
   assert.ok(
-    effectLabels.includes('everforest: chat bubble ink'),
-    'the chat-bubble ink stylesheet must be mounted with the token layer'
+    effectLabels.includes('everforest: chat bubble paint'),
+    'the chat-bubble paint stylesheet must be mounted with the token layer'
   )
   assert.ok(
     effectLabels.includes('everforest: hero title ink'),
     'the hero-title ink stylesheet must be mounted with the token layer'
+  )
+  assert.ok(
+    effectLabels.includes('everforest: work-step ink'),
+    'the work-step ink stylesheet must be mounted with the token layer'
   )
 
   // Locale dictionaries, page stylesheet, Settings page registration.
@@ -792,7 +814,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 12, 'exactly twelve <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + hero title + theme spotlight + settings)')
+  assert.equal(styleTags.length, 13, 'exactly thirteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + hero title + work steps + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -938,9 +960,10 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hero-title').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/work-steps').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 11)
+  assert.equal(styleTags.length, 12)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -953,7 +976,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 12)
+  assert.equal(styleTags.length, 13)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1515,9 +1538,10 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hero-title').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/work-steps').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 12)
+  assert.equal(styleTags.length, 13)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

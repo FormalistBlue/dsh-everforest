@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十一张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 12 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十二张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 13 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -218,7 +218,7 @@ export const TOKEN_MAP = {
   '--dsw-alias-bg-overlay':            r => r.bg2,
   // 侧栏 = bg0 向 bg1 混 80% + 对比度守卫：与 bg-base 拉开可辨边界（见上方修正）
   '--dsw-specific-sidebar-fill':       r => sidebarSurface(r),
-  // 气泡 = 浅色苔纸（bg_green → bg5 22%，light·soft 抬起）；深色 bg1；字色由常驻样式表换成派生墨（见 §12）
+  // 气泡 = 浅色苔纸（bg_green → bg5 22%，light·soft 抬起）；深色 token 保持 bg1。2026-11-10 起两个 scheme 的实际绘制都由常驻样式表画成侧栏选中绿底：深色配画布墨、浅色配派生深墨（token 仅作失效回落，见 §12）
   '--dsw-specific-bubble':             r => bubbleSurface(r),
   '--dsw-alias-markdown-code-block':   r => r.bgDim,
   // 文字 / 边框
@@ -247,7 +247,7 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `bg-layer-1/2/3` | `bg1` / `bg2` / `bg3` | 输入框、行 hover、菜单、嵌套层 |
 | `bg-overlay` | `bg2` | 浮层 / popover |
 | `specific-sidebar-fill` | `bg0` → `bg1` 的 80% 混合（对比度守卫） | 侧栏列 / Windows 标题栏条与内容卡（`bg-base` + 16px 圆角）之间需要可辨边界；平铺 `bg0` 会让边界消失（见上方 2026-10-18 修正） |
-| `specific-bubble` | 浅色：`bg_green` → `bg5` 22% 的苔纸，按 `label-primary` 4.5:1 守卫（hard `#e7ead0`、medium `#e7e9cd`）；light·soft 因文本上限改为白 → 同一苔纸 40% 的淡苔纸（`#f1f2e5`）。深色：`bg1`（对比度守卫）。字色由常驻样式表改成派生墨（浅深松 `#3E5647` / 深淡鼠尾草 `#DAE2C7`，见 §12） | DSH 用户消息气泡；2026-10-19 修正：旧映射 `bg1` 与 `bg0` 仅 1.02–1.06，浅色下与画布融为一体；2026-10-21：light·soft 不再用近白卡片；2026-11-08：用户从六方案 demo 选「苔纸 / 只换字色」（见 §12） |
+| `specific-bubble` | 浅色：`bg_green` → `bg5` 22% 的苔纸，按 `label-primary` 4.5:1 守卫（hard `#e7ead0`、medium `#e7e9cd`）；light·soft 因文本上限改为白 → 同一苔纸 40% 的淡苔纸（`#f1f2e5`）。深色：`bg1`（对比度守卫）。2026-11-10 起两个 scheme 的实际绘制都由常驻样式表改成侧栏选中绿底 + 画布墨：浅色 `#93B259` + `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1，强调层奶油墨上限），深色 `#A7C080` + `#272E33` / `#2D353B` / `#333C43`（6.88 / 6.23 / 5.62:1，AA）；token 保持不变，作为样式表失效时的可读回落 | DSH 用户消息气泡；2026-10-19 修正：旧映射 `bg1` 与 `bg0` 仅 1.02–1.06，浅色下与画布融为一体；2026-10-21：light·soft 不再用近白卡片；2026-11-08：用户从六方案 demo 选「苔纸 / 只换字色」；2026-11-10：用户要求气泡与侧栏选中行同色对（先深色后浅色），长文本曾试深墨后换回奶油白（见 §12） |
 | `specific-bubble-highlight` | 浅色 / 深色均 `surface(p, 2)` | 气泡高亮态（当前 chat 未使用，保留最近层级语义） |
 | `markdown-code-block` | `bg_dim` | Enchanted 代码底 |
 | `markdown-inline-code` | 深色 `bg_dim` 向 `bg0` 提亮 30% / 浅色 `bg_blue`（芯片表面） | DSH 用作 inline code 的**背景**（文字继承 `label-primary`）；Enchanted `--code-inline` 是前景色，不可复用；深色 2026-10-24 先由 `bg_blue` 改为 `bg_dim`、再向 `bg0` 提亮 30%（芯片对画布 1.11–1.13:1 的凹陷，见上方修正） |
@@ -427,7 +427,7 @@ export function apply(ctx) {
 
 1. **主题聚光灯**（§17）：`createThemeSpotlight()` → 卸载时 `dispose()`；注入 `data-plugin-css="dsh-everforest/theme-spotlight"` 样式表；`spotlight.trackOrigin()` 记录最后一次 `pointerdown`；包装 `ctx.theme.setTheme`（仅跨深浅走 `spotlight.run`，卸载按「原方法是否自有属性」还原）。见 `src/client-entry.js` L212–274。
 2. **token 层与状态属性**：`applyLayer()` = `overrideTokens`（pair 未变时不重栈）+ `applyStateAttributes()`（写 `data-everforest-color-mode` / `-light` / `-dark` 三个属性）。
-3. **常驻样式表（十一张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
+3. **常驻样式表（十二张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
 4. **表单胶水**（把 §7 落到代码）：`queuedWrite`、`hasUserLayer`、`shouldSeed`、`seedHost(snapshot)`（播种时才带 `snapshot.revision`）、`adoptHostState()`、`writeToHost(ops, failureMessage)`（不带 revision）、`warnRefusedOnce()`、`writesInFlight` + `beginWrite()` / `flushQueuedWrite()`。`select()` 的跨深浅分支把 `applyLayer() + ctx.theme.setTheme(scheme)` 一起包进 `spotlight.run()`，同深浅分支只重栈（瞬切），`notify()` 在切换之后；`reset()` 先回默认状态，`persistReset()` 在 `writesInFlight > 0` 时把 unset 排到在途写入之后。
 5. **其它**：`setPreference()`（外观三卡 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
 
@@ -575,7 +575,7 @@ export function apply(ctx) {
 | 非法配置 | 分两种情况验证：①**运行中**把 patch 的 `config.light` 改成 `nope` → Host 记 warning、entry 保持 ACTIVE、旧配色不丢，改回合法值热恢复（不必重启）；②**冷启动**时 patch 已是非法值 → entry 不激活（无主题、启动诊断可见），改回合法值 / 删除 `config` 后重启恢复 |
 | 深浅色 | 用 DSH 自带 Appearance、设置页外观控制或插件色卡切到 light/dark/system，主题自动使用对应调色板；**跨深浅切换走聚光灯**：新主题从最后一次 `pointerdown` 位置以 `circle()` 扩张揭示 400ms（无指针记录时从视口中心），旧主题快照留底层，浅→深结束不闪白；同深浅内的强度切换与跨窗口广播为瞬切；`system` 跟随下 OS 翻深/翻浅同样走揭示（无点击位置，从视口中心扩张）；`prefers-reduced-motion: reduce` / 无 View Transitions 一律瞬切（§17）；`system` 下改 OS 深浅色应实时跟随（聊天区、设置页「当前」行、Windows 标题栏都要变）；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复；点同侧色卡不得改偏好 |
 | 代码高亮 | 三处代码块（聊天气泡 fenced code / 工具输出 / 右侧文件预览）的 token 色与块底正确；diff 的 add/del 底色与 marker 来自 `--dsw-alias-file-diff-*` / `code-diff-*`（diff 没有语法高亮，**不要**按 shiki 验收） |
-| 聊天气泡 | 浅色（hard / medium）为苔纸（`bg_green` → `bg5` 22%）、light·soft 为淡苔纸抬起卡片，与画布边界 ≥ 1.10:1（light·soft 1.05:1，见 `reference/contrast.md` §2d）；深色保持 `bg1`；气泡内文字 ≥ 4.5:1，且 light 为深松 `#3E5647` / dark 为淡鼠尾草 `#DAE2C7` 的派生墨（`src/chat-bubble.js` 常驻样式表，回落官方墨仍 AA；2026-10-19 / 2026-10-21 / 2026-11-08，见 §12） |
+| 聊天气泡 | 两个 scheme 都绘制成交互强调绿底 + 画布墨（与选中会话行 / 选中导航项 / 发送键同色对）：浅色 `#93B259` + `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1，强调层奶油墨上限）、深色 `#A7C080` + `#272E33` / `#2D353B` / `#333C43`（6.88 / 6.23 / 5.62:1，AA）；token 保留苔纸 / `bg1` 作为样式表失效时的可读回落（`src/chat-bubble.js` 常驻样式表；2026-10-19 / 2026-10-21 / 2026-11-08 / 2026-11-10，见 §12） |
 | 聊天表格（1.2.0，§18） | 6 档下中性 `border-l3` 外框 + `border-l2` 列线可见（浅色档贴对比度门槛，属已接受）；首 / 末列 16px 内边距、末行无叠加下边框；表头色带 / 斑马纹 / 行 hover 不变。表头右缘 6px 命中：fill 表（<4 列）拖动相邻两列重分配、总宽不变、无幽灵滚动条；宽表（≥4 列）拖哪列只改哪列、表格总宽跟随列宽之和、**最后一列右边框也是拖动柄**、放不下时底部常驻 5px 横向滚动条（10px 条位、hover 时带 160ms 过渡长成 10px 便于按住，2026-10-29）且右缘不越过正文列；双击边缘复位、拖动中 Esc 取消、单列最小 64px；锁定宽表窗口变窄保持列宽只滚动。§18.4 的 106 项全场景矩阵与真机 fill / wide 复测为自动化证据 |
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失；patch 里的 `config` 保留，重新启用后继续生效 |
 | 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧，spinner 环与进度弧同色系）；强度分别验证「有缓存」「无缓存但 Host 有值」「两者都缺」三条路径与 `window.__EVERFOREST_BOOT__` 的值；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的 spinner / 边框随 boot token 一起着色（2026-10-21） |
@@ -690,6 +690,13 @@ export function apply(ctx) {
 - **做法（token）**：light 由 palette `bg_green` 向 `bg5` 混 22% 成苔纸，经 `readableSurface` 守卫保证官方 `label-primary` 仍 ≥4.5:1（hard `#e7ead0` 4.54、medium `#e7e9cd` 4.50）；light·soft 的 `bg0` 没有正文余量，改走抬起方向——白 → 同一苔纸 40% 的淡苔纸 `#f1f2e5`（文字 4.94:1，对画布 1.06:1，门槛仍 1.05）。dark 保持 `bg1` 不变。
 - **做法（字色）**：DSH 把气泡文字写死为 `label-primary`，token 层无法单独换色，新增常驻样式表 `src/chat-bubble.js`（`<style data-plugin-css="dsh-everforest/chat-bubble">`）用 `[class*="_userStack"] [class*="_bubble"]` 覆盖：light 深松 `#3E5647`、dark 淡鼠尾草 `#DAE2C7`，六档实测 6.45–8.98:1。`userStack` 祖先把 tooltip 的 `_bubble` 排除在外；选择器失效时回落官方墨仍满足 AA。
 - **验收**：`tests/tokens.test.mjs` 钉 light 三档底色；新增 `tests/chat-bubble.test.mjs` 钉派生墨与回落覆盖率；`tests/integration.test.mjs` 钉第 9 张常驻样式表（含设置页第 10 张）；`reference/contrast.md` 重新生成（§2d / §6.8）。
+
+### 2026-11-10 聊天气泡：改侧栏选中绿底 + 画布墨
+
+- **背景**：深色气泡的 `bg1` 底色对画布只有 1.15–1.16:1，用户报告「深色模式下的聊天气泡颜色有点淡了」，随后直接指定方向：「试试直接改成侧边栏选中那种绿色和文字颜色」；同日又补充浅色：「浅色气泡的也和侧边栏颜色保持一致」。
+- **做法**：两个 scheme 的气泡都改成与选中会话行 / 选中导航项 / 发送键相同的强调色对——交互强调 `statusline1` 实底 + 画布墨 `bg0`：浅色 `#93B259` + `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1），深色 `#A7C080` + `#272E33` / `#2D353B` / `#333C43`（6.88 / 6.23 / 5.62:1）。深色仍是 AA；浅色沿用强调层既有的「奶油墨 on statusline1」上限（与选中行 / 发送键同一取舍，见 `reference/contrast.md` §2i），按用户要求保持与侧栏一致，属明示取舍。绘制只写进 `src/chat-bubble.js` 的作用域样式表（六条规则，并把 `--dsw-alias-state-business-primary` 重指向带墨色，气泡内的会话引用 chip 跟着换色）；`--dsw-specific-bubble` token 仍是苔纸 / 守卫后的 `bg1`：气泡回落文字是 `label-primary`，绿底进 token 会让样式表失效时变成不可读色块；token 保持不变则失效时回到苔纸 / `bg1` + `label-primary` 的可读组合。
+- **长文本试验（当天回退）**：用户用重复长文本实测整段效果后要求浅色气泡「文字帮我改成深墨色试试」；实现为保留 `#93B259` 底、字改派生深墨 `#2F3B33`（4.88:1，AA，测试与真机均验证过）。随后用户又要求「文字还是换回白色吧」，最终交付回到奶油白（与侧栏选中行完全同色对），深墨方案只保留在记录里，不进入 token 或最终样式表。
+- **验收**：`tests/chat-bubble.test.mjs` 钉两个 scheme 的绿底 / 画布墨 / 六条规则 / 引用 chip token / 浅色 2.00–2.32 与深色 5.62–6.88 的实测值 / 「失效回落」覆盖；`tests/integration.test.mjs` 钉 `#93B259` + `#FFFBEF` + `#A7C080` 与效果标签；`reference/contrast.md` §2d / §6.8 口径同步；真机窗口采样：浅色 light·hard 气泡底 `#93B259`、字 `#FFFBEF`，与同窗口选中会话行完全一致；深色此前实测 `#A7C080` + `#333C43`。
 
 ### 2026-10-21 P1 打磨（并入 0.2.1）
 
@@ -838,7 +845,7 @@ DSH Desktop 已升级到 `0.2.2-rc.1`（`app.asar` 根与全部 `@deepseek-ai/*`
   - `COLOR_MODE_ATTRS`：`data-everforest-color-mode`（本版恒为 `on`，只作样式表作用域锚点）、`data-everforest-light`、`data-everforest-dark`（各自 scheme 的强度）。
   - `colorModeRoles()`：6 变体 × **25 个角色色值**（2026-10-30 新增列宽提示线 `tableHandle`，直接取 `headerAqua`、不做文本守卫），全部由 `tokensFor()` 的表面值（`bg-base`、`sidebar-fill`、`label-primary`、`label-tertiary`、行内 code 芯片、代码块表面）+ `resolvePalette()` 的强调色实算并做对比度守卫（见 13.3）。
   - `colorModeDataset(state)`：Client 写到 `document.documentElement` 的属性映射。
-  - `colorModeStyles()`：静态样式表 = 6 个自定义属性块 + **48 条元素规则**（27 条变量驱动 + 21 条字面规则：标题内强调色 `inherit`、引用块右内边距 / 圆角、§13.8.1 的 6 条深色 warn 反相，2026-10-27 的 8 条表格框与 2026-10-29 的 2 条表格滚动条 literal 规则（§18.1 / §18.3），以及 2026-10-30 的 3 条任务列表复选框字面规则：去圆点、重绘方框、`::after` 勾），共 **54 条**规则（0.4.0 时为 40 条），全部以 `html[data-everforest-color-mode="on"]` 开头；深浅色由 `body[data-ds-dark-theme]` 区分（DSH ui-theme 在 boot row 写 body 属性），强度由 `<html>` 上的两个 data 属性选择。
+  - `colorModeStyles()`：静态样式表 = 6 个自定义属性块 + **49 条元素规则**（27 条变量驱动 + 22 条字面规则：标题内强调色 `inherit`、引用块右内边距 / 圆角、§13.8.1 的 6 条深色 warn 反相，2026-10-27 的 8 条表格框与 2026-10-29 的 2 条表格滚动条 literal 规则（§18.1 / §18.3），2026-10-30 的 3 条任务列表复选框字面规则：去圆点、重绘方框、`::after` 勾，以及 2026-11-10 的 1 条宽表滚动条下沿线规则（§18.1）），共 **55 条**规则（0.4.0 时为 40 条），全部以 `html[data-everforest-color-mode="on"]` 开头；深浅色由 `body[data-ds-dark-theme]` 区分（DSH ui-theme 在 boot row 写 body 属性），强度由 `<html>` 上的两个 data 属性选择。
 - **`src/client-entry.js`**：`applyLayer()` 在 token 层之外同步 `<html>` 属性（色彩模式没有开关，不再有「切换模式」动作；CSS 与 token 层彻底解耦）；一个独立的 `ctx.effect` 注入 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/color-mode">`，与设置页样式 / slots / locale 完全解耦（设置 UI 不可用时色彩模式仍生效）。
 - **作用域选择器**：
   - 聊天 Markdown：`[class*="markdown"]:not([data-markdown-variant="compact"])`（DSH 的容器类名是 CSS modules 哈希，但 `markdown` 子串保留；排除 compact 推理变体）。DSH 0.2.1-rc.2 / rc.3 / rc.5 的 markdown 正文容器**没有稳定 data 锚点**（rc.3 / rc.5 构建类名仍含 `markdown` 子串），这是本功能最脆弱的依赖（见 13.7）。
@@ -1300,6 +1307,7 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme]) ::selection {
   - **过渡（`src/table-scrollbar.js`）**：Chromium **不会**在滚动条伪元素上运行 CSS transition / animation——2026-10-29 探针给 `::-webkit-scrollbar-thumb` 写了 10s 的 `transition`，计算值显示已生效，但 `getAnimations()` 为空、像素上直接跳到终态。所以改由控制器逐帧写 inset：指针在原生滚动条上时事件仍派发给滚动条所属元素（document 级 `pointermove` 的 `target` 就是包装层），而写在包装层上的自定义属性会被该元素的滚动条伪元素继承，于是每帧把 inset 从 5px 缓动到 0（ease-out cubic，160ms），thumb 向下长满 10px；移开再反向收回。Blink 会把滚动条部件的边框宽取整到整 CSS 像素，DPR 1 下的过渡就是 5 → 4 → 3 → 2 → 1 → 0 六个绘制态（pill 5 → 10px）——平台能画的最细粒度，时长只决定这六步的间隔。
   - **否决的写法**：`::-webkit-scrollbar:hover` 在 Chromium 不匹配（指针停在 5px 条上条高不变）；`包装层:hover::-webkit-scrollbar` 会在鼠标经过表格任意位置时就加粗、并让包装层与下方内容跳 5px；在样式表里保留 `::-webkit-scrollbar-thumb:hover` 改 border 会瞬间跳变、把动画掐掉。`prefers-reduced-motion: reduce` 时控制器直接跳到终态；颜色始终是 DSH 的主题滚动条 token（`--dsh-scrollbar-thumb(-hover)`），控制器只动 inset，`background-clip: content-box` 由样式表兜住（防止主题给 thumb 加边框时把透明带画上颜色）。
   - **代价 / 边界**：可滚动表格的包装层比 1.2.0 高 5px（多出来的 5px 是可见条下方的透明轨道），表格之后的正文整体下移 5px；不可滚动 / fill 表不出现条，完全不受影响。非 Chromium（Firefox）走 DSH 的 `scrollbar-width: thin` 兜底，不会加粗（见 §18.5 第 7 条）。
+- **2026-11-10 宽表滚动条下沿补线**：宽表外框按 §18.1 画在 `<table>` 上，滚动条在框外，所以条下方没有线；fill 表外框本来就在包装层上、滚动条已被框住，不需要改。用户要求滚动条下方也带边框，落地只加一条规则：`[class*="tableScroll"].md-table-wide::-webkit-scrollbar-track { border-bottom: .5px solid var(--dsw-alias-border-l3) }`。选择 track 边框而不是包装层边框 / 伪元素：track 只在表格真的溢出时存在，线因此与滚动条同生灭，不需要 JS 判定或观察器，也不占布局（不可滚动宽表完全没有变化）；`.5px` 边框与插件其它细线同一栅格化行为（DPR 1 → 1px 实色，DPR 2 → 1 设备像素）。实测 `background-image` 的 `.5px` 渐变停止点在 DPR 1 完全不绘制（2026-11-10 离线预览逐像素采样），所以用 border 不用渐变。thumb 的透明下内缩（静止可见 5px 的 pill）让线在静止状态下从条下方透出；hover 画满 10px 时线被 thumb 覆盖属预期。
 - **2026-10-27 修正（用户反馈「表格错位」）**：第一版为了让宽表框贴住表格，给 `.md-table-wide` 覆盖了 `width: max-content; max-width: 100%`，但没动 DSH 的 `margin-left` / `padding-left`。结果包装层被压成 100% 宽（748px）、又被 `margin-left` 左移 `lead`（真机实测 389px）、内容区再被 `padding-left` 占掉后只剩约 360px：表格从右侧被裁掉（4 列只显示 3 列）、整个框左移——就是用户截图里的「错位」（截图实测：框 298→1046，表格从 683 开始、被裁在 1046）。修法：宽表框改画在 `<table>` 上，并加回归测试挡住「只覆盖宽度」这类半套改动。
 - **2026-10-27 第二次修正（用户反馈「表格的下滚动条超出左边的位置」）**：上一版把 DSH 的 bleed 布局原样保留，宽表 hover 时的横向滚动条就落在包装层的 border box 上——包装层左缘在聊天滚动区左缘（正文列左缘再左移 `lead`），滚动条于是从表格左边 130+px 的地方开始（用户截图里条左端明显在框左缘之外）。修法即上面的重新装箱：包装层左缘 = 表格左缘，滚动条因此正好落在表格自己的宽度内（表格不超宽时与框等宽）。右侧额度当时先保留为 DSH 的出血量，第三次 / 第四次修正再逐步收紧到正文列右缘。回归测试改为钉住重新装箱的 4 条声明，并禁止其它规则再碰这四个属性；fill 表的包装层仍不得改动。
 - **2026-10-27 第三次修正（用户反馈「很长的表格右边又超出显示范围」）**：DSH 给宽表设的是 `width: max-content`，所以表格比可用宽度还宽时保持自然宽度、被包装层在右缘裁掉，既看不到最后一列也看不到外框右边线。修法：给 `.md-table-wide > table` 加 `max-width: 100%`——放得下的宽表仍是自然宽度，放不下的把列内容换行收进可用宽度；锁定了列宽的宽表由 `onWrapperResize` 按「包装层宽 − 表格自身边框」重排并写回内联宽度。
@@ -1332,6 +1340,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - 新增 `src/table-scrollbar.js`（约 260 行：常量契约 `SCROLLBAR_INSET_VARIABLE` / `REST_SCROLLBAR_INSET` / `HOVER_SCROLLBAR_INSET` / `SCROLLBAR_GROW_MS` + 纯函数 `scrollbarInsetAt` / `isScrollbarPoint` + `installTableScrollbarHover` 控制器）、`tests/table-scrollbar.test.mjs`（12 项：常量、缓动与钳制、命中几何、listener 生命周期、逐帧 inset 序列、重复 pointermove 不重启、中途反向从当前值重算、触摸 / 非滚动 / compact 排除、reduced-motion 与无 rAF 瞬切、pointerleave / blur 收起、切换目标表时旧表复位、dispose 清理）。
 - `src/client-entry.js`：新增 1f effect（`installTableScrollbarHover({ document, window })`；安装失败只 warn、动画缺失但样式与 rest 态不受影响）；`scripts/build.mjs` 的 `SOURCES` 在 `table-resize.js` 之后插入 `table-scrollbar.js`，`client.js` 重建。
 - `tests/color-mode.test.mjs`（2026-10-29）：literal 规则表改 2 条（10px 轨道、var 内缩 thumb）；「10px 轨道 / 5px inset pill」用例断言两条规则、无 `::-webkit-scrollbar` 的 `:hover` 规则、且样式表里只有这两条 `::-webkit-scrollbar` 选择器（不得出现未加作用域的条规则，否则会改到全应用的滚动条）。
+- `src/color-mode.js`（2026-11-10，§18.1）：滚动条 literal 规则 2 → **3 条**，新增 `${TABLE_FRAME}.md-table-wide::-webkit-scrollbar-track { border-bottom: .5px solid var(--dsw-alias-border-l3) }`（宽表下沿补线）。color-mode 样式表 54 → 55 条、字面规则 21 → 22 条。`tests/color-mode.test.mjs` 同步：literal 规则表加 1 条、滚动条白名单改为 3 条，并新增「track 规则必须限定在 `.md-table-wide`、fill 表不得出现该规则」与边框值断言。
 - `src/client-entry.js`：新增 1e effect（注入 `dsh-everforest/table-resize` 样式表 + `installColumnResize({document, window})`，cleanup 先 dispose 再移除样式表）。
 - `scripts/build.mjs`：`SOURCES` 增 `table-resize.js`（`color-mode.js` 之后、`client-entry.js` 之前）；`client.js` 重建。
 - `src/table-resize.js`：`onWrapperResize` 只服务 fill 表（宽表保持列宽、由包装层滚动，不观察容器）。
@@ -1362,6 +1371,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - **滚动条机制探针（2026-10-29，共享调试 Chromium / DPR 1）**：在独立探针页上逐条验证——① `::-webkit-scrollbar:hover` 不匹配：真实指针停在 5px 条上，条高仍是 5px（`offsetHeight − clientHeight = 5`）；② `包装层:hover::-webkit-scrollbar` 匹配，但指针在元素内任意位置就触发，且 5 → 10px 时包装层 `offsetHeight 9 → 14`（+5px 布局位移），语义也不对；③ **CSS 过渡 / 动画在滚动条伪元素上不运行**：给 `::-webkit-scrollbar-thumb` 写 10s 的 `transition`，计算值显示已生效，但 `getAnimations({subtree:true})` 为空、10s 后与 0s 的像素一致（直接是终态）——所以过渡不能用 CSS 写；④ 指针在原生滚动条上时事件仍到页面：document 级 capture 监听到 `pointermove`，`target` 正是滚动条所属的包装层，坐标落在条内（`y 123.25`，条 `119.25–129.25`）；⑤ 包装层的自定义属性能被子滚动条伪元素继承：包装层 inline 写 `--probe-inset: 2.5px` 后 `getComputedStyle(el, '::-webkit-scrollbar-thumb').borderBottomWidth` 读回 `2px`，页面截图里 thumb 由 5px 画成 8px（10 − 2）——逐帧改 inset 会真实重绘，这也是动画方案成立的关键。
 - **离线高保真预览（2026-10-29，`.tmp/scrollbar-preview/build.mjs`）**：用真实 rc.3 web-frontend 表格 CSS + 真实 `dsh-client-ui-theme` 全局滚动条样式表 + 真实 `tokensFor()` 六个月色 token + 真实 `colorModeStyles()` 生成 before / after 两页（before = 插件样式表里扣掉 2 条滚动条规则；after 规则数 48 → 50），1280 视口、正文列 747.44px、dark·soft。after：宽表包装层 `747.44 × 189.22`、条高 **10px**、thumb 静止可见 5px（像素行 `256–260`，与 before 的 `256–260` 完全同一位置）、表格自然宽 `1385.63px`、表格底边 `256.41` 两版一致、表格后内容 `267.41 → 272.41`（+5px）、页面 `scrollWidth == clientWidth`（1275）；fill 表（3 列）两版一致（不出现条）。
 - **滚动条过渡实测（2026-10-29，`animate.html` / `animate-slow.html`）**：把**真实 `src/table-scrollbar.js`** 内联进上面同一套真实 CSS，用「一行 1px 高、容器中心正好落在条上」的表让 MCP 的真实指针对准滚动条。静止：`inlineInset` 为空、computed border `5px`、像素上 thumb 5 行（`54–58`）；hover 后：`inlineInset 0px`、computed border `0px`、颜色切到 hover 色、像素上 thumb 10 行（`54–63`）。把动画时长放慢到 4s 后逐 50ms 采样，`inlineInset` 走 `4.88 → 4.70 → 4.52 → … → 2.98` 的缓动序列，computed border 逐档 `5px → 4px → 3px → 2px → 1px`（**逐帧动画真的在跑，每次都是滚动条重绘**）；hover 全程包装层高 13px、表格底边与下方内容逐像素不动（**过渡不产生布局位移**）。note：元素级截图会临时切到 overlay 滚动条（页面后续报告 `thickness 0`），刷新即恢复，属截图工具副作用、不是 CSS 问题；视口截图不受影响。
+- **滚动条下沿补线离线预览（2026-11-10，`.tmp/scroll-border-preview/`）**：真实 `.tmp/installed-web.css`（当前 DSH web-frontend）+ ui-theme 全局滚动条样式表 + 真实 `tokensFor()` + `colorModeStyles()`，440px 正文列、5 列溢出宽表 / 2 列 fill 表，视口截图逐行采样。宽表：条位 10px、静止 thumb 仍是 5px pill 且位置不变；新规则在条位最下一行画出 1px `border-l3` 线（DPR 1，与表格底框同色），before 版无此行；`.5px` 渐变停止点写法在 DPR 1 完全不绘制 → 改用 `border-bottom`。fill 表与不溢出的宽表无任何变化。
 - **残余（人工项）**：本轮没有真机读数——共享调试 Chrome 打不开需要 token 的 Web GUI（`dsh web authentication required`），本会话也没有桌面 app 的 MCP 通道；改动是 Client 半部（样式表 + 控制器），`client.js` 重建后刷新页面即生效，真实窗口的 hover 手感目检留给用户（见 §18.5 第 7 条）。
 
 ### 18.5 已知风险
@@ -1372,7 +1382,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 4. **重挂载不再丢列宽，但依赖 DSH 内部锚点**：宽度由 §18.6 的本地缓存恢复；缓存靠 `data-conversation-session` / `data-chat-node-key` 两个 DSH 内部属性（无公开契约），升级改名则恢复静默失效、退化为自动布局（不报错），与本节第 1 条同源。
 5. **触摸端不做**（2026-10-31 决定，非待办：手势与宽表横向滚动冲突、无 hover 可发现性；见 [assessment.md](assessment.md) §24）；>12 列不提供拖动；列宽现在**跨刷新 / 切会话保留**（§18.6 的本地缓存），但只在同一浏览器同一 origin 有效：Desktop 的 `dsh-app://app` 固定、跨重启保留；用浏览器打开 DSH Web GUI 时端口每次随机，换一次启动就是新 origin（不保留）。
 6. **fill 表不能改总宽，宽表可以**：`<4` 列的 fill 表宽度必须等于容器宽，拖动只在相邻两列间重分配；宽表拖动改被拖的那一列、表格总宽 = 列宽之和（因此可以一路拖窄到放进正文列，也可以拖宽到溢出后横向滚动），但拖宽超过正文列后最后几列要横向滚动才能看到；最后一列的拖动柄在表格右边框上，表格溢出时它只在滚动到最右端时可见。
-7. **滚动条过渡依赖 Chromium 的事件与私有伪元素行为**：`::-webkit-scrollbar` / `::-webkit-scrollbar-thumb` 的尺寸、命中与「伪元素能否继承自定义属性」都是 Blink 行为（2026-10-29 在共享调试 Chromium 实测）；CSS 过渡 / 动画在滚动条伪元素上不会运行，因此过渡由 `src/table-scrollbar.js` 用 `pointermove` + `requestAnimationFrame` 驱动——若某版本不再把指针在原生滚动条上的事件派发给所属元素，hover 就不再加粗（静止 5px 不变，样式表本身不依赖 JS），若 rAF 不可用或 `prefers-reduced-motion: reduce` 则退化为瞬切。Blink 把滚动条部件的边框宽取整到整 CSS 像素，DPR 1 下只有 5 → 4 → 3 → 2 → 1 → 0 六个绘制态（DPR 2 有半像素档）。Firefox 等非 Chromium 引擎走 DSH 的 `scrollbar-width: thin` 兜底，条不会加粗。可滚动表格的包装层比 1.2.0 高 5px（多出来的是透明条位，位于可见条下方），表格之后的正文整体下移 5px，属预期；不可滚动 / fill 表不受影响。若 DSH / 主题改了全局 thumb 的 `background-clip` 或给 thumb 加边框，插件已重新声明 `background-clip: content-box`，但升级后仍建议目检一次条的形状。
+7. **滚动条过渡依赖 Chromium 的事件与私有伪元素行为**：`::-webkit-scrollbar` / `::-webkit-scrollbar-thumb` 的尺寸、命中与「伪元素能否继承自定义属性」都是 Blink 行为（2026-10-29 在共享调试 Chromium 实测）；CSS 过渡 / 动画在滚动条伪元素上不会运行，因此过渡由 `src/table-scrollbar.js` 用 `pointermove` + `requestAnimationFrame` 驱动——若某版本不再把指针在原生滚动条上的事件派发给所属元素，hover 就不再加粗（静止 5px 不变，样式表本身不依赖 JS），若 rAF 不可用或 `prefers-reduced-motion: reduce` 则退化为瞬切。Blink 把滚动条部件的边框宽取整到整 CSS 像素，DPR 1 下只有 5 → 4 → 3 → 2 → 1 → 0 六个绘制态（DPR 2 有半像素档）。Firefox 等非 Chromium 引擎走 DSH 的 `scrollbar-width: thin` 兜底，条不会加粗。可滚动表格的包装层比 1.2.0 高 5px（多出来的是透明条位，位于可见条下方），表格之后的正文整体下移 5px，属预期；不可滚动 / fill 表不受影响。若 DSH / 主题改了全局 thumb 的 `background-clip` 或给 thumb 加边框，插件已重新声明 `background-clip: content-box`，但升级后仍建议目检一次条的形状。2026-11-10 起宽表条位还多一条 `.5px` 下边框（画在 `::-webkit-scrollbar-track` 上，§18.1），同样属于 Blink 私有伪元素行为：Firefox 会忽略该规则（宽表条下沿无这条线，其余不变）；Chromium 升级后一并目检这条线的栅格化与位置。
 8. **列宽记忆的失效面**（§18.6）：DSH 改聊天锚点 → 记不住（静默）；retry / 重新生成复用 turn/step → 由表头签名 + 列数拦截；会话 fork 不继承父会话；Web 随机端口不跨重启；多标签 last-write-wins；本地缓存上限 300 条 / 180 天 TTL。
 
 ### 18.6 2026-10-31 列宽记忆（localStorage）
@@ -1967,3 +1977,83 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme])
 - 边界：`:has()` 需 Chromium ≥105（桌面端 Electron 39 / Chromium 142，Web GUI 同内核）；依赖 `fishHitbox` 这个
   CSS-module 本地名，DSH 若重命名会静默失效、回落到 `label-primary`（文字仍可读，只是不绿）。真机窗口目检需用户刷新
   页面（桌面 app 未开 CDP、Web GUI 需 token，§26.4 / §27.3 同一约束）。
+
+## 29. 2026-11-10 工作步骤文字提到正文下一档（work-steps）
+
+> 触发：用户贴出会话「工作步骤」列表截图（`正在分析请求` / `思考` / `读取` / `运行命令` / `工具调用` 等行）：
+> 「把这些文字的颜色调整一下，现在颜色太浅了，看不清楚，改成和正常文字差不多的深浅」。同日第二轮（本轮的最终值）：
+> 「改稍微浅一点点，和正文形成差距，但还是要比改之前深。包括展开的内容的文字颜色，也同样处理」。
+
+### 29.1 表面与决策
+
+- 「工作步骤」列表在 `ui-chat` 里：单步行走 ui-primitives 的 `DisclosureRow`（安装包 `dsh-web-frontend` 的
+  index CSS：`._row_l4nv8_26 { color: var(--dsw-alias-label-tertiary) }`，`:hover` 回 `label-secondary`），
+  折叠分组头是 `ChatGroupSeat` 的 `.title`，整轮过程的收起摘要行是 `TurnProcessNodeView` 的 `.root`
+  （两个模块 CSS 同为 `label-tertiary`）。展开的思考正文走 `MarkdownText` 的 compact 变体
+  （`._compact_rve47_351 { color: var(--dsw-alias-label-tertiary) }`；安装包里 `variant: "compact"` 只有
+  `ReasoningContent` 一处使用，即推理正文）——五处因此共用同一个 muted grey。
+- 本主题把 `label-tertiary` 映射成上游 `grey0`（浅色 `#A6B0A0` / 深色 `#7A8478`），在主题画布上只有 1.88–3.54:1；
+  DSH 原生 tertiary 是在近黑画布上选的，搬到 Everforest 的浅色画布后「原生弱化」变成「看不清」。用户截图逐像素实测：
+  行文字 `#7A8478`、展开正文 `#7A8478`、画布 `#333C43`（dark·soft），即 2.89:1。
+- 决策（第二轮定稿）：五处统一用「正文墨色向画布混 15%」的派生墨 `mix(fg, bg0, 0.15)`（`WORK_STEP_DIM`）——
+  比正文低一档（CIE L* 差 7.8–8.8）、清晰可读，且明显深于改前的 grey0。深色三档保持 WCAG AA（5.29–6.33:1）；
+  浅色三档 3.52–3.93:1，低于 AA——浅色档正文本身只剩 4.66–5.40:1 余量，任何可见的层级差都必然跌破 4.5，
+  用户明确要求「和正文形成差距」，因此钉住实测 3.5 下限（仍是旧 tertiary 的近两倍对比度），在 `contrast.md`
+  之外的 §29 与测试里记录为有意取舍。
+- **否决**：直接用 `label-primary`（第一轮做法，用户随后要求「稍微浅一点点、和正文形成差距」）；用 token
+  `label-primary-dimmed`（= 混 35%，dark·soft 仅 3.80:1，比目标「稍微浅」暗太多）；直接改 `label-tertiary` token
+  （会连带代码行号、设置提示、占位符等所有 muted 文字，远超本次范围，也会抹平层级）；只提一档到
+  `label-secondary`（`grey1` 与 `grey0` 只差约 0.3–0.5:1，截图基本看不出变化）。
+
+### 29.2 做法
+
+- 常驻样式表 `src/work-steps.js`（`<style data-plugin-css="dsh-everforest/work-steps">`），6 档 × 1 条规则，
+  选择器列表 = 行 + 分组头 + 收起摘要 + 展开正文：
+  - 行：`[data-chat-flow-key] [data-disclosure-row]`（`data-chat-flow-key` 是 ChatView / ChatGroupSeat 的布局契约
+    属性，`data-disclosure-row` 是 `DisclosureRow` primitive 渲染的行元素）；
+  - 分组头：`[data-chat-flow-key] [data-process-activity]`（`ChatGroupSeat` 的折叠按钮）；
+  - 收起摘要：`[data-chat-flow-key] [data-turn-process]`（`TurnProcessNodeView` 的折叠按钮）；
+  - 展开正文：`[data-chat-flow-key] [data-markdown-variant="compact"]`（`MarkdownText` 的 compact 变体，
+    DSH 在该变体里让标题 / 链接 / 代码都 `color: inherit`，所以一条规则即可改完整段推理正文，且不碰语法高亮）。
+  均为 DSH 自己的结构 / 布局锚点，不钉 CSS-module 哈希；作用域沿用其它常驻表的
+  `html[data-everforest-light|dark="<强度>"] body[:not]([data-ds-dark-theme])`。
+- 取值：`workStepRoles()` = `mix(palette.fg.fg, palette.ramp.bg0, WORK_STEP_DIM)`，`WORK_STEP_DIM = 0.15`，
+  即 `label-primary` 向 `bg-base` 混 15%，零手写色值。
+- hover / 展开态保持同一墨色：DSH 的 `DisclosureRow` hover 规则会把文字降回 `label-secondary`，本表选择器特异性更高，
+  hover 时不会「变暗闪回」；hover 反馈仍由图标 → chevron 的切换承担（harness 实测两种 scheme 的 hover 均保持该墨色）。
+
+| 变体 | 步骤墨色（最终） | 画布（bg-base） | 对画布对比度 | 改前（`label-tertiary`） | 正文（`label-primary`） |
+|---|---:|---:|---:|---:|---:|
+| light-hard | `#748085` | `#FFFBEF` | 3.93 | 2.17 | 5.40 |
+| light-medium | `#747f83` | `#FDF6E3` | 3.81 | 2.08 | 5.18 |
+| light-soft | `#737d81` | `#F3EAD3` | 3.52 | 1.88 | 4.66 |
+| dark-hard | `#b9af98` | `#272E33` | 6.33 | 3.54 | 8.15 |
+| dark-medium | `#bab099` | `#2D353B` | 5.79 | 3.21 | 7.38 |
+| dark-soft | `#bbb19b` | `#333C43` | 5.29 | 2.89 | 6.65 |
+
+### 29.3 落点与门禁
+
+- 代码：`src/work-steps.js`（新增，`workStepRoles()` / `workStepStyles()`）、`src/client-entry.js`（1m 常驻样式表，
+  卸载移除）、`scripts/build.mjs`（SOURCES 增加 `work-steps.js`）；token 层零改动，`check-contrast.mjs` 不需要新门槛
+  （派生墨不是正文 token；深色档的 AA 与浅色档的 3.5 取舍由测试钉住）。
+- 测试：`tests/work-steps.test.mjs`（7 项）——6 档墨色钉死为 `mix(fg, bg0, 0.15)`、`WORK_STEP_DIM` 字面量
+  0.15、每档「深于旧 tertiary 且浅于正文」且层级差 ≥6 CIE L*、深色 ≥4.5 / 浅色 ≥3.5 的门槛字面量、每档一条
+  规则且四条选择器各带一次作用域、结构锚点（`data-chat-flow-key` / `data-disclosure-row` /
+  `data-process-activity` / `data-turn-process` / `data-markdown-variant="compact"`，不含模块哈希）、
+  无 `!important` / 不挂色彩模式；`tests/integration.test.mjs` 的常驻样式表断言 12 / 13 张并新增本表。
+- 验证：`node --test` **343/343**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建
+  （7895 行 / 342,689 字节）。
+  - **DOM 实测**：用安装包真实 CSS（`DisclosureRow` 的 `root/header/row/leading/title` 规则 + `ReasoningRow` /
+    `ToolRow` / `ChatGroupSeat` / `TurnProcessNodeView` 模块 + compact markdown 的 `_rve47_` 规则）+
+    `tokensFor()` 六档 token + `workStepStyles()` 输出搭同构页面，共享调试 Chrome 读数：改前行 / 展开正文 /
+    工具行 / 分组头 / 收起摘要全部 = `rgb(166,176,160)`（浅三档）/ `rgb(122,132,120)`（深三档），改后 =
+    `rgb(116,128,133)`（light-hard，其余按表）/ `rgb(185,175,152)`（dark-hard，其余按表）；chat flow 之外的
+    `DisclosureRow` 对照组保持 DSH 灰（没有过宽命中）；hover 仍为派生墨（未被 `label-secondary` 覆盖）。
+  - **真机窗口**：第一轮（正文同色版）在 DSH Desktop（dark·soft）抓到 19:45（`#7A8478`）→ 20:03 / 20:12
+    （`#D3C6AA`）的同窗口对照，HMR 无需手动刷新即可换色。第二轮 20:34 的抓图里，运行中的分组头
+    （`正在分析请求`）文字像素为 `#BBB19B`（`rgb(187,177,155)`；TextShimmer 扫光的高亮像素
+    `rgb(194,183,159)`），即第二轮 dim 值已在真机生效；展开正文的同构页面读数见上一条。
+- 边界：`data-chat-flow-key` / `data-disclosure-row` / `data-process-activity` / `data-turn-process` /
+  `data-markdown-variant` 是 DSH 的布局 / 渲染契约属性，若未来 DSH 重命名会静默失效、回落到 `label-tertiary`
+  （文字仍可读，只是回到旧观感）；若上游把行墨色改成非 token 值，本表仍以显式颜色覆盖（只是不再是正文同源的派生值）。
+  浅色档 3.5 的对比度是用户选定的层级取舍，不是漏检。

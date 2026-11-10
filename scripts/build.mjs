@@ -56,6 +56,7 @@ const SOURCES = [
   'ui-accents.js',
   'plugin-update.js',
   'chat-bubble.js',
+  'work-steps.js',
   'nav-icon.js',
   'state.js',
   'durable.js',

@@ -155,6 +155,9 @@ const EXPECTED_LITERAL_RULES = [
     ['border-bottom', 'var(--everforest-table-scrollbar-inset, 5px) solid transparent'],
     ['background-clip', 'content-box']
   ]],
+  [`${TABLE_FRAME}.md-table-wide::-webkit-scrollbar-track`, [
+    ['border-bottom', '.5px solid var(--dsw-alias-border-l3)']
+  ]],
   [DARK_WARN_ROW, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
   [`${DARK_WARN_ROW} [class*="_time"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
   [`${DARK_WARN_ROW} [data-state="warning"]`, [['color', 'var(--dsw-alias-label-primary-inverted)']]],
@@ -629,6 +632,19 @@ test('colorModeStyles reserves a 10px table scrollbar track for a 5px inset pill
   )
   assert.equal(declarationsOf(thumb.body).get('border-top'), '0')
   assert.equal(declarationsOf(thumb.body).get('background-clip'), 'content-box', 'the inset is transparent, not painted over')
+  // A wide table's frame lives on the `<table>` itself, so the bar below it had
+  // no bottom rule (2026-11-10 request: the bar itself should carry a border
+  // along its bottom edge). The border rides the scrollbar's track, which
+  // only exists while the table actually overflows, so no JS or layout space is
+  // needed. It must stay scoped to the wide re-boxing: a fill table already
+  // carries its own wrapper border and would show two lines.
+  const barFrame = findRule(rules, `${TABLE_FRAME}.md-table-wide::-webkit-scrollbar-track`, 'border-bottom')
+  assert.ok(barFrame, 'expected the wide table scrollbar track rule')
+  assert.equal(
+    declarationsOf(barFrame.body).get('border-bottom'),
+    '.5px solid var(--dsw-alias-border-l3)',
+    'the hairline must match the plugin frame strength and colour'
+  )
   // Nothing else may style these scrollbar parts: an unscoped or conflicting
   // `::-webkit-scrollbar` rule would move every scrollbar in the app.
   const scrollbarRules = rules.filter((rule) => rule.selector.includes('::-webkit-scrollbar'))
@@ -636,8 +652,14 @@ test('colorModeStyles reserves a 10px table scrollbar track for a 5px inset pill
     scrollbarRules.map((rule) => rule.selector).sort(),
     [
       `${TABLE_FRAME}::-webkit-scrollbar`,
-      `${TABLE_FRAME}::-webkit-scrollbar-thumb`
+      `${TABLE_FRAME}::-webkit-scrollbar-thumb`,
+      `${TABLE_FRAME}.md-table-wide::-webkit-scrollbar-track`
     ].sort()
+  )
+  assert.equal(
+    rules.some((rule) => rule.selector === `${TABLE_FRAME}::-webkit-scrollbar-track`),
+    false,
+    'the track rule must not leak to fill tables (their wrapper already draws the frame)'
   )
   assert.equal(
     rules.some((rule) => rule.selector.includes('::-webkit-scrollbar') && rule.selector.includes(':hover')),

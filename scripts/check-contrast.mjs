@@ -956,7 +956,12 @@ function renderMarkdown () {
       'light 改为 palette `bg_green` 向 `bg5` 22% 的**苔纸**，并按 `label-primary` 4.5:1 守卫：hard 保持 `#e7ead0`（4.54:1）、' +
       'medium 微提亮到 `#e7e9cd`（4.50:1）；light·soft 的画布已无正文余量，走「抬起」方向——白 → 同一苔纸 40% 的淡苔纸' +
       '（`#f1f2e5`，文字 4.94:1，对画布 1.06:1，阈值仍为 1.05，由苔绿 vs 暖奶油的色相差异承担）。气泡字色另由常驻样式表改成派生墨' +
-      '（`src/chat-bubble.js`，见 §6.8），token 回落的 `label-primary` 仍满足 AA。本门槛确保它不会退回画布：',
+      '（`src/chat-bubble.js`，见 §6.8），token 回落的 `label-primary` 仍满足 AA。2026-11-10 用户要求气泡直接沿用侧栏选中行的绿底，' +
+      '先深色、随后浅色（原话：深色「试试直接改成侧边栏选中那种绿色和文字颜色」/ 浅色「浅色气泡的也和侧边栏颜色保持一致」）。该绿底不进 token 层' +
+      '（浅色奶油墨回落在 `#93B259` 上只有约 2.0:1，深色淡鼠尾草回落在 `#A7C080` 上也只有约 2.0:1），而由同一张常驻样式表绘制 `statusline1` 底 + 画布墨 ' +
+      '`bg0`（深色 6.88 / 6.23 / 5.62:1，AA；浅色 2.32 / 2.22 / 2.00:1，即强调层既有的「奶油墨 on statusline1」上限，见 §2i 的 chrome 取舍）。' +
+      '长文本实测时曾把浅色字改成派生深墨 `#2F3B33`（4.88:1），随后用户要求换回奶油白（「文字还是换回白色吧」），因此最终浅色气泡与选中行完全同色对；' +
+      'token 仍保留苔纸 / 被守卫的 `bg1` 作为样式表失效时的可读回落；下表继续测 token 值。本门槛确保它不会退回画布：',
     '',
     '| 变体 | bubble | bg-base | 边界对比度 | 阈值 | 结果 |',
     '|---|---|---|---:|---:|---|',
@@ -1221,13 +1226,13 @@ function renderMarkdown () {
     '- **做法**：侧栏取 `mix(bg0, bg1, 80%)` 并经 `readableSurface` 守卫（light 更深、dark 更浅，方向与 native 侧栏 `#f9fafb`/`#fff`、`#1b1b1c`/`#151517` 一致）。light·soft 的正文 4.5:1 上限把步长压到 `#eee7ce`（边界 1.03），其余档 1.05–1.12；native 为 1.045 / 1.060，观感同级。数值见 §2c。',
     '- **连带影响**：`--dsw-specific-sidebar-fill` 同时是 DSH 桌面端 Windows 原生标题栏（DWM caption）的取色来源（`preload-app.cjs` 探针），标题栏会随侧栏一起变色，与自绘标题栏条保持一致；`settings-general` 的设置导航（`sidebar-nav-item-*`）位于内容区 `bg-base` 上，不受影响。',
     '',
-    '### 6.8 聊天气泡（2026-10-19 / 2026-10-21 / 2026-11-08 走查修正）',
+    '### 6.8 聊天气泡（2026-10-19 / 2026-10-21 / 2026-11-08 / 2026-11-10 走查修正）',
     '',
-    '- **问题**：用户消息气泡 `--dsw-specific-bubble` 旧映射取 `surface(p, 1)`；light 下 `mix(bg0, bg1, 0.25)` = `#FDFAEE`，与画布 `#FFFBEF` 仅 1.02:1，用户报告「聊天气泡和背景融为一体，区分不出来」。DSH native light 气泡并不是中性色阶，而是 `static-deepseek-50` 的淡蓝色 tint（on `#fff` ≈ 1.08），靠色相 + 轻微明度区分。2026-10-21 二次走查：light·soft 的近白「抬起卡片」被用户描述为「聊天气泡框变成白色的了」，与暖色画布不像一家人。',
-    '- **做法**：2026-11-08 定稿（用户从六方案 demo 里选了 light「苔纸」/ dark「只换字色」）：light 改为 `bg_green` → `bg5` 22% 的苔纸，并按 `label-primary` 4.5:1 守卫——hard `#e7ead0`（4.54:1）、medium `#e7e9cd`（4.50:1）；light·soft 的 `bg0` 仍只有 4.66:1 余量，继续走抬起方向，但改为白 → 同一苔纸 40% 的淡苔纸 `#f1f2e5`（文字 4.94:1，对画布 1.06:1，门槛 1.05）。dark 保持 `bg1`（边界 1.15–1.16，官方 `label-primary` ≥5.7:1）。',
-    '- **字色（派生墨）**：DSH 把气泡文字写死为 `label-primary`，token 层不能只给气泡换字色，因此 `src/chat-bubble.js` 用一张常驻作用域样式表覆盖：light 深松 `#3E5647`（6.50 / 6.45 / 7.07:1）、dark 淡鼠尾草 `#DAE2C7`（8.98 / 8.08 / 7.26:1），均高于回落 ink 的对比度；选择器按聊天包的类名片段 `[class*="_userStack"] [class*="_bubble"]` 匹配（`userStack` 祖先排除 tooltip 的 `_bubble_44yfq_1`）。该表失效时只丢色相，token 层的 `label-primary` 仍满足 AA。',
-    '- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，light·soft 1.05:1）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。',
-    '- **影响范围**：light 三档 `--dsw-specific-bubble` + 新增常驻样式表 `dsh-everforest/chat-bubble`；dark token 与其余表面 / 文字色不变。',
+    '- **问题**：用户消息气泡 `--dsw-specific-bubble` 旧映射取 `surface(p, 1)`；light 下 `mix(bg0, bg1, 0.25)` = `#FDFAEE`，与画布 `#FFFBEF` 仅 1.02:1，用户报告「聊天气泡和背景融为一体，区分不出来」。DSH native light 气泡并不是中性色阶，而是 `static-deepseek-50` 的淡蓝色 tint（on `#fff` ≈ 1.08），靠色相 + 轻微明度区分。2026-10-21 二次走查：light·soft 的近白「抬起卡片」被用户描述为「聊天气泡框变成白色的了」，与暖色画布不像一家人。2026-11-10 三次走查：深色气泡仍只有 1.15–1.16:1，用户觉得「有点淡」，要求气泡直接沿用它旁边选中会话行的绿底 + 文字色；随后要求浅色气泡与侧栏保持一致。',
+    '- **做法（底色）**：2026-11-08 定稿（用户从六方案 demo 里选了 light「苔纸」/ dark「只换字色」）：light 的 token 改为 `bg_green` → `bg5` 22% 的苔纸，并按 `label-primary` 4.5:1 守卫——hard `#e7ead0`（4.54:1）、medium `#e7e9cd`（4.50:1）；light·soft 的 `bg0` 仍只有 4.66:1 余量，继续走抬起方向，但改为白 → 同一苔纸 40% 的淡苔纸 `#f1f2e5`（文字 4.94:1，对画布 1.06:1，门槛 1.05）。dark 的 token 保持 `bg1`（边界 1.15–1.16，官方 `label-primary` ≥5.7:1）。2026-11-10 两个 scheme 的实际绘制都改为交互强调色 `statusline1` 实底（深色 `#A7C080`、浅色 `#93B259`，与选中会话行 / 选中导航项 / 发送键同一底色）；但只写在 `src/chat-bubble.js` 的作用域样式表里，token 仍是苔纸 / 被守卫的 `bg1`：气泡回落文字是 `label-primary`，奶油墨在 `#93B259` 上、淡鼠尾草在 `#A7C080` 上都只有约 2.0:1，若把绿底放进 token 层、样式表一旦失效就会变成不可读的色块；保留 token 则失效时回到浅色苔纸 / 深色 `bg1` + `label-primary` 的可读组合。',
+    '- **字色（accent 墨）**：DSH 把气泡文字写死为 `label-primary`，token 层不能只给气泡换字色，因此 `src/chat-bubble.js` 用一张常驻作用域样式表覆盖（按 scheme × strength 各一条规则）：墨色取该 variant 的画布 `bg0`——浅色 `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1），深色 `#272E33` / `#2D353B` / `#333C43`（5.62–6.88:1）。深色仍是 AA；浅色是强调层「奶油墨 on statusline1」的既有上限（§2i 的同类取舍），即浅色气泡与选中行同色对。长文本实测时曾把浅色字换成派生深墨 `#2F3B33`（4.88:1，AA）验证可读性，随后用户要求换回白色（「文字还是换回白色吧」），所以最终交付的是同色对版本，深墨只留在记录里。选择器按聊天包的类名片段 `[class*="_userStack"] [class*="_bubble"]` 匹配（`userStack` 祖先排除 tooltip 的 `_bubble_44yfq_1`），并把 `--dsw-alias-state-business-primary` 重指向带墨色（气泡内的会话引用 chip 自己声明这个 token）。该表失效时回到 token 表面 + 官方 `label-primary`，两个 scheme 都满足 AA。',
+    '- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，light·soft 1.05:1）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1，测的是 token 表面 + 官方墨）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。',
+    '- **影响范围**：light 三档 `--dsw-specific-bubble` + 常驻样式表 `dsh-everforest/chat-bubble`；2026-11-10 只改该样式表（两个 scheme 改为 accent 绘制；浅色长文本曾试派生深墨，随后换回奶油白），全部 token 不变。',
     '',
     '## 7. 复现',
     '',
