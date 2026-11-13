@@ -6,11 +6,14 @@ import { contrastRatio, hexToRgb, mix, rgbToHex } from '../src/color.js'
 import { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } from '../src/palette.js'
 import { tokensFor } from '../src/tokens.js'
 import {
+  WORKSPACE_ACTIVE_FOLDER,
   WORKSPACE_LABEL,
   WORKSPACE_LABEL_DARK_HOVER_CONTRAST,
   WORKSPACE_LABEL_DARK_RESTING_CONTRAST,
+  WORKSPACE_LABEL_FONT_WEIGHT,
   WORKSPACE_LABEL_LIGHT_HOVER_CONTRAST,
   WORKSPACE_LABEL_LIGHT_RESTING_CONTRAST,
+  WORKSPACE_LABEL_RULES_PER_VARIANT,
   WORKSPACE_ROW,
   workspaceLabelRoles,
   workspaceLabelStyles
@@ -125,19 +128,44 @@ test('the four documented floors are pinned to literals', () => {
   assert.equal(WORKSPACE_LABEL_LIGHT_HOVER_CONTRAST, 2.1)
 })
 
-test('the sheet emits one rule per variant for every workspace row title cell', () => {
+test('the sheet emits two rules per variant: the bold name and the active folder glyph', () => {
   const css = workspaceLabelStyles()
   const rules = styleRules(css)
-  assert.equal(rules.length, SCHEMES.length * STRENGTHS.length)
+  assert.equal(WORKSPACE_LABEL_RULES_PER_VARIANT, 2)
+  assert.equal(rules.length, SCHEMES.length * STRENGTHS.length * WORKSPACE_LABEL_RULES_PER_VARIANT)
   assert.equal(WORKSPACE_ROW, '[role="treeitem"][data-row-key^="workspace:"]')
   assert.equal(WORKSPACE_LABEL, `${WORKSPACE_ROW} [class*="projectText"]`)
+  assert.equal(WORKSPACE_ACTIVE_FOLDER, `${WORKSPACE_ROW} [class*="folderActive"]`)
+  assert.equal(WORKSPACE_LABEL_FONT_WEIGHT, 600)
   for (const scheme of SCHEMES) {
     for (const strength of STRENGTHS) {
       const variant = `${scheme}-${strength}`
       const scope = scopeOf(scheme, strength)
-      const rule = rules.find((entry) => entry.startsWith(`${scope} ${WORKSPACE_LABEL} {`))
-      assert.ok(rule, `missing rule for ${variant}`)
-      assert.ok(rule.includes(`color: ${EXPECTED[variant]}`), `${variant}: wrong colour`)
+      const nameRule = rules.find((entry) => entry.startsWith(`${scope} ${WORKSPACE_LABEL} {`))
+      assert.ok(nameRule, `missing name rule for ${variant}`)
+      assert.ok(nameRule.includes(`color: ${EXPECTED[variant]}`), `${variant}: wrong name colour`)
+      assert.ok(nameRule.includes('font-weight: 600'), `${variant}: folder name is not semibold`)
+      const folderRule = rules.find((entry) => entry.startsWith(`${scope} ${WORKSPACE_ACTIVE_FOLDER} {`))
+      assert.ok(folderRule, `missing active-folder rule for ${variant}`)
+      assert.ok(folderRule.includes(`color: ${EXPECTED[variant]}`), `${variant}: active glyph must reuse the text green`)
+      assert.ok(!folderRule.includes('font-weight'), `${variant}: the glyph rule must not change weight`)
+    }
+  }
+})
+
+test('the active folder glyph is the same green as the bold name, not the lighter accent', () => {
+  // DSH's own `.folderActive` paints `statusline1` (light `#93B259`); the
+  // 2026-11-13 request re-inks that glyph with the text green so the whole row
+  // reads as one green. In the dark schemes both roles are the same hex.
+  const roles = workspaceLabelRoles()
+  for (const variant of VARIANT_NAMES) {
+    const [scheme, strength] = variant.split('-')
+    const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
+    assert.equal(roles[variant].toLowerCase(), palette.fg.green.toLowerCase(), variant)
+    if (scheme === 'light') {
+      assert.notEqual(palette.fg.green.toLowerCase(), palette.fg.statusline1.toLowerCase())
+    } else {
+      assert.equal(palette.fg.green.toLowerCase(), palette.fg.statusline1.toLowerCase())
     }
   }
 })

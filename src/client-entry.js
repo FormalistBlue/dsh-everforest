@@ -500,8 +500,13 @@ export function apply(ctx) {
   // hex as `statusline1` in the dark schemes, the deeper `#8DA101` in the light
   // ones — the user confirmed the text green is the deeper of the two), no
   // contrast guard: the light palette cannot go higher, so the measured floor
-  // is pinned in contrast.md §2h (G18). Always-on, same injection pattern —
-  // navigation chrome, not markdown content.
+  // is pinned in contrast.md §2h (G18). The 2026-11-13 request added the 600
+  // weight on that name and a second rule per variant for the folder glyph DSH
+  // marks `folderActive` (the workspace containing the open session): DSH's own
+  // accent there is `statusline1` — the lighter `#93B259` in the light schemes —
+  // so re-inking it with `fg.green` makes the icon and the bold name read as one
+  // green (no change in the dark schemes, where both roles are `#A7C080`).
+  // Always-on, same injection pattern — navigation chrome, not markdown content.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')

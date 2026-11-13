@@ -71,7 +71,10 @@
  *  18. every workspace directory name is the palette **text green `green`**
  *      verbatim (legal #RRGGBB; upstream keeps `green` as the foreground text
  *      colour and `statusline1` as the lighter background green, so in the
- *      light schemes this is `#8DA101`, not `#93B259`).
+ *      light schemes this is `#8DA101`, not `#93B259`). Since 2026-11-13 the
+ *      name is also semibold (600) and the `folderActive` glyph of the workspace
+ *      containing the open session is re-inked with the same green; the glyph is
+ *      decorative, so this gate keeps measuring the text only.
  *      a. resting row: dark >= 4.5:1 (measured 5.00-6.17:1, a real WCAG AA
  *         pair; a resting regression below 4.5 is not the documented hover
  *         trade-off) and light >= 2.3:1 (measured 2.35-2.68:1);
@@ -1075,6 +1078,10 @@ function renderMarkdown () {
       '同日复核（用户对照上游配色）确认 Everforest 的文字绿与选中块绿本是两种：文字取 `green`（浅色 `#8DA101`，更深）、选中块背景取 `statusline1`（浅色 `#93B259`）；深色档两者同为 `#A7C080`，故只有浅色档变化。' +
       '上游符合性评估（A7）曾把目录名撤回 `label-primary`，复核时用户再次要求绿色，于是恢复并**不做对比度守卫**：' +
       '浅色档侧栏 2.35–2.68:1、hover 叠加底最弱 2.13:1；深色档静止行 5.00–6.17:1，但 A7 把 hover 叠加层从 `bg5` 16% 换成 `bg4` 50%，hover 行降到 4.01–4.98:1。' +
+      '2026-11-13 用户追加两项：「帮我把文字加粗吧，如果是选中的打开了工作区下的对话，那么这个工作区的图标也变成全绿色」——' +
+      '目录名规则加 `font-weight: 600`（14px/20px 标题，行高与 34px 行不变），并为 DSH 标记的 `[class*="folderActive"]` 增加一条规则：' +
+      '该图标改用同一文字绿（DSH 原生 `.folderActive` 取 business 强调色，浅色档是更浅的 `statusline1` `#93B259`；深色档两者同为 `#A7C080`，无可见变化），' +
+      '让「加粗名称 + 文件夹图标」合成同一种绿。图标是装饰性标记（信息由文字承担），不单独设对比度门槛，沿用下面的文字实测值。' +
       'G18 因此按 scheme + 表面分阈值：深色静止行 ≥4.5:1（AA；静止行掉到 4.5 以下不是 hover 的已记录取舍）、深色 hover 行 ≥4.0:1；浅色静止行 ≥2.3、hover 行固定 2.1 的已记录下限（调色板文字绿的实测下限，hover 叠加底最弱）。',
     '',
     '| 变体 | 目录名称颜色 | 侧栏底 | 侧栏对比度 | hover 叠加底 | hover 对比度 | 阈值（侧栏 / hover） | 结果 |',

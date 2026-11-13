@@ -583,7 +583,7 @@ export function apply(ctx) {
 | 色彩模式（0.4.0 引入；2026-10-24 起默认提供、无设置开关） | 设置页**没有**色彩模式区块（无标题 / 说明 / 开关 / 色片）；默认即生效：聊天 h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接 aqua、删除线 / 已完成任务淡化、引用块淡底、列表 marker / 引用条 / 分隔线、表头色带 / 斑马纹 / 行 hover、checkbox，以及会话列表「待确认 / 已完成未查看」行底色与状态点变色（行底取 palette1 自带的状态背景色，见 §13.8 / §13.8.1；hover 再深一档）；`<html>` 上恒有 `data-everforest-color-mode="on"`（作用域锚点，不再表示开关状态）与两个强度属性，切换强度 / 深浅色时按 6 个变体块 × 25 个变量自动切换；色彩模式本身不改 token 层（与同版本 token 层一致；0.4.0 当时与 0.3.0 逐字节一致，后续强调色评审已更新 token 值）；选中行不覆盖选中态、hover 有加深；浅色档特别是 light·soft 的表格色带 / 会话行底会被压成极淡甚至不可辨（见 §13.3），属已接受的「淡彩」取舍；DSH 升级后若选择器失效，模式静默退回单色且控制台无报错 |
 | 聚光灯（1.0.0，§17；2026-10-25 追加跟随系统 OS 翻转） | 跨深浅切换：新主题从点击点圆形扩张 400ms，无灰峰（颜色插值中途仅 1.01:1）、浅→深结束无闪白；DSH Appearance 行 / 插件色卡 / 设置页外观控件三个入口都走揭示；`system` 偏好下 OS 翻转也走揭示（从视口中心扩张、不建立第二段过渡）；跨窗口广播、同深浅强度切换、reduced-motion、无 View Transitions 均瞬切；插件卸载后 `ctx.theme.setTheme` 与 `publish` 都恢复原方法；常驻样式表共 9 张（含 `dsh-everforest/theme-spotlight`），`<html>` 上无 `data-everforest-transition` |
 | 当前会话行（1.0.0，§15 / §22 / §23） | 选中会话行（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）恒为交互强调色 `statusline1` 实色底 + 方案画布 `bg0` 文字（2026-11-08 第三轮起：dark `#A7C080` / light `#93B259`；原为 `bg_blue` 蓝底 → 2026-11-07 绿色强调底 → 同日第二轮 `fg.green`），行内 tertiary 灰（状态槽 / 时间 / pin / 操作按钮 / spinner）**显式**写成墨色（时间嵌在 `rowResting` 内且父级自带 `label-tertiary`，`inherit` 会被截断），状态点保留语义色；与「待确认」黄底 /「已完成」蓝底并排可一眼区分；6 档实测见 §15 表格（深色 5.62–6.88:1；浅色 2.00–2.32:1，见 §2g）；hover 其他行不再与选中态混淆；卸载后样式表移除；**无行首竖条**（2026-11-08 移除） |
-| 工作区目录名称（§22.3 / §25） | 侧栏工作区（项目）行的标题（`[role="treeitem"][data-row-key^="workspace:"] [class*="projectText"]`）为**文字绿 `green`**（dark `#A7C080` / light `#8DA101`，原值不做守卫；上游把 `green` 当前景文字色、`statusline1` 当背景色，两者在浅色档差一档）；2026-11-08 用户两次要求绿色，A7 曾短暂撤回 `label-primary`，同日复核后恢复；静止行深色 5.00–6.17:1（AA）、A7 的 50% `bg4` hover 叠加底 4.01–4.98:1，浅色 2.35–2.68 / 2.13–2.47:1（见 `contrast.md` §2h）；卸载后样式表移除 |
+| 工作区目录名称（§22.3 / §25） | 侧栏工作区（项目）行的标题（`[role="treeitem"][data-row-key^="workspace:"] [class*="projectText"]`）为**文字绿 `green` 600 字重**（dark `#A7C080` / light `#8DA101`，原值不做守卫；上游把 `green` 当前景文字色、`statusline1` 当背景色，两者在浅色档差一档）；2026-11-08 用户两次要求绿色，A7 曾短暂撤回 `label-primary`，同日复核后恢复；**2026-11-13 用户要求名称加粗，并让「有当前打开会话」的工作区文件夹图标（`[class*="folderActive"]`）也变成同一文字绿**——浅色档图标由 DSH 的 business 强调绿 `#93B259` 改为 `#8DA101`，深色档两者同值无变化；静止行深色 5.00–6.17:1（AA）、A7 的 50% `bg4` hover 叠加底 4.01–4.98:1，浅色 2.35–2.68 / 2.13–2.47:1（见 `contrast.md` §2h）；卸载后样式表移除 |
 | 下拉选中项（§25 / §27） | 下拉列表选中项（`menuitem` / `menuitemradio`）以 `statusline1`（浅色 `#93B259`）实底 + 画布 `bg0` 文字与勾勾，选中项内的前导图标与次要文字（`--dsw-alias-menu-icon`、`label-*` 族：模式选项的标题 / 说明、工作区路径后缀、快捷键）同样取该墨色（2026-11-08 追加）：深色档墨色 5.62–6.88:1（AA），浅色档 2.00–2.32:1（`contrast.md` §2i）；会话标题曾取文字绿 `green`（2026-11-08 – 11-09），现回到 DSH 原生 `label-primary`（§27）；卸载后样式表移除 |
 | 新会话首屏鲸鱼 + 标题（§28） | 欢迎页 `HeroShell` 的鲸鱼标志与「探索未至之境」标题取**文字绿 `green`**（dark `#A7C080` / light `#8DA101`，与目录名称同角色，6 档 5.62–6.88 / 2.42–2.81:1）；`[class*="headline"]:has([class*="fishHitbox"])` 结构锚点只命中首屏 headline、不误伤上下文弹层的 `A6Bq1a_headline`，鲸鱼单独重墨（`.fish` 自带 `color`）；「预览版」角标保持 `statusline1`；卸载后样式表移除 |
 | 文本选区（1.0.0，§16.2） | 六档 `::selection` 底色 = 各变体 `bg_visual`（light 统一 `#DED8DB`；dark `#4C3743` / `#543A48` / `#5C3F4F`），`color: inherit` 保留元素自身颜色（h2 / strong / 行内 code 选中后仍是原色）；与色彩模式解耦、常驻；不改变 `user-select` 与复制行为 |
@@ -1528,13 +1528,17 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
   向 `fg.blue` 加深到「距侧栏 4.5 L*」或「4.5:1 门槛先到」；hover 再混 16% `fg.blue` 并重新守卫；
 - 实测：dark-soft `#3f5764`、light-hard `#dcece9`，与 10-24 蓝色选中行同值；light·soft 因 4.5:1 无余量仍只剩极淡色（与 §13.7 记录的浅色限制同源，状态点仍是蓝的）。
 
-### 22.3 工作区目录名称：`fg.green` 原值（第三轮改为 `statusline1`，复核后回到 `fg.green`）
+### 22.3 工作区目录名称：`fg.green` 原值 + 600 字重（第三轮改为 `statusline1`，复核后回到 `fg.green`）
 
 新增 `src/workspace-labels.js` + 常驻样式表（`data-plugin-css="dsh-everforest/workspace-labels"`）：
 
 - 选择器 `[role="treeitem"][data-row-key^="workspace:"] [class*="projectText"]`（`data-row-key` 是 DSH 的项目行契约，`projectText` 是 CSS-module 稳定后缀）；
 - 颜色 = 该档文字绿 `fg.green` **原值、不做对比度守卫**（第三轮一度改为 `statusline1`，复核后回到 `green`；第一版曾守卫到 3:1，浅色档变成 `#7f9122`–`#768736` 的橄榄色，用户要求「还是用原绿色」所以去掉）；
 - 深色档 `#A7C080`（5.0–6.2:1）；浅色档第二轮为 `#8DA101`（2.35–2.68:1），第三轮按「绿色应该是浅绿色」改为 `statusline1` `#93B259`（1.94–2.21:1，hover 底最弱 1.82:1），与选中行 / 发送按钮完全同色；**2026-11-08 复核**：用户对照上游配色指出「纯文字的绿色和选中的背景块绿色不是同一种，文字的更深」，确认上游的 `green`（前景文字色）与 `statusline1`（背景色）在浅色档本就是两种绿，于是文字回到 `fg.green`（浅色 `#8DA101`，2.35–2.68 / hover 2.13–2.47:1），选中块仍取 `statusline1`（§25.6）。
+- **2026-11-13 追加（本轮）**：用户要求「帮我把文字加粗吧，如果是选中的打开了工作区下的对话，那么这个工作区的图标也变成全绿色」——
+  ① 名称规则加 `font-weight: 600`（标题 14px/20px，字重不改变行高，34px 项目行与缩进不变）；
+  ② 新增活动工作区图标规则 `[role="treeitem"][data-row-key^="workspace:"] [class*="folderActive"]`（DSH 的 `active = containsCurrentDescendant || expanded && containsCurrent`，即「该工作区下有当前打开的会话」），颜色取同一文字绿：浅色档 `#8DA101`、深色档 `#A7C080`。DSH 原生 `.folderActive` 取 business 强调色 `statusline1`，浅色档是更浅的 `#93B259`，本轮因此只改浅色档的图标观感（深色档两者同值，零变化），让「加粗名称 + 文件夹图标」读成同一种绿；
+  ③ 规则总数 6 → **12**（6 条名称 + 6 条活动图标）；G18 仍只量文字（图标是装饰性标记，不单独设门槛，颜色与文字同值）。
 
 ### 22.4 会话标题与下拉选中项：`fg.green`（第三轮改为 `statusline1`）
 
@@ -1553,7 +1557,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 ### 22.5 落点与门禁
 
 - `src/active-session.js` 重写（18 条规则：6 条实色底 + 6 条行内墨色 + 6 条按钮 hover/focus 薄雾，含 `[class*="time"]`）；`src/color-mode.js` 的 `ROW_RAMP` / `dotDone` / `liftRowFill`；
-- 新增 `src/workspace-labels.js`（6 条规则）与 `src/ui-accents.js`（6 变体 × 4 条规则 = 24 条；25.6 复核加回标题规则），`scripts/build.mjs` 的 `SOURCES`、`client-entry.js` 当时第 7 / 8 张常驻样式表；
+- 新增 `src/workspace-labels.js`（6 条名称规则；2026-11-13 追加 6 条活动图标规则 = 12 条）与 `src/ui-accents.js`（6 变体 × 4 条规则 = 24 条；25.6 复核加回标题规则），`scripts/build.mjs` 的 `SOURCES`、`client-entry.js` 当时第 7 / 8 张常驻样式表；
 - `Foreground` 模型第二轮保持 18 色；**第三轮加入 `statusline1` 变 19 色**（交互强调色，§23.1），`statusline2` / `statusline3` 仍只作上游留档；
 - `scripts/check-contrast.mjs`：G4 品牌前景下限 1.95；G17 按 scheme 判定（深色 4.5 / 浅色 1.95）；G18 目录名称按静止 / hover 分档（深色静止 4.5、hover 4.0；浅色静止 2.3、hover 2.1）；**G19** 标题深 4.0（另检查标题本身 ≥4.5 的 AA）/ 浅 2.3，选中项墨色深 4.5 / 浅 1.95；重新生成 `contrast.md` §2g / §2h / §2i（2026-11-08 复核后：目录名 / 标题改文字绿 `green`，见 §25.6）；
 - 测试：`tests/active-session.test.mjs`、`tests/color-mode.test.mjs`、新增 `tests/workspace-labels.test.mjs` 与 `tests/ui-accents.test.mjs`、`tests/integration.test.mjs`（当时 8 张样式表）；
