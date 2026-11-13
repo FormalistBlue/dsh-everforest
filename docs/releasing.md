@@ -98,6 +98,14 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **市场「更新内容」**：1.5.0 小节 434 字符 / 1,110 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场可能仍装到 1.4.0，§8.6）。
 > - **2026-11-08 已发布**：tag `v1.5.0`（commit `acf9970`）→ publish run `42494099760` → npm `latest` = `1.5.0`（`dist.shasum` `b713cb066b4ff82d805e30d7435acb43c203155a`，SLSA provenance v1，transparency log index `3756537238`），GitHub Release `v1.5.0` 已由 workflow 自动创建（发布说明取自 CHANGELOG 1.5.0 小节，434 字符 / 1,110 字节）；verify run `42494087912` 在 Linux / Windows × Node 20/22/24 全绿。工作流里 `npm view` 步骤发布瞬间仍读到上一版（1.4.0，CDN 缓存），随后 `dist-tags` 与 `GET .../1.5.0` 均已是 1.5.0。
 
+> **1.6.0 发布注意（已发布，2026-11-13）**
+>
+> - **只改 Client 半部，升级不需要重启 DSH**：会话标题去绿、新会话首屏与首页鲸鱼改绿、聊天气泡换绿底与高对比选区字、工作区名称加粗并统一文件夹图标、轨迹视图 / JSON 树 / 附件上传进度改用主题色、设置弹窗导航选中项与深色发送 / 终止图标修复，都是 Client 侧；Host 半部与 `Config` schema 未变，插件升级后刷新页面即可。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交 `292b386` 里重建，366,938 字节，md5 `31a345ce…`）。
+> - **CHANGELOG 从本版起双语**：小节先 `**中文**`、后 `**English**`，GitHub Release 正文两段都带（1,276 字符 / 1,703 字节，仍远低于市场 4096 字符截断线）；「DSH 0.2.2-rc.2 适配」按发布要求排在中文段与英文段的第一条。
+> - **验收口径**：`node --test` **355/355**；`npm run check`（palette / build / contrast）全绿，`contrast.md` 与 palette 无需重生成。
+> - **2026-11-13 已发布**：tag `v1.6.0`（commit `292b386`）→ publish run `43395428684` → npm `latest` = `1.6.0`（`dist.shasum` `7fbcfbbbeb540a7ba4d1744a6511cc7f8fda0e63`，SLSA provenance v1，transparency log index `3850218565`），GitHub Release `v1.6.0` 已由 workflow 自动创建（正文取自 CHANGELOG 1.6.0 小节，1,276 字符 / 1,703 字节）；verify run `43395428101` 在 Linux / Windows × Node 20/22/24 全绿。发布后 `registry.npmjs.org` 边缘缓存短时仍返回 1.5.0（发布约 10 分钟后 `registry.npmjs.com/1.6.0` 已是 1.6.0、`dist-tags` 也是 `latest: 1.6.0`），复核时改用 `registry.npmjs.com` 或给请求加查询串。
+
 ## 0. 发布前必须确认
 
 - npm 账号已注册并**验证邮箱**；为账号启用 **2FA**（发布时要求 OTP 或使用自动化 token）。
