@@ -11,10 +11,13 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-13
+
 **中文**
 
 ### Changed
 
+- **DSH 0.2.2-rc.2 适配**：配色与其它交互不变。
 - 会话标题不再显示为绿色
 - 新会话首屏鲸鱼与标题改为绿色
 - 宽表横向滚动条下方补上边框
@@ -25,7 +28,6 @@
 - 附件上传进度槽改用主题色
 - 首页跃出的鲸鱼动画改为文字绿、更明显
 - 聊天气泡内选中文字改为高对比字色
-- **DSH 0.2.2-rc.2 适配**：配色与其它交互不变。
 
 ### Fixed
 
@@ -39,6 +41,7 @@
 
 ### Changed
 
+- **DSH 0.2.2-rc.2 support**: colors and other interactions are unchanged.
 - Session titles are no longer green
 - The whale and title on the new-session screen are now green
 - Wide tables now have a border under the horizontal scrollbar
@@ -49,7 +52,6 @@
 - The attachment upload progress track now uses theme colors
 - The leaping whale on the home screen is now text green and more prominent
 - Selected text inside chat bubbles now uses a high-contrast color
-- **DSH 0.2.2-rc.2 support**: colors and other interactions are unchanged.
 
 ### Fixed
 
@@ -565,6 +567,7 @@ First release: six Everforest schemes (Dark / Light × Hard / Medium / Soft) cov
 - **Settings → Everforest**: six swatches, Chinese/English copy, restore defaults and appearance controls.
 - **Contrast guard**: automatic WCAG AA checks for body text on every surface level.
 
+[1.6.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v1.5.0...v1.6.0
 [1.0.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.2.1...v0.3.0
