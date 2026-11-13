@@ -13,13 +13,13 @@
 // Coverage (docs/design.md §4, 2026-10-18 audit; inventory: docs/reference/token-inventory.json)
 // ---------------------------------------------------------------------------
 //   82 `--dsw-static-*` colour tokens   (derived: luminance-anchored ramp interpolation)
-//  121 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
+//  122 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
 //   11 `--dsw-specific-*` colour tokens (explicit role mapping)
 //   11 `--shiki-*` tokens               (explicit; shiki.css light values on :root and
 //                                        --shiki-foreground/background reference body-level
 //                                        aliases, so alias inheritance cannot be relied on)
-//   = 225 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
-//   + 19 contract tokens that resolve through the rewritten static / alias layer
+//   = 226 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
+//   + 18 contract tokens that resolve through the rewritten static / alias layer
 //     instead of being emitted again (`INHERITED_TOKEN_NAMES`) = 244 in total
 //   + 6 auxiliary tokens (menu material, think gradients, onboarding gradient stops)
 //
@@ -56,9 +56,12 @@
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
 //    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
 //    = neutral luminance anchors, JSON tree = the same syntax roles as shiki, ...).
-//    225 tokens are explicit; the remaining 19 contract tokens are inherited by
+//    226 tokens are explicit; the remaining 18 contract tokens are inherited by
 //    design (`INHERITED_TOKEN_NAMES`) because their only declaration is a
-//    reference to a static / alias token this layer already rewrites.
+//    reference to a static / alias token this layer already rewrites — except
+//    `--dsw-alias-label-on-color`, DSH's literal "white ink on saturated fills"
+//    (`ON_COLOR_INK`): its inherited static resolves to the scheme ink in the
+//    deep schemes, which turned the composer send / stop glyph tan.
 // 3. contrast guard for text-bearing light surfaces: DSH light layers are all
 //    #fff natively and Everforest Enchanted uses a flat background, but the
 //    upstream light·soft ramp is darker. Text-bearing surfaces therefore blend
@@ -82,6 +85,20 @@ const SURFACE_CONTRAST_TARGET = 4.5
 // filled accent surface) is enforced by scripts/check-contrast.mjs (gate 4), not
 // here: since 2026-11-08 the interaction accent is `statusline1` verbatim, so the
 // light schemes sit at 2.00–2.32:1 by design (the reference tab does the same).
+
+/**
+ * `--dsw-alias-label-on-color`: DSH's "white ink on saturated fills" (composer
+ * send / stop button, saturated labels). It is one of the few expectations that
+ * must NOT follow the palette — DSH asks for literal white. Leaving the token
+ * inherited made it resolve through the luminance-anchored static ramp, whose
+ * dark-scheme end is the scheme ink: the composer glyph came out tan (`fg`
+ * #D3C6AA on `statusline1` `#A7C080` = 1.18:1, nearly invisible) instead of white
+ * (2026-11-13 user report 「发送和终止的按钮里面的图标变色了」). Literal white keeps
+ * DSH's own pairing (2.00–2.40:1 — intentionally low, same as native white on the
+ * blue fill; docs/design.md §12, contrast gate 22).
+ * @type {string}
+ */
+const ON_COLOR_INK = '#FFFFFF'
 
 /** How far light-scheme text surfaces are blended toward bg0 (flat-style baseline). */
 const LIGHT_SURFACE_MIX = 0.25
@@ -751,6 +768,9 @@ const ALIAS_TOKENS = {
   '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(interactionAccent(p), 40),
   '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey0, p.ramp.bg0, 0.55),
   '--dsw-alias-label-document-preview': (p) => p.fg.grey1,
+  // DSH's literal white on saturated fills — not a palette role (see ON_COLOR_INK:
+  // inheriting the declared static made the composer glyph tan in the deep schemes).
+  '--dsw-alias-label-on-color': () => ON_COLOR_INK,
   '--dsw-alias-label-primary': (p) => p.fg.fg,
   // Inks the hero's "预览版" pill (`state-business-tertiary` tint below).
   '--dsw-alias-label-primary-bluish': (p) => interactionAccent(p),
@@ -963,7 +983,7 @@ const TOKEN_ENTRIES = [
 /**
  * The six auxiliary tokens emitted on top of the 244-token colour contract
  * (docs/design.md §4 explicitly requires menu material, think gradients and the
- * onboarding gradient stops; they are not part of the 225 colour + 11 shiki count).
+ * onboarding gradient stops; they are not part of the 226 colour + 11 shiki count).
  * @type {string[]}
  */
 export const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort())
@@ -976,9 +996,14 @@ export const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS)
  * ever gives one of them a literal value, the test fails instead of the surface
  * silently staying at an editor / native colour.
  *
- * 2026-11-13 rc.2 review: 19 of the 27 new tokens fall in this class (cards,
- * charts, hovercards, label-on-color, toast / tooltip labels, trajectory accent,
- * guide hero, sidebar-right flash).
+ * 2026-11-13 rc.2 review: 18 of the 27 new tokens fall in this class (cards,
+ * charts, hovercards, toast / tooltip labels, trajectory accent, guide hero,
+ * sidebar-right flash). `--dsw-alias-label-on-color` used to be listed here too
+ * (its declaration references `--dsw-static-neutral-bluish-00`), but the
+ * luminance-anchored static remap resolved it to the scheme ink in the deep
+ * schemes — the composer send / stop glyph went tan (1.18:1 on the accent fill;
+ * 2026-11-13 user report). It is emitted as DSH's literal white instead
+ * (`ON_COLOR_INK`), so it is no longer inherited.
  * @type {string[]}
  */
 export const INHERITED_TOKEN_NAMES = Object.freeze([
@@ -995,7 +1020,6 @@ export const INHERITED_TOKEN_NAMES = Object.freeze([
   '--dsw-alias-hovercard-label-tertiary',
   '--dsw-alias-hovercard-state-done',
   '--dsw-alias-hovercard-state-error',
-  '--dsw-alias-label-on-color',
   '--dsw-alias-toast-action',
   '--dsw-alias-tooltip-label',
   '--dsw-alias-trajectory-accent',
@@ -1156,7 +1180,7 @@ export function tokensFor (state = DEFAULT_STATE) {
 
 /**
  * Token coverage bookkeeping for docs / startup diagnostics.
- * - `covered`: every CSS variable emitted by `tokensFor` (225 colour + 6 auxiliary)
+ * - `covered`: every CSS variable emitted by `tokensFor` (226 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
  *
  * The third-party compatibility aliases (`compatAliasesFor`) are layered on by

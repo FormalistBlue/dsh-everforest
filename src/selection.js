@@ -19,6 +19,13 @@
 // `RAMPS[scheme][strength].bgVisual` already carries the effective value: the
 // light ramps hold Enchanted's #DED8DB visibility fix (docs/reference/palette.md
 // section 3), so this module needs no special case.
+//
+// The accent-filled chat bubble keeps this background but re-inks the selected
+// text through `src/chat-bubble.js`: the bubble's ink is inverted relative to
+// the canvas, so the inherited colour is unreadable on the band (cream on
+// #DED8DB 1.17-1.36:1, the dark ink on the dark plum 1.22-1.27:1). The highlight
+// colour itself stays this sheet's `bg_visual` on every surface — 2026-11-13
+// user choice ("保持勾选颜色各处都统一 ... 只变动修改文字颜色").
 
 import { RAMPS, SCHEMES, STRENGTHS } from './palette.js'
 import { COLOR_MODE_ATTRS } from './color-mode.js'

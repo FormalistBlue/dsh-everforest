@@ -49,6 +49,24 @@
 // token surface + `label-primary`) stays AA in every variant, and the dark
 // schemes keep AA either way.
 //
+// Text selection (2026-11-13): the global `::selection` sheet (`src/selection.js`)
+// paints every surface with the scheme's `bg_visual` — a pale grey in the light
+// schemes (#DED8DB) and a dark plum in the dark ones. On this accent-filled
+// bubble the *text* colour that comes with it is unreadable, because the bubble
+// ink is inverted relative to the canvas: cream on #DED8DB is 1.17-1.36:1, and
+// the dark canvas ink on the dark plum is 1.22-1.27:1. The first landing that day
+// gave the bubble its own selection band as well (light "A 同色系加深", dark "C
+// 反相取词"), but the user asked to keep the highlight colour identical on every
+// surface and let option C repaint only the selected text ("先还原，改成用方案C
+// 试试，只变动修改文字颜色"). So the band stays the one global `bg_visual` and
+// this sheet only overrides the selected text ink:
+//
+//   light  #2F3B33 deep pine on the shared #DED8DB band   8.33:1
+//   dark   #FFFBEF cream on the shared #4C3743-#5C3F4F   8.91-10.49:1
+//
+// The trade-off the user accepted: a single highlight colour everywhere (light
+// band vs the green bubble is 1.71:1) instead of a stronger bubble-only band.
+
 // Nested content: the bubble text inherits the painted ink, and session
 // reference chips restate their own colour through
 // `--dsw-alias-state-business-primary`, so that token is re-pointed at the band
@@ -97,6 +115,18 @@ export const CHAT_BUBBLE_DARK_INK = Object.freeze({
 })
 
 /**
+ * The bubble's selected-text ink per scheme (2026-11-13 user choice: option C,
+ * but only the text colour changes — the highlight band stays the one global
+ * `bg_visual` colour on every surface). The light schemes use the deep-pine ink
+ * of option C over the shared pale band; the dark schemes invert to cream.
+ * @type {Readonly<Record<'light' | 'dark', string>>}
+ */
+export const CHAT_BUBBLE_SELECTION_INK = Object.freeze({
+  light: '#2F3B33',
+  dark: '#FFFBEF'
+})
+
+/**
  * The bubble element. DSH's chat package renders the user row as
  * `_userStack` and the bubble as `_bubble`; the hashed class prefixes are build
  * output, the fragments are the published bundle's stable shapes.
@@ -132,8 +162,26 @@ function scopeFor (scheme, strength) {
 }
 
 /**
- * The always-on bubble stylesheet: one rule per variant, each painting the
- * accent fill, the canvas ink and the reference-chip ink token.
+ * A variant's bubble-selection rule. The selector repeats the variant scope and
+ * the bubble anchor, then adds a descendant `::selection`, so it is more
+ * specific than the global sheet (`src/selection.js`) and only text inside the
+ * bubble is re-inked. No `background-color`: the highlight stays the global
+ * `bg_visual` colour, so text selection looks identical on every surface.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function bubbleSelectionRule (scheme, strength) {
+  return [
+    `${scopeFor(scheme, strength)} ${CHAT_BUBBLE_SELECTOR} ::selection {`,
+    `  color: ${CHAT_BUBBLE_SELECTION_INK[scheme]};`,
+    '}'
+  ].join('\n')
+}
+
+/**
+ * The always-on bubble stylesheet: one paint rule per variant (accent fill, the
+ * canvas ink and the reference-chip ink token) plus its text-selection rule.
  * @returns {string}
  */
 export function chatBubbleStyles () {
@@ -150,6 +198,7 @@ export function chatBubbleStyles () {
         `  --dsw-alias-state-business-primary: ${ink};`,
         '}'
       ].join('\n'))
+      rules.push(bubbleSelectionRule(scheme, strength))
     }
   }
   return rules.join('\n\n')

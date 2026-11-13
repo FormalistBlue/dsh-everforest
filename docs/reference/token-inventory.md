@@ -43,7 +43,7 @@ dark 侧重定义：literal 128、alias-ref 7、var-static 97、color-mix 7、mi
 `design-platform.css` 承载 light 侧 0 条 alias/specific 声明。按值形态提取为：
 
 - var-static 0 + color-mix 0 + literal 0 + alias-ref 0 = 0；
-- 分类边界（`--dsw-alias-tooltip-key-bg` 的 `color-mix()` 内引用 alias 而非 static、`--dsw-specific-menu` 引用非 static/alias 的 `--dsw-menu-surface-fill` 等）不改变覆盖结论：插件显式覆盖 225 个 token；其余 19 个（`INHERITED_TOKEN_NAMES`）的声明只引用已覆盖的 static / alias，按继承得到主题色，不重复给值。
+- 分类边界（`--dsw-alias-tooltip-key-bg` 的 `color-mix()` 内引用 alias 而非 static、`--dsw-specific-menu` 引用非 static/alias 的 `--dsw-menu-surface-fill` 等）不改变覆盖结论：插件显式覆盖 226 个 token；其余 18 个（`INHERITED_TOKEN_NAMES`）的声明只引用已覆盖的 static / alias，按继承得到主题色，不重复给值。
 
 ### 1.3 必须显式给值的声明（light 侧 literal + alias-ref）
 

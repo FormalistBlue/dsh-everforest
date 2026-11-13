@@ -89,7 +89,7 @@
 | 次级表面 / 输入框 | `bg1` | 表单、行 hover 底 |
 | 边框 | `bg5`（hover `bg3`） | 表单边框、分隔线 |
 | 表格 | 表头 / 隔行斑马纹 / 行 hover = `green` 混入 `bg0` 的 14% / 6% / 10% 淡染（对比度守卫后的派生值） | 上游没有表格角色；由色彩模式按 Enchanted 口径落地（`src/color-mode.js`），不是 palette 原值（见 §6） |
-| 选中 | `bg_visual`（light 用 `#DED8DB`） | 文档预览选区 = `bg_visual` 40% 透明 token；原生文本选区由插件 `::selection` 用实色 `bg_visual`、文字 `color: inherit`（2026-10-24，见 `design.md` §16.2） |
+| 选中 | `bg_visual`（light 用 `#DED8DB`） | 文档预览选区 = `bg_visual` 40% 透明 token；原生文本选区由插件 `::selection` 用实色 `bg_visual`、文字 `color: inherit`（2026-10-24，见 `design.md` §16.2）。**例外：聊天气泡内选中文字**（2026-11-13，见 `design.md` §30）——底色仍是全局 `bg_visual`（各处同色），只把气泡内选中文字改成方案 C 的墨色：浅色 `#2F3B33`、深色 `#FFFBEF` |
 | 搜索高亮 | — | DSH 没有接管搜索高亮，当前**无落点**；上游 Search Highlights 取 `green`。`bg_yellow` 实际只用于「待确认 / 待审批」会话行底 |
 | 链接（内部） | `header-aqua`（hover `fg-aqua`） | 色彩模式的内部文件链接仍用此色；基础 `--dsw-alias-link` 2026-10-24 起改用官方 `fg-blue`（见偏差 5） |
 | 链接（外部）/ 文本强调 | `fg-blue` | 2026-10-24 起由 header-blue 改为官方 accent（见偏差 5） |

@@ -108,6 +108,30 @@
  *      Light: pinned to the measured 1.9 / 1.95 floors (1.95-2.26:1 text,
  *      2.00-2.32:1 ink; the palette's cream-on-green ceiling, design §24).
  *
+ * The chat bubble's text-selection ink (src/chat-bubble.js, design §30) adds
+ * gate 21:
+ *  21. the highlight colour stays the one global `::selection` `bg_visual` on
+ *      every surface (2026-11-13 user request: "保持勾选颜色各处都统一"), but on
+ *      the accent-filled bubble the inherited text colour is unreadable (light
+ *      cream on #DED8DB 1.17-1.36:1; the dark canvas ink on the dark plum
+ *      1.22-1.27:1), so a bubble-scoped rule repaints only the selected text:
+ *      option C's ink, light #2F3B33 (8.33:1 on the shared pale band) and dark
+ *      #FFFBEF (8.91-10.49:1 on the shared dark plum). The band still has to be
+ *      visible through the bubble fill (>= 1.6:1): light runs 1.71:1, the
+ *      accepted price of one highlight colour everywhere; dark runs 4.61-5.42:1.
+ *
+ * The composer send / stop glyph (src/tokens.js, design §12) adds gate 22:
+ *  22. `--dsw-alias-label-on-color` is DSH's literal white ink on saturated fills
+ *      ("white ink on saturated fills such as the send button", ui-theme README),
+ *      paired with the composer fill (`--dsw-alias-button-info-fill`) and its
+ *      hover (`-hover`). DSH's own pairing is white on a saturated accent
+ *      (2.00-2.40:1) — low on purpose, the hue not the luminance carries the
+ *      button. The gate pins a documented 1.9 floor and the literal `#FFFFFF`;
+ *      it exists because the inherited declaration resolved through the
+ *      luminance-anchored static ramp to the scheme ink, turning the glyph tan
+ *      (`fg` #D3C6AA on `#A7C080` = 1.18:1, nearly invisible; 2026-11-13 user
+ *      report 「发送和终止的按钮里面的图标变色了」).
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -139,6 +163,8 @@ import {
   PLUGIN_UPDATE_TEXT_LIGHT_CONTRAST,
   pluginUpdateRoles
 } from '../src/plugin-update.js'
+import { CHAT_BUBBLE_SELECTION_INK, chatBubbleRole } from '../src/chat-bubble.js'
+import { RAMPS } from '../src/palette.js'
 import { contrastRatio, hexToRgb, isHex, labLightness, mix, rgbToHex } from '../src/color.js'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
@@ -147,6 +173,13 @@ const REPORT_PATH = join(REPO_ROOT, 'docs', 'reference', 'contrast.md')
 
 const PRIMARY_THRESHOLD = 4.5
 const BRAND_FOREGROUND_THRESHOLD = 1.95
+/**
+ * Documented floor of the composer on-color glyph on its fill / hover. DSH's own
+ * pairing is white on the saturated accent (2.00-2.40:1 resting); the floor only
+ * has to catch a glyph that stops being white — the inherited tan ink the static
+ * ramp produced sat at 1.18:1.
+ */
+const ON_COLOR_INK_THRESHOLD = 1.9
 const REPORT_FLOOR = 1.5
 /** Color mode: coloured headings / decorations against bg-base. */
 const COLOR_MODE_DECORATION_MIN = 3.0
@@ -820,6 +853,97 @@ for (const variant of states) {
   }
 }
 
+/* ---- Gate 21: chat-bubble text selection (always-on accent surface) ------- */
+/**
+ * Selected-text floor on the shared selection band. The bubble no longer paints
+ * its own band (2026-11-13 follow-up: the user wants one highlight colour on
+ * every surface), so the ink has to carry the readability on its own.
+ */
+const BUBBLE_SELECTION_TEXT_CONTRAST = 4.5
+/**
+ * Minimum contrast between the shared `bg_visual` band and the accent bubble
+ * fill: only has to catch a band that vanished into the bubble. Light sits at
+ * the documented 1.71:1 (one pale grey everywhere is the user's explicit choice);
+ * dark runs 4.61-5.42:1.
+ */
+const BUBBLE_SELECTION_MIN_CONTRAST = 1.6
+const bubbleSelectionRows = []
+for (const variant of states) {
+  const ink = CHAT_BUBBLE_SELECTION_INK[variant.scheme]
+  if (!ink) {
+    recordFailure(`g21:${variant.variant}`, `${variant.variant}: src/chat-bubble.js has no selection ink for this scheme`)
+    continue
+  }
+  const bubble = chatBubbleRole(variant.scheme, variant.strength)
+  // The band is the global `::selection` colour `src/selection.js` paints from
+  // the variant's ramp; the bubble sheet only overrides the text colour.
+  const band = RAMPS[variant.scheme][variant.strength].bgVisual
+  const textRatio = contrastRatio(ink, band)
+  const bandRatio = contrastRatio(band, bubble.fill)
+  const legal = LEGAL_ROLE_COLOR.test(ink) && LEGAL_ROLE_COLOR.test(band)
+  bubbleSelectionRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    band,
+    ink,
+    fill: bubble.fill,
+    textRatio,
+    bandRatio,
+    legal
+  })
+  if (!LEGAL_ROLE_COLOR.test(ink)) {
+    recordFailure(`g21:${variant.variant}:legal-ink`, `${variant.variant}: bubble selection ink is not a #RRGGBB colour: ${ink}`)
+  }
+  if (textRatio < BUBBLE_SELECTION_TEXT_CONTRAST) {
+    recordFailure(`g21:${variant.variant}:text`, `${variant.variant}: selected bubble text on the shared band = ${textRatio.toFixed(2)} < ${BUBBLE_SELECTION_TEXT_CONTRAST}`)
+  }
+  if (bandRatio < BUBBLE_SELECTION_MIN_CONTRAST) {
+    recordFailure(`g21:${variant.variant}:band`, `${variant.variant}: shared selection band vanished on the bubble = ${bandRatio.toFixed(2)} < ${BUBBLE_SELECTION_MIN_CONTRAST}`)
+  }
+}
+
+/* ---- Gate 22: composer on-color glyph (send / stop ink) ------------------- */
+/**
+ * DSH paints the composer's primary button (send arrow / stop square, same
+ * `.primary` circle, `ui-conversation` `InputBar.module.css`) with
+ * `color: var(--dsw-alias-label-on-color)` on `--dsw-alias-button-info-fill`.
+ * Until 2026-11-13 the token was inherited, so the luminance-anchored static
+ * (`neutral-bluish-00`) resolved to the scheme ink: the glyph read tan in the
+ * deep schemes (1.18:1) instead of DSH's white. The token is now literal white;
+ * this gate pins that value and the documented pairing.
+ */
+const onColorRows = []
+for (const variant of states) {
+  const ink = variant.get('--dsw-alias-label-on-color')
+  const fill = variant.get('--dsw-alias-button-info-fill')
+  const hover = variant.get('--dsw-alias-button-info-hover')
+  const ratio = contrastRatio(ink, fill)
+  const hoverRatio = contrastRatio(ink, hover)
+  const legal = LEGAL_ROLE_COLOR.test(ink) && LEGAL_ROLE_COLOR.test(fill)
+  onColorRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    ink,
+    fill,
+    hover,
+    ratio,
+    hoverRatio,
+    legal
+  })
+  if (!LEGAL_ROLE_COLOR.test(ink)) {
+    recordFailure(`g22:${variant.variant}:legal-ink`, `${variant.variant}: on-color ink is not a #RRGGBB colour: ${ink}`)
+  }
+  if (ink !== '#FFFFFF') {
+    recordFailure(`g22:${variant.variant}:literal`, `${variant.variant}: on-color ink must stay DSH's literal white, got ${ink}`)
+  }
+  if (ratio < ON_COLOR_INK_THRESHOLD) {
+    recordFailure(`g22:${variant.variant}:fill`, `${variant.variant}: on-color ink on the composer fill = ${ratio.toFixed(2)} < ${ON_COLOR_INK_THRESHOLD}`)
+  }
+  if (hoverRatio < ON_COLOR_INK_THRESHOLD) {
+    recordFailure(`g22:${variant.variant}:hover`, `${variant.variant}: on-color ink on the composer hover fill = ${hoverRatio.toFixed(2)} < ${ON_COLOR_INK_THRESHOLD}`)
+  }
+}
+
 /* ---- Report-only measurements -------------------------------------------- */
 const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
   const ratios = {}
@@ -888,6 +1012,8 @@ function renderMarkdown () {
     '18. 工作区目录名称（`src/workspace-labels.js`，常驻、与色彩模式无关）：颜色是合法 `#RRGGBB` 的**文字绿 `green`**（上游 foreground green，浅色 `#8DA101` 比背景绿 `statusline1` `#93B259` 深一档；深色两者同为 `#A7C080`）；深色档静止行 ≥4.5:1（AA 下限，实测 5.00–6.17）、A7 的 50% `bg4` hover 叠加底上 ≥4.0:1（已记录取舍）；浅色档静止行 ≥2.3、hover 底固定 2.1 的已记录下限（文字绿实测下限）；6 档实测值见 §2h；',
     '19. 下拉选中项（`src/ui-accents.js`，常驻、与色彩模式无关）：菜单 / 单选列表的选中项以`statusline1`（浅色 `#93B259`）作实色底、方案画布 `bg0` 作文字与勾勾墨色（深色档墨色 ≥ 4.5:1，浅色档 1.95 已记录下限），选中项内由 DSH 单独上色的图标与次要文字（`--dsw-alias-menu-icon` 与 `label-*` 族）同样取该墨色，并对菜单卡保持 ≥ 0.02 的 L* 步长；会话标题自 2026-11-09 起回到 DSH 原生 `label-primary`（用户「标题不需要绿色显示了」），不再由本样式表染色；6 档实测值见 §2i；',
     '20. 插件更新弹窗（`src/plugin-update.js`，常驻、与色彩模式无关）：完成步骤的文字是合法 `#RRGGBB` 的交互强调色 `statusline1`（浅色档即 `#93B259`，与弹窗「完成」按钮同色）、失败步骤是语义红 `fg.red`（语义色，仅报告不设门槛，实测 2.66–3.82:1）、其余状态回到 `label-primary`；完成步骤的 20px 圆点与结果大图标改为「`statusline1` 实底 + 方案画布 `bg0` 墨色」；深色档文字 ≥ 4.0:1、徽标墨色 ≥ 4.5:1，浅色档固定 1.9 / 1.95 的已记录下限；6 档实测值见 §2j；',
+    '21. 聊天气泡文字选区（`src/chat-bubble.js`，常驻、与色彩模式无关）：选区底色保持全局 `::selection` 的 `bg_visual`（用户要求「勾选颜色各处都统一」），只把气泡内选中文字重新上色：浅色 `#2F3B33`（深松墨，对 `#DED8DB` 8.33:1）、深色 `#FFFBEF`（奶油，对深梅色选区 8.91–10.49:1）；原字色在选区上不可读（浅色奶油字 1.17–1.36:1、深色气泡字 1.22–1.27:1）；气泡外仍 `color: inherit` 保留原色；6 档选中文字 ≥ 4.5:1、选区带对气泡底 ≥ 1.6:1（浅色 1.71 是同色取舍、深色 4.61–5.42），6 档实测值见 §2k；',
+    '22. 发送 / 终止按钮图标（`src/tokens.js` 的 `--dsw-alias-label-on-color`，常驻、与色彩模式无关）：DSH 用它在饱和实底上画白墨（`ui-conversation` 的 `InputBar.module.css` 里 `.primary { color: var(--dsw-alias-label-on-color) }`，发送箭头与终止方块共用该圆钮），配 `--dsw-alias-button-info-fill`（主题的交互强调色 `statusline1`）及其 hover；DSH 原生就是「白字压饱和底」（2.00–2.40:1，靠色相而不是明度辨识），因此门槛固定为字面 `#FFFFFF` 且两种 scheme 对实底 / hover 都 ≥ 1.9:1；它此前是继承 token，亮度锚定把 `neutral-bluish-00` 解析成深色档的 `fg` `#D3C6AA`，图标变成 1.18:1 的土黄（2026-11-13 用户反馈「发送和终止的按钮里面的图标变色了」），6 档实测值见 §2l；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -1145,6 +1271,60 @@ function renderMarkdown () {
   }
   push(
     '',
+    '## 2k. 聊天气泡文字选区（chat-bubble，硬门槛 G21）',
+    '',
+    '2026-11-13 用户报告「浅色状态下选中文字是浅灰色，在绿色气泡中白字和浅灰不容易区分」：' +
+      '全局 `src/selection.js` 用各档 `bg_visual` 画选区（浅色 `#DED8DB`、深色 `#4C3743` / `#543A48` / `#5C3F4F`），' +
+      '这套底色是为「深字压浅米」的画布设计的；气泡是反过来的「浅字压中绿」，同一底色配原来的字色就失效了——' +
+      '浅色奶油字在 `#DED8DB` 上只有 1.17–1.36:1，深色气泡字在深梅色选区上只有 1.22–1.27:1。' +
+      '第一版给气泡单独换了一套选区底色；同日用户要求「保持勾选颜色各处都统一」，于是改为**只改选中文字颜色**（方案 C 的墨色），' +
+      '选区底色仍是全局 `bg_visual`：浅色选中文字 `#2F3B33`（深松墨，对 `#DED8DB` 8.33:1）、' +
+      '深色选中文字 `#FFFBEF`（奶油，对深梅色选区 8.91–10.49:1）。' +
+      '规则是气泡作用域的 `::selection`，只覆盖 `color`；画布 / 代码块 / 侧栏仍由全局表的 `color: inherit` 保留各自原色。',
+    '',
+    '| 变体 | 选区底色（全局 bg_visual） | 选中文字 | 气泡底 | 文字对比度 | 选区 vs 气泡底 | 文字阈值 | 结果 |',
+    '|---|---|---|---|---:|---:|---:|---|'
+  )
+  for (const row of bubbleSelectionRows) {
+    const ok = row.legal && row.textRatio >= BUBBLE_SELECTION_TEXT_CONTRAST && row.bandRatio >= BUBBLE_SELECTION_MIN_CONTRAST
+    push(
+      `| ${row.variant} | \`${row.band}\` | \`${row.ink}\` | \`${row.fill}\` | ${format(row.textRatio)} | ${format(row.bandRatio)} | ${BUBBLE_SELECTION_TEXT_CONTRAST} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '浅色档全局选区带（`#DED8DB`）对绿气泡只有 1.71:1 —— 这是「各处同色」的既有代价，用户明确选择保留；' +
+      '可读性由深松墨 8.33:1 承担（原来的奶油字只有 1.17–1.36:1）。深色档选区带对气泡 4.61–5.42:1，奶油字 8.91–10.49:1。' +
+      'G21 因此要求：选中文字 ≥4.5:1、选区带对气泡底 ≥1.6:1（带没有消失）。气泡之外的选区文字颜色不变（`color: inherit`）。',
+  )
+  push(
+    '',
+    '## 2l. 发送 / 终止按钮图标（composer on-color，硬门槛 G22）',
+    '',
+    '2026-11-13 用户反馈「黑夜模式…发送和终止的按钮里面的图标变色了，帮我还是改成白色」；截图取色实测图标是 `#D3C6AA`（深色档的 `label-primary` / `fg`），对绿底 `#A7C080` 只有 1.18:1 —— 几乎看不见。' +
+      '成因在上游 token 契约：DSH 0.2.2-rc.2 把 composer 主按钮（发送箭头与终止方块共用同一圆钮）的图标色改成 `--dsw-alias-label-on-color`，' +
+      '`ui-conversation` 的 `InputBar.module.css` 注释写明「the arrow stays white on the blue fill in both themes」，上游声明值为 `var(--dsw-static-neutral-bluish-00)`。' +
+      '本层原先把这条归入「继承」，但 static 层的亮度锚定会把 `neutral-bluish-00`（白端）映射到各 scheme 的最亮墨：light 是画布 `bg0`、深色档是 `fg` `#D3C6AA`，于是图标跟着主题字色变成土黄。' +
+      '修法：`--dsw-alias-label-on-color` 改为显式 token，两种 scheme 都取 DSH 的字面白 `#FFFFFF`，并从 `INHERITED_TOKEN_NAMES` 移除（继承 19 → 18、显式 225 → 226）。' +
+      '它不进调色板、不随档位变化 —— 「饱和实底上的白墨」是 DSH 的语义常量（与遮罩色同样保留字面值），不是背景 / 前景色阶的一档。' +
+      '白字对强调绿只有 2.00–2.40:1，低于 3:1 的图形门槛，但这是 DSH 原生配对（native 白字压品牌蓝同样约 2:1，按钮靠实底色块与留白辨识），也是用户明确要求的颜色；G22 只钉「字面白 + ≥ 1.9」以防图标再次退回主题色。',
+    '',
+    '| 变体 | 图标墨色 | 发送底（button-info-fill） | 对实底对比度 | hover 底 | 对 hover 对比度 | 阈值 | 结果 |',
+    '|---|---|---|---:|---|---:|---:|---|'
+  )
+  for (const row of onColorRows) {
+    const ok = row.legal && row.ink === '#FFFFFF' && row.ratio >= ON_COLOR_INK_THRESHOLD && row.hoverRatio >= ON_COLOR_INK_THRESHOLD
+    push(
+      `| ${row.variant} | \`${row.ink}\` | \`${row.fill}\` | ${format(row.ratio)} | \`${row.hover}\` | ${format(row.hoverRatio)} | ${ON_COLOR_INK_THRESHOLD} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    'light 实底 2.40 / hover 2.03–2.10；dark 实底 2.00 / hover 1.94（hover 把强调色向亮端提 18%，两种 scheme 都略降）。' +
+      '图标在输入为空 / 发送中时还会叠加 DSH 自己的 `opacity: 0.4`（禁用态），那是上游行为，不在本门槛覆盖范围内。',
+  )
+  push(
+    '',
     '## 3. 文本承载表面（label-primary 对比度）',
     '',
     '`docs/design.md` §4 要求这些表面上的主文本可读；`src/tokens.js` 的 `readableSurface` 会在不达标时向方案背景色 `bg0` 微调（light 提亮、dark 压暗，bg0 始终是该 scheme 下与 `fg` 对比最高的背景），实际值如下。',
@@ -1239,7 +1419,8 @@ function renderMarkdown () {
     '- **做法（底色）**：2026-11-08 定稿（用户从六方案 demo 里选了 light「苔纸」/ dark「只换字色」）：light 的 token 改为 `bg_green` → `bg5` 22% 的苔纸，并按 `label-primary` 4.5:1 守卫——hard `#e7ead0`（4.54:1）、medium `#e7e9cd`（4.50:1）；light·soft 的 `bg0` 仍只有 4.66:1 余量，继续走抬起方向，但改为白 → 同一苔纸 40% 的淡苔纸 `#f1f2e5`（文字 4.94:1，对画布 1.06:1，门槛 1.05）。dark 的 token 保持 `bg1`（边界 1.15–1.16，官方 `label-primary` ≥5.7:1）。2026-11-10 两个 scheme 的实际绘制都改为交互强调色 `statusline1` 实底（深色 `#A7C080`、浅色 `#93B259`，与选中会话行 / 选中导航项 / 发送键同一底色）；但只写在 `src/chat-bubble.js` 的作用域样式表里，token 仍是苔纸 / 被守卫的 `bg1`：气泡回落文字是 `label-primary`，奶油墨在 `#93B259` 上、淡鼠尾草在 `#A7C080` 上都只有约 2.0:1，若把绿底放进 token 层、样式表一旦失效就会变成不可读的色块；保留 token 则失效时回到浅色苔纸 / 深色 `bg1` + `label-primary` 的可读组合。',
     '- **字色（accent 墨）**：DSH 把气泡文字写死为 `label-primary`，token 层不能只给气泡换字色，因此 `src/chat-bubble.js` 用一张常驻作用域样式表覆盖（按 scheme × strength 各一条规则）：墨色取该 variant 的画布 `bg0`——浅色 `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1），深色 `#272E33` / `#2D353B` / `#333C43`（5.62–6.88:1）。深色仍是 AA；浅色是强调层「奶油墨 on statusline1」的既有上限（§2i 的同类取舍），即浅色气泡与选中行同色对。长文本实测时曾把浅色字换成派生深墨 `#2F3B33`（4.88:1，AA）验证可读性，随后用户要求换回白色（「文字还是换回白色吧」），所以最终交付的是同色对版本，深墨只留在记录里。选择器按聊天包的类名片段 `[class*="_userStack"] [class*="_bubble"]` 匹配（`userStack` 祖先排除 tooltip 的 `_bubble_44yfq_1`），并把 `--dsw-alias-state-business-primary` 重指向带墨色（气泡内的会话引用 chip 自己声明这个 token）。该表失效时回到 token 表面 + 官方 `label-primary`，两个 scheme 都满足 AA。',
     '- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，light·soft 1.05:1）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1，测的是 token 表面 + 官方墨）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。',
-    '- **影响范围**：light 三档 `--dsw-specific-bubble` + 常驻样式表 `dsh-everforest/chat-bubble`；2026-11-10 只改该样式表（两个 scheme 改为 accent 绘制；浅色长文本曾试派生深墨，随后换回奶油白），全部 token 不变。',
+    '- **影响范围**：light 三档 `--dsw-specific-bubble` + 常驻样式表 `dsh-everforest/chat-bubble`；2026-11-10 只改该样式表（两个 scheme 改为 accent 绘制；浅色长文本曾试派生深墨，随后换回奶油白），全部 token 不变；2026-11-13 同一张表再加各档一条气泡作用域的 `::selection`（见 §2k），token 仍不变。',
+    '- **文字选区（2026-11-13）**：全局 `src/selection.js` 的 `bg_visual` 配气泡原字色不可读（浅色奶油字 1.17–1.36:1、深色气泡字 1.22–1.27:1）。第一版给气泡单独换选区底色，用户随即要求「勾选颜色各处都统一」，于是改为只重指选中文字颜色：浅色 `#2F3B33`（8.33:1）、深色 `#FFFBEF`（8.91–10.49:1）；选区底色保持全局 `bg_visual`，画布 / 代码块 / 侧栏不变。门槛见 §2k（G21）。',
     '',
     '## 7. 复现',
     '',

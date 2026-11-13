@@ -65,14 +65,14 @@ test('tokensFor emits every explicitly covered colour token with light and dark 
     assert.ok(!pair.light.includes('var('), `${name} light must be explicit`)
     assert.ok(!pair.dark.includes('var('), `${name} dark must be explicit`)
   }
-  // 225 colour tokens + the 6 auxiliary gradients.
-  assert.equal(Object.keys(overlay).length, 231)
+  // 226 colour tokens + the 6 auxiliary gradients.
+  assert.equal(Object.keys(overlay).length, 232)
 })
 
 test('the inherited list is exactly what the overlay leaves to the static layer', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   const inherited = [...INHERITED_TOKEN_NAMES].sort()
-  assert.equal(inherited.length, 19)
+  assert.equal(inherited.length, 18)
   assert.deepEqual(
     inherited,
     inventoryNames.filter((name) => overlay[name] === undefined),
@@ -95,7 +95,7 @@ test('the inherited list is exactly what the overlay leaves to the static layer'
 test('TOKEN_COVERAGE is consistent with tokensFor', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   assert.deepEqual([...TOKEN_COVERAGE.covered].sort(), Object.keys(overlay).sort())
-  assert.equal(TOKEN_COVERAGE.covered.length, 231) // 225 colour + 6 auxiliary
+  assert.equal(TOKEN_COVERAGE.covered.length, 232) // 226 colour + 6 auxiliary
   const covered = new Set(TOKEN_COVERAGE.covered)
   const inherited = new Set(INHERITED_TOKEN_NAMES)
   for (const name of inventoryNames) {
@@ -293,6 +293,32 @@ test('brand mapping: official statusline1 accent with bg0 foreground, blue link'
   assert.equal(overlay['--dsw-alias-link'].light, FOREGROUNDS.light.blue)
   assert.equal(overlay['--dsw-alias-link'].dark, FOREGROUNDS.dark.blue)
   assert.equal(overlay['--shiki-token-keyword'].light, FOREGROUNDS.light.blue)
+})
+
+test('on-color ink stays DSH white on saturated fills', () => {
+  // 2026-11-13 user report: in the dark schemes the composer send / stop glyph
+  // read tan instead of white. DSH declares --dsw-alias-label-on-color as
+  // var(--dsw-static-neutral-bluish-00) ("white ink on saturated fills such as
+  // the send button", ui-theme README); inheriting it made the luminance-anchored
+  // static resolve to the scheme ink (#D3C6AA), i.e. 1.18:1 on the accent fill —
+  // nearly invisible. The token is DSH's literal white in both schemes.
+  for (const light of STRENGTHS) {
+    for (const dark of STRENGTHS) {
+      const overlay = tokensFor({ light, dark })
+      assert.equal(overlay['--dsw-alias-label-on-color'].light, '#FFFFFF')
+      assert.equal(overlay['--dsw-alias-label-on-color'].dark, '#FFFFFF')
+    }
+  }
+  // The real pairing (composer send / stop fill and its hover) keeps DSH's own
+  // intentionally-low white-on-accent contrast; the floor only catches the glyph
+  // regressing to a palette tint (contrast gate 22).
+  const overlay = tokensFor(DEFAULT_STATE)
+  for (const scheme of ['light', 'dark']) {
+    for (const name of ['--dsw-alias-button-info-fill', '--dsw-alias-button-info-hover']) {
+      const ratio = contrastRatio(overlay['--dsw-alias-label-on-color'][scheme], overlay[name][scheme])
+      assert.ok(ratio >= 1.9, `${scheme}: on-color ink on ${name} = ${ratio.toFixed(2)} < 1.9`)
+    }
+  }
 })
 
 test('interaction emphasis follows the accent green, not DSH deepseek blue', () => {

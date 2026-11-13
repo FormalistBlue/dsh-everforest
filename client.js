@@ -518,13 +518,13 @@ const __mod_2_tokens_js = (() => {
 // Coverage (docs/design.md §4, 2026-10-18 audit; inventory: docs/reference/token-inventory.json)
 // ---------------------------------------------------------------------------
 //   82 `--dsw-static-*` colour tokens   (derived: luminance-anchored ramp interpolation)
-//  121 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
+//  122 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
 //   11 `--dsw-specific-*` colour tokens (explicit role mapping)
 //   11 `--shiki-*` tokens               (explicit; shiki.css light values on :root and
 //                                        --shiki-foreground/background reference body-level
 //                                        aliases, so alias inheritance cannot be relied on)
-//   = 225 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
-//   + 19 contract tokens that resolve through the rewritten static / alias layer
+//   = 226 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
+//   + 18 contract tokens that resolve through the rewritten static / alias layer
 //     instead of being emitted again (`INHERITED_TOKEN_NAMES`) = 244 in total
 //   + 6 auxiliary tokens (menu material, think gradients, onboarding gradient stops)
 //
@@ -561,9 +561,12 @@ const __mod_2_tokens_js = (() => {
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
 //    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
 //    = neutral luminance anchors, JSON tree = the same syntax roles as shiki, ...).
-//    225 tokens are explicit; the remaining 19 contract tokens are inherited by
+//    226 tokens are explicit; the remaining 18 contract tokens are inherited by
 //    design (`INHERITED_TOKEN_NAMES`) because their only declaration is a
-//    reference to a static / alias token this layer already rewrites.
+//    reference to a static / alias token this layer already rewrites — except
+//    `--dsw-alias-label-on-color`, DSH's literal "white ink on saturated fills"
+//    (`ON_COLOR_INK`): its inherited static resolves to the scheme ink in the
+//    deep schemes, which turned the composer send / stop glyph tan.
 // 3. contrast guard for text-bearing light surfaces: DSH light layers are all
 //    #fff natively and Everforest Enchanted uses a flat background, but the
 //    upstream light·soft ramp is darker. Text-bearing surfaces therefore blend
@@ -581,6 +584,20 @@ const SURFACE_CONTRAST_TARGET = 4.5
 // filled accent surface) is enforced by scripts/check-contrast.mjs (gate 4), not
 // here: since 2026-11-08 the interaction accent is `statusline1` verbatim, so the
 // light schemes sit at 2.00–2.32:1 by design (the reference tab does the same).
+
+/**
+ * `--dsw-alias-label-on-color`: DSH's "white ink on saturated fills" (composer
+ * send / stop button, saturated labels). It is one of the few expectations that
+ * must NOT follow the palette — DSH asks for literal white. Leaving the token
+ * inherited made it resolve through the luminance-anchored static ramp, whose
+ * dark-scheme end is the scheme ink: the composer glyph came out tan (`fg`
+ * #D3C6AA on `statusline1` `#A7C080` = 1.18:1, nearly invisible) instead of white
+ * (2026-11-13 user report 「发送和终止的按钮里面的图标变色了」). Literal white keeps
+ * DSH's own pairing (2.00–2.40:1 — intentionally low, same as native white on the
+ * blue fill; docs/design.md §12, contrast gate 22).
+ * @type {string}
+ */
+const ON_COLOR_INK = '#FFFFFF'
 
 /** How far light-scheme text surfaces are blended toward bg0 (flat-style baseline). */
 const LIGHT_SURFACE_MIX = 0.25
@@ -1250,6 +1267,9 @@ const ALIAS_TOKENS = {
   '--dsw-alias-label-deep-diving-shimmer': (p) => transparentMix(interactionAccent(p), 40),
   '--dsw-alias-label-dimmed': (p) => mix(p.fg.grey0, p.ramp.bg0, 0.55),
   '--dsw-alias-label-document-preview': (p) => p.fg.grey1,
+  // DSH's literal white on saturated fills — not a palette role (see ON_COLOR_INK:
+  // inheriting the declared static made the composer glyph tan in the deep schemes).
+  '--dsw-alias-label-on-color': () => ON_COLOR_INK,
   '--dsw-alias-label-primary': (p) => p.fg.fg,
   // Inks the hero's "预览版" pill (`state-business-tertiary` tint below).
   '--dsw-alias-label-primary-bluish': (p) => interactionAccent(p),
@@ -1462,7 +1482,7 @@ const TOKEN_ENTRIES = [
 /**
  * The six auxiliary tokens emitted on top of the 244-token colour contract
  * (docs/design.md §4 explicitly requires menu material, think gradients and the
- * onboarding gradient stops; they are not part of the 225 colour + 11 shiki count).
+ * onboarding gradient stops; they are not part of the 226 colour + 11 shiki count).
  * @type {string[]}
  */
 const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort())
@@ -1475,9 +1495,14 @@ const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort()
  * ever gives one of them a literal value, the test fails instead of the surface
  * silently staying at an editor / native colour.
  *
- * 2026-11-13 rc.2 review: 19 of the 27 new tokens fall in this class (cards,
- * charts, hovercards, label-on-color, toast / tooltip labels, trajectory accent,
- * guide hero, sidebar-right flash).
+ * 2026-11-13 rc.2 review: 18 of the 27 new tokens fall in this class (cards,
+ * charts, hovercards, toast / tooltip labels, trajectory accent, guide hero,
+ * sidebar-right flash). `--dsw-alias-label-on-color` used to be listed here too
+ * (its declaration references `--dsw-static-neutral-bluish-00`), but the
+ * luminance-anchored static remap resolved it to the scheme ink in the deep
+ * schemes — the composer send / stop glyph went tan (1.18:1 on the accent fill;
+ * 2026-11-13 user report). It is emitted as DSH's literal white instead
+ * (`ON_COLOR_INK`), so it is no longer inherited.
  * @type {string[]}
  */
 const INHERITED_TOKEN_NAMES = Object.freeze([
@@ -1494,7 +1519,6 @@ const INHERITED_TOKEN_NAMES = Object.freeze([
   '--dsw-alias-hovercard-label-tertiary',
   '--dsw-alias-hovercard-state-done',
   '--dsw-alias-hovercard-state-error',
-  '--dsw-alias-label-on-color',
   '--dsw-alias-toast-action',
   '--dsw-alias-tooltip-label',
   '--dsw-alias-trajectory-accent',
@@ -1655,7 +1679,7 @@ function tokensFor (state = DEFAULT_STATE) {
 
 /**
  * Token coverage bookkeeping for docs / startup diagnostics.
- * - `covered`: every CSS variable emitted by `tokensFor` (225 colour + 6 auxiliary)
+ * - `covered`: every CSS variable emitted by `tokensFor` (226 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
  *
  * The third-party compatibility aliases (`compatAliasesFor`) are layered on by
@@ -3997,6 +4021,13 @@ const __mod_7_selection_js = (() => {
 // `RAMPS[scheme][strength].bgVisual` already carries the effective value: the
 // light ramps hold Enchanted's #DED8DB visibility fix (docs/reference/palette.md
 // section 3), so this module needs no special case.
+//
+// The accent-filled chat bubble keeps this background but re-inks the selected
+// text through `src/chat-bubble.js`: the bubble's ink is inverted relative to
+// the canvas, so the inherited colour is unreadable on the band (cream on
+// #DED8DB 1.17-1.36:1, the dark ink on the dark plum 1.22-1.27:1). The highlight
+// colour itself stays this sheet's `bg_visual` on every surface — 2026-11-13
+// user choice ("保持勾选颜色各处都统一 ... 只变动修改文字颜色").
 
 
 /**
@@ -5162,6 +5193,24 @@ const __mod_14_chat_bubble_js = (() => {
 // token surface + `label-primary`) stays AA in every variant, and the dark
 // schemes keep AA either way.
 //
+// Text selection (2026-11-13): the global `::selection` sheet (`src/selection.js`)
+// paints every surface with the scheme's `bg_visual` — a pale grey in the light
+// schemes (#DED8DB) and a dark plum in the dark ones. On this accent-filled
+// bubble the *text* colour that comes with it is unreadable, because the bubble
+// ink is inverted relative to the canvas: cream on #DED8DB is 1.17-1.36:1, and
+// the dark canvas ink on the dark plum is 1.22-1.27:1. The first landing that day
+// gave the bubble its own selection band as well (light "A 同色系加深", dark "C
+// 反相取词"), but the user asked to keep the highlight colour identical on every
+// surface and let option C repaint only the selected text ("先还原，改成用方案C
+// 试试，只变动修改文字颜色"). So the band stays the one global `bg_visual` and
+// this sheet only overrides the selected text ink:
+//
+//   light  #2F3B33 deep pine on the shared #DED8DB band   8.33:1
+//   dark   #FFFBEF cream on the shared #4C3743-#5C3F4F   8.91-10.49:1
+//
+// The trade-off the user accepted: a single highlight colour everywhere (light
+// band vs the green bubble is 1.71:1) instead of a stronger bubble-only band.
+
 // Nested content: the bubble text inherits the painted ink, and session
 // reference chips restate their own colour through
 // `--dsw-alias-state-business-primary`, so that token is re-pointed at the band
@@ -5209,6 +5258,18 @@ const CHAT_BUBBLE_DARK_INK = Object.freeze({
 })
 
 /**
+ * The bubble's selected-text ink per scheme (2026-11-13 user choice: option C,
+ * but only the text colour changes — the highlight band stays the one global
+ * `bg_visual` colour on every surface). The light schemes use the deep-pine ink
+ * of option C over the shared pale band; the dark schemes invert to cream.
+ * @type {Readonly<Record<'light' | 'dark', string>>}
+ */
+const CHAT_BUBBLE_SELECTION_INK = Object.freeze({
+  light: '#2F3B33',
+  dark: '#FFFBEF'
+})
+
+/**
  * The bubble element. DSH's chat package renders the user row as
  * `_userStack` and the bubble as `_bubble`; the hashed class prefixes are build
  * output, the fragments are the published bundle's stable shapes.
@@ -5244,8 +5305,26 @@ function scopeFor (scheme, strength) {
 }
 
 /**
- * The always-on bubble stylesheet: one rule per variant, each painting the
- * accent fill, the canvas ink and the reference-chip ink token.
+ * A variant's bubble-selection rule. The selector repeats the variant scope and
+ * the bubble anchor, then adds a descendant `::selection`, so it is more
+ * specific than the global sheet (`src/selection.js`) and only text inside the
+ * bubble is re-inked. No `background-color`: the highlight stays the global
+ * `bg_visual` colour, so text selection looks identical on every surface.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function bubbleSelectionRule (scheme, strength) {
+  return [
+    `${scopeFor(scheme, strength)} ${CHAT_BUBBLE_SELECTOR} ::selection {`,
+    `  color: ${CHAT_BUBBLE_SELECTION_INK[scheme]};`,
+    '}'
+  ].join('\n')
+}
+
+/**
+ * The always-on bubble stylesheet: one paint rule per variant (accent fill, the
+ * canvas ink and the reference-chip ink token) plus its text-selection rule.
  * @returns {string}
  */
 function chatBubbleStyles () {
@@ -5262,12 +5341,13 @@ function chatBubbleStyles () {
         `  --dsw-alias-state-business-primary: ${ink};`,
         '}'
       ].join('\n'))
+      rules.push(bubbleSelectionRule(scheme, strength))
     }
   }
   return rules.join('\n\n')
 }
 
-  return { CHAT_BUBBLE_LIGHT_FILL, CHAT_BUBBLE_LIGHT_INK, CHAT_BUBBLE_DARK_FILL, CHAT_BUBBLE_DARK_INK, CHAT_BUBBLE_SELECTOR, chatBubbleRole, chatBubbleStyles }
+  return { CHAT_BUBBLE_LIGHT_FILL, CHAT_BUBBLE_LIGHT_INK, CHAT_BUBBLE_DARK_FILL, CHAT_BUBBLE_DARK_INK, CHAT_BUBBLE_SELECTION_INK, CHAT_BUBBLE_SELECTOR, chatBubbleRole, chatBubbleStyles }
 })()
 
 // ---------------------------------------------------------------- src/work-steps.js
@@ -5461,8 +5541,158 @@ function workStepStyles () {
   return { WORK_STEP_ROW, WORK_STEP_GROUP_HEADER, WORK_STEP_FOLD_SUMMARY, WORK_STEP_EXPANDED_BODY, WORK_STEP_DIM, WORK_STEP_DARK_CONTRAST, WORK_STEP_LIGHT_CONTRAST, workStepRoles, workStepStyles }
 })()
 
+// ---------------------------------------------------------------- src/home-whale.js
+const __mod_16_home_whale_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+
+// Ink for DSH's built-in home whale: the click-triggered "pixel whale" that
+// breaches across the blank new-session home. It is the official
+// `@deepseek-ai/dsh-client-ui-brand-official` decoration (occupant `pixel-whale`
+// of the `conversation.hero.frame` layer, verified against the installed
+// 0.2.2-rc.2 client bundle), not something this theme draws.
+//
+// The official canvas carries
+//
+//   .canvas {
+//     --home-whale-code-ink: var(--dsw-alias-label-primary);
+//     color: var(--dsw-alias-label-secondary);
+//     filter: grayscale(1);
+//     opacity: 0.18;
+//   }
+//
+// and the renderer reads both inks off that canvas: the dot fill paints with
+// `getComputedStyle(canvas).color`, the code-letter fill with the custom
+// property (`--home-whale-code-ink`); both are re-read on the layout/theme
+// resize the renderer observes. The `grayscale(1)` filter then throws the hue
+// away, so re-inking alone changes nothing — the filter has to be cancelled
+// together with the ink.
+//
+// 2026-11-13 request (the user had just seen the whale and asked "可以把这个改个
+// 颜色吗？"): the palette **text green** `green` was picked from the offered
+// options (light `#8DA101`, dark `#A7C080`) — the same role the hero mark and its
+// "探索未至之境" headline already take (`src/hero-title.js`), so the background
+// whale and the mark above it read as one colour. Both fills take the green; the
+// official relative weight (code lettering slightly stronger than the dots) comes
+// from the renderer's own opacity factors, not from the ink.
+//
+// The layer opacity: the official 0.18 read as too faint once the whale turned
+// green (2026-11-13 follow-up: "有点太淡了，稍微把透明度调高一点试试"), so the
+// sheet raises it to `HOME_WHALE_OPACITY` (0.3 — 5/3 of the official value, still
+// a background texture that never competes with the headline or the composer).
+//
+// The anchor is the canvas's own `data-home-whale` attribute (the module class
+// name is a build hash), scoped with the same `html[data-everforest-*]` +
+// `body[data-ds-dark-theme]` pattern as the other always-on sheets. Chrome,
+// independent of the color mode; the token layer is untouched.
+
+
+/**
+ * The home-whale canvas. `data-home-whale` is DSH's own marker on the element
+ * (`<canvas data-home-whale aria-hidden="true">`); the class beside it is a
+ * CSS-module hash and must not be pinned.
+ */
+const HOME_WHALE_CANVAS = 'canvas[data-home-whale]'
+
+/** The custom property the code-letter fill reads off the canvas. */
+const HOME_WHALE_CODE_INK = '--home-whale-code-ink'
+
+/**
+ * The official canvas filter this sheet cancels. DSH desaturates the canvas, so
+ * the palette hue only becomes visible once the filter is reset.
+ */
+const HOME_WHALE_OFFICIAL_FILTER = 'grayscale(1)'
+
+/**
+ * The official layer opacity DSH ships on the canvas. Kept as the baseline the
+ * theme's own value is measured against (and pinned in the tests), not applied.
+ */
+const HOME_WHALE_OFFICIAL_OPACITY = 0.18
+
+/**
+ * The layer opacity this theme paints: the official 0.18 read as too faint once
+ * the whale turned green (2026-11-13 follow-up: "有点太淡了，稍微把透明度调高一点
+ * 试试"). 0.3 = 5/3 × official: clearly more present, still a background texture
+ * that never competes with the headline or the composer.
+ */
+const HOME_WHALE_OPACITY = 0.3
+
+/**
+ * The ink of one variant: the palette text green, untouched.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string} opaque `#RRGGBB`.
+ */
+function homeWhaleInkFor (scheme, strength) {
+  return resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme].fg.green
+}
+
+/**
+ * The six whale inks, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, string>} keyed `light-hard` … `dark-soft`.
+ */
+function homeWhaleRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = homeWhaleInkFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * One variant's scope: the strength attribute the token layer writes on <html>
+ * plus DSH's own dark-theme flag on <body> — the same pattern as
+ * `src/hero-title.js` and `src/work-steps.js`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+}
+
+/**
+ * One variant's rule: cancel the official desaturation, raise the layer opacity
+ * and point both fills at the green. The custom property is declared on the
+ * canvas itself, exactly where the official sheet declares it, so it wins on
+ * specificity without `!important`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {string} ink
+ * @returns {string}
+ */
+function homeWhaleRule (scheme, strength, ink) {
+  return [
+    `${scopeFor(scheme, strength)} ${HOME_WHALE_CANVAS} {`,
+    '  filter: none;',
+    `  opacity: ${HOME_WHALE_OPACITY};`,
+    `  color: ${ink};`,
+    `  ${HOME_WHALE_CODE_INK}: ${ink};`,
+    '}'
+  ].join('\n')
+}
+
+/**
+ * The complete home-whale ink stylesheet (six rules).
+ * @returns {string}
+ */
+function homeWhaleStyles () {
+  const roles = homeWhaleRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      homeWhaleRule(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { HOME_WHALE_CANVAS, HOME_WHALE_CODE_INK, HOME_WHALE_OFFICIAL_FILTER, HOME_WHALE_OFFICIAL_OPACITY, HOME_WHALE_OPACITY, homeWhaleRoles, homeWhaleStyles }
+})()
+
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_16_nav_icon_js = (() => {
+const __mod_17_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -5524,7 +5754,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_17_state_js = (() => {
+const __mod_18_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -5818,9 +6048,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_18_durable_js = (() => {
+const __mod_19_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_17_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_18_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -5985,7 +6215,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_19_locale_js = (() => {
+const __mod_20_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -6068,7 +6298,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_20_settings_page_js = (() => {
+const __mod_21_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -6708,7 +6938,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_21_theme_spotlight_js = (() => {
+const __mod_22_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -7015,7 +7245,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_22_client_entry_js = (() => {
+const __mod_23_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -7030,13 +7260,14 @@ const __mod_22_client_entry_js = (() => {
   const { pluginUpdateStyles } = __mod_13_plugin_update_js
   const { chatBubbleStyles } = __mod_14_chat_bubble_js
   const { workStepStyles } = __mod_15_work_steps_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_16_nav_icon_js
+  const { homeWhaleStyles } = __mod_16_home_whale_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_17_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_17_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_18_durable_js
-  const { EN, NS, ZH } = __mod_19_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_20_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_21_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_18_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_19_durable_js
+  const { EN, NS, ZH } = __mod_20_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_21_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_22_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -7565,9 +7796,15 @@ function apply(ctx) {
   // 2026-11-10 requests moved the bubble onto the selected-row accent pair in
   // both schemes ("试试直接改成侧边栏选中那种绿色和文字颜色" / "浅色气泡的也和侧边栏
   // 颜色保持一致"); a deep-ink experiment for the light long-message case was
-  // reverted the same day ("文字还是换回白色吧"). The token layer still keeps
-  // `label-primary` readable on the fallback surface, so the sheet is a hue/ink
-  // upgrade, not the AA guarantee. Always-on, same injection pattern as 1c–1g.
+  // reverted the same day ("文字还是换回白色吧"). 2026-11-13 the bubble also got
+  // a bubble-scoped text-selection ink: the inherited colour is unreadable on the
+  // global highlight in both schemes (cream on #DED8DB 1.17-1.36:1; the dark ink
+  // on the dark plum 1.22-1.27:1). The user asked to keep the highlight colour
+  // identical on every surface ("保持勾选颜色各处都统一") and let option C repaint
+  // only the selected text — so the sheet writes `color` only and leaves the
+  // global `bg_visual` band alone. The token layer still keeps `label-primary`
+  // readable on the fallback surface, so the sheet is a hue/ink upgrade, not the
+  // AA guarantee. Always-on, same injection pattern as 1c–1g.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')
@@ -7675,6 +7912,26 @@ function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: work-step ink')
+
+  // 1n. Home-whale ink. DSH's blank new-session home plays a click-triggered
+  // "pixel whale" (official `dsh-client-ui-brand-official`, occupant
+  // `pixel-whale` of the `conversation.hero.frame` layer). Its canvas is
+  // desaturated by `filter: grayscale(1)` and takes `label-primary` (code
+  // lettering) / `label-secondary` (dots) as ink, so the breach always reads as
+  // a grey texture. The 2026-11-13 request ("可以把这个改个颜色吗？") picked the
+  // palette text green — the colour the hero mark and its headline already take
+  // — so `src/home-whale.js` cancels the grayscale and re-inks both fills; the
+  // official 0.18 layer opacity stays as approved ("保持 0.18 不变"). Always-on
+  // chrome, same injection pattern as 1c–1m.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/home-whale'
+    tag.textContent = homeWhaleStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: home whale ink')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
@@ -8133,6 +8390,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_22_client_entry_js
+    return __mod_23_client_entry_js
   },
 })

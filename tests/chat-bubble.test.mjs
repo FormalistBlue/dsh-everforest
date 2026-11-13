@@ -6,6 +6,7 @@ import {
   CHAT_BUBBLE_DARK_INK,
   CHAT_BUBBLE_LIGHT_FILL,
   CHAT_BUBBLE_LIGHT_INK,
+  CHAT_BUBBLE_SELECTION_INK,
   CHAT_BUBBLE_SELECTOR,
   chatBubbleRole,
   chatBubbleStyles
@@ -73,7 +74,10 @@ test('bubble rules stay scoped to the user message row', () => {
   assert.ok(css.includes('[class*="_userStack"]'))
   assert.ok(css.includes('[class*="_bubble"]'))
   assert.ok(!css.includes('!important'))
-  assert.equal((css.match(/{/g) ?? []).length, VARIANTS.length, 'one rule per variant')
+  // Two rules per variant since 2026-11-13: the accent paint and its
+  // bubble-scoped `::selection`.
+  assert.equal((css.match(/{/g) ?? []).length, VARIANTS.length * 2, 'paint + selection per variant')
+  assert.equal((css.match(/::selection/g) ?? []).length, VARIANTS.length, 'one selection rule per variant')
   // Nested session-reference chips restate their own colour token; the band ink
   // must be re-pointed at it inside every bubble subtree.
   assert.equal(
@@ -85,6 +89,38 @@ test('bubble rules stay scoped to the user message row', () => {
     const { fill } = chatBubbleRole(scheme, strength)
     assert.ok(css.includes(fill), `${scheme}-${strength}: fill is painted`)
   }
+})
+
+test('bubble text selection keeps the one global highlight and re-inks only the text', () => {
+  // 2026-11-13: the first landing gave the bubble its own selection band; the
+  // user then asked to keep the highlight colour identical on every surface
+  // ("保持勾选颜色各处都统一") and let option C repaint only the selected text
+  // ("只变动修改文字颜色"). So the band is the global `::selection` `bg_visual`
+  // and this sheet only supplies the ink.
+  assert.equal(CHAT_BUBBLE_SELECTION_INK.light, '#2F3B33')
+  assert.equal(CHAT_BUBBLE_SELECTION_INK.dark, '#FFFBEF')
+  const css = chatBubbleStyles()
+  // The band must not be repainted here: no `background-color` at all in the
+  // sheet, so every surface keeps `src/selection.js`'s `bg_visual` band.
+  assert.ok(!css.includes('background-color'), 'bubble sheet leaves the global selection band alone')
+  for (const { scheme, strength } of VARIANTS) {
+    const ink = CHAT_BUBBLE_SELECTION_INK[scheme]
+    const bubble = chatBubbleRole(scheme, strength)
+    const band = RAMPS[scheme][strength].bgVisual
+    const text = contrastRatio(ink, band)
+    assert.ok(text >= 4.5, `${scheme}-${strength}: selected bubble text on the shared band = ${text.toFixed(2)} < 4.5`)
+    // A documented trade-off of the unified colour: the shared pale light band
+    // only steps 1.71:1 off the accent bubble, but the user chose consistency.
+    const bandStep = contrastRatio(band, bubble.fill)
+    assert.ok(bandStep >= 1.6, `${scheme}-${strength}: shared selection band vanished on the bubble (${bandStep.toFixed(2)}:1)`)
+    const rule = `${CHAT_BUBBLE_SELECTOR} ::selection`
+    assert.ok(css.includes(rule), `${scheme}-${strength}: bubble-scoped selection rule missing`)
+    assert.ok(css.includes(`color: ${ink}`), `${scheme}-${strength}: selected text is re-inked`)
+  }
+  // Pinned measured pairs: option C's ink over the global bands.
+  assert.equal(contrastRatio(CHAT_BUBBLE_SELECTION_INK.light, RAMPS.light.hard.bgVisual).toFixed(2), '8.33')
+  assert.equal(contrastRatio(CHAT_BUBBLE_SELECTION_INK.dark, RAMPS.dark.hard.bgVisual).toFixed(2), '10.49')
+  assert.equal(contrastRatio(CHAT_BUBBLE_SELECTION_INK.dark, RAMPS.dark.soft.bgVisual).toFixed(2), '8.91')
 })
 
 test('losing the sheet falls back to the token layer, not to an unreadable band', () => {

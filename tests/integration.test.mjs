@@ -29,7 +29,7 @@ const read = (relative) => readFileSync(join(ROOT, relative), 'utf8')
 const readJson = (relative) => JSON.parse(read(relative))
 const EXPECTED_TOKEN_COUNT = 244 // 82 static + 138 alias + 13 specific + 11 shiki
 /** Tokens of the contract that resolve through the rewritten static / alias layer. */
-const EXPECTED_INHERITED_COUNT = 19
+const EXPECTED_INHERITED_COUNT = 18
 /** Colour tokens the overlay emits itself. */
 const EXPECTED_EXPLICIT_COUNT = EXPECTED_TOKEN_COUNT - EXPECTED_INHERITED_COUNT
 
@@ -784,6 +784,20 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(workStepStylesheets[0].textContent.includes('#bbb19b'))
   assert.ok(workStepStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
+  // The always-on home-whale ink stylesheet recolours DSH's click-triggered
+  // "pixel whale" on the blank home (2026-11-13: "可以把这个改个颜色吗？" →
+  // palette text green; follow-up "有点太淡了，稍微把透明度调高一点试试" →
+  // layer opacity 0.18 → 0.3).
+  const homeWhaleStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale')
+  assert.equal(homeWhaleStylesheets.length, 1, 'home-whale stylesheet was not injected')
+  assert.ok(homeWhaleStylesheets[0].textContent.includes('canvas[data-home-whale]'))
+  assert.ok(homeWhaleStylesheets[0].textContent.includes('filter: none'))
+  assert.ok(homeWhaleStylesheets[0].textContent.includes('--home-whale-code-ink'))
+  assert.ok(homeWhaleStylesheets[0].textContent.includes('#8DA101'))
+  assert.ok(homeWhaleStylesheets[0].textContent.includes('#A7C080'))
+  assert.ok(homeWhaleStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+  assert.ok(homeWhaleStylesheets[0].textContent.includes('opacity: 0.3'))
+
   // The table column-resize stylesheet and its DOM interaction are mounted with
   // the token layer, not with the Settings UI.
   const tableResizeStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize')
@@ -811,6 +825,10 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     effectLabels.includes('everforest: work-step ink'),
     'the work-step ink stylesheet must be mounted with the token layer'
   )
+  assert.ok(
+    effectLabels.includes('everforest: home whale ink'),
+    'the home-whale ink stylesheet must be mounted with the token layer'
+  )
 
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
@@ -820,7 +838,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 13, 'exactly thirteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + hero title + work steps + theme spotlight + settings)')
+  assert.equal(styleTags.length, 14, 'exactly fourteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -968,8 +986,9 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hero-title').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/work-steps').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 12)
+  assert.equal(styleTags.length, 13)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -982,7 +1001,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 13)
+  assert.equal(styleTags.length, 14)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1546,8 +1565,9 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hero-title').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/work-steps').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 13)
+  assert.equal(styleTags.length, 14)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

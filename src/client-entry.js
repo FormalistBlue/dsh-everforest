@@ -80,6 +80,7 @@ import { uiAccentStyles } from './ui-accents.js'
 import { pluginUpdateStyles } from './plugin-update.js'
 import { chatBubbleStyles } from './chat-bubble.js'
 import { workStepStyles } from './work-steps.js'
+import { homeWhaleStyles } from './home-whale.js'
 import { createSettingsNavIcon, NAV_ICON_SLOT } from './nav-icon.js'
 import { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
@@ -563,9 +564,15 @@ export function apply(ctx) {
   // 2026-11-10 requests moved the bubble onto the selected-row accent pair in
   // both schemes ("试试直接改成侧边栏选中那种绿色和文字颜色" / "浅色气泡的也和侧边栏
   // 颜色保持一致"); a deep-ink experiment for the light long-message case was
-  // reverted the same day ("文字还是换回白色吧"). The token layer still keeps
-  // `label-primary` readable on the fallback surface, so the sheet is a hue/ink
-  // upgrade, not the AA guarantee. Always-on, same injection pattern as 1c–1g.
+  // reverted the same day ("文字还是换回白色吧"). 2026-11-13 the bubble also got
+  // a bubble-scoped text-selection ink: the inherited colour is unreadable on the
+  // global highlight in both schemes (cream on #DED8DB 1.17-1.36:1; the dark ink
+  // on the dark plum 1.22-1.27:1). The user asked to keep the highlight colour
+  // identical on every surface ("保持勾选颜色各处都统一") and let option C repaint
+  // only the selected text — so the sheet writes `color` only and leaves the
+  // global `bg_visual` band alone. The token layer still keeps `label-primary`
+  // readable on the fallback surface, so the sheet is a hue/ink upgrade, not the
+  // AA guarantee. Always-on, same injection pattern as 1c–1g.
   ctx.effect(() => {
     if (typeof document === 'undefined' || !document.head) return undefined
     const tag = document.createElement('style')
@@ -673,6 +680,26 @@ export function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: work-step ink')
+
+  // 1n. Home-whale ink. DSH's blank new-session home plays a click-triggered
+  // "pixel whale" (official `dsh-client-ui-brand-official`, occupant
+  // `pixel-whale` of the `conversation.hero.frame` layer). Its canvas is
+  // desaturated by `filter: grayscale(1)` and takes `label-primary` (code
+  // lettering) / `label-secondary` (dots) as ink, so the breach always reads as
+  // a grey texture. The 2026-11-13 request ("可以把这个改个颜色吗？") picked the
+  // palette text green — the colour the hero mark and its headline already take
+  // — so `src/home-whale.js` cancels the grayscale and re-inks both fills; the
+  // official 0.18 layer opacity stays as approved ("保持 0.18 不变"). Always-on
+  // chrome, same injection pattern as 1c–1m.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/home-whale'
+    tag.textContent = homeWhaleStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: home whale ink')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must

@@ -57,6 +57,7 @@ const SOURCES = [
   'plugin-update.js',
   'chat-bubble.js',
   'work-steps.js',
+  'home-whale.js',
   'nav-icon.js',
   'state.js',
   'durable.js',
