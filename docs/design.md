@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.1（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27）；同日按用户要求把新会话首屏的鲸鱼标志与「探索未至之境」标题改为文字绿（§28））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.2（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27）；同日按用户要求把新会话首屏的鲸鱼标志与「探索未至之境」标题改为文字绿（§28）；2026-11-13 复核 0.2.2-rc.2：token 契约扩到 244，补 JSON 树 / 附件上传槽映射、19 项声明由 static 层继承（§4 / §12），删掉 rc.2 已不存在的 `selectedFill` 规则（§21），并修复 token / asar 两个提取脚本对 rc.2 产物格式的支持）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -204,7 +204,16 @@ tokensFor(state) → {
 > - **消费方**：新增 token 在已发布包里只被 `dsh-client-ui-schedule` 的 `ScheduleEmptyIllustration`（自动化任务页空态插图）与实验性 `forge` 插件引用；核心 UI 无其它引用，所以不补也不会崩，只是插图不跟随主题。
 > - **删除的 token**：`--dsw-specific-sidebar-nav-item-hover` 在 0.2.2 不再声明（设置导航 hover 改用既有 `interactive-bg-hover` 等 token），插件从映射表移除；旧 inventory 中的历史值不再输出。
 
-### 第 1 层：派生映射（覆盖 217 个颜色 token）
+> **2026-11-13 复核修正（0.2.2-rc.2 token 契约 217 → 244）**（证据：安装包 `@deepseek-ai/dsh-client-ui-theme/lib/client.js` 重新提取，`node scripts/extract-theme-tokens.mjs --from <rc.2 client.js>`；与旧 inventory 逐项比对：+27 / −0 / 改值 0）：
+>
+> - **颜色 token 217 → 244**：82 static + 138 alias（+24）+ 13 specific（+3）+ 11 shiki。新增 27 项覆盖卡片、图表、悬停卡片、通知 / tooltip 文字、JSON 树、附件上传槽、侧栏指南 hero 与侧栏闪动 —— 对应上游 release notes「改善自定义主题对通知、卡片、计划和任务等界面颜色的覆盖」。`tokensFor()` 共 **231 条**（225 颜色 + 6 辅助）；剩余 **19 条**（`INHERITED_TOKEN_NAMES`）声明值只引用已覆盖的 static / alias，按继承得到主题色。
+> - **显式新增 8 条**（2026-11-13 用户逐项选定，语法角色与 Shiki 层一致）：`json-tree-keyword` = `fg.blue`、`json-tree-number` = `fg.purple`、`json-tree-property` = `fg.aqua`、`json-tree-string` = `fg.yellow`、`json-tree-punctuation` / `-icon` = `fg.grey1`、`json-tree-hover` = `alpha(fg.grey1, 0.08)`；`--dsw-specific-file-upload-track` = `alpha(ramp.bg5, 0.45)`。
+> - **继承 19 条**：卡片 / 图表 / hovercard / `label-on-color` / `toast-action` / `tooltip-label` / `trajectory-accent` / `guide-hero` / `sidebar-right-flash`。它们的声明是 `var(--dsw-static-*)`、`color-mix(static)` 或 alias 间引用，static 层改写后即为主题色（真机 light·hard 实测：`card-fill #faf7ea`、`hovercard-bg #616f75`、`sidebar-right-flash #93B259`、`guide-hero #e4e5d6`）。测试按 `INHERITED_TOKEN_NAMES` 校验「契约 = 显式 + 继承」，上游把任一项改成字面量会直接失败。
+> - **消费方**：`dsh-client-ui-deliverables` / `-plan` / `-schedule`（card-*）、`-conversation`（chart-*）、`-workspace` / `-schedule`（hovercard-*）、`-sidebar-right`（guide-hero、sidebar-right-flash）、`-attachment`（file-upload-track、label-on-color）、`-agent-preset`（border-selected）、`-trajectory`（json-tree-*、trajectory-accent）、`-theme`（tooltip-label、toast-action）。
+> - **工具链**：rc.2 的 `ui-theme/lib/client.js` 不再输出 `//#region … dsh-inline-css:`，8 张样式表改为 `var <name>_css_default = ...` 模板字符串；`scripts/extract-theme-tokens.mjs` 已同时支持两种编码。新版 `app.asar` 的 header JSON 后带 NUL padding，`scripts/extract-asar-package.mjs` 已剔除后再 `JSON.parse`。
+> - **删除的规则**：`MENU_SELECTED_FILL` / `MENU_SELECTED_FILL_RADIO`（`selectedFill` 子元素）在 rc.2 整包 0 处；选中项改为在 `_selected_` 行上直接画底，规则与导出删除后颜色不变（真机实测底 `#93B259`、字 `#FFFBEF`）。
+
+### 第 1 层：派生映射（契约 244 个颜色 token，显式覆盖 225 个）
 
 `src/tokens.js` 用「角色 / 表达式」描述，而不是逐条写死六份颜色：
 
@@ -272,10 +281,10 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | `focus-ring`（不覆盖） | 走 `state-business-primary` 派生 | 焦点环跟随状态色，不单独覆盖 |
 
 - **static 色阶**（82）：把 DSH 的 `neutral-bluish-00…1000`、`neutral-*`、`deepseek-*`、`blue-*`、`green/red/amber-*` 各自映射到 Everforest 对应色相当量。**不能按明度顺序一一对应**（两边步数不同）：以「最暗 = bg5、最亮 = bg0」为端点做分段线性插值，中间按目标色相的明度分布取档；4 个带 alpha 的 static（`green-500-a08/a12`、`red-400-a12`、`red-600-a08`）单独给 rgba。使所有 `var(--dsw-static-*)` 引用自动跟随。
-- **alias / specific**（2026-10-25 口径 118 = 107 alias + 11 specific；2026-11-06 起 124 = 114 alias + 10 specific）：76 条直接 static var + 7 条含 static 的 color-mix 自动跟随；**29 条字面量 + 6 条 alias 间引用**必须显式给值（见第 2 层；2026-11-06 新增 token 的形态以 `reference/token-inventory.*` 为准）。
+- **alias / specific**（2026-10-25 口径 118 = 107 alias + 11 specific；2026-11-06 起 124 = 114 alias + 10 specific；2026-11-13 起 **151 = 138 alias + 13 specific**）：97 条直接 static var + 8 条含 static 的 color-mix 自动跟随；**37 条字面量 + 9 条 alias 间引用 = 46 条**必须显式给值（见第 2 层；其中 19 条由 `INHERITED_TOKEN_NAMES` 走 static / alias 继承，其余 8 条 2026-11-13 新增字面量已显式覆盖）。
 - 保底规则：任何没有显式映射、且不引用被覆盖 static 的 `--dsw-alias-*` 不覆盖（保持 DSH 值），避免误伤；在 `src/tokens.js` 顶部列出「未覆盖清单」，便于逐版本核对。
 
-### 第 2 层：35 个字面量 / alias 间引用（必须显式给值）
+### 第 2 层：46 个字面量 / alias 间引用（必须显式给值）
 
 | 分类 | 例子 | 处理 |
 |---|---|---|
@@ -799,6 +808,18 @@ DSH Desktop 已升级到 `0.2.2-rc.1`（`app.asar` 根与全部 `@deepseek-ai/*`
 - **集成点未变**：`theme.overrideTokens` / `getTheme` / `setTheme` / `publish` / `theme/change`、`configForms`、`settings.configure({ auto: false })`、`locale.register`、`slots` 的 `settings.section` / `shell.overlay`、`webserver/index-inject` 行形状均在；`engines.dsh` 区间 `>=0.2.1-rc.2 <0.3.0-0` 仍覆盖 0.2.2-rc.1，不抬高下限。
 - **真机复核**：Desktop（0.2.2-rc.1）token 生效（`--dsw-alias-bg-base #FFFBEF`、`--dsw-alias-label-primary #5C6A72`、`--dsw-alias-brand-primary #35A77C`，light·hard；该值属 2026-11-06 当时口径，现行品牌色为 `statusline1`），5 张常驻样式表 + 设置页样式表（当时共 6 张）挂载，`window.__EVERFOREST_BOOT__ = { version: 1, light: 'hard', dark: 'soft' }`，设置页 6 档色卡正常，控制台无插件报错；修复后设置导航行只剩松树（§19）。
 - **升级影响**：主题层无需改动；token 补齐与导航图标迁移属于本次适配。`engines.dsh` 不变，旧宿主（0.2.1-rc.x）仍可用主题，只是设置导航回退默认齿轮。
+
+### 2026-11-13 0.2.2-rc.2 复核（token 244 + JSON 树 / 上传槽映射 + 提取器修复）
+
+DSH Desktop 已升级到 `0.2.2-rc.2`（`resources/app.asar` 的 `dsh/package.json` 与全部 `@deepseek-ai/*` 均为 rc.2）。上游 release notes 与插件相关的有：自定义主题对卡片 / 计划 / 任务的配色覆盖、菜单定位与浮层、暗色文件树浮层、侧栏共用滚动区、右键菜单、聊天代码差异着色、会话首页动画等。逐项复核结论：
+
+- **token 层扩展（唯一契约变化）**：244 颜色 token（82 static + 138 alias + 13 specific + 11 shiki），与 rc.1 的 217 逐项比对为 **+27 / −0 / 改值 0**。已显式补 8 条（JSON 树 7 + 附件上传槽 1），其余 19 条按 `INHERITED_TOKEN_NAMES` 继承；`reference/token-inventory.*` 用 rc.2 产物重新生成（SHA-256 `fdfc460e70de24a188c4ef357634357ae8cf69b15fe0a58595fcbf4b5e1a89e8`），`contrast.md` 重新生成（覆盖 231 条 = 225 颜色 + 6 辅助）。映射细节见 §4 的 2026-11-13 修正。
+- **渲染层锚点未变**：`[class*="tableScroll"]`（实测 `_tableScroll_13jw0_199 _tableFill_13jw0_252`）、`[class*="markdown"]`、`data-chat-node-key`、菜单 `selected`、设置导航 `[data-shortcut-modal="settings"]` + `nav button[aria-current="true"]`、`_userStack` / `_bubble`、`headline` / `fishHitbox`、`projectText` / `folderActive` 均仍在；`settings.section.icon` 槽位、`shell.overlay`、`settings.general.item`、`webserver/index-inject`、`theme.overrideTokens` / `publish` / `theme/change` 未变。新出现的 `_tableFill_*` 只是表格底色填充，不影响既有规则。
+- **rc.2 不再渲染 `selectedFill`**：菜单选中项改为在行上直接画底（实测 `_item_70kcw_173 _selected_70kcw_308`，底 `#93B259`、字 `#FFFBEF`，`_itemIcon_` / `_itemLabel_` 也被 `MENU_INK_TOKENS` 改对）。两条子元素规则与导出删除，颜色不变（§21）。
+- **新增 token 的消费方**：`deliverables` / `plan` / `schedule`（card-*）、`conversation`（chart-*）、`workspace` / `schedule`（hovercard-*）、`sidebar-right`（guide-hero / sidebar-right-flash）、`attachment`（file-upload-track / label-on-color）、`agent-preset`（border-selected）、`trajectory`（json-tree-* / trajectory-accent）、`theme`（tooltip-label / toast-action）。
+- **工具链**：`scripts/extract-theme-tokens.mjs` 同时支持 rc.2 的模板字符串编码与旧的 region + JSON 编码；`scripts/extract-asar-package.mjs` 先剔除 asar header 的 NUL padding 再 `JSON.parse`。`node --test` 全绿，palette / build / contrast 三项 `--check` 全绿。
+- **真机复核**：Desktop（0.2.2-rc.2）13 张 `dsh-everforest/*` 样式表挂载，`window.__EVERFOREST_BOOT__ = { version: 1, light: 'hard', dark: 'soft' }`，控制台只有 favicon 404；会话表格边框、设置导航选中行（`#93B259` / `#FFFBEF`）、菜单选中、聊天气泡（`#93B259`）、首页鲸鱼与标题、工作区目录名均为主题色；右侧栏新面板面板底 `#FFFBEF`、栏底 `#F9F6E6`，与主区口径一致。
+- **升级影响**：`engines.dsh` 不变（`>=0.2.1-rc.2 <0.3.0-0` 覆盖 rc.2）；主题主体无需改动，token 补齐与死规则清理属于本次适配。
 
 ## 13. 2026-10-23 0.4.0：色彩模式（中彩；2026-10-24 起默认提供、无开关）
 
@@ -1922,7 +1943,8 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme])
   - 灵敏度对照：在页面里注入已删除的旧规则（`[class*="crumbCurrent"] { color: #8DA101 }`）后标题立刻变成
     `rgb(141,161,1)`，移除即回到 `#5C6A72` —— 说明测量能抓住旧行为，修复后的中性色不是「规则没命中」。
   - 下拉选中项未受影响：底 = `rgb(147,178,89)` `#93B259`（浅）/ `rgb(167,192,128)` `#A7C080`（深），
-    文字 / 勾勾 / 前导图标 = 该档画布 `bg0`，`selectedFill` 子元素同色；未选中行透明。
+    文字 / 勾勾 / 前导图标 = 该档画布 `bg0`（2026-11-13 rc.2 复核：选中项已不再渲染 `selectedFill` 子元素，
+    子元素规则随之删除，见 §12）。未选中行透明。
 - 边界：`[class*="crumbCurrent"]` 是 CSS-module 本地名（哈希前缀后保留），本轮删除后不再依赖它；若以后又要标题绿色，
   恢复一条规则 + G19 标题检查即可。桌面 app 未开 CDP、Web GUI 需 token（§26.4 同一约束），真机窗口目检仍需用户
   刷新页面确认。
@@ -2061,3 +2083,5 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme])
   `data-markdown-variant` 是 DSH 的布局 / 渲染契约属性，若未来 DSH 重命名会静默失效、回落到 `label-tertiary`
   （文字仍可读，只是回到旧观感）；若上游把行墨色改成非 token 值，本表仍以显式颜色覆盖（只是不再是正文同源的派生值）。
   浅色档 3.5 的对比度是用户选定的层级取舍，不是漏检。
+
+

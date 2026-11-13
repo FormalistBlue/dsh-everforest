@@ -7,7 +7,7 @@
 
 - 硬门槛：**全部通过** ✅
 - 报告项（次要文本 / 语义色 / diff / 反色前景）：全部 ≥ 1.5，无映射损坏 ✅
-- 覆盖 token 数：223（217 颜色 + 6 辅助 token）
+- 覆盖 token 数：231（225 颜色 + 6 辅助 token）
 
 硬门槛定义：
 
@@ -313,7 +313,7 @@ DSH 把工作区（项目）行的标题画成 `label-primary`（`ui-workspace` 
 - design 写「最暗 = bg5、最亮 = bg0」。对 dark scheme 而言 `bg5` 比 `bg0` **更亮**，按字面会得到反向亮度（statics 无法作为浅色文本色）。
 - 实现按「绝对亮度锚定」解释：DSH static 是双 scheme 相同的绝对色阶（00 = 白 … 1000 = 黑），映射到各 scheme 的最亮锚点 → `bg5` → 最暗锚点：
   - light：`bg0` → `bg5` → `fg`；dark：`fg` → `bg5` → `bgDim`；色相族为「浅 tint → fg 色相 → 深 tint」。
-- 该解释让所有 `var(--dsw-static-*)` 引用在两个 scheme 下都保持方向正确（design 对 static 层的目标），且不改变 217 个 token 的显式覆盖。
+- 该解释让所有 `var(--dsw-static-*)` 引用在两个 scheme 下都保持方向正确（design 对 static 层的目标），且不改变 225 个 token 的显式覆盖。
 
 ### 6.3 diff 底色
 

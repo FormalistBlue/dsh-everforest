@@ -18,14 +18,13 @@
 // green — that is a separate surface with its own user request
 // (`src/workspace-labels.js`).
 //
-// - a selected dropdown option is either a Menu item (`role="menuitem"`, check
-//   / fill selection mode, class `_selected_<hash>` or `_selectedFill_<hash>`)
-//   or a radio-style option (`role="menuitemradio"`, `aria-checked="true"`,
-//   e.g. the model / reasoning effort panes of `ui-model-selection`); their
-//   check glyph is the `check` child. Upstream defines `statusline1` as a
-//   *background* colour, so the option is a solid `statusline1` fill with the
-//   scheme canvas `bg0` as label and check ink (2026-11-08 palette review, A7)
-//   — not tinted text.
+// - a selected dropdown option is either a Menu item (`role="menuitem"`, class
+//   `_selected_<hash>`) or a radio-style option (`role="menuitemradio"`,
+//   `aria-checked="true"`, e.g. the model / reasoning effort panes of
+//   `ui-model-selection`); their check glyph is the `check` child. Upstream
+//   defines `statusline1` as a *background* colour, so the option is a solid
+//   `statusline1` fill with the scheme canvas `bg0` as label and check ink
+//   (2026-11-08 palette review, A7) — not tinted text.
 //
 // The option's *contents* need the same ink. DSH restates a colour token on
 // every nested part instead of inheriting one: the leading icon of a Menu item
@@ -47,7 +46,9 @@
 // being corrected away.
 //
 // Selectors use stable hooks only: the ARIA menu roles and DSH's `selected` /
-// `selectedFill` / `check` CSS-module local names, never a hashed class prefix.
+// `check` CSS-module local names, never a hashed class prefix. The separate
+// `selectedFill` child DSH used to paint under the label is gone since 0.2.2-rc.2
+// (the selected row paints its own background), so no rule targets it any more.
 // Always-on and independent of the color mode (selection chrome, not markdown
 // content).
 
@@ -91,12 +92,6 @@ export const MENU_INK_TOKENS = [
   '--dsw-alias-label-caption',
   '--dsw-alias-label-dimmed'
 ]
-
-/** The absolutely positioned fill child DSH paints under a selected item. */
-export const MENU_SELECTED_FILL = `${MENU_SELECTED} [class*="selectedFill"]`
-
-/** The fill child of a checked radio-style option (same menu primitive). */
-export const MENU_SELECTED_FILL_RADIO = `${MENU_SELECTED_RADIO} [class*="selectedFill"]`
 
 /**
  * Minimum contrast the dark schemes keep between the canvas ink and the accent
@@ -164,8 +159,9 @@ function accentRule (scope, selectors, declarations) {
 }
 
 /**
- * One variant's three rules: the selected row surface, its fill child and the
- * check glyph.
+ * One variant's two rules: the selected row surface and the check glyph.
+ * (The `selectedFill` child rule was removed for 0.2.2-rc.2 — the menu primitive
+ * no longer renders that child, the selected row paints its own background.)
  * @param {'light' | 'dark'} scheme
  * @param {'hard' | 'medium' | 'soft'} strength
  * @param {{ fill: string, ink: string }} roles
@@ -181,13 +177,12 @@ function uiAccentRules (scheme, strength, roles) {
       // so the band ink is written onto the tokens themselves (MENU_INK_TOKENS).
       ...MENU_INK_TOKENS.map((token) => [token, roles.ink])
     ]),
-    accentRule(scope, [MENU_SELECTED_FILL, MENU_SELECTED_FILL_RADIO], [['background', roles.fill]]),
     accentRule(scope, [MENU_CHECK, MENU_CHECK_RADIO], [['color', roles.ink]])
   ].join('\n\n')
 }
 
 /**
- * The complete chrome accent stylesheet (six variants × three rules).
+ * The complete chrome accent stylesheet (six variants × two rules).
  * @returns {string}
  */
 export function uiAccentStyles () {

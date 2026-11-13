@@ -7,6 +7,7 @@ import { alpha, contrastRatio, hexToRgb, isHex, mix, relativeLuminance } from '.
 import {
   AUXILIARY_TOKEN_NAMES,
   COMPAT_ALIAS_NAMES,
+  INHERITED_TOKEN_NAMES,
   SELF_CHECK_TOKENS,
   TOKEN_COVERAGE,
   compatAliasesFor,
@@ -32,12 +33,12 @@ function isLegalColor (value) {
 }
 
 test('token inventory on disk matches the docs/design.md §4 counting convention', () => {
-  assert.deepEqual(inventory.counts, { static: 82, alias: 114, specific: 10, shiki: 11, total: 217 })
-  assert.equal(inventory.tokens.length, 217)
+  assert.deepEqual(inventory.counts, { static: 82, alias: 138, specific: 13, shiki: 11, total: 244 })
+  assert.equal(inventory.tokens.length, 244)
   assert.equal(inventory.generatedBy, 'scripts/extract-theme-tokens.mjs')
   assert.equal(inventory.sheets.length, 8)
-  assert.equal(inventoryNames.length, 217)
-  assert.equal(new Set(inventoryNames).size, 217)
+  assert.equal(inventoryNames.length, 244)
+  assert.equal(new Set(inventoryNames).size, 244)
   for (const category of Object.keys(inventoryCategories)) {
     assert.ok(['static', 'alias', 'specific', 'shiki'].includes(category), category)
   }
@@ -48,9 +49,11 @@ test('token inventory on disk matches the docs/design.md §4 counting convention
   }
 })
 
-test('tokensFor emits every inventory colour token with light and dark values', () => {
+test('tokensFor emits every explicitly covered colour token with light and dark values', () => {
   const overlay = tokensFor(DEFAULT_STATE)
+  const inherited = new Set(INHERITED_TOKEN_NAMES)
   for (const name of inventoryNames) {
+    if (inherited.has(name)) continue
     const pair = overlay[name]
     assert.ok(pair, `missing token ${name}`)
     assert.equal(typeof pair.light, 'string', name)
@@ -62,16 +65,44 @@ test('tokensFor emits every inventory colour token with light and dark values', 
     assert.ok(!pair.light.includes('var('), `${name} light must be explicit`)
     assert.ok(!pair.dark.includes('var('), `${name} dark must be explicit`)
   }
-  assert.ok(Object.keys(overlay).length >= 217)
+  // 225 colour tokens + the 6 auxiliary gradients.
+  assert.equal(Object.keys(overlay).length, 231)
+})
+
+test('the inherited list is exactly what the overlay leaves to the static layer', () => {
+  const overlay = tokensFor(DEFAULT_STATE)
+  const inherited = [...INHERITED_TOKEN_NAMES].sort()
+  assert.equal(inherited.length, 19)
+  assert.deepEqual(
+    inherited,
+    inventoryNames.filter((name) => overlay[name] === undefined),
+    'every contract token must be either emitted or listed as inherited'
+  )
+  // Each inherited token resolves through a token this layer does rewrite, so the
+  // surface follows the palette instead of keeping a native literal.
+  const byName = new Map(inventory.tokens.map((token) => [token.name, token]))
+  for (const name of inherited) {
+    const token = byName.get(name)
+    assert.ok(token, `${name} is not in the inventory`)
+    const references = [...String(token.light).matchAll(/var\((--[a-z0-9-]+)\)/gi)].map((match) => match[1])
+    assert.ok(references.length > 0, `${name} no longer references another token (literal value?)`)
+    for (const reference of references) {
+      assert.ok(overlay[reference], `${name} references ${reference}, which this layer does not emit`)
+    }
+  }
 })
 
 test('TOKEN_COVERAGE is consistent with tokensFor', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   assert.deepEqual([...TOKEN_COVERAGE.covered].sort(), Object.keys(overlay).sort())
-  assert.equal(TOKEN_COVERAGE.covered.length, 223) // 217 colour + 6 auxiliary
+  assert.equal(TOKEN_COVERAGE.covered.length, 231) // 225 colour + 6 auxiliary
   const covered = new Set(TOKEN_COVERAGE.covered)
-  for (const name of inventoryNames) assert.ok(covered.has(name), name)
-  // Auxiliary tokens required by design §4 but outside the 217 inventory.
+  const inherited = new Set(INHERITED_TOKEN_NAMES)
+  for (const name of inventoryNames) {
+    if (inherited.has(name)) continue
+    assert.ok(covered.has(name), name)
+  }
+  // Auxiliary tokens required by design §4 but outside the 244-token contract.
   assert.deepEqual([...AUXILIARY_TOKEN_NAMES], [
     '--dsw-gradient-onboarding-blue-stops',
     '--dsw-gradient-onboarding-cyan-stops',
@@ -91,7 +122,7 @@ test('compat aliases fill guessed third-party token names without touching the o
   const covered = new Set(TOKEN_COVERAGE.covered)
 
   // Every alias is a guessed name, never an official token and never counted
-  // as Everforest coverage; deleting the bridge cannot change the 217-token
+  // as Everforest coverage; deleting the bridge cannot change the 244-token
   // contract or the boot palette.
   assert.deepEqual([...COMPAT_ALIAS_NAMES], Object.keys(aliases).sort())
   for (const [name, pair] of Object.entries(aliases)) {
@@ -635,3 +666,4 @@ test('brand foreground on brand keeps the documented accent-pair floor', () => {
     }
   }
 })
+

@@ -8,14 +8,19 @@
  *   node scripts/extract-theme-tokens.mjs --from <path-to-ui-theme/lib/client.js> [--out-dir <dir>] [--check]
  *
  * Outputs (zero dependencies, deterministic):
- *   docs/reference/token-inventory.json  machine-readable list of the 217 colour tokens
+ *   docs/reference/token-inventory.json  machine-readable list of the 244 colour tokens
  *   docs/reference/token-inventory.md    human-readable tables + statistics
  *
- * Counting convention (docs/design.md §4; 0.2.2-rc.1 re-audit, §12):
- *   colours: 82 static + 114 alias + 10 specific = 206
- *   syntax highlighting: 9 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background` = 11
- *   -> total covered token inventory: 217
- *   (0.2.1-rc.2 … rc.5 carried 206: 77 static + 107 alias + 11 specific + 11 shiki)
+ * Counting convention (docs/design.md §4; 0.2.2-rc.2 re-audit, §12):
+ *   colours: 82 static + 138 alias + 13 specific = 233
+ *   syntax highlighting: 9 `--shiki-token-*` + --shiki-foreground + --shiki-background = 11
+ *   -> total covered token inventory: 244
+ *   (0.2.2-rc.1 carried 217: 82 static + 114 alias + 10 specific + 11 shiki;
+ *    0.2.1-rc.2 … rc.5 carried 206: 77 static + 107 alias + 11 specific + 11 shiki)
+ *
+ * Two inline-sheet encodings are supported: 0.2.2-rc.2 emits each sheet as a
+ * `var <name>_css_default = \`…\`;` template literal, older builds put a
+ * `//#region … dsh-inline-css:<sheet>` marker in front of a JSON string.
  *
  * Value kinds:
  *   literal     a concrete colour literal (#hex, rgb(), ...)
@@ -41,11 +46,14 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(SCRIPT_DIR, '..')
 const DEFAULT_OUT_DIR = join(REPO_ROOT, 'docs', 'reference')
 
-/** Expected colour-token counts, fixed by docs/design.md §4 (2026-10-18 audit). */
-const EXPECTED_COUNTS = { static: 82, alias: 114, specific: 10, shiki: 11, total: 217 }
+/** Expected colour-token counts, fixed by docs/design.md §4 (0.2.2-rc.2 audit). */
+const EXPECTED_COUNTS = { static: 82, alias: 138, specific: 13, shiki: 11, total: 244 }
 
 const SHEET_REGION_RE =
   /\/\/#region [^\n]*dsh-inline-css:([^\n]+)\r?\n[^\n]*?= ("(?:[^"\\]|\\.)*");/g
+
+/** 0.2.2-rc.2 encoding: `var <name>_css_default = \`…\`;` per sheet. */
+const SHEET_TEMPLATE_RE = /var ([A-Za-z0-9_]+)_css_default ?= ?`/g
 
 const CATEGORY_ORDER = ['static', 'alias', 'specific', 'shiki']
 
@@ -178,7 +186,45 @@ function categoryOf(name) {
  * ------------------------------------------------------------------ */
 
 /**
+ * Decode the sheets from a bundle that inlines them as template literals
+ * (0.2.2-rc.2: `var design_platform_css_default = \`…\`;`). The names carry
+ * underscores, the historical sheet names carry hyphens.
+ * @param {string} bundle
+ * @returns {Array<{name: string, css: string}>}
+ */
+function decodeTemplateSheets(bundle) {
+  const sheets = []
+  SHEET_TEMPLATE_RE.lastIndex = 0
+  let match
+  while ((match = SHEET_TEMPLATE_RE.exec(bundle)) !== null) {
+    let index = SHEET_TEMPLATE_RE.lastIndex
+    let css = ''
+    let closed = false
+    while (index < bundle.length) {
+      const char = bundle[index]
+      if (char === '\\') {
+        css += bundle[index + 1] ?? ''
+        index += 2
+        continue
+      }
+      if (char === '`') {
+        closed = true
+        break
+      }
+      css += char
+      index += 1
+    }
+    if (!closed) break
+    sheets.push({ name: match[1].replace(/_/g, '-'), css })
+    SHEET_TEMPLATE_RE.lastIndex = index + 1
+  }
+  return sheets
+}
+
+/**
  * Read the bundle, decode every inline sheet, and build the token inventory.
+ * Supports both the 0.2.2-rc.2 template-literal encoding and the older
+ * `//#region … dsh-inline-css:` + JSON-string encoding.
  * @param {string} file source `ui-theme/lib/client.js` path
  */
 function extract(file) {
@@ -197,6 +243,7 @@ function extract(file) {
     }
     sheets.push({ name: sheetName, css })
   }
+  if (sheets.length === 0) sheets.push(...decodeTemplateSheets(bundle))
   if (sheets.length === 0) {
     throw new Error(
       'no inline CSS sheets found; is --from the built @deepseek-ai/dsh-client-ui-theme/lib/client.js?',
@@ -360,7 +407,7 @@ function renderMarkdown(inventory) {
     '# DSH token inventory',
     '',
     '> 由 `node scripts/extract-theme-tokens.mjs --from <ui-theme/lib/client.js>` 生成，请勿手改。',
-    '> 对应：DSH 0.2.2-rc.1 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；0.2.1-rc.3 / rc.5 复核 206 token 不变；2026-11-06 0.2.2-rc.1 复核扩到 217，见 §12）。',
+    '> 对应：DSH 0.2.2-rc.2 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；0.2.1-rc.3 / rc.5 复核 206 token 不变；2026-11-06 0.2.2-rc.1 扩到 217；2026-11-13 0.2.2-rc.2 扩到 244，见 §12）。',
     '',
     `来源：\`${SOURCE_LABEL}\`；提取内容 SHA-256 \`${inventoryDigest(inventory)}\`。`,
     '该指纹与 `--from` 的绝对路径无关，因此任意路径下的同版本文件都可复现 `--check`。',
@@ -413,13 +460,13 @@ function renderMarkdown(inventory) {
     `\`design-platform.css\` 承载 light 侧 ${dp.total} 条 alias/specific 声明。按值形态提取为：`,
     '',
     `- var-static ${dp['var-static']} + color-mix ${dp['color-mix']} + literal ${dp.literal} + alias-ref ${dp['alias-ref']} = ${dp.total}；`,
-    `- 分类边界（\`--dsw-alias-tooltip-key-bg\` 的 \`color-mix()\` 内引用 alias 而非 static、\`--dsw-specific-menu\` 引用非 static/alias 的 \`--dsw-menu-surface-fill\` 等）不改变覆盖结论：插件对所有 ${counts.total} 个 token 都显式给值，不依赖自动跟随。`,
+    `- 分类边界（\`--dsw-alias-tooltip-key-bg\` 的 \`color-mix()\` 内引用 alias 而非 static、\`--dsw-specific-menu\` 引用非 static/alias 的 \`--dsw-menu-surface-fill\` 等）不改变覆盖结论：插件显式覆盖 225 个 token；其余 19 个（\`INHERITED_TOKEN_NAMES\`）的声明只引用已覆盖的 static / alias，按继承得到主题色，不重复给值。`,
     '',
-    `### 1.3 显式处理清单（light 侧 literal + alias-ref，全部 ${counts.total} 个 token 均显式映射）`,
+    `### 1.3 必须显式给值的声明（light 侧 literal + alias-ref）`,
     '',
   )
   const explicit = inventory.tokens.filter((t) => t.lightKind === 'literal' || t.lightKind === 'alias-ref')
-  push(`共 ${explicit.length} 条，必须由 \`src/tokens.js\` 显式映射：`, '')
+  push(`共 ${explicit.length} 条；除 \`--dsw-specific-sidebar-right-flash\`（alias 引用，走继承）外均由 \`src/tokens.js\` 显式映射：`, '')
   for (const token of explicit) {
     push(`- \`${token.name}\`（${token.lightKind}）= \`${token.light}\``)
   }
@@ -550,3 +597,4 @@ function main() {
 }
 
 main()
+

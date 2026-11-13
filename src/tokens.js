@@ -13,12 +13,14 @@
 // Coverage (docs/design.md §4, 2026-10-18 audit; inventory: docs/reference/token-inventory.json)
 // ---------------------------------------------------------------------------
 //   82 `--dsw-static-*` colour tokens   (derived: luminance-anchored ramp interpolation)
-//  114 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
-//   10 `--dsw-specific-*` colour tokens (explicit role mapping)
+//  121 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
+//   11 `--dsw-specific-*` colour tokens (explicit role mapping)
 //   11 `--shiki-*` tokens               (explicit; shiki.css light values on :root and
 //                                        --shiki-foreground/background reference body-level
 //                                        aliases, so alias inheritance cannot be relied on)
-//   = 217 covered colour tokens (DSH 0.2.2-rc.1; 206 through 0.2.1-rc.5)
+//   = 225 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
+//   + 19 contract tokens that resolve through the rewritten static / alias layer
+//     instead of being emitted again (`INHERITED_TOKEN_NAMES`) = 244 in total
 //   + 6 auxiliary tokens (menu material, think gradients, onboarding gradient stops)
 //
 // Not covered (kept at DSH native values; see TOKEN_COVERAGE.uncovered):
@@ -53,8 +55,10 @@
 //    borders = bg5 alpha, brand / interaction accent = green, link = blue, states,
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
 //    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
-//    = neutral luminance anchors, ...). No alias relies on automatic following:
-//    all 217 tokens are explicit.
+//    = neutral luminance anchors, JSON tree = the same syntax roles as shiki, ...).
+//    225 tokens are explicit; the remaining 19 contract tokens are inherited by
+//    design (`INHERITED_TOKEN_NAMES`) because their only declaration is a
+//    reference to a static / alias token this layer already rewrites.
 // 3. contrast guard for text-bearing light surfaces: DSH light layers are all
 //    #fff natively and Everforest Enchanted uses a flat background, but the
 //    upstream light·soft ramp is darker. Text-bearing surfaces therefore blend
@@ -623,10 +627,13 @@ function illustrationNeutral (p, role) {
  * ------------------------------------------------------------------ */
 
 /**
- * The 114 `--dsw-alias-*` colour tokens of the DSH 0.2.2-rc.1 ui-theme sheets
- * (0.2.1-rc.2 … rc.5 carried 107; 0.2.2-rc.1 adds the illustration family and
- * `state-done-primary`; see docs/design.md §12). Every entry is an explicit role
- * mapping (docs/design.md §4); none relies on static-token following.
+ * The 121 mapped `--dsw-alias-*` colour tokens of the DSH 0.2.2-rc.2 ui-theme
+ * sheets (0.2.1-rc.2 … rc.5 carried 107; 0.2.2-rc.1 added the illustration
+ * family and `state-done-primary`; 0.2.2-rc.2 added 24 alias tokens for cards,
+ * charts, hovercards, JSON trees and the trajectory accent; see docs/design.md
+ * §12). Every entry here is an explicit role mapping (docs/design.md §4); the
+ * 17 alias tokens that are *not* listed only reference static / alias tokens
+ * this layer already rewrites (`INHERITED_TOKEN_NAMES`).
  * @type {Record<string, (p: object) => string>}
  */
 const ALIAS_TOKENS = {
@@ -716,6 +723,20 @@ const ALIAS_TOKENS = {
   '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(interactionAccent(p), 0.16),
   '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.red, 0.12),
   '--dsw-alias-interactive-bg-hover-solid': (p) => surface(p, 2),
+
+  // JSON tree (trajectory view, session-data inspector) ----------------------
+  // DSH declares these with VSCode literals, so the tree kept an editor palette
+  // on top of the Everforest surface. 2026-11-13 rc.2 review: map the syntax
+  // roles onto the ones the Shiki layer already uses — keyword = blue, constant
+  // = purple, string = yellow, punctuation / disclosure glyphs = grey1, and the
+  // row hover = an 8% ink wash (the DSH value is a 4% black equivalent).
+  '--dsw-alias-json-tree-hover': (p) => alpha(p.fg.grey1, 0.08),
+  '--dsw-alias-json-tree-icon': (p) => p.fg.grey1,
+  '--dsw-alias-json-tree-keyword': (p) => p.fg.blue,
+  '--dsw-alias-json-tree-number': (p) => p.fg.purple,
+  '--dsw-alias-json-tree-property': (p) => p.fg.aqua,
+  '--dsw-alias-json-tree-punctuation': (p) => p.fg.grey1,
+  '--dsw-alias-json-tree-string': (p) => p.fg.yellow,
 
   // Labels -------------------------------------------------------------------
   // 2026-11-08 palette review (A9): upstream assigns `grey2` only to the cursor
@@ -823,10 +844,17 @@ const ALIAS_TOKENS = {
   '--dsw-alias-turn-trigger-bg-hover': (p) => alpha(surface(p, 3), 0.85)
 }
 
-/** The 10 `--dsw-specific-*` colour tokens. @type {Record<string, (p: object) => string>} */
+/**
+ * The 11 mapped `--dsw-specific-*` colour tokens (of 13 in the 0.2.2-rc.2
+ * contract; `guide-hero` and `sidebar-right-flash` are inherited).
+ * @type {Record<string, (p: object) => string>}
+ */
 const SPECIFIC_TOKENS = {
   '--dsw-specific-bubble': (p) => bubbleSurface(p),
   '--dsw-specific-bubble-highlight': (p) => surface(p, 2),
+  // Attachment upload track: DSH ships an 8% black, which disappears on a cream
+  // surface. A bg5 wash reads on both schemes (2026-11-13 rc.2 review).
+  '--dsw-specific-file-upload-track': (p) => alpha(p.ramp.bg5, 0.45),
   '--dsw-specific-input-major': (p) => surface(p, 1),
   '--dsw-specific-login-input': (p) => surface(p, 1),
   '--dsw-specific-menu': (p) => menuFill(p),
@@ -859,7 +887,7 @@ const SHIKI_TOKENS = {
 }
 
 /**
- * Six auxiliary tokens that are not part of the 217-token colour inventory but are
+ * Six auxiliary tokens that are not part of the 244-token colour contract but are
  * explicitly required by docs/design.md §4 (menu material, think gradients,
  * onboarding gradient stops). They are emitted with the same overlay.
  * @type {Record<string, (p: object) => string>}
@@ -933,12 +961,47 @@ const TOKEN_ENTRIES = [
 ]
 
 /**
- * The six auxiliary tokens emitted on top of the 217-token colour inventory
+ * The six auxiliary tokens emitted on top of the 244-token colour contract
  * (docs/design.md §4 explicitly requires menu material, think gradients and the
- * onboarding gradient stops; they are not part of the 206 colour + 11 shiki count).
+ * onboarding gradient stops; they are not part of the 225 colour + 11 shiki count).
  * @type {string[]}
  */
 export const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort())
+
+/**
+ * Colour tokens of the 0.2.2-rc.2 contract that this layer deliberately does not
+ * emit: each one is declared by DSH as a reference to a static token (or another
+ * alias) that the overlay already rewrites, so the resolved value is the palette
+ * colour by construction. Listing them keeps the inventory test honest — if DSH
+ * ever gives one of them a literal value, the test fails instead of the surface
+ * silently staying at an editor / native colour.
+ *
+ * 2026-11-13 rc.2 review: 19 of the 27 new tokens fall in this class (cards,
+ * charts, hovercards, label-on-color, toast / tooltip labels, trajectory accent,
+ * guide hero, sidebar-right flash).
+ * @type {string[]}
+ */
+export const INHERITED_TOKEN_NAMES = Object.freeze([
+  '--dsw-alias-border-selected',
+  '--dsw-alias-card-fill',
+  '--dsw-alias-card-fill-hover',
+  '--dsw-alias-card-tile-fill',
+  '--dsw-alias-chart-messages',
+  '--dsw-alias-chart-system',
+  '--dsw-alias-chart-tools',
+  '--dsw-alias-hovercard-bg',
+  '--dsw-alias-hovercard-label-primary',
+  '--dsw-alias-hovercard-label-secondary',
+  '--dsw-alias-hovercard-label-tertiary',
+  '--dsw-alias-hovercard-state-done',
+  '--dsw-alias-hovercard-state-error',
+  '--dsw-alias-label-on-color',
+  '--dsw-alias-toast-action',
+  '--dsw-alias-tooltip-label',
+  '--dsw-alias-trajectory-accent',
+  '--dsw-specific-guide-hero',
+  '--dsw-specific-sidebar-right-flash'
+])
 
 /** Names emitted by `tokensFor`, sorted for a stable `TOKEN_COVERAGE.covered`. */
 const COVERED_NAMES = TOKEN_ENTRIES.map(([name]) => name).sort()
@@ -957,7 +1020,7 @@ const COVERED_NAMES = TOKEN_ENTRIES.map(([name]) => name).sort()
  *
  * This bridge defines the guessed names with the value of the closest real
  * token. It is deliberately NOT part of `tokensFor`/`TOKEN_COVERAGE.covered`:
- * the official 217-token contract stays untouched, and the aliases are layered
+ * the official 244-token contract stays untouched, and the aliases are layered
  * on only where the override layer is built (the Client entry), so the bridge
  * can be removed in one place once upstream plugin fixes land.
  *
@@ -1093,7 +1156,7 @@ export function tokensFor (state = DEFAULT_STATE) {
 
 /**
  * Token coverage bookkeeping for docs / startup diagnostics.
- * - `covered`: every CSS variable emitted by `tokensFor` (217 colour + 6 auxiliary)
+ * - `covered`: every CSS variable emitted by `tokensFor` (225 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
  *
  * The third-party compatibility aliases (`compatAliasesFor`) are layered on by
@@ -1147,3 +1210,4 @@ export const SELF_CHECK_TOKENS = Object.freeze([
   '--dsw-mask-blur',
   '--dsw-elevation-stroke-color'
 ])
+

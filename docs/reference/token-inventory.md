@@ -1,53 +1,53 @@
 # DSH token inventory
 
 > 由 `node scripts/extract-theme-tokens.mjs --from <ui-theme/lib/client.js>` 生成，请勿手改。
-> 对应：DSH 0.2.2-rc.1 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；0.2.1-rc.3 / rc.5 复核 206 token 不变；2026-11-06 0.2.2-rc.1 复核扩到 217，见 §12）。
+> 对应：DSH 0.2.2-rc.2 的 `@deepseek-ai/dsh-client-ui-theme` 8 张内置样式表（`docs/design.md` §4 的 2026-10-18 审计口径；0.2.1-rc.3 / rc.5 复核 206 token 不变；2026-11-06 0.2.2-rc.1 扩到 217；2026-11-13 0.2.2-rc.2 扩到 244，见 §12）。
 
-来源：`@deepseek-ai/dsh-client-ui-theme lib/client.js (8 inlined sheets)`；提取内容 SHA-256 `12f3c67bbd1643eade93e6cc8ece4257b7d458f098d465c4c79f351fd16e79b5`。
+来源：`@deepseek-ai/dsh-client-ui-theme lib/client.js (8 inlined sheets)`；提取内容 SHA-256 `fdfc460e70de24a188c4ef357634357ae8cf69b15fe0a58595fcbf4b5e1a89e8`。
 该指纹与 `--from` 的绝对路径无关，因此任意路径下的同版本文件都可复现 `--check`。
 
 ## 1. 统计口径
 
 | 项 | 数量 |
 |---|---:|
-| `--dsw-*` 唯一名（8 张 sheet 合计，含非颜色） | 414 |
+| `--dsw-*` 唯一名（8 张 sheet 合计，含非颜色） | 450 |
 | 颜色 token：static | 82 |
-| 颜色 token：alias | 114 |
-| 颜色 token：specific | 10 |
-| 颜色 token 小计 | 206 |
+| 颜色 token：alias | 138 |
+| 颜色 token：specific | 13 |
+| 颜色 token 小计 | 233 |
 | shiki（9 个 `--shiki-token-*` + `--shiki-foreground` + `--shiki-background`） | 11 |
-| **覆盖清单合计** | **217** |
+| **覆盖清单合计** | **244** |
 
-sheets：`base.css`、`corner-shape.css`、`design-platform.css`、`focus.css`、`onboarding.css`、`scrollbar.css`、`gradient-shadow-text.css`、`shiki.css`
+sheets：`base`、`corner-shape`、`design-platform`、`focus`、`onboarding`、`scrollbar`、`gradient-shadow-text`、`shiki`
 
-### 1.1 声明值形态（全部 217 个颜色 token 的 light 声明）
+### 1.1 声明值形态（全部 244 个颜色 token 的 light 声明）
 
 | 形态 | 数量 | 说明 |
 |---|---:|---|
-| literal | 120 | 字面量（hex/rgb），必须显式给值 |
-| var-static | 80 | 直接引用 `--dsw-static-*`，可随 static 映射自动跟随 |
-| color-mix | 7 | color-mix 表达式，多半引用 static |
-| alias-ref | 10 | 引用其它 alias / 浮层材质 token |
+| literal | 128 | 字面量（hex/rgb），必须显式给值 |
+| var-static | 97 | 直接引用 `--dsw-static-*`，可随 static 映射自动跟随 |
+| color-mix | 8 | color-mix 表达式，多半引用 static |
+| alias-ref | 11 | 引用其它 alias / 浮层材质 token |
 
-dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、missing 5。
+dark 侧重定义：literal 128、alias-ref 7、var-static 97、color-mix 7、missing 5。
 `missing` 表示该 token 没有 `body[data-ds-dark-theme]` 覆盖，按级联沿用 light 声明；插件仍然为两种 scheme 都显式给值。
 
 ### 1.2 light 侧 alias/specific 声明按 sheet 拆分
 
 | sheet | literal | var-static | color-mix | alias-ref | 合计 |
 |---|---:|---:|---:|---:|---:|
-| base.css | 0 | 0 | 0 | 2 | 2 |
-| design-platform.css | 28 | 79 | 5 | 6 | 118 |
-| onboarding.css | 1 | 1 | 2 | 0 | 4 |
+| base | 0 | 0 | 0 | 2 | 2 |
+| design-platform | 36 | 96 | 6 | 7 | 145 |
+| onboarding | 1 | 1 | 2 | 0 | 4 |
 
-`design-platform.css` 承载 light 侧 118 条 alias/specific 声明。按值形态提取为：
+`design-platform.css` 承载 light 侧 0 条 alias/specific 声明。按值形态提取为：
 
-- var-static 79 + color-mix 5 + literal 28 + alias-ref 6 = 118；
-- 分类边界（`--dsw-alias-tooltip-key-bg` 的 `color-mix()` 内引用 alias 而非 static、`--dsw-specific-menu` 引用非 static/alias 的 `--dsw-menu-surface-fill` 等）不改变覆盖结论：插件对所有 217 个 token 都显式给值，不依赖自动跟随。
+- var-static 0 + color-mix 0 + literal 0 + alias-ref 0 = 0；
+- 分类边界（`--dsw-alias-tooltip-key-bg` 的 `color-mix()` 内引用 alias 而非 static、`--dsw-specific-menu` 引用非 static/alias 的 `--dsw-menu-surface-fill` 等）不改变覆盖结论：插件显式覆盖 225 个 token；其余 19 个（`INHERITED_TOKEN_NAMES`）的声明只引用已覆盖的 static / alias，按继承得到主题色，不重复给值。
 
-### 1.3 显式处理清单（light 侧 literal + alias-ref，全部 217 个 token 均显式映射）
+### 1.3 必须显式给值的声明（light 侧 literal + alias-ref）
 
-共 130 条，必须由 `src/tokens.js` 显式映射：
+共 139 条；除 `--dsw-specific-sidebar-right-flash`（alias 引用，走继承）外均由 `src/tokens.js` 显式映射：
 
 - `--dsw-alias-bg-mask-1`（literal）= `#0000003d`
 - `--dsw-alias-bg-mask-2`（literal）= `#0000001f`
@@ -79,13 +79,22 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 - `--dsw-alias-interactive-bg-hover`（literal）= `#2631480f`
 - `--dsw-alias-interactive-bg-hover-accent`（literal）= `#26314824`
 - `--dsw-alias-interactive-bg-hover-danger`（literal）= `#ec13130d`
+- `--dsw-alias-json-tree-hover`（literal）= `#3c40430a`
+- `--dsw-alias-json-tree-icon`（literal）= `#5f6368`
+- `--dsw-alias-json-tree-keyword`（literal）= `#1c00cf`
+- `--dsw-alias-json-tree-number`（literal）= `#1c00cf`
+- `--dsw-alias-json-tree-property`（literal）= `#881391`
+- `--dsw-alias-json-tree-punctuation`（literal）= `#202124`
+- `--dsw-alias-json-tree-string`（literal）= `#c41a16`
 - `--dsw-alias-menu-group-header-fill`（literal）= `#f8f9faf0`
 - `--dsw-alias-onboarding-accent`（literal）= `#3964fe`
 - `--dsw-alias-settings-card-fill`（alias-ref）= `var(--dsw-alias-bg-layer-2)`
 - `--dsw-alias-settings-card-stroke`（alias-ref）= `var(--dsw-alias-border-l4)`
 - `--dsw-alias-turn-trigger-bg`（alias-ref）= `var(--dsw-alias-markdown-code-block)`
 - `--dsw-alias-turn-trigger-bg-hover`（alias-ref）= `var(--dsw-alias-interactive-bg-hover)`
+- `--dsw-specific-file-upload-track`（literal）= `#00000014`
 - `--dsw-specific-menu`（alias-ref）= `var(--dsw-menu-surface-fill)`
+- `--dsw-specific-sidebar-right-flash`（alias-ref）= `var(--dsw-alias-brand-primary-new-colorprimary-new-color)`
 - `--dsw-static-amber-100`（literal）= `#fef5e7`
 - `--dsw-static-amber-400`（literal）= `#f7ad31`
 - `--dsw-static-amber-500`（literal）= `#f59e0b`
@@ -279,7 +288,7 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 | `--dsw-static-violet-400` | `#a78bfa` | literal | `#a78bfa` | literal |
 | `--dsw-static-violet-600` | `#7c3aed` | literal | `#7c3aed` | literal |
 
-### 2.2 alias（114）
+### 2.2 alias（138）
 
 | token | light | lightKind | dark | darkKind |
 |---|---|---|---|---|
@@ -305,6 +314,7 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 | `--dsw-alias-border-l2-darkmode-thin` | `#0000001a` | literal | `#ffffff0f` | literal |
 | `--dsw-alias-border-l3` | `#0000001f` | literal | `#ffffff29` | literal |
 | `--dsw-alias-border-l4` | `#00000029` | literal | `#fff3` | literal |
+| `--dsw-alias-border-selected` | `var(--dsw-static-neutral-bluish-400)` | var-static | `var(--dsw-static-neutral-bluish-400)` | var-static |
 | `--dsw-alias-brand-primary` | `var(--dsw-static-neutral-bluish-1000)` | var-static | `var(--dsw-static-neutral-bluish-50)` | var-static |
 | `--dsw-alias-brand-primary-invert` | `var(--dsw-static-neutral-bluish-1000)` | var-static | `var(--dsw-static-neutral-bluish-50)` | var-static |
 | `--dsw-alias-brand-primary-new-colorprimary-new-color` | `#4176e6` | literal | `var(--dsw-static-deepseek-450)` | var-static |
@@ -324,6 +334,12 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 | `--dsw-alias-button-tool-bar-fill` | `#54555780` | literal | `#54555780` | literal |
 | `--dsw-alias-button-tool-bar-fill-invisible` | `#1f1f1f5c` | literal | `#1f1f1f5c` | literal |
 | `--dsw-alias-button-tool-bar-hover` | `#54555799` | literal | `#54555799` | literal |
+| `--dsw-alias-card-fill` | `var(--dsw-static-neutral-50)` | var-static | `var(--dsw-static-neutral-850)` | var-static |
+| `--dsw-alias-card-fill-hover` | `var(--dsw-static-neutral-100)` | var-static | `var(--dsw-static-neutral-800)` | var-static |
+| `--dsw-alias-card-tile-fill` | `color-mix(in srgb, var(--dsw-static-neutral-00) 50%, transparent)` | color-mix | `color-mix(in srgb, var(--dsw-static-neutral-00) 5%, transparent)` | color-mix |
+| `--dsw-alias-chart-messages` | `var(--dsw-static-blue-450)` | var-static | `var(--dsw-static-blue-450)` | var-static |
+| `--dsw-alias-chart-system` | `var(--dsw-static-neutral-bluish-400)` | var-static | `var(--dsw-static-neutral-bluish-400)` | var-static |
+| `--dsw-alias-chart-tools` | `var(--dsw-static-violet-400)` | var-static | `var(--dsw-static-violet-400)` | var-static |
 | `--dsw-alias-code-diff-added` | `var(--dsw-static-green-500-a08)` | var-static | `var(--dsw-static-green-500-a12)` | var-static |
 | `--dsw-alias-code-diff-deleted` | `var(--dsw-static-red-600-a08)` | var-static | `var(--dsw-static-red-400-a12)` | var-static |
 | `--dsw-alias-file-diff-added-bg` | `#e6f4e7` | literal | `#1f3124` | literal |
@@ -332,6 +348,12 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 | `--dsw-alias-file-diff-deleted-bg` | `#fce6e2` | literal | `#3c1f1b` | literal |
 | `--dsw-alias-file-diff-deleted-gutter` | `#fdece9` | literal | `#28130e` | literal |
 | `--dsw-alias-file-diff-deleted-marker` | `#ba2723` | literal | `#fa423e` | literal |
+| `--dsw-alias-hovercard-bg` | `var(--dsw-static-neutral-bluish-850)` | var-static | `var(--dsw-static-neutral-bluish-850)` | var-static |
+| `--dsw-alias-hovercard-label-primary` | `var(--dsw-static-neutral-bluish-00)` | var-static | `var(--dsw-static-neutral-bluish-00)` | var-static |
+| `--dsw-alias-hovercard-label-secondary` | `var(--dsw-static-neutral-bluish-300)` | var-static | `var(--dsw-static-neutral-bluish-300)` | var-static |
+| `--dsw-alias-hovercard-label-tertiary` | `var(--dsw-static-neutral-bluish-400)` | var-static | `var(--dsw-static-neutral-bluish-400)` | var-static |
+| `--dsw-alias-hovercard-state-done` | `var(--dsw-static-violet-400)` | var-static | `var(--dsw-static-violet-400)` | var-static |
+| `--dsw-alias-hovercard-state-error` | `var(--dsw-static-red-400)` | var-static | `var(--dsw-static-red-400)` | var-static |
 | `--dsw-alias-illustration-background` | `var(--dsw-static-neutral-bluish-55)` | var-static | `var(--dsw-static-neutral-bluish-850)` | var-static |
 | `--dsw-alias-illustration-backing` | `var(--dsw-static-neutral-bluish-310)` | var-static | `var(--dsw-static-neutral-bluish-750)` | var-static |
 | `--dsw-alias-illustration-detail` | `var(--dsw-static-neutral-bluish-310)` | var-static | `var(--dsw-static-neutral-bluish-600)` | var-static |
@@ -343,11 +365,19 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 | `--dsw-alias-interactive-bg-hover-accent` | `#26314824` | literal | `#ffffff3d` | literal |
 | `--dsw-alias-interactive-bg-hover-danger` | `#ec13130d` | literal | `#f25a5a26` | literal |
 | `--dsw-alias-interactive-bg-hover-solid` | `var(--dsw-static-neutral-bluish-75)` | var-static | `var(--dsw-static-neutral-bluish-800)` | var-static |
+| `--dsw-alias-json-tree-hover` | `#3c40430a` | literal | `#e8eaed0d` | literal |
+| `--dsw-alias-json-tree-icon` | `#5f6368` | literal | `#9aa0a6` | literal |
+| `--dsw-alias-json-tree-keyword` | `#1c00cf` | literal | `#99c8ff` | literal |
+| `--dsw-alias-json-tree-number` | `#1c00cf` | literal | `#99c8ff` | literal |
+| `--dsw-alias-json-tree-property` | `#881391` | literal | `#5db0d7` | literal |
+| `--dsw-alias-json-tree-punctuation` | `#202124` | literal | `#e8eaed` | literal |
+| `--dsw-alias-json-tree-string` | `#c41a16` | literal | `#f28b82` | literal |
 | `--dsw-alias-label-caption` | `var(--dsw-static-neutral-bluish-400)` | var-static | `var(--dsw-static-neutral-bluish-600)` | var-static |
 | `--dsw-alias-label-deep-diving` | `color-mix(in srgb, var(--dsw-static-deepseek-500) 70%, var(--dsw-static-blue-950))` | color-mix | `color-mix(in srgb, var(--dsw-static-deepseek-450) 55%, var(--dsw-static-neutral-bluish-400))` | color-mix |
 | `--dsw-alias-label-deep-diving-shimmer` | `color-mix(in srgb, var(--dsw-static-deepseek-500) 30%, var(--dsw-static-blue-950))` | color-mix | `color-mix(in srgb, var(--dsw-static-blue-300) 65%, var(--dsw-static-deepseek-400))` | color-mix |
 | `--dsw-alias-label-dimmed` | `var(--dsw-static-neutral-bluish-200)` | var-static | `var(--dsw-static-neutral-bluish-750)` | var-static |
 | `--dsw-alias-label-document-preview` | `var(--dsw-static-neutral-bluish-700)` | var-static | `var(--dsw-static-neutral-bluish-300)` | var-static |
+| `--dsw-alias-label-on-color` | `var(--dsw-static-neutral-bluish-00)` | var-static | `var(--dsw-static-neutral-bluish-00)` | var-static |
 | `--dsw-alias-label-primary` | `var(--dsw-static-neutral-bluish-1000)` | var-static | `var(--dsw-static-neutral-bluish-50)` | var-static |
 | `--dsw-alias-label-primary-bluish` | `var(--dsw-static-blue-900)` | var-static | `var(--dsw-static-neutral-bluish-50)` | var-static |
 | `--dsw-alias-label-primary-dimmed` | `var(--dsw-static-neutral-bluish-950)` | var-static | `var(--dsw-static-neutral-bluish-100)` | var-static |
@@ -391,19 +421,24 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 | `--dsw-alias-state-warn-secondary` | `var(--dsw-static-amber-400)` | var-static | `var(--dsw-static-amber-400)` | var-static |
 | `--dsw-alias-state-warn-tertiary` | `var(--dsw-static-amber-100)` | var-static | `var(--dsw-static-amber-900)` | var-static |
 | `--dsw-alias-switch-thumb` | `var(--dsw-static-neutral-bluish-00)` | var-static | `var(--dsw-static-neutral-bluish-400)` | var-static |
+| `--dsw-alias-toast-action` | `var(--dsw-static-deepseek-400)` | var-static | `var(--dsw-static-deepseek-400)` | var-static |
 | `--dsw-alias-toast-bg` | `var(--dsw-static-neutral-bluish-800)` | var-static | `var(--dsw-static-neutral-bluish-750)` | var-static |
 | `--dsw-alias-toast-label` | `var(--dsw-static-neutral-bluish-00)` | var-static | `var(--dsw-static-neutral-bluish-00)` | var-static |
 | `--dsw-alias-tooltip-bg` | `var(--dsw-static-neutral-bluish-850)` | var-static | `var(--dsw-static-neutral-bluish-750)` | var-static |
 | `--dsw-alias-tooltip-key-bg` | `color-mix(in srgb, var(--dsw-alias-tooltip-bg), white 18%)` | color-mix | `color-mix(in srgb, var(--dsw-alias-tooltip-bg), white 18%)` | color-mix |
+| `--dsw-alias-tooltip-label` | `var(--dsw-static-neutral-bluish-00)` | var-static | `var(--dsw-static-neutral-bluish-00)` | var-static |
+| `--dsw-alias-trajectory-accent` | `var(--dsw-static-blue-500)` | var-static | `var(--dsw-static-blue-500)` | var-static |
 | `--dsw-alias-turn-trigger-bg` | `var(--dsw-alias-markdown-code-block)` | alias-ref | `var(--dsw-alias-interactive-bg-hover)` | alias-ref |
 | `--dsw-alias-turn-trigger-bg-hover` | `var(--dsw-alias-interactive-bg-hover)` | alias-ref | `var(--dsw-alias-interactive-bg-active)` | alias-ref |
 
-### 2.3 specific（10）
+### 2.3 specific（13）
 
 | token | light | lightKind | dark | darkKind |
 |---|---|---|---|---|
 | `--dsw-specific-bubble` | `var(--dsw-static-deepseek-50)` | var-static | `var(--dsw-static-neutral-bluish-850)` | var-static |
 | `--dsw-specific-bubble-highlight` | `var(--dsw-static-deepseek-200)` | var-static | `var(--dsw-static-neutral-bluish-750)` | var-static |
+| `--dsw-specific-file-upload-track` | `#00000014` | literal | `#00000014` | literal |
+| `--dsw-specific-guide-hero` | `var(--dsw-static-neutral-200)` | var-static | `var(--dsw-static-neutral-700)` | var-static |
 | `--dsw-specific-input-major` | `var(--dsw-static-neutral-bluish-00)` | var-static | `var(--dsw-static-neutral-bluish-850)` | var-static |
 | `--dsw-specific-login-input` | `var(--dsw-static-neutral-bluish-50)` | var-static | `var(--dsw-static-neutral-bluish-900)` | var-static |
 | `--dsw-specific-menu` | `var(--dsw-menu-surface-fill)` | alias-ref | `#303136f0` | literal |
@@ -411,6 +446,7 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 | `--dsw-specific-sidebar-fill` | `var(--dsw-static-neutral-bluish-50)` | var-static | `var(--dsw-static-neutral-bluish-900)` | var-static |
 | `--dsw-specific-sidebar-nav-item-active` | `var(--dsw-static-neutral-bluish-100)` | var-static | `var(--dsw-static-neutral-bluish-750)` | var-static |
 | `--dsw-specific-sidebar-nav-item-active-accent` | `var(--dsw-static-deepseek-100)` | var-static | `var(--dsw-static-neutral-bluish-800)` | var-static |
+| `--dsw-specific-sidebar-right-flash` | `var(--dsw-alias-brand-primary-new-colorprimary-new-color)` | alias-ref | `var(--dsw-static-neutral-00)` | var-static |
 | `--dsw-specific-tip` | `var(--dsw-static-neutral-bluish-60)` | var-static | `var(--dsw-static-neutral-bluish-800)` | var-static |
 
 ### 2.4 shiki（11）
@@ -431,7 +467,7 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 
 ## 3. 非颜色 token 的处理
 
-8 张 sheet 里另有 208 个非颜色 `--dsw-*` token（字体 / 圆角 / 阴影 / 渐变 / 遮罩模糊 / 焦点环 / 浮层材质等）。其中 **6 个**由覆盖层作为辅助 token 显式接管（`--dsw-gradient-onboarding-violet/blue/cyan-stops`、`--dsw-linear-gradient-think`、`--dsw-linear-think-select`、`--dsw-menu-surface-fill`）；其余 **202 个**按 design §4 的「明确不覆盖」清单保留 DSH 原生值：
+8 张 sheet 里另有 217 个非颜色 `--dsw-*` token（字体 / 圆角 / 阴影 / 渐变 / 遮罩模糊 / 焦点环 / 浮层材质等）。其中 **6 个**由覆盖层作为辅助 token 显式接管（`--dsw-gradient-onboarding-violet/blue/cyan-stops`、`--dsw-linear-gradient-think`、`--dsw-linear-think-select`、`--dsw-menu-surface-fill`）；其余 **211 个**按 design §4 的「明确不覆盖」清单保留 DSH 原生值：
 
 - `--dsw-corner-*`：1 个
 - `--dsw-elevation-*`：5 个
@@ -441,6 +477,7 @@ dark 侧重定义：literal 120、alias-ref 7、var-static 79、color-mix 6、mi
 - `--dsw-menu-*`：1 个
 - `--dsw-radius-*`：6 个
 - `--dsw-shadow-*`：4 个
+- `--dsw-specific-*`：9 个
 
 其中 docs/design.md §4 点名不覆盖（或无需覆盖，靠 alias 派生）的具体项：`--dsw-focus-ring-color`、`--dsw-focus-ring-width`、`--dsw-menu-backdrop-filter`、`--dsw-shadow-lv1/lv1-blur/lv2/lv3`、`--dsw-elevation-*`（含 `--dsw-elevation-stroke-color`，它引用 `--dsw-alias-border-l4` 会自动跟随）、`--dsw-mask-blur`、字体与圆角类。
 

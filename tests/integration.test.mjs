@@ -27,7 +27,11 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const PACKAGE_ID = 'dsh-everforest'
 const read = (relative) => readFileSync(join(ROOT, relative), 'utf8')
 const readJson = (relative) => JSON.parse(read(relative))
-const EXPECTED_TOKEN_COUNT = 217 // 82 static + 114 alias + 10 specific + 11 shiki
+const EXPECTED_TOKEN_COUNT = 244 // 82 static + 138 alias + 13 specific + 11 shiki
+/** Tokens of the contract that resolve through the rewritten static / alias layer. */
+const EXPECTED_INHERITED_COUNT = 19
+/** Colour tokens the overlay emits itself. */
+const EXPECTED_EXPLICIT_COUNT = EXPECTED_TOKEN_COUNT - EXPECTED_INHERITED_COUNT
 
 function runNode(scriptArgs, options = {}) {
   const result = spawnSync(process.execPath, scriptArgs, {
@@ -657,7 +661,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const layer = recorded.tokenLayers[0]
   assert.equal(layer.source, PACKAGE_ID)
   const tokenCount = Object.keys(layer.tokens).length
-  assert.ok(tokenCount >= EXPECTED_TOKEN_COUNT, `override layer has only ${tokenCount} tokens`)
+  assert.ok(tokenCount >= EXPECTED_EXPLICIT_COUNT, `override layer has only ${tokenCount} tokens`)
   const bgBase = layer.tokens['--dsw-alias-bg-base']
   // Values come from the VM realm, so compare primitives (not object identity).
   assert.equal(bgBase.light, '#FFFBEF')
@@ -736,7 +740,9 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const uiAccentStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents')
   assert.equal(uiAccentStylesheets.length, 1, 'chrome-accent stylesheet was not injected')
   assert.ok(uiAccentStylesheets[0].textContent.includes('menuitemradio'))
-  assert.ok(uiAccentStylesheets[0].textContent.includes('selectedFill'))
+  // 0.2.2-rc.2 no longer renders the `selectedFill` child, so the sheet must not
+  // carry that rule any more (the selected row paints its own background).
+  assert.ok(!uiAccentStylesheets[0].textContent.includes('selectedFill'), 'the selectedFill rule must be gone')
   assert.ok(uiAccentStylesheets[0].textContent.includes('background'))
   assert.ok(!uiAccentStylesheets[0].textContent.includes('crumbCurrent'), 'the conversation title must stay native')
   assert.ok(uiAccentStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
@@ -1657,22 +1663,25 @@ test('startup self-check only warns when an inherited probe is missing', async (
 
 test('token map covers the whole DSH color inventory', async () => {
   const inventory = readJson('docs/reference/token-inventory.json')
-  const { AUXILIARY_TOKEN_NAMES, TOKEN_COVERAGE, tokensFor } = await import('../src/tokens.js')
+  const { AUXILIARY_TOKEN_NAMES, INHERITED_TOKEN_NAMES, TOKEN_COVERAGE, tokensFor } = await import('../src/tokens.js')
   const { DEFAULT_STATE } = await import('../src/palette.js')
   const tokens = tokensFor(DEFAULT_STATE)
   const names = Object.keys(tokens).sort()
   const auxiliary = new Set(AUXILIARY_TOKEN_NAMES)
+  const inherited = new Set(INHERITED_TOKEN_NAMES)
   const colorNames = names.filter((name) => !auxiliary.has(name))
   const inventoryNames = inventory.tokens
     .filter((token) => ['static', 'alias', 'specific', 'shiki'].includes(token.category))
     .map((token) => token.name)
     .sort()
+  const explicitNames = inventoryNames.filter((name) => !inherited.has(name))
   assert.equal(inventory.counts.total, EXPECTED_TOKEN_COUNT)
   assert.equal(inventoryNames.length, EXPECTED_TOKEN_COUNT)
+  assert.equal(inherited.size, EXPECTED_INHERITED_COUNT)
   assert.equal(auxiliary.size, 6)
-  assert.equal(colorNames.length, EXPECTED_TOKEN_COUNT)
-  assert.deepEqual(colorNames, inventoryNames)
-  assert.equal(names.length, EXPECTED_TOKEN_COUNT + auxiliary.size)
+  assert.equal(colorNames.length, EXPECTED_EXPLICIT_COUNT)
+  assert.deepEqual(colorNames, explicitNames)
+  assert.equal(names.length, colorNames.length + auxiliary.size)
   assert.deepEqual([...TOKEN_COVERAGE.covered].sort(), names)
   assert.ok(TOKEN_COVERAGE.uncovered.length > 0)
 

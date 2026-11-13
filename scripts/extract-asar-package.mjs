@@ -68,9 +68,17 @@ function readArchive(path) {
   const dataOffset = 8 + headerSize
   const jsonStart = buffer.indexOf(0x7b /* '{' */, 8)
   if (jsonStart === -1 || jsonStart >= dataOffset) usage('cannot locate the asar header JSON')
+  // Electron pads the header table to its 4-byte alignment with NUL bytes, so the
+  // JSON is followed by trailing NULs inside [jsonStart, dataOffset) — `JSON.parse`
+  // rejects them (observed with the 0.2.2-rc.2 installer / Electron 44).
+  const headerJson = buffer
+    .subarray(jsonStart, dataOffset)
+    .toString('utf8')
+    .replace(/\0+$/, '')
+    .trimEnd()
   let header
   try {
-    header = JSON.parse(buffer.subarray(jsonStart, dataOffset).toString('utf8'))
+    header = JSON.parse(headerJson)
   } catch {
     usage(`cannot parse the asar header in ${path} (not an asar archive?)`)
   }

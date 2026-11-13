@@ -9,8 +9,6 @@ import {
   MENU_CHECK_RADIO,
   MENU_INK_TOKENS,
   MENU_SELECTED,
-  MENU_SELECTED_FILL,
-  MENU_SELECTED_FILL_RADIO,
   MENU_SELECTED_RADIO,
   UI_ACCENT_DARK_INK_CONTRAST,
   UI_ACCENT_LIGHT_INK_CONTRAST,
@@ -111,16 +109,17 @@ test('the conversation title is left to DSH, not painted by this sheet', () => {
   assert.ok(!css.includes('projectText'), 'folder names are `dsh-everforest/workspace-labels`, not part of this sheet')
 })
 
-test('the sheet emits three rules per variant with the stable menu hooks', () => {
+test('the sheet emits two rules per variant with the stable menu hooks', () => {
   const css = uiAccentStyles()
   const rules = styleRules(css)
-  assert.equal(rules.length, SCHEMES.length * STRENGTHS.length * 3)
+  assert.equal(rules.length, SCHEMES.length * STRENGTHS.length * 2)
   assert.equal(MENU_SELECTED, '[role="menu"] [role="menuitem"][class*="selected"]')
   assert.equal(MENU_SELECTED_RADIO, '[role="menu"] [role="menuitemradio"][aria-checked="true"]')
   assert.equal(MENU_CHECK, `${MENU_SELECTED} [class*="check"]`)
   assert.equal(MENU_CHECK_RADIO, `${MENU_SELECTED_RADIO} [class*="check"]`)
-  assert.equal(MENU_SELECTED_FILL, `${MENU_SELECTED} [class*="selectedFill"]`)
-  assert.equal(MENU_SELECTED_FILL_RADIO, `${MENU_SELECTED_RADIO} [class*="selectedFill"]`)
+  // 0.2.2-rc.2 dropped DSH's separate `selectedFill` child: the selected row now
+  // paints its own background, so a fill rule would match nothing.
+  assert.ok(!css.includes('selectedFill'), 'the selectedFill rule must be gone')
   for (const scheme of SCHEMES) {
     for (const strength of STRENGTHS) {
       const variant = `${scheme}-${strength}`
@@ -139,9 +138,6 @@ test('the sheet emits three rules per variant with the stable menu hooks', () =>
           `${variant}: ${token} must resolve to the band ink`
         )
       }
-      const fill = rules.find((rule) => rule.startsWith(`${scope} ${MENU_SELECTED_FILL},`))
-      assert.ok(fill, `${variant}: missing the selected-fill rule`)
-      assert.ok(fill.includes(MENU_SELECTED_FILL_RADIO), `${variant}: radio fills must be covered`)
       const checks = rules.find((rule) => rule.startsWith(`${scope} ${MENU_CHECK},`))
       assert.ok(checks, `${variant}: missing the selected-check rule`)
       assert.ok(checks.includes(`color: ${EXPECTED_INK[variant]}`), `${variant}: check must use the canvas ink`)

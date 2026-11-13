@@ -518,12 +518,14 @@ const __mod_2_tokens_js = (() => {
 // Coverage (docs/design.md §4, 2026-10-18 audit; inventory: docs/reference/token-inventory.json)
 // ---------------------------------------------------------------------------
 //   82 `--dsw-static-*` colour tokens   (derived: luminance-anchored ramp interpolation)
-//  114 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
-//   10 `--dsw-specific-*` colour tokens (explicit role mapping)
+//  121 `--dsw-alias-*` colour tokens    (explicit role mapping, see ALIAS_TOKENS)
+//   11 `--dsw-specific-*` colour tokens (explicit role mapping)
 //   11 `--shiki-*` tokens               (explicit; shiki.css light values on :root and
 //                                        --shiki-foreground/background reference body-level
 //                                        aliases, so alias inheritance cannot be relied on)
-//   = 217 covered colour tokens (DSH 0.2.2-rc.1; 206 through 0.2.1-rc.5)
+//   = 225 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
+//   + 19 contract tokens that resolve through the rewritten static / alias layer
+//     instead of being emitted again (`INHERITED_TOKEN_NAMES`) = 244 in total
 //   + 6 auxiliary tokens (menu material, think gradients, onboarding gradient stops)
 //
 // Not covered (kept at DSH native values; see TOKEN_COVERAGE.uncovered):
@@ -558,8 +560,10 @@ const __mod_2_tokens_js = (() => {
 //    borders = bg5 alpha, brand / interaction accent = green, link = blue, states,
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
 //    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
-//    = neutral luminance anchors, ...). No alias relies on automatic following:
-//    all 217 tokens are explicit.
+//    = neutral luminance anchors, JSON tree = the same syntax roles as shiki, ...).
+//    225 tokens are explicit; the remaining 19 contract tokens are inherited by
+//    design (`INHERITED_TOKEN_NAMES`) because their only declaration is a
+//    reference to a static / alias token this layer already rewrites.
 // 3. contrast guard for text-bearing light surfaces: DSH light layers are all
 //    #fff natively and Everforest Enchanted uses a flat background, but the
 //    upstream light·soft ramp is darker. Text-bearing surfaces therefore blend
@@ -1122,10 +1126,13 @@ function illustrationNeutral (p, role) {
  * ------------------------------------------------------------------ */
 
 /**
- * The 114 `--dsw-alias-*` colour tokens of the DSH 0.2.2-rc.1 ui-theme sheets
- * (0.2.1-rc.2 … rc.5 carried 107; 0.2.2-rc.1 adds the illustration family and
- * `state-done-primary`; see docs/design.md §12). Every entry is an explicit role
- * mapping (docs/design.md §4); none relies on static-token following.
+ * The 121 mapped `--dsw-alias-*` colour tokens of the DSH 0.2.2-rc.2 ui-theme
+ * sheets (0.2.1-rc.2 … rc.5 carried 107; 0.2.2-rc.1 added the illustration
+ * family and `state-done-primary`; 0.2.2-rc.2 added 24 alias tokens for cards,
+ * charts, hovercards, JSON trees and the trajectory accent; see docs/design.md
+ * §12). Every entry here is an explicit role mapping (docs/design.md §4); the
+ * 17 alias tokens that are *not* listed only reference static / alias tokens
+ * this layer already rewrites (`INHERITED_TOKEN_NAMES`).
  * @type {Record<string, (p: object) => string>}
  */
 const ALIAS_TOKENS = {
@@ -1215,6 +1222,20 @@ const ALIAS_TOKENS = {
   '--dsw-alias-interactive-bg-hover-accent': (p) => alpha(interactionAccent(p), 0.16),
   '--dsw-alias-interactive-bg-hover-danger': (p) => alpha(p.fg.red, 0.12),
   '--dsw-alias-interactive-bg-hover-solid': (p) => surface(p, 2),
+
+  // JSON tree (trajectory view, session-data inspector) ----------------------
+  // DSH declares these with VSCode literals, so the tree kept an editor palette
+  // on top of the Everforest surface. 2026-11-13 rc.2 review: map the syntax
+  // roles onto the ones the Shiki layer already uses — keyword = blue, constant
+  // = purple, string = yellow, punctuation / disclosure glyphs = grey1, and the
+  // row hover = an 8% ink wash (the DSH value is a 4% black equivalent).
+  '--dsw-alias-json-tree-hover': (p) => alpha(p.fg.grey1, 0.08),
+  '--dsw-alias-json-tree-icon': (p) => p.fg.grey1,
+  '--dsw-alias-json-tree-keyword': (p) => p.fg.blue,
+  '--dsw-alias-json-tree-number': (p) => p.fg.purple,
+  '--dsw-alias-json-tree-property': (p) => p.fg.aqua,
+  '--dsw-alias-json-tree-punctuation': (p) => p.fg.grey1,
+  '--dsw-alias-json-tree-string': (p) => p.fg.yellow,
 
   // Labels -------------------------------------------------------------------
   // 2026-11-08 palette review (A9): upstream assigns `grey2` only to the cursor
@@ -1322,10 +1343,17 @@ const ALIAS_TOKENS = {
   '--dsw-alias-turn-trigger-bg-hover': (p) => alpha(surface(p, 3), 0.85)
 }
 
-/** The 10 `--dsw-specific-*` colour tokens. @type {Record<string, (p: object) => string>} */
+/**
+ * The 11 mapped `--dsw-specific-*` colour tokens (of 13 in the 0.2.2-rc.2
+ * contract; `guide-hero` and `sidebar-right-flash` are inherited).
+ * @type {Record<string, (p: object) => string>}
+ */
 const SPECIFIC_TOKENS = {
   '--dsw-specific-bubble': (p) => bubbleSurface(p),
   '--dsw-specific-bubble-highlight': (p) => surface(p, 2),
+  // Attachment upload track: DSH ships an 8% black, which disappears on a cream
+  // surface. A bg5 wash reads on both schemes (2026-11-13 rc.2 review).
+  '--dsw-specific-file-upload-track': (p) => alpha(p.ramp.bg5, 0.45),
   '--dsw-specific-input-major': (p) => surface(p, 1),
   '--dsw-specific-login-input': (p) => surface(p, 1),
   '--dsw-specific-menu': (p) => menuFill(p),
@@ -1358,7 +1386,7 @@ const SHIKI_TOKENS = {
 }
 
 /**
- * Six auxiliary tokens that are not part of the 217-token colour inventory but are
+ * Six auxiliary tokens that are not part of the 244-token colour contract but are
  * explicitly required by docs/design.md §4 (menu material, think gradients,
  * onboarding gradient stops). They are emitted with the same overlay.
  * @type {Record<string, (p: object) => string>}
@@ -1432,12 +1460,47 @@ const TOKEN_ENTRIES = [
 ]
 
 /**
- * The six auxiliary tokens emitted on top of the 217-token colour inventory
+ * The six auxiliary tokens emitted on top of the 244-token colour contract
  * (docs/design.md §4 explicitly requires menu material, think gradients and the
- * onboarding gradient stops; they are not part of the 206 colour + 11 shiki count).
+ * onboarding gradient stops; they are not part of the 225 colour + 11 shiki count).
  * @type {string[]}
  */
 const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort())
+
+/**
+ * Colour tokens of the 0.2.2-rc.2 contract that this layer deliberately does not
+ * emit: each one is declared by DSH as a reference to a static token (or another
+ * alias) that the overlay already rewrites, so the resolved value is the palette
+ * colour by construction. Listing them keeps the inventory test honest — if DSH
+ * ever gives one of them a literal value, the test fails instead of the surface
+ * silently staying at an editor / native colour.
+ *
+ * 2026-11-13 rc.2 review: 19 of the 27 new tokens fall in this class (cards,
+ * charts, hovercards, label-on-color, toast / tooltip labels, trajectory accent,
+ * guide hero, sidebar-right flash).
+ * @type {string[]}
+ */
+const INHERITED_TOKEN_NAMES = Object.freeze([
+  '--dsw-alias-border-selected',
+  '--dsw-alias-card-fill',
+  '--dsw-alias-card-fill-hover',
+  '--dsw-alias-card-tile-fill',
+  '--dsw-alias-chart-messages',
+  '--dsw-alias-chart-system',
+  '--dsw-alias-chart-tools',
+  '--dsw-alias-hovercard-bg',
+  '--dsw-alias-hovercard-label-primary',
+  '--dsw-alias-hovercard-label-secondary',
+  '--dsw-alias-hovercard-label-tertiary',
+  '--dsw-alias-hovercard-state-done',
+  '--dsw-alias-hovercard-state-error',
+  '--dsw-alias-label-on-color',
+  '--dsw-alias-toast-action',
+  '--dsw-alias-tooltip-label',
+  '--dsw-alias-trajectory-accent',
+  '--dsw-specific-guide-hero',
+  '--dsw-specific-sidebar-right-flash'
+])
 
 /** Names emitted by `tokensFor`, sorted for a stable `TOKEN_COVERAGE.covered`. */
 const COVERED_NAMES = TOKEN_ENTRIES.map(([name]) => name).sort()
@@ -1456,7 +1519,7 @@ const COVERED_NAMES = TOKEN_ENTRIES.map(([name]) => name).sort()
  *
  * This bridge defines the guessed names with the value of the closest real
  * token. It is deliberately NOT part of `tokensFor`/`TOKEN_COVERAGE.covered`:
- * the official 217-token contract stays untouched, and the aliases are layered
+ * the official 244-token contract stays untouched, and the aliases are layered
  * on only where the override layer is built (the Client entry), so the bridge
  * can be removed in one place once upstream plugin fixes land.
  *
@@ -1592,7 +1655,7 @@ function tokensFor (state = DEFAULT_STATE) {
 
 /**
  * Token coverage bookkeeping for docs / startup diagnostics.
- * - `covered`: every CSS variable emitted by `tokensFor` (217 colour + 6 auxiliary)
+ * - `covered`: every CSS variable emitted by `tokensFor` (225 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
  *
  * The third-party compatibility aliases (`compatAliasesFor`) are layered on by
@@ -1647,7 +1710,7 @@ const SELF_CHECK_TOKENS = Object.freeze([
   '--dsw-elevation-stroke-color'
 ])
 
-  return { AUXILIARY_TOKEN_NAMES, COMPAT_ALIAS_NAMES, compatAliasesFor, tokensFor, TOKEN_COVERAGE, SELF_CHECK_TOKENS }
+  return { AUXILIARY_TOKEN_NAMES, INHERITED_TOKEN_NAMES, COMPAT_ALIAS_NAMES, compatAliasesFor, tokensFor, TOKEN_COVERAGE, SELF_CHECK_TOKENS }
 })()
 
 // ---------------------------------------------------------------- src/color-mode.js
@@ -4707,14 +4770,13 @@ const __mod_12_ui_accents_js = (() => {
 // green — that is a separate surface with its own user request
 // (`src/workspace-labels.js`).
 //
-// - a selected dropdown option is either a Menu item (`role="menuitem"`, check
-//   / fill selection mode, class `_selected_<hash>` or `_selectedFill_<hash>`)
-//   or a radio-style option (`role="menuitemradio"`, `aria-checked="true"`,
-//   e.g. the model / reasoning effort panes of `ui-model-selection`); their
-//   check glyph is the `check` child. Upstream defines `statusline1` as a
-//   *background* colour, so the option is a solid `statusline1` fill with the
-//   scheme canvas `bg0` as label and check ink (2026-11-08 palette review, A7)
-//   — not tinted text.
+// - a selected dropdown option is either a Menu item (`role="menuitem"`, class
+//   `_selected_<hash>`) or a radio-style option (`role="menuitemradio"`,
+//   `aria-checked="true"`, e.g. the model / reasoning effort panes of
+//   `ui-model-selection`); their check glyph is the `check` child. Upstream
+//   defines `statusline1` as a *background* colour, so the option is a solid
+//   `statusline1` fill with the scheme canvas `bg0` as label and check ink
+//   (2026-11-08 palette review, A7) — not tinted text.
 //
 // The option's *contents* need the same ink. DSH restates a colour token on
 // every nested part instead of inheriting one: the leading icon of a Menu item
@@ -4736,7 +4798,9 @@ const __mod_12_ui_accents_js = (() => {
 // being corrected away.
 //
 // Selectors use stable hooks only: the ARIA menu roles and DSH's `selected` /
-// `selectedFill` / `check` CSS-module local names, never a hashed class prefix.
+// `check` CSS-module local names, never a hashed class prefix. The separate
+// `selectedFill` child DSH used to paint under the label is gone since 0.2.2-rc.2
+// (the selected row paints its own background), so no rule targets it any more.
 // Always-on and independent of the color mode (selection chrome, not markdown
 // content).
 
@@ -4778,12 +4842,6 @@ const MENU_INK_TOKENS = [
   '--dsw-alias-label-caption',
   '--dsw-alias-label-dimmed'
 ]
-
-/** The absolutely positioned fill child DSH paints under a selected item. */
-const MENU_SELECTED_FILL = `${MENU_SELECTED} [class*="selectedFill"]`
-
-/** The fill child of a checked radio-style option (same menu primitive). */
-const MENU_SELECTED_FILL_RADIO = `${MENU_SELECTED_RADIO} [class*="selectedFill"]`
 
 /**
  * Minimum contrast the dark schemes keep between the canvas ink and the accent
@@ -4851,8 +4909,9 @@ function accentRule (scope, selectors, declarations) {
 }
 
 /**
- * One variant's three rules: the selected row surface, its fill child and the
- * check glyph.
+ * One variant's two rules: the selected row surface and the check glyph.
+ * (The `selectedFill` child rule was removed for 0.2.2-rc.2 — the menu primitive
+ * no longer renders that child, the selected row paints its own background.)
  * @param {'light' | 'dark'} scheme
  * @param {'hard' | 'medium' | 'soft'} strength
  * @param {{ fill: string, ink: string }} roles
@@ -4868,13 +4927,12 @@ function uiAccentRules (scheme, strength, roles) {
       // so the band ink is written onto the tokens themselves (MENU_INK_TOKENS).
       ...MENU_INK_TOKENS.map((token) => [token, roles.ink])
     ]),
-    accentRule(scope, [MENU_SELECTED_FILL, MENU_SELECTED_FILL_RADIO], [['background', roles.fill]]),
     accentRule(scope, [MENU_CHECK, MENU_CHECK_RADIO], [['color', roles.ink]])
   ].join('\n\n')
 }
 
 /**
- * The complete chrome accent stylesheet (six variants × three rules).
+ * The complete chrome accent stylesheet (six variants × two rules).
  * @returns {string}
  */
 function uiAccentStyles () {
@@ -4885,7 +4943,7 @@ function uiAccentStyles () {
     .join('\n\n')
 }
 
-  return { MENU_SELECTED, MENU_SELECTED_RADIO, MENU_CHECK, MENU_CHECK_RADIO, MENU_INK_TOKENS, MENU_SELECTED_FILL, MENU_SELECTED_FILL_RADIO, UI_ACCENT_DARK_INK_CONTRAST, UI_ACCENT_LIGHT_INK_CONTRAST, uiAccentRoles, uiAccentStyles }
+  return { MENU_SELECTED, MENU_SELECTED_RADIO, MENU_CHECK, MENU_CHECK_RADIO, MENU_INK_TOKENS, UI_ACCENT_DARK_INK_CONTRAST, UI_ACCENT_LIGHT_INK_CONTRAST, uiAccentRoles, uiAccentStyles }
 })()
 
 // ---------------------------------------------------------------- src/plugin-update.js
