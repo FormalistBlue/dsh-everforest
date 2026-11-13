@@ -3,10 +3,15 @@
 `dsh-everforest` 的版本变更记录，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)：补丁版本只做配色修正、工程与文档修复，不改变 token/API 契约。
 
+每个版本先列中文、再列英文（`**中文**` / `**English**` 两段），两段逐条对应；发布说明取整段，
+所以 GitHub Release 与市场「更新内容」里两种语言都会显示。
+
 这里只写「改了什么、能感知到什么效果」；实现方式、原因与实测数据见
 [`docs/design.md`](docs/design.md)、[`docs/assessment.md`](docs/assessment.md) 或 git 历史。
 
 ## [Unreleased]
+
+**中文**
 
 ### Changed
 
@@ -28,7 +33,33 @@
 - 侧栏插件导航选中项改为绿底
 - 修复深色模式发送 / 终止按钮图标偏色
 
+---
+
+**English**
+
+### Changed
+
+- Session titles are no longer green
+- The whale and title on the new-session screen are now green
+- Wide tables now have a border under the horizontal scrollbar
+- Work-step text is now slightly lighter than body text
+- Chat bubbles in both light and dark now use the selected-row green
+- Workspace names are bold, and the active workspace's folder icon uses the same green as the text
+- The trace view and JSON tree now follow the theme
+- The attachment upload progress track now uses theme colors
+- The leaping whale on the home screen is now text green and more prominent
+- Selected text inside chat bubbles now uses a high-contrast color
+- **DSH 0.2.2-rc.2 support**: colors and other interactions are unchanged.
+
+### Fixed
+
+- The selected item in the settings dialog sidebar is highlighted again
+- The selected plugin item in the sidebar now has a green fill
+- Send and stop button icons no longer look off-color in dark mode
+
 ## [1.5.0] - 2026-11-08
+
+**中文**
 
 交互强调色统一改用 Everforest 上游绿：选中会话行、发送键、下拉选中项变为绿底，目录名与会话标题改用文字绿；聊天气泡换成苔纸底，插件图标改为透明底鲸鱼，并修复选中行文字 / 图标可见性等问题。
 
@@ -53,7 +84,36 @@
 - 行号与弱化文字改用更淡的灰
 - 悬停底色改为中性灰，不再偏绿
 
+---
+
+**English**
+
+Interaction accents now use Everforest's upstream green: selected session rows, the send button and dropdown selections get green fills, while directory names and session titles use the green text color; chat bubbles move to a moss-paper background, the plugin icon becomes a transparent whale, and several selected-row text/icon visibility issues are fixed.
+
+### Changed
+
+- Light chat bubbles now use a moss-paper background with deep pine text
+- Dark chat bubble text is now light sage
+- The plugin icon is now a green whale on a transparent background
+- Removed the frame around plugin card icons
+- The send button, active items and preview badges now use forest green
+- The selected session row in the sidebar now has a solid green fill
+- The "done, unread" session row is blue again
+- The light-theme interaction green now uses Everforest's light green
+- Fixed unreadable time and icons on the selected session row
+- Fixed gray hover blocks on selected-row action buttons
+- Fixed the hard-to-see spinner on the selected session row
+- Step text in the plugin update dialog is now green
+- The check icon in the plugin update dialog is now solid green
+- Dropdown selections now use a green fill with dark text
+- Fixed icon and caption colors in dropdown selections
+- Session titles and directory names are now green
+- Line numbers and dimmed text use a fainter gray
+- Hover backgrounds are neutral gray instead of green-tinted
+
 ## [1.4.0] - 2026-11-07
+
+**中文**
 
 聊天表格的列宽现在会记住：刷新页面、切换会话再回来仍是调好的宽度；同时适配 DSH 0.2.2-rc.1，设置导航图标不再重复、自动化任务页空态插图跟随主题配色。
 
@@ -68,7 +128,26 @@
 - 自动化任务页空态插图跟随主题配色
 - **DSH 0.2.2-rc.1 适配**：配色与其它交互不变。
 
+---
+
+**English**
+
+Chat table column widths are now remembered: after a reload or after coming back to a session they are still the widths you set; the plugin also adapts to DSH 0.2.2-rc.1, with no duplicated settings nav icon and theme-aware empty-state art on the automation page.
+
+### Added
+
+- Table column widths are remembered after a reload or a session switch
+
+### Changed
+
+- The minimum table column width drops from 100px to 64px
+- Fixed a duplicate settings nav icon next to the default gear
+- Automation-page empty-state art now follows the theme
+- **DSH 0.2.2-rc.1 support**: colors and other interactions are unchanged.
+
 ## [1.3.0] - 2026-10-30
+
+**中文**
 
 设置导航里有了 Everforest 自己的松树图标，第三方插件页面也会跟着主题配色；任务列表复选框、表格列宽提示线等细节换了更合适的颜色。
 
@@ -88,7 +167,31 @@
 
 - 重新加载页面即可生效，无需重启 DSH。
 
+---
+
+**English**
+
+The settings nav now has Everforest's own pine-tree icon and third-party plugin pages follow the theme; task-list checkboxes, the table resize guideline and other details use better-fitting colors.
+
+### Changed
+
+- Refined the table horizontal scrollbar style
+- Reduced the left padding of table cells
+- Blockquotes get 2px of vertical padding
+- Table headers are larger and bold
+- The column resize handle is longer with a softer color
+- Task-list checkboxes now come in a colored style
+- Third-party plugin pages now follow the theme
+- Everforest has its own pine-tree icon in the settings nav
+- **DSH 0.2.1-rc.5 support**: reviewed with no breaking changes; colors and interactions are unchanged.
+
+### Notes
+
+- Reload the page to apply; no DSH restart needed.
+
 ## [1.2.0] - 2026-10-28
+
+**中文**
 
 聊天表格有了细边框与可拖动的列宽：拖动表头边缘即可调整列宽，宽表按 Element 表格式滚动，最后一列也能拖窄；双击边缘恢复自动列宽。
 
@@ -110,7 +213,33 @@
 - 只改了 Client 半部，重新加载页面即可生效，无需重启 DSH。
 - 列宽只在当前页面会话内有效：刷新页面或重新挂载表格后回到自动列宽；触摸端不启用拖动。
 
+---
+
+**English**
+
+Chat tables now have thin borders and draggable column widths: drag a header edge to resize, wide tables scroll Element-style, and even the last column can be narrowed; double-click an edge to restore automatic widths.
+
+### Added
+
+- **Table borders**: chat Markdown tables get a neutral-scale outer frame and thin column dividers (the frame is one step stronger than the inner lines and adapts to dark/light), with first/last column padding restored and the duplicate bottom border under the last row removed; header banding, zebra stripes and row hover are unchanged.
+- **Drag header edges to resize columns**: hovering the right edge of a header cell (6px hit area) shows a guideline; drag to resize (64px minimum per column). Double-clicking the edge restores DSH's automatic widths, and Esc cancels a drag in progress. Fill tables (fewer than 4 columns) redistribute width between the two neighbours and keep the total width; wide tables (4+ columns) resize Element-style — only the dragged column changes and the total follows the sum, with the last column's right edge (the table's own border) also a handle, so the whole table can be narrowed into the content column. Wide tables keep natural column lengths; when wider than the content column, a horizontal scrollbar appears under the table (the container stays inside the content column, content scrolls left/right, no wrapping and no overflow).
+
+### Fixed
+
+- **The last column of a wide table could not be narrowed, and not every column could be shrunk**: each column used to resize only from the divider with its neighbour, so the table's total width was fixed and the last column had no right-edge handle — narrowing other columns just pushed width onto it, and it could not shrink itself. Wide tables now resize each column independently with the total following the sum, and the last column's right edge (the table's own border) is a handle too, so the whole table can be narrowed until it fits the content column (the horizontal scrollbar then disappears) or widened again.
+- **Wide tables overflowed to the right of the content column / were clipped / forced to wrap**: DSH lays wide tables out at their natural content width and lets them extend into the right-hand whitespace (a real-device measurement showed 90px past the content column's right edge), and the last columns were clipped when too wide; an intermediate fix wrapped cell content instead. Wide tables now follow Element's model: the container stays inside the content column (right edges aligned), column widths keep natural lengths, and a horizontal scrollbar appears under the table when it does not fit, so every column can be scrolled into view.
+- **The wide-table horizontal scrollbar appeared outside the table's left edge**: the wrapper used to span the whole chat scroll area, so the scrollbar that appears on hover started more than a hundred pixels left of the table; the wrapper now starts at the table's own left edge and the scrollbar lands within the table's width.
+- **Wide tables with 4+ columns were misaligned and right columns clipped**: the wrapper carries DSH's "bleed" layout (negative margin plus matching left padding so the table spans the chat area while its content stays aligned), and overriding its width squeezed the wrapper, shifted the table left and clipped the last column; the layout is now left alone and the wide table's frame is drawn on the table itself, so 4 columns display fully and align with body text.
+- **A horizontal scrollbar that could not scroll appeared after fixing column widths**: widths rounded to half pixels could exceed the container's content width by half a pixel (e.g. 747.5px vs 747.44px), so fixed layout grew the table and the browser rounded up `scrollWidth`, producing a scrollbar with 0.06px of travel; width sums now floor to the container's available width and the scrollbar disappears.
+
+### Notes
+
+- Only the Client half changed; reload the page, no DSH restart needed.
+- Column widths last only for the current page session: after a reload or a remount, tables return to automatic widths; dragging is disabled on touch devices.
+
 ## [1.1.0] - 2026-10-27
+
+**中文**
 
 跟随系统时切换深 / 浅色也有了聚光灯动画，不再瞬间换色；README 重写并新增「功能实现」清单。
 
@@ -126,7 +255,27 @@
 
 - 只改了 Client 半部，重新加载页面即可生效，无需重启 DSH。
 
+---
+
+**English**
+
+Switching light/dark while following the system now has the spotlight animation instead of an instant flip; the README was rewritten with a new "feature implementation" list.
+
+### Added
+
+- **System-follow mode gets the switch animation too**: with appearance set to "follow system", the OS flipping dark/light no longer changes instantly but expands as a circle from the screen center; other entry points and the instant soft/medium/hard changes are unchanged.
+
+### Changed
+
+- **README**: rewritten features copy plus a new "feature implementation" list (including pending items, kept in sync in Chinese and English).
+
+### Notes
+
+- Only the Client half changed; reload the page, no DSH restart needed.
+
 ## [1.0.0] - 2026-10-25
+
+**中文**
 
 首个稳定版：色彩模式改为默认提供，新增工作区当前会话行高亮、文本选区配色、聚光灯式深浅切换与开发调试面板；README、市场截图与插件图标全部重做。
 
@@ -150,7 +299,35 @@
 
 - **调试面板折叠后消失**：折叠成圆钮后不再跑到左上角、点不到。
 
+---
+
+**English**
+
+First stable release: color mode now ships enabled by default, with current-session row highlighting, text-selection colors, the spotlight light/dark switch and a dev panel; the README, market screenshots and plugin icon were all redone.
+
+### Added
+
+- **Current-session row highlight in the workspace**: the open session is recognizable at a glance and no longer confused with hover or pending/done rows; body-text contrast still passes in all six schemes.
+- **Text-selection colors**: selected text uses Everforest's selection background while keeping its own color (syntax colors and link colors are not flattened to one ink).
+- **Spotlight light/dark switch**: switching themes reveals from the click point instead of flashing the whole page gray or white; soft/medium/hard changes within the same mode stay instant, and everything is instant when "reduce motion" is on.
+- **Dev panel (development builds only)**: switch appearance and strength directly; not in the published artifact.
+
+### Changed
+
+- **Color mode now ships enabled**: no switch in settings — once installed, titles, tables, inline code, internal links and session status rows are colored with Everforest accents; to turn it off you must disable the plugin (which also loses the color themes).
+- **Session row colors**: fills use Everforest palette colors; "needs confirmation / approval" moved from red to yellow (red read as an error), dark mode uses a bright amber fill with dark text, and hover icons stay readable.
+- **UI accents**: brand, primary buttons and links use Everforest's official accent colors for a more consistent look.
+- **Dark-mode visibility**: settings borders and inline-code backgrounds no longer blend into the background; settings border widths are unified.
+- **Plugin icon and README**: the icon is now a leaping whale with forest ridges and pines; README and market previews use two real-device screenshots (dark Soft and light Hard).
+- **DSH 0.2.1-rc.3 support**: reviewed with no breaking changes; default colors unchanged.
+
+### Fixed
+
+- **Dev panel disappearing when collapsed**: the collapsed round button no longer jumps to the top-left corner out of reach.
+
 ## [0.4.0] - 2026-10-23
+
+**中文**
 
 新增实验性「色彩模式」：把 Everforest 的强调色用到聊天 Markdown 内容与会话状态行（默认开启，设置页可关）；关闭时与 0.3.0 完全一致。
 
@@ -170,7 +347,31 @@
 - 浅色档的彩色贴近可读性下限，个别档位颜色较淡（light·soft 的会话行底会接近侧栏底色）。
 - 升级到 0.4.0 后需重启 DSH 才能在设置页看到新选项。
 
+---
+
+**English**
+
+Adds the experimental "color mode": Everforest accents on chat Markdown content and session status rows (on by default, switchable off in settings); with it off, 0.4.0 behaves exactly like 0.3.0.
+
+### Added
+
+- **Rich-text coloring**: h1–h6 headings in six colors, bold/italic, inline code, internal file links, blockquotes, table headers and zebra stripes, and checkboxes each use a different color.
+- **Session row coloring**: "needs confirmation / approval" gets a pale orange fill with an orange dot; "done, not viewed" a pale green fill with a green dot.
+- **Color mode switch**: toggled in settings; the choice is written to the current profile and shared by every browser on it.
+
+### Changed
+
+- **Color mode is on by default**; settings copy was trimmed and the appearance control matches DSH's own Appearance row.
+
+### Notes
+
+- Experimental: depends on DSH's Markdown and session-row structure, so a DSH upgrade may break it (the color themes themselves are unaffected); re-test after upgrades.
+- Light schemes sit close to the readability floor and some tones are pale (light·soft session-row fills can approach the sidebar background).
+- Restart DSH after upgrading to 0.4.0 to see the new option in settings.
+
 ## [0.3.0] - 2026-10-22
+
+**中文**
 
 强度偏好改为写进当前 profile 的 Host 配置：同一 profile 的所有浏览器共享同一份选择，localStorage 降为首帧缓存。
 
@@ -192,7 +393,33 @@
 
 - 升级到 0.3.0 后需重启 DSH 一次；强度按 profile 隔离，不同 profile 各存各的。
 
+---
+
+**English**
+
+Strength preferences are now written to the current profile's Host config: every browser on that profile shares one choice, and localStorage is demoted to a first-frame cache.
+
+### Added
+
+- **Host persistence**: changing browsers, changing ports or clearing cache no longer loses the strength; a newly opened window uses the Host value on its first frame.
+- **Migration from older versions**: the first launch after upgrading from 0.2.1 writes the local choice to the Host, so clearing browser storage afterwards does not matter.
+
+### Changed
+
+- First-frame strength now falls back in three steps: local cache → Host → default.
+- Settings copy now says the choice is shared per profile and that Host updates need a DSH restart.
+
+### Fixed
+
+- **"Restore defaults" occasionally not applying**: clicking it while a strength write is still in flight is no longer overwritten (previously it took two clicks).
+
+### Notes
+
+- Restart DSH once after upgrading to 0.3.0; strengths are stored per profile, so different profiles keep their own.
+
 ## [0.2.1] - 2026-10-21
+
+**中文**
 
 补丁版本：修可见性问题，并补齐 CI、发布门禁与自动 GitHub Release。
 
@@ -216,7 +443,35 @@
 - **npm 页面上的文档链接**：改用 GitHub 绝对 URL（此前相对链接 404）。
 - **Windows 下 clone**：工作区统一 LF，不再因 CRLF 导致检查失败。
 
+---
+
+**English**
+
+Patch release: visibility fixes, plus CI, release gates and automatic GitHub Releases.
+
+### Added
+
+- **Cross-window sync**: tabs/windows on the same address keep the same strength instead of overwriting each other.
+- **More complete loading-page coloring**: the spinner ring and progress arc follow Everforest too.
+- **Automated gates**: six-cell CI on PRs and pushes; the same tests and checks run before publishing, so a failure blocks the release; tags create GitHub Releases automatically.
+
+### Fixed
+
+- **light·soft chat bubbles turned white**: back to a pale sage paper tone that separates from the warm cream canvas.
+- **diff line backgrounds were hard to see / invisible**: dark added/deleted rows and line numbers, and the light row backgrounds, were re-tuned; light soft keeps a readability trade-off.
+- **Startup self-check false positive**: the focus-ring token is no longer reported as renamed.
+- **A failed settings-page registration dropped the whole session**: registration retries instead of permanently removing the settings page.
+- **Screen readers could not read the "current selection" row**: accessible names were added.
+- **Builder silently dropped exports**: multiple exports in one statement are no longer reduced to the first.
+
+### Changed
+
+- **Doc links on the npm page**: absolute GitHub URLs (relative links returned 404).
+- **Cloning on Windows**: the workspace is LF-only, so CRLF no longer fails checks.
+
 ## [0.2.0] - 2026-10-19
+
+**中文**
 
 首帧注入：DSH 启动时的 loading 页在客户端加载前就是 Everforest 配色。
 
@@ -233,19 +488,60 @@
 
 - 客户端入口改名并收敛 npm 包内容：`files` 与运行时文件一一对应，修复 npm 11 误打包。
 
+---
+
+**English**
+
+First-frame injection: the loading page DSH shows before the client loads is already in Everforest colors.
+
+### Added
+
+- **First-frame injection**: on Web the loading page and first frame are already in the current scheme; Desktop shows native colors for at most one frame on a cold start.
+- English README, six scheme previews and market assets.
+
+### Fixed
+
+- **Light chat bubbles almost the same color as the canvas**: bubbles are now visible sage / near-white cards whose contrast against body text clears the gate.
+
+### Changed
+
+- Renamed the client entry and tightened the npm package contents: `files` now matches the runtime files one-to-one, fixing npm 11 mis-packaging.
+
 ## [0.1.2] - 2026-10-18
+
+**中文**
 
 ### Fixed
 
 - **侧栏与内容区糊成一整块**：侧栏改为略深 / 略亮的面板，与内容卡分开，并纳入对比度门槛。
 
+---
+
+**English**
+
+### Fixed
+
+- **Sidebar and content area bleeding together**: the sidebar is now a slightly darker/lighter panel separated from the content card, and is covered by the contrast gate.
+
 ## [0.1.1] - 2026-10-18
+
+**中文**
 
 ### Changed
 
 - 发布链路改为 GitHub Actions + npm Trusted Publishing，产物带 SLSA provenance；代码与 0.1.0 相同。
 
+---
+
+**English**
+
+### Changed
+
+- The release pipeline moved to GitHub Actions + npm Trusted Publishing with SLSA provenance on the artifacts; code is identical to 0.1.0.
+
 ## [0.1.0] - 2026-10-18
+
+**中文**
 
 首个发布：6 档 Everforest 配色（Dark / Light × Hard / Medium / Soft）覆盖 DSH 的颜色 token，附带设置页与对比度守卫。
 
@@ -255,6 +551,19 @@
 - **颜色 token 覆盖**：跟随 DSH 自身的深色 / 浅色 / 跟随系统开关，字体、圆角、阴影等保持原生。
 - **Settings → Everforest**：6 张色卡、中英文案、恢复默认与外观控制。
 - **对比度守卫**：正文在各级表面上的 WCAG AA 门槛自动校验。
+
+---
+
+**English**
+
+First release: six Everforest schemes (Dark / Light × Hard / Medium / Soft) covering DSH's color tokens, with a settings page and a contrast guard.
+
+### Added
+
+- **Six schemes**: dark and light, each Hard / Medium / Soft; defaults are dark Soft and light Hard.
+- **Color token overrides**: follows DSH's own dark / light / follow-system switch; fonts, radii and shadows stay native.
+- **Settings → Everforest**: six swatches, Chinese/English copy, restore defaults and appearance controls.
+- **Contrast guard**: automatic WCAG AA checks for body text on every surface level.
 
 [1.0.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.3.0...v0.4.0
