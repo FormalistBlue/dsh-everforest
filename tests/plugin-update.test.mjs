@@ -63,6 +63,7 @@ test('one colour set per variant, pinned to the palette interaction accent', () 
     assert.deepEqual(roles[variant], {
       green: palette.fg.statusline1,
       red: palette.fg.red,
+      // Both schemes take the scheme canvas `bg0` as the badge ink.
       ink: palette.ramp.bg0,
       label: palette.fg.fg
     }, variant)

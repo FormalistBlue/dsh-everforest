@@ -11,7 +11,9 @@
  *   2. --shiki-foreground on --shiki-background >= 4.5:1 for all six variants.
  *   3. every covered colour value is a legal CSS colour; label-primary != bg-base.
  *   4. brand foreground (label-primary-foreground = bg0) on brand-primary
- *      (`statusline1`, the interaction accent) >= 1.95:1. Upstream Everforest
+ *      (`statusline1`, the interaction accent) >= 4.5:1 (the light schemes take the
+ *      accent layer's deep pine since the 2026-11-15 review; the brand pair stays
+ *      on the upstream cream pairing). Upstream Everforest
  *      cannot reach 4.5 and its own reference tab pairs cream ink with the same
  *      light green; since the 2026-11-08 third accent pass the fill is used
  *      verbatim, so the light schemes sit at 2.00-2.32:1 by construction
@@ -47,7 +49,8 @@
  *  12. label-primary on the table zebra stripe, the hovered row and the
  *      blockquote fill >= 4.5:1;
  *  13. label-primary on the session row warn/done fills (and their :hover
- *      variants) >= 4.5:1;
+ *      variants) >= 4.5:1, except light·soft's two pairs, which carry their own
+ *      documented floors (4.2 for "finished", 4.1 for "waiting");
  *  14. colour-mode status dots on both bg-base and the sidebar fill >= 3.0:1;
  *  15. every colour-mode role value is a legal #RRGGBB colour;
  *  16. colour-mode accent text (h5/h6, emphasis, internal links, inline code)
@@ -60,10 +63,9 @@
  * gate 17 for the six variants:
  *  17. the active-row surface is the palette interaction accent `statusline1`
  *      with the scheme canvas `bg0` as ink (both legal #RRGGBB, no tint /
- *      opacity). The dark schemes keep the canvas ink >= 4.5:1 (5.62-6.88:1); in
- *      the light palette the cream ink on `statusline1` is soft by construction
- *      (2.00-2.32:1, the same pairing the reference tab uses), so the gate pins
- *      a documented 1.95 floor (design §15 / §23).
+ *      opacity). Dark >= 4.5:1 (5.62-6.88:1, WCAG AA); light keeps the
+ *      documented 1.95 floor (2.00-2.32:1 — the palette's own ceiling for cream
+ *      ink on `statusline1`, the pairing the upstream reference tab uses).
  *
  * The always-on workspace folder-name surface (src/workspace-labels.js) adds
  * gate 18, split because the resting row and its hover overlay carry different
@@ -84,9 +86,10 @@
  *
  * The always-on chrome accent surface (src/ui-accents.js) adds gate 19:
  *  19. a selected dropdown option (menu item / radio option, label + check) is
- *      a solid `statusline1` fill with the scheme canvas `bg0` as ink: dark ink
- *      >= 4.5:1 (5.62-6.88:1); light pinned to the measured 1.95 floor
- *      (2.00-2.32:1, design §23). The fill also has to stay >= 0.02 L* away from
+ *      a solid `statusline1` fill with the scheme canvas `bg0` as ink: dark
+ *      >= 4.5:1 (5.62-6.88:1), light keeps its documented 1.95 floor
+ *      (2.00-2.32:1). The fill also has to stay
+ *      >= 0.02 L* away from
  *      the menu card it is painted on. The option's nested cells restate their
  *      own colour tokens (leading icon `--dsw-alias-menu-icon`, label / second
  *      line / shortcuts under the `label-*` family), so the same ink is
@@ -103,10 +106,12 @@
  *      only (same policy as the other semantic state colours: measured
  *      2.66-3.82:1, no floor — the hue, not the contrast, carries "failed").
  *      The done badge and the outcome glyph are filled solid with that green
- *      and the scheme canvas `bg0` as ink. Dark: step text >= 4.0:1 on the
- *      steps panel (4.22-5.24:1) and the badge ink >= 4.5:1 (5.62-6.88:1).
- *      Light: pinned to the measured 1.9 / 1.95 floors (1.95-2.26:1 text,
- *      2.00-2.32:1 ink; the palette's cream-on-green ceiling, design §24).
+ *      and the scheme canvas `bg0` as ink. Dark: step text >= 4.0:1 on the steps
+ *      panel (4.22-5.24:1) and the badge ink >= 4.5:1 (5.62-6.88:1). Light: the
+ *      badge ink keeps the documented 1.95 floor (2.00-2.32:1, the palette's
+ *      cream ceiling on that green); the step text keeps the measured 1.9 floor
+ *      (1.95-2.26:1 — that `#93B259` green on the cream steps panel is the
+ *      user's own pick, design §24).
  *
  * The chat bubble's text-selection ink (src/chat-bubble.js, design §30) adds
  * gate 21:
@@ -132,6 +137,29 @@
  *      (`fg` #D3C6AA on `#A7C080` = 1.18:1, nearly invisible; 2026-11-13 user
  *      report 「发送和终止的按钮里面的图标变色了」).
  *
+ * The answered reply card's question ink (src/chat-bubble.js, design §46) adds
+ * gate 23:
+ *  23. the card is one accent surface (the 2026-11-15 paper block is gone): the
+ *      question line keeps the bubble ink's hue and steps back 6 L* toward the
+ *      fill, so `dt` reads as the quieter voice and `dd` stays at the answer
+ *      ink — DSH's own `QuestionReplyView` hierarchy. Floors: the step has to
+ *      be visible (>= 4 L*) and still the same voice (< 7 L*), the question has
+ *      to be softer than the answer, and it stays legible: light >= 1.7:1 (the
+ *      cream ceiling is 2.00-2.32, so light·soft lands at 1.70) and dark >= 4.4:1
+ *      (AA, 4.52-5.59).
+ *
+ * The running-session title glare (src/running-title.js, design §42) adds gate 24:
+ *  24. a live Session's sidebar title keeps the palette text green (the folder
+ *      name green, so the resting floors are the same 2.3 / 4.5 pair as G18) and
+ *      the glare band always travels AWAY from the canvas: it deepens the green
+ *      in the light schemes (#8DA101 -> #667401, 2.35-2.68 -> 4.17-4.76:1) and
+ *      lifts it in the dark ones (#A7C080 -> #D3E0C0, 5.00-6.17 -> 7.24-8.94:1).
+ *      Round one swept a pale wash in the light schemes instead (1.29-1.46:1)
+ *      and the user rejected it ("白光会让文字看不清楚"), so the gate also pins
+ *      the direction: the band has to sit further from the sidebar in L* than the
+ *      resting green, and on the hover overlay it may never drop below the
+ *      resting title's contrast.
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -152,6 +180,13 @@ import {
   WORKSPACE_LABEL_LIGHT_RESTING_CONTRAST
 } from '../src/workspace-labels.js'
 import {
+  RUNNING_TITLE_DARK_BAND_CONTRAST,
+  RUNNING_TITLE_DARK_RESTING_CONTRAST,
+  RUNNING_TITLE_LIGHT_BAND_CONTRAST,
+  RUNNING_TITLE_LIGHT_RESTING_CONTRAST,
+  runningTitleRoles
+} from '../src/running-title.js'
+import {
   UI_ACCENT_DARK_INK_CONTRAST,
   UI_ACCENT_LIGHT_INK_CONTRAST,
   uiAccentRoles
@@ -163,7 +198,7 @@ import {
   PLUGIN_UPDATE_TEXT_LIGHT_CONTRAST,
   pluginUpdateRoles
 } from '../src/plugin-update.js'
-import { CHAT_BUBBLE_SELECTION_INK, chatBubbleRole } from '../src/chat-bubble.js'
+import { CHAT_BUBBLE_SELECTION_INK, chatBubbleQuestionInk, chatBubbleRole } from '../src/chat-bubble.js'
 import { RAMPS } from '../src/palette.js'
 import { contrastRatio, hexToRgb, isHex, labLightness, mix, rgbToHex } from '../src/color.js'
 
@@ -553,6 +588,25 @@ const COLOR_MODE_ROLE_LABELS = [
   ['dotWarn', 'dot-warn'],
   ['dotDone', 'dot-done']
 ]
+/**
+ * Per-variant floors for the one colour-mode row pair that runs below the 4.5:1
+ * surface gate. light·soft's "finished" band is deepened to 4.39 / 4.25:1: on
+ * the cream sidebar a 4.5:1 blue tint has no visible depth at all (the 2026-11-15
+ * tint at 4.62:1 still read as "有点亮了"), and the scheme already takes the same
+ * kind of trade-off on its diff rows at 4.1:1 (design §35). Every other variant
+ * keeps 4.5:1.
+ */
+const COLOR_MODE_ROW_DONE_FLOOR = Object.freeze({ 'light-soft': 4.2 })
+
+/**
+ * Per-variant floors for the other light·soft row pair that runs below the
+ * surface gate. The waiting row's `bg_yellow` sits 0.04 L* from the cream
+ * sidebar, and a pale yellow has no hue step to spend against that sidebar, so
+ * the fill is deepened to 4.2 / 4.1:1 (design §37). The floor is the lower of
+ * the pair (hover), like the finished rows above.
+ */
+const COLOR_MODE_ROW_WARN_FLOOR = Object.freeze({ 'light-soft': 4.1 })
+
 /** [label, ratio key, threshold] of the report's colour-mode contrast table. */
 const COLOR_MODE_CHECKS = [
   ['h1 / bg-base', 'h1', COLOR_MODE_DECORATION_MIN],
@@ -572,10 +626,10 @@ const COLOR_MODE_CHECKS = [
   ['zebra / label-primary', 'zebra', COLOR_MODE_SURFACE_MIN],
   ['table-hover / label-primary', 'tableHover', COLOR_MODE_SURFACE_MIN],
   ['quote-bg / label-primary', 'quoteBg', COLOR_MODE_SURFACE_MIN],
-  ['row-warn / 行文字色（light label-primary，dark inverted）', 'rowWarn', COLOR_MODE_SURFACE_MIN],
-  ['row-warn-hover / 行文字色（light label-primary，dark inverted）', 'rowWarnHover', COLOR_MODE_SURFACE_MIN],
-  ['row-done / label-primary', 'rowDone', COLOR_MODE_SURFACE_MIN],
-  ['row-done-hover / label-primary', 'rowDoneHover', COLOR_MODE_SURFACE_MIN],
+  ['row-warn / 行文字色（light label-primary，dark inverted；light·soft 4.1）', 'rowWarn', (variantName) => COLOR_MODE_ROW_WARN_FLOOR[variantName] ?? COLOR_MODE_SURFACE_MIN],
+  ['row-warn-hover / 行文字色（light label-primary，dark inverted；light·soft 4.1）', 'rowWarnHover', (variantName) => COLOR_MODE_ROW_WARN_FLOOR[variantName] ?? COLOR_MODE_SURFACE_MIN],
+  ['row-done / label-primary（light·soft 4.2）', 'rowDone', (variantName) => COLOR_MODE_ROW_DONE_FLOOR[variantName] ?? COLOR_MODE_SURFACE_MIN],
+  ['row-done-hover / label-primary（light·soft 4.2）', 'rowDoneHover', (variantName) => COLOR_MODE_ROW_DONE_FLOOR[variantName] ?? COLOR_MODE_SURFACE_MIN],
   ['dot-warn / bg-base', 'dotWarnBase', COLOR_MODE_DOT_MIN],
   ['dot-warn / sidebar-fill', 'dotWarnSidebar', COLOR_MODE_DOT_MIN],
   ['dot-done / bg-base', 'dotDoneBase', COLOR_MODE_DOT_MIN],
@@ -651,7 +705,13 @@ for (const variant of states) {
     check('g12', key, COLOR_MODE_SURFACE_MIN, `label-primary on ${key}`)
   }
   for (const key of COLOR_MODE_ROW_KEYS) {
-    check('g13', key, COLOR_MODE_SURFACE_MIN, `label-primary on ${key}`)
+    // light·soft's two row pairs carry their own floors (design §35 / §37).
+    const floor = key.startsWith('rowDone')
+      ? COLOR_MODE_ROW_DONE_FLOOR[variant.variant] ?? COLOR_MODE_SURFACE_MIN
+      : key.startsWith('rowWarn')
+        ? COLOR_MODE_ROW_WARN_FLOOR[variant.variant] ?? COLOR_MODE_SURFACE_MIN
+        : COLOR_MODE_SURFACE_MIN
+    check('g13', key, floor, `label-primary on ${key}`)
   }
   for (const key of COLOR_MODE_DOT_KEYS) check('g14', key, COLOR_MODE_DOT_MIN, COLOR_MODE_DOT_LABELS[key])
   for (const key of COLOR_MODE_ACCENT_TEXT_KEYS) check('g16', key, COLOR_MODE_DECORATION_MIN, `${key} on the markdown surfaces`)
@@ -665,11 +725,10 @@ for (const variant of states) {
 
 /* ---- Gate 17: workspace active-session row (always-on navigation surface) -- */
 /**
- * Ink floor of the light schemes' interaction accent + canvas pair. The dark
- * schemes keep WCAG AA with the same palette pair; in the light palette the cream
- * canvas ink on `statusline1` is soft by construction (2.00–2.32:1, the pairing
- * the upstream reference tab itself uses), so the gate pins the measured ceiling
- * (design §15 / §23).
+ * Ink floor of the interaction accent pair. Dark is a real WCAG AA pair (canvas
+ * `bg0` on `statusline1`, 5.62–6.88:1); the light pair keeps the documented 1.95
+ * (cream `bg0` on `#93B259`, 2.00–2.32:1 — the palette's own ceiling, see
+ * design §15 / §23).
  */
 const ACTIVE_SESSION_LIGHT_INK_FLOOR = 1.95
 /**
@@ -944,6 +1003,125 @@ for (const variant of states) {
   }
 }
 
+/* ---- Gate 23: the reply card's question ink (always-on) ------------------ */
+/**
+ * Since 2026-11-15 (evening) the answered reply card is ONE accent surface: the
+ * paper block of the earlier rounds (`bg_green` in the light schemes, `#5D6E56` in
+ * the dark ones) is gone and the question recedes by its ink alone — `dt` at
+ * `label-secondary`, `dd` at the bubble ink, which is DSH's own
+ * `QuestionReplyView` hierarchy. `src/chat-bubble.js` moves the bubble ink
+ * `CHAT_BUBBLE_QUESTION_INK_STEP` (6) L* toward the fill.
+ *
+ * This gate holds both ends of that step: it has to be visible (>= 4 L*, or the
+ * two lines read as one voice) and still the same voice (<= 8 L*, past that the
+ * question starts to look disabled); it may never be stronger than the answer;
+ * and it stays legible on a surface this palette has already spent on the answer
+ * — light >= 1.65:1 (light·soft lands at 1.70 on the documented 2.00 cream
+ * ceiling) and dark >= 4.4:1 (AA; 4.52-5.59).
+ */
+const QUESTION_INK_MIN_STEP = 4
+const QUESTION_INK_MAX_STEP = 8
+const QUESTION_INK_LIGHT_MIN_CONTRAST = 1.65
+const QUESTION_INK_DARK_MIN_CONTRAST = 4.4
+const questionInkRows = []
+for (const variant of states) {
+  const bubble = chatBubbleRole(variant.scheme, variant.strength)
+  const question = chatBubbleQuestionInk(variant.scheme, variant.strength)
+  if (!LEGAL_ROLE_COLOR.test(question) || !LEGAL_ROLE_COLOR.test(bubble.fill)) {
+    recordFailure(`g23:${variant.variant}:legal`, `${variant.variant}: question ink / bubble fill are not #RRGGBB: ${question} / ${bubble.fill}`)
+    continue
+  }
+  const questionRatio = contrastRatio(question, bubble.fill)
+  const answerRatio = contrastRatio(bubble.ink, bubble.fill)
+  const step = Math.abs(labLightness(question) - labLightness(bubble.ink))
+  const floor = variant.scheme === 'dark' ? QUESTION_INK_DARK_MIN_CONTRAST : QUESTION_INK_LIGHT_MIN_CONTRAST
+  questionInkRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    question,
+    ink: bubble.ink,
+    fill: bubble.fill,
+    questionRatio,
+    answerRatio,
+    step,
+    floor
+  })
+  if (step < QUESTION_INK_MIN_STEP) {
+    recordFailure(`g23:${variant.variant}:step`, `${variant.variant}: question ink is only ${step.toFixed(1)} L* from the answer (${QUESTION_INK_MIN_STEP} needed)`)
+  }
+  if (step > QUESTION_INK_MAX_STEP) {
+    recordFailure(`g23:${variant.variant}:voice`, `${variant.variant}: question ink drifted ${step.toFixed(1)} L* from the answer (${QUESTION_INK_MAX_STEP} max)`)
+  }
+  if (questionRatio >= answerRatio) {
+    recordFailure(`g23:${variant.variant}:softer`, `${variant.variant}: question ink (${questionRatio.toFixed(2)}) is not softer than the answer (${answerRatio.toFixed(2)})`)
+  }
+  if (questionRatio < floor) {
+    recordFailure(`g23:${variant.variant}:legible`, `${variant.variant}: question ink on the bubble = ${questionRatio.toFixed(2)} < ${floor}`)
+  }
+}
+
+/* ---- Gate 24: running-session title glare (always-on navigation text) ----- */
+/**
+ * The glare band may never be a legibility regression: it has to sit further
+ * from the sidebar in CIE L* than the resting green does (it always moves away
+ * from the canvas), and on the hover overlay it may not fall below the resting
+ * title's own contrast. Both invariants pin the 2026-11-15 direction decision —
+ * round one swept a pale wash in the light schemes and landed at 1.29-1.46:1.
+ */
+const RUNNING_TITLE_ROLES = runningTitleRoles()
+const runningTitleRows = []
+for (const variant of states) {
+  const role = RUNNING_TITLE_ROLES[variant.variant]
+  if (!role) {
+    recordFailure(`g24:${variant.variant}`, `${variant.variant}: src/running-title.js has no colours for this variant`)
+    continue
+  }
+  const { rest, band } = role
+  const sidebar = variant.get('--dsw-specific-sidebar-fill')
+  const { r, g, b, a } = hexToRgb(variant.get('--dsw-alias-interactive-bg-hover'))
+  const hover = mix(sidebar, rgbToHex({ r, g, b, a: 1 }), a)
+  const restingRatio = contrastRatio(rest, sidebar)
+  const bandRatio = contrastRatio(band, sidebar)
+  const bandHoverRatio = contrastRatio(band, hover)
+  const restingFloor = variant.scheme === 'dark'
+    ? RUNNING_TITLE_DARK_RESTING_CONTRAST
+    : RUNNING_TITLE_LIGHT_RESTING_CONTRAST
+  const bandFloor = variant.scheme === 'dark'
+    ? RUNNING_TITLE_DARK_BAND_CONTRAST
+    : RUNNING_TITLE_LIGHT_BAND_CONTRAST
+  const restStep = Math.abs(labLightness(rest) - labLightness(sidebar))
+  const bandStep = Math.abs(labLightness(band) - labLightness(sidebar))
+  runningTitleRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    rest,
+    band,
+    sidebar,
+    restingRatio,
+    bandRatio,
+    bandHoverRatio,
+    restingFloor,
+    bandFloor,
+    restStep,
+    bandStep
+  })
+  if (!LEGAL_ROLE_COLOR.test(rest) || !LEGAL_ROLE_COLOR.test(band)) {
+    recordFailure(`g24:${variant.variant}:legal`, `${variant.variant}: running-title colours are not #RRGGBB: ${rest} / ${band}`)
+  }
+  if (restingRatio < restingFloor) {
+    recordFailure(`g24:${variant.variant}:rest`, `${variant.variant}: running title resting green = ${restingRatio.toFixed(2)} < ${restingFloor}`)
+  }
+  if (bandRatio < bandFloor) {
+    recordFailure(`g24:${variant.variant}:band`, `${variant.variant}: running title band = ${bandRatio.toFixed(2)} < ${bandFloor}`)
+  }
+  if (bandStep <= restStep) {
+    recordFailure(`g24:${variant.variant}:direction`, `${variant.variant}: band does not move away from the canvas (L* step ${bandStep.toFixed(2)} <= ${restStep.toFixed(2)})`)
+  }
+  if (bandHoverRatio < restingRatio) {
+    recordFailure(`g24:${variant.variant}:hover`, `${variant.variant}: band on the hover overlay = ${bandHoverRatio.toFixed(2)} < resting ${restingRatio.toFixed(2)}`)
+  }
+}
+
 /* ---- Report-only measurements -------------------------------------------- */
 const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
   const ratios = {}
@@ -1001,19 +1179,24 @@ function renderMarkdown () {
     '7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（light·soft 为 1.05:1 的可见性取舍，见 §2d），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；',
     '8. FileDiff 的 added / deleted 行底色（`--dsw-alias-file-diff-*-bg`）上的 `label-primary` 代码文本 ≥ 4.5:1（light·soft 为 4.1:1 的可见性取舍，见 §2e）；DSH 用这两个 token 画行底色、文字继承 `label-primary`（2026-10-21 走查：「浅绿色背景配白色文字」与「浅色绿色背景太不明显」，见 §6.3）；',
     '9. 色彩模式（中彩）大号标题 h1 / h2 / h3 / h4 对 `bg-base` ≥ 3.0:1（6 档）；',
-    '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；',
+    '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；未勾选的任务框是同一支绿的 68% 描边 + 10% 淡底，已勾选框是实底 + 画布 `bg-base` 勾；',
     '11. 色彩模式（中彩）表头色带上的 `label-primary` ≥ 4.5:1（6 档）；',
     '12. 色彩模式（中彩）斑马纹 / 行 hover / 引用块淡底上的 `label-primary` ≥ 4.5:1（6 档）；',
-    '13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档）；',
+    '13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档；light·soft 的「已完成」行按 §35 记 4.2 下限，实测 4.39 / 4.25:1；「待确认」行按 §37 记 4.1 下限，实测 4.24 / 4.13:1）；',
     '14. 色彩模式（中彩）状态点（待确认 / 已完成）对 `bg-base` 与 `sidebar-fill` 都 ≥ 3.0:1（6 档）；',
     '15. 色彩模式（中彩）全部 25 个角色色值是合法 `#RRGGBB`（6 档）；',
     '16. 色彩模式（中彩）强调文字（h5 / h6 / emphasis / 内部链接 / 行内 code）对其可能落到的每个 markdown 表面 ≥ 3.0:1（6 档）：浅色档调色板强调色本身达不到 4.5:1（Enchanted 同类文本约 2.6:1），本实现抬到 3.0:1 并保留色相，正文 `label-primary` 仍保持 4.5:1；',
-    '17. 工作区当前会话行（`src/active-session.js`，常驻、与色彩模式无关）：底色是合法 `#RRGGBB` 的交互强调色 `statusline1`、文字墨色是方案画布 `bg0`（两者都是合法色值，无混色 / 无透明度）；墨色同时覆盖行内灰字与中性的加载 spinner（`[data-state="ongoing"]`，§23.6），语义状态点保持语义色；深色档墨色在其上 ≥ 4.5:1（5.62–6.88:1），浅色档是上游参考 tab 的同一配对（2.00–2.32:1，浅色盘没有更深的墨），门槛记为 1.95 并在 §2g 说明；6 档实测值见 §2g；',
+    '17. 工作区当前会话行（`src/active-session.js`，常驻、与色彩模式无关）：底色是合法 `#RRGGBB` 的交互强调色 `statusline1`、文字墨色是方案画布 `bg0`（两者都是合法色值，无混色 / 无透明度）；墨色同时覆盖行内灰字与中性的加载 spinner（`[data-state="ongoing"]`，§23.6），语义状态点保持语义色；深色档墨色在其上 ≥ 4.5:1（5.62–6.88:1，取画布 `bg0`），浅色档同取画布 `bg0`（2.00–2.32:1，已记录的 1.95 下限）；6 档实测值见 §2g；',
     '18. 工作区目录名称（`src/workspace-labels.js`，常驻、与色彩模式无关）：颜色是合法 `#RRGGBB` 的**文字绿 `green`**（上游 foreground green，浅色 `#8DA101` 比背景绿 `statusline1` `#93B259` 深一档；深色两者同为 `#A7C080`）；深色档静止行 ≥4.5:1（AA 下限，实测 5.00–6.17）、A7 的 50% `bg4` hover 叠加底上 ≥4.0:1（已记录取舍）；浅色档静止行 ≥2.3、hover 底固定 2.1 的已记录下限（文字绿实测下限）；6 档实测值见 §2h；',
-    '19. 下拉选中项（`src/ui-accents.js`，常驻、与色彩模式无关）：菜单 / 单选列表的选中项以`statusline1`（浅色 `#93B259`）作实色底、方案画布 `bg0` 作文字与勾勾墨色（深色档墨色 ≥ 4.5:1，浅色档 1.95 已记录下限），选中项内由 DSH 单独上色的图标与次要文字（`--dsw-alias-menu-icon` 与 `label-*` 族）同样取该墨色，并对菜单卡保持 ≥ 0.02 的 L* 步长；会话标题自 2026-11-09 起回到 DSH 原生 `label-primary`（用户「标题不需要绿色显示了」），不再由本样式表染色；6 档实测值见 §2i；',
-    '20. 插件更新弹窗（`src/plugin-update.js`，常驻、与色彩模式无关）：完成步骤的文字是合法 `#RRGGBB` 的交互强调色 `statusline1`（浅色档即 `#93B259`，与弹窗「完成」按钮同色）、失败步骤是语义红 `fg.red`（语义色，仅报告不设门槛，实测 2.66–3.82:1）、其余状态回到 `label-primary`；完成步骤的 20px 圆点与结果大图标改为「`statusline1` 实底 + 方案画布 `bg0` 墨色」；深色档文字 ≥ 4.0:1、徽标墨色 ≥ 4.5:1，浅色档固定 1.9 / 1.95 的已记录下限；6 档实测值见 §2j；',
+    '19. 下拉选中项（`src/ui-accents.js`，常驻、与色彩模式无关）：菜单 / 单选列表的选中项以`statusline1`（浅色 `#93B259`）作实色底、方案画布 `bg0` 作文字与勾勾墨色（深色档 ≥ 4.5:1，浅色档 2.00–2.32:1，已记录的 1.95 下限），选中项内由 DSH 单独上色的图标与次要文字（`--dsw-alias-menu-icon` 与 `label-*` 族）同样取该墨色，并对菜单卡保持 ≥ 0.02 的 L* 步长；会话标题自 2026-11-09 起回到 DSH 原生 `label-primary`（用户「标题不需要绿色显示了」），不再由本样式表染色；6 档实测值见 §2i；',
+    '20. 插件更新弹窗（`src/plugin-update.js`，常驻、与色彩模式无关）：完成步骤的文字是合法 `#RRGGBB` 的交互强调色 `statusline1`（浅色档即 `#93B259`，与弹窗「完成」按钮同色）、失败步骤是语义红 `fg.red`（语义色，仅报告不设门槛，实测 2.66–3.82:1）、其余状态回到 `label-primary`；完成步骤的 20px 圆点与结果大图标改为「`statusline1` 实底 + 画布 `bg0` 墨色」（深色 5.62–6.88:1，浅色 2.00–2.32:1，门槛 1.95）；完成步骤的绿色**文字**在浅色奶油面板上仍是 1.95–2.26:1 的已记录下限（与徽标不同，那是绿字压奶油，门槛 1.9），深色档文字 ≥ 4.0:1；6 档实测值见 §2j；',
     '21. 聊天气泡文字选区（`src/chat-bubble.js`，常驻、与色彩模式无关）：选区底色保持全局 `::selection` 的 `bg_visual`（用户要求「勾选颜色各处都统一」），只把气泡内选中文字重新上色：浅色 `#2F3B33`（深松墨，对 `#DED8DB` 8.33:1）、深色 `#FFFBEF`（奶油，对深梅色选区 8.91–10.49:1）；原字色在选区上不可读（浅色奶油字 1.17–1.36:1、深色气泡字 1.22–1.27:1）；气泡外仍 `color: inherit` 保留原色；6 档选中文字 ≥ 4.5:1、选区带对气泡底 ≥ 1.6:1（浅色 1.71 是同色取舍、深色 4.61–5.42），6 档实测值见 §2k；',
     '22. 发送 / 终止按钮图标（`src/tokens.js` 的 `--dsw-alias-label-on-color`，常驻、与色彩模式无关）：DSH 用它在饱和实底上画白墨（`ui-conversation` 的 `InputBar.module.css` 里 `.primary { color: var(--dsw-alias-label-on-color) }`，发送箭头与终止方块共用该圆钮），配 `--dsw-alias-button-info-fill`（主题的交互强调色 `statusline1`）及其 hover；DSH 原生就是「白字压饱和底」（2.00–2.40:1，靠色相而不是明度辨识），因此门槛固定为字面 `#FFFFFF` 且两种 scheme 对实底 / hover 都 ≥ 1.9:1；它此前是继承 token，亮度锚定把 `neutral-bluish-00` 解析成深色档的 `fg` `#D3C6AA`，图标变成 1.18:1 的土黄（2026-11-13 用户反馈「发送和终止的按钮里面的图标变色了」），6 档实测值见 §2l；',
+    '23. 问答回复卡的「问题墨」（`src/chat-bubble.js`，常驻、与色彩模式无关）：回复卡是一块强调色表面，问题行不再有单独的底色 —— 它只在墨色上退一档：' +
+      '`dt` 用的 `--dsw-alias-label-secondary` 在气泡子树内被重指向「气泡墨色向气泡底移动 6 L*」的取色（`chatBubbleQuestionInk()`，浅色三档 `#e9ecd1` / `#e6e7c5` / `#dbdcb5`，深色三档 `#343d3b` / `#3a4443` / `#404b4a`），' +
+      '回答行保持气泡墨色。这就是 DSH 自己的层次（`QuestionReplyView` 的 `dt` 是 `label-secondary`、`dd` 继承气泡墨色）；' +
+      '门槛同时卡住这一档的两端：L* 差 ≥ 4（否则两行还是一个声音）、≤ 8（再远就像禁用态）、问题必须比回答淡，并且仍可读 —— 浅色 ≥ 1.65:1（实测 1.70–1.99，light·soft 最紧）、深色 ≥ 4.4:1（AA，实测 4.52–5.59）；6 档实测值见 §2m；',
+    '24. 运行中会话标题（`src/running-title.js`，常驻、与色彩模式无关）：命中「行首有 `[data-state="ongoing"]` 且未选中」的会话行标题，静止色是合法 `#RRGGBB` 的**文字绿 `green`**（与工作区目录名同色），扫光带永远朝「背离侧栏画布」的方向走——浅色档把绿压深（`#8DA101` → `#667401`，2.35–2.68 → 4.17–4.76:1），深色档把绿提亮（`#A7C080` → `#D3E0C0`，5.00–6.17 → 7.24–8.94:1）；门槛除两档静止 / 光带下限（2.3 / 4.1、4.5 / 7.0）外，还钉住「光带在 CIE L* 上比静止绿离侧栏更远」与「hover 叠加底上的光带不低于静止绿」两条方向不变量——第一版在浅色档刷的是白光（1.29–1.46:1），被用户退回「白光会让文字看不清楚」，6 档实测值见 §2n；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -1088,8 +1271,14 @@ function renderMarkdown () {
       '（`src/chat-bubble.js`，见 §6.8），token 回落的 `label-primary` 仍满足 AA。2026-11-10 用户要求气泡直接沿用侧栏选中行的绿底，' +
       '先深色、随后浅色（原话：深色「试试直接改成侧边栏选中那种绿色和文字颜色」/ 浅色「浅色气泡的也和侧边栏颜色保持一致」）。该绿底不进 token 层' +
       '（浅色奶油墨回落在 `#93B259` 上只有约 2.0:1，深色淡鼠尾草回落在 `#A7C080` 上也只有约 2.0:1），而由同一张常驻样式表绘制 `statusline1` 底 + 画布墨 ' +
-      '`bg0`（深色 6.88 / 6.23 / 5.62:1，AA；浅色 2.32 / 2.22 / 2.00:1，即强调层既有的「奶油墨 on statusline1」上限，见 §2i 的 chrome 取舍）。' +
-      '长文本实测时曾把浅色字改成派生深墨 `#2F3B33`（4.88:1），随后用户要求换回奶油白（「文字还是换回白色吧」），因此最终浅色气泡与选中行完全同色对；' +
+      '`bg0`（深色 6.88 / 6.23 / 5.62:1；浅色 2.32 / 2.22 / 2.00:1，见 §2i / §6.8）。' +
+      '2026-11-10 曾把浅色字改成派生深墨 `#2F3B33`（4.88:1）又按用户要求换回奶油白（「文字还是换回白色吧」）；' +
+      '2026-11-15：DSH 的问答回复卡（`QuestionReplyView`）在同一个 `UserMessageBubble` 图元外面套自己的 `row` / `bubbleWidth`，' +
+      '并不在 `_userStack` 里，因此原来的锚点漏掉了它，卡片仍显示 token 的苔纸底——用户走查「回答问题过后的聊天气泡，颜色为什么是这样」。' +
+      '常驻样式表改为三条锚点（用户消息行 / 问答复卡 / `/goal` 命令回显）各带一次作用域，并把卡内问题行的 `label-secondary` 一并重新上色（见 §35、§6.8）；' +
+      '2026-11-15 同日第二次走查又补了一处：锚点排除复卡的 `_bubbleWidth` 包装盒（否则绿底画在方角外盒上、20px 圆角消失）；' +
+      '复卡的问题行先试深色底带（`rgba(0,0,0,.1)`），再改「纸条」，随后用户判「不好看」、要求回到单块表面，' +
+      '于是纸条与底带一起撤掉，问题行改用「向气泡底移动 6 L* 的问题墨」（浅色 1.70–1.99:1、深色 4.52–5.59:1，见 §2m）；' +
       'token 仍保留苔纸 / 被守卫的 `bg1` 作为样式表失效时的可读回落；下表继续测 token 值。本门槛确保它不会退回画布：',
     '',
     '| 变体 | bubble | bg-base | 边界对比度 | 阈值 | 结果 |',
@@ -1133,7 +1322,7 @@ function renderMarkdown () {
     '',
     '## 2f. 色彩模式（中彩）角色色值（硬门槛 G9–G16）',
     '',
-    '`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，自 2026-10-24 起作为默认功能始终生效（设置页开关已移除）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块 aqua 淡底；表格表头绿色带 / 斑马纹 / 行 hover；复选框（浅色档绿、深色档蓝）；列表 marker / 引用条 / 分隔线 aqua；表格列宽提示线取 `headerAqua`（§18 的 2px 装饰线，不参与 G9–G16 文本门槛，由 `tests/color-mode.test.mjs` 钉住对表头色带 ≥ 2.5:1）；会话行保持 0.4.0 的整行实色底，2026-10-24 重制版把行底换成 Everforest palette1 的 `bg_yellow`（待确认 / 待审批；用户反馈红色像报错，当日后续由 `bg_red` 改黄）与 `bg_blue`（已完成；2026-11-08 由 `bg_green` 改回蓝色，绿色让给当前会话行，见 §2g），浅色档的黄色再向 `fg.yellow` 加深到 3.5 L* 或 4.5:1 门槛为止（超过 4.5:1 的 soft 档沿 `bg0` 方向微调）；深色档因为 palette 的 `bg_yellow` 在浅色墨水下只能读作橄榄灰，改为「亮琥珀底 + 深色对比墨」（`--dsw-alias-label-primary-inverted`，标题 / 尾标 / 状态点一起继承，2026-10-24 第二轮反馈「深色档再亮/更黄一点」）。hover 向对应 `fg` 强调色混 16% 后重新守卫；完成行状态点随之改为蓝色（`fg.blue` 守卫到 3:1）。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头——该属性恒为 `on`，只作作用域锚点；token 层零差异（与基线一致）。',
+    '`src/color-mode.js` 在 token 层之上派生一套「中彩」内容角色色，自 2026-10-24 起作为默认功能始终生效（设置页开关已移除）。映射参考 Obsidian **Everforest Enchanted** 的 markdown 配色，按 DSH 渲染器实际存在的元素落地：标题 h1–h6 依次 red → orange → yellow → green → blue → purple；strong / em 紫；行内 code 蓝（落在 DSH 的蓝底 chip 上）；内部文件链接 aqua（外链继续用官方 link token）；删除线与已完成任务淡化；引用块绿色淡底（与引用条同色系）；表格表头绿色带 / 斑马纹 / 行 hover；复选框绿（2026-11-15 起深浅档一致，此前为浅色 aqua / 深色蓝）；列表 marker / 引用条 / 分隔线统一取主题绿（2026-11-15 由 aqua 改，见 §43）；表格列宽提示线取 `headerAqua`（§18 的 2px 装饰线，不参与 G9–G16 文本门槛，由 `tests/color-mode.test.mjs` 钉住对表头色带 ≥ 2.5:1）；会话行保持 0.4.0 的整行实色底，2026-10-24 重制版把行底换成 Everforest palette1 的 `bg_yellow`（待确认 / 待审批；用户反馈红色像报错，当日后续由 `bg_red` 改黄）与 `bg_blue`（已完成；2026-11-08 由 `bg_green` 改回蓝色，绿色让给当前会话行，见 §2g；light·soft 的奶油侧栏没有明度余量，2026-11-15 起改取 `fg.blue` 混入白锚的淡染，同日再按要求加深一档到 `#d4e7f2` / hover `#cee4f1`（4.39 / 4.25:1，该档自己的 4.2 下限，见 §35）），浅色档的黄色再向 `fg.yellow` 加深到 3.5 L* 或 4.5:1 门槛为止（light·soft 的黄色和奶油侧栏同色系、没有色相可用，2026-11-15 起改为沿 `bg_yellow` → `fg.yellow` 加深到该档自己的 4.2 / 4.1 下限，落点 `#f0dfb5` / hover `#efdcad`，见 §37）；深色档因为 palette 的 `bg_yellow` 在浅色墨水下只能读作橄榄灰，改为「亮琥珀底 + 深色对比墨」（`--dsw-alias-label-primary-inverted`，标题 / 尾标 / 状态点一起继承，2026-10-24 第二轮反馈「深色档再亮/更黄一点」）。hover 向对应 `fg` 强调色混 16% 后重新守卫；完成行状态点随之改为蓝色（`fg.blue` 守卫到 3:1）。全部由当前变体的 `bg-base` / `sidebar-fill` / `label-primary` / `label-tertiary` / 行内 code chip / 代码块表面和 `fg` 强调色算出：大号标题（h1–h4）与装饰朝 ink 混合到对 `bg-base` 3:1；强调文字对每个可能落到的 markdown 表面 3:1（见门槛 16）；彩色表面把强调色混入底色、权重由 `label-primary` 4.5:1 反推；状态点同时满足 `bg-base` 与 `sidebar-fill` 3:1。元素规则一律以 `html[data-everforest-color-mode="on"]` 开头——该属性恒为 `on`，只作作用域锚点；token 层零差异（与基线一致）。',
     '',
     '角色色值（自定义属性均为 `--everforest-color-<角色>`，6 档）：',
     '',
@@ -1152,13 +1341,20 @@ function renderMarkdown () {
     '|---|---:|---:|---:|---:|---:|---:|---:|---|'
   )
   for (const [label, key, minimum] of COLOR_MODE_CHECKS) {
-    const cells = colorModeRows.map((row) => `${format(row.ratios[key])} ${pass(row.ratios[key] >= minimum)}`)
-    const ok = colorModeRows.every((row) => row.ratios[key] >= minimum)
-    push(`| ${label} | ${minimum} | ${cells.join(' | ')} | ${pass(ok)} |`)
+    const floorOf = typeof minimum === 'function' ? minimum : () => minimum
+    const cells = colorModeRows.map((row) => {
+      const floor = floorOf(row.variant)
+      return `${format(row.ratios[key])} ${pass(row.ratios[key] >= floor)}`
+    })
+    const ok = colorModeRows.every((row) => row.ratios[key] >= floorOf(row.variant))
+    // One threshold for most rows; the row-done pair carries a per-variant floor.
+    const floors = [...new Set(colorModeRows.map((row) => floorOf(row.variant)))]
+    const threshold = floors.length === 1 ? String(floors[0]) : floors.join(' / ')
+    push(`| ${label} | ${threshold} | ${cells.join(' | ')} | ${pass(ok)} |`)
   }
   push(
     '',
-    'G15：以上 6 档 × 25 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）、Enchanted 的 markdown 角色映射与 2026-10-24 的状态行重制（行底取 palette1 的 `bg_yellow` / `bg_blue`，浅色档黄色按可见性下限加深，hover 重新守卫），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式自 2026-10-24 起默认提供、没有设置开关（0.4.x 的开关已随设置页区块移除）；`html` 上的 `data-everforest-color-mode` 恒为 `on`，仅作作用域锚点，只改 `data-everforest-*` 属性、不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。',
+    'G15：以上 6 档 × 26 个角色色值全部是合法 `#RRGGBB`。取值公式与期望值来自 2026-10-23 的中彩样张（`.tmp/color-mode-preview`，不入库）、Enchanted 的 markdown 角色映射与 2026-10-24 的状态行重制（行底取 palette1 的 `bg_yellow` / `bg_blue`，浅色档黄色按可见性下限加深，hover 重新守卫；light·soft 的完成行 2026-11-15 起改取 `fg.blue` 的淡染，见 §34），由 `tests/color-mode.test.mjs` 逐值锁定、本报告逐档把关；色彩模式自 2026-10-24 起默认提供、没有设置开关（0.4.x 的开关已随设置页区块移除）；`html` 上的 `data-everforest-color-mode` 恒为 `on`，仅作作用域锚点，只改 `data-everforest-*` 属性、不写任何 token。faint 直接取该档 `label-tertiary`，是刻意的弱化色（删除线 / 已完成任务），不参与门槛。',
   )
   push(
     '',
@@ -1179,11 +1375,12 @@ function renderMarkdown () {
       '状态点保留语义色（它是独立图形，不是绿底上的文字）；例外是运行中的加载 spinner —— `StateDot(state="ongoing")` 是 `<svg data-state="ongoing">` 的中性灰环（`label-tertiary`，对绿底仅 1.22–1.39:1），' +
       '2026-11-08 第四轮用户反馈「整块高亮的时候，前面这个转圈的图标显示不明显」，墨色选择器因此追加 `[data-state="ongoing"]`、与文字同取画布墨色；`done` / `warning` / `error` 状态点不受影响。' +
       '色彩模式自 2026-11-08 起把「已完成未读」行改回蓝色（§2f，`bg_blue`），绿色专属于「当前会话」；' +
+      '其中浅色 soft 档 2026-11-15 起改取 `fg.blue` 混入白锚的淡染，并在同日按要求加深一档（`bg_blue` 在奶油侧栏上会被正文门槛压成近白，见 §34 / §35）；' +
       '该样式常驻、与色彩模式无关（导航可见性，不是内容着色；色彩模式自 2026-10-24 起也没有开关）。',
     '',
     '深色三档的「绿底 + 画布墨」是 WCAG AA 配对（5.62–6.88:1）；浅色三档是上游参考 tab 的同一配对：' +
-      '浅色调色板里最亮的墨色就是画布 `bg0`，与 `statusline1` 只有 2.00–2.32:1，且没有任何更深的浅色墨可用（Everforest 自己的 tab 也这么配）。' +
-      '因此 G17 对深色档要求 ≥ 4.5:1、浅色档固定 1.95 的已记录下限 —— 这是让全部绿色 UI 保持同一 accent 的取舍（design §23），不是漏检。',
+      '浅色调色板里最亮的墨色是画布 `bg0`，与 `statusline1` 只有 2.00–2.32:1，' +
+      '因此 G17 只在深色档要求 ≥ 4.5:1，浅色档保留已记录的 1.95 下限（design §15 / §23）。',
     '',
     '| 变体 | active fill（statusline1） | ink（bg0） | sidebar-fill | L* 步长 | 墨色对比度 | 阈值 | 结果 |',
     '|---|---|---|---|---:|---:|---:|---|'
@@ -1246,8 +1443,8 @@ function renderMarkdown () {
   }
   push(
     '',
-    '画布墨色在 `statusline1` 上是 WCAG AA（深色 5.62–6.88:1）；浅色档 2.00–2.32:1 —— 调色板奶油墨的自身上限（上游参考 tab 同一配对）。' +
-      'G19 因此按 scheme 分阈值：深色墨色 ≥4.5:1，浅色墨色固定 1.95 的已记录下限，并对菜单卡要求 ≥ 0.02 的 L* 步长（实色绿带不会消失在菜单材质里）。' +
+    '墨色在 `statusline1` 上：深色档是 WCAG AA（取画布 `bg0`，5.62–6.88:1），浅色档同取画布 `bg0`（2.00–2.32:1，门槛 1.95 —— 与选中行 / 气泡 / 发送键同一配对）。' +
+      'G19 因此两档都按 4.5 阈值，并对菜单卡要求 ≥ 0.02 的 L* 步长（实色绿带不会消失在菜单材质里）。' +
       '会话标题不再参与本门槛：它已回到 DSH 的 `label-primary`，对比度由门槛 1 的 `label-primary` 规则覆盖。',
   )
   push(
@@ -1258,7 +1455,7 @@ function renderMarkdown () {
       'DSH 把步骤行渲染成 `[data-plugin-update] [data-state]`（每行一个 20px 圆点 + 文字），完成态圆点只有 12% 成功绿淡底，步骤文字也不跟随成功色；' +
       '`src/plugin-update.js` 因此把完成步骤的文字改成交互强调色 `statusline1`、失败步骤改成语义红，并把完成圆点与结果大图标改成「`statusline1` 实底 + 画布 `bg0` 墨色」——勾选从淡色细线变成高对比徽标。' +
       '同日追加反馈：浅色模式要用 `#93B259`（与弹窗「完成」按钮同色），因此浅色档从语义绿 `#8DA101` 换成 `statusline1`；深色档两值同为 `#A7C080`，观感不变。' +
-      '深色档 `statusline1` 在步骤面板（`bg-module-platform`）上 4.22–5.24:1、实底徽标 5.62–6.88:1；浅色档是调色板的同一取舍（文字 1.95–2.26、徽标 2.00–2.32:1），G20 按 scheme 分阈值。失败步骤的语义红不设门槛（与其余语义色同一政策，仅报告）：实测 2.66–3.82:1。',
+      '深色档 `statusline1` 在步骤面板（`bg-module-platform`）上 4.22–5.24:1、实底徽标 5.62–6.88:1；浅色档徽标 2.00–2.32:1（画布 `bg0`，门槛 1.95），绿色步骤文字是 1.95–2.26:1（`#93B259` 绿字压奶油面板），G20 因此按角色分阈值。失败步骤的语义红不设门槛（与其余语义色同一政策，仅报告）：实测 2.66–3.82:1。',
     '',
     '| 变体 | 完成文字绿 | 失败文字红 | 失败文字对比度（仅报告） | 步骤面板 | 文字对比度 | 徽标墨色 | 徽标对比度 | 文字阈值 | 徽标阈值 | 结果 |',
     '|---|---|---|---:|---|---:|---|---:|---:|---:|---|'
@@ -1325,6 +1522,62 @@ function renderMarkdown () {
   )
   push(
     '',
+    '## 2m. 问答回复卡的问题墨（chat-bubble question ink，硬门槛 G23）',
+    '',
+    'DSH 的问答回复卡（`QuestionReplyView`）把一次 `ask_user_question` 的所有问答放在同一个用户气泡里：`dl > div×N`，每对 `dt`（问题）+ `dd`（回答）。' +
+      '2026-11-15 用户先是要求「给问题和回答分成两个颜色」，四轮之后落成「问题块压一块浅色纸条」；随后用户回看裁图判「不好看」，' +
+      '原话「不想要两个不同颜色的块来做显示，参考默认主题」，问题改用浅一点的文字弱化。' +
+      '所以纸条（浅色 `bg_green`、深色提亮橄榄 `#5D6E56`）连同它的几何一起撤掉，卡片回到一块强调色表面，' +
+      '层次改由墨色承担：气泡子树内的 `--dsw-alias-label-secondary` 重指向 `chatBubbleQuestionInk()` —— 气泡墨色向气泡底移动 6 L*（浅色变深、深色变亮，方向永远是「更软」），' +
+      '回答行保持气泡墨色，与 DSH 原生卡片（`dt` = `label-secondary`、`dd` = 气泡墨色）同一套层次。' +
+      '为什么不按对比度定档：浅色三档在 `statusline1` 上只有 2.00–2.32:1 这点余量，按比例压会直接糊进绿底，按亮度差才既看得见又不抢回答。',
+    '',
+    '| 变体 | 问题墨色 | 回答墨色 | 气泡底（statusline1） | 问题 / 气泡底 | 回答 / 气泡底 | L* 差 | 阈值（L* / 对比度） | 结果 |',
+    '|---|---|---|---|---:|---:|---:|---:|---|'
+  )
+  for (const row of questionInkRows) {
+    const ok = row.step >= QUESTION_INK_MIN_STEP && row.step <= QUESTION_INK_MAX_STEP &&
+      row.questionRatio < row.answerRatio && row.questionRatio >= row.floor
+    push(
+      `| ${row.variant} | \`${row.question}\` | \`${row.ink}\` | \`${row.fill}\` | ${format(row.questionRatio)} | ${format(row.answerRatio)} | ${row.step.toFixed(1)} | ${QUESTION_INK_MIN_STEP}–${QUESTION_INK_MAX_STEP} / ${row.floor} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '浅色三档 1.99 / 1.90 / 1.70:1、深色三档 5.59 / 5.03 / 4.52:1；六档的亮度差都是 6.0–6.4 L*（取色按 1% 步进走，落在 6 以上的第一格）。' +
+      '浅色档这一组整体偏低是这套调色板的已记录上限（原文 2.00–2.32:1，§2i / §6.8）：问题只是比回答再软一档，' +
+      'light·soft 的 1.70 是本轮最紧的一对，也在门槛之内 —— 这是用户明确要的「浅一点的文字」，不是漏检。' +
+      '深色档仍全部满足 AA（≥ 4.52），所以深色一侧既分得出层次、又不牺牲可读性。',
+  )
+  push(
+    '',
+    '## 2n. 运行中会话标题（running-title，硬门槛 G24）',
+    '',
+    'DSH 的侧栏会话行在「运行中」时行首渲染 `StateDot(state="ongoing")`（`<svg data-state="ongoing">` 的灰色转圈），标题本身只是 `label-primary`。' +
+      '2026-11-15 用户要求「给正在进行中的对话的左侧工作区里面的对话标题增加一下样式，文字颜色改为主题绿，并且带有光影动画」，' +
+      '先出 A–F 六档对比 demo（常亮 / 单道扫光 / 宽光呼吸 / 明暗呼吸 / 双道流光 / 反方向），用户选了 B 并补一句「浅色模式的需要调整一下，白光会让文字看不清楚」。' +
+      '最终规则：标题取与目录名相同的文字绿 `green`，叠一条 260% 宽的绿色渐变、用 `background-clip: text` 裁进字形，光带在一轮 2.4s 里用 45%（约 1.08s）从左扫到右、其余时间停在视野外；' +
+      '选中行不参与（它已是 `statusline1` 实底 + 画布墨，绿字压上去看不见）。',
+    '',
+    '| 变体 | 静止绿 | 光带 | 侧栏底 | 静止 / 侧栏 | 光带 / 侧栏 | 光带 / hover | 阈值（静止 / 光带） | 结果 |',
+    '|---|---|---|---:|---:|---:|---:|---:|---|'
+  )
+  for (const row of runningTitleRows) {
+    const ok = row.restingRatio >= row.restingFloor && row.bandRatio >= row.bandFloor &&
+      row.bandStep > row.restStep && row.bandHoverRatio >= row.restingRatio
+    push(
+      `| ${row.variant} | \`${row.rest}\` | \`${row.band}\` | \`${row.sidebar}\` | ${format(row.restingRatio)} | ${format(row.bandRatio)} | ${format(row.bandHoverRatio)} | ${row.restingFloor} / ${row.bandFloor} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '光带方向是这道门槛的重点：浅色档把绿压深（影带）、深色档把绿提亮（亮带），两个方向都让局部**比静止时更清楚**；' +
+      '第一版浅色档刷的是白光（绿提亮到近白，峰值 1.29–1.46:1），字被打掉，用户原话「白光会让文字看不清楚」。' +
+      'hover 叠加底上光带仍不低于静止绿本身，所以行被悬停时也不会掉档；' +
+      '`text-shadow` 辉光方案被排除——会话标题是 20px 高、`overflow: hidden` 的裁切盒，阴影上下会被切掉一截，光影因此做在字形内部（`background-clip: text`）。',
+  )
+  push(
+    '',
     '## 3. 文本承载表面（label-primary 对比度）',
     '',
     '`docs/design.md` §4 要求这些表面上的主文本可读；`src/tokens.js` 的 `readableSurface` 会在不达标时向方案背景色 `bg0` 微调（light 提亮、dark 压暗，bg0 始终是该 scheme 下与 `fg` 对比最高的背景），实际值如下。',
@@ -1375,7 +1628,7 @@ function renderMarkdown () {
     '### 6.1 light scheme 文本表面提亮（approved）',
     '',
     '- **原因**：上游 light·soft 档 `bg1 = #EAE4CA`、`bg2 = bgDim = #E5DFC5`，`fg = #5C6A72` 只得到 4.38 / 4.17:1，达不到硬门槛 4.5；而 light·hard / light·medium 的对应值原本就达标（4.66–5.40）。',
-    '- **做法**：light scheme 的文本表面（`bg-layer-1/2/3`、`bg-overlay`、`bg-document-preview`、`markdown-code-block` / `--shiki-background`、输入框 / 菜单 / settings 卡片 / diff 底色等）以 `mix(bg0, bgN, 0.25)` 提亮（diff 为 0.45），再由 `readableSurface` 按实际对比度向 `bg0` 微调直到 `label-primary` ≥ 4.5:1；实际值见 §3。聊天气泡不在这族里：它按 2026-10-19 走查单独处理（§6.8）。inline code 芯片同理不在 bgN 表面族内：DSH 把它当 `background-color` 用，映射浅色取调色板 `bg_blue`、深色取 `bg_dim` 向 `bg0` 提亮 30%（见 `src/tokens.js`），同样经 `readableSurface` 守卫。',
+    '- **做法**：light scheme 的文本表面（`bg-layer-1/2/3`、`bg-overlay`、`bg-document-preview`、`markdown-code-block` / `--shiki-background`、输入框 / 菜单 / settings 卡片 / diff 底色等）以 `mix(bg0, bgN, 0.25)` 提亮（diff 为 0.45），再由 `readableSurface` 按实际对比度向 `bg0` 微调直到 `label-primary` ≥ 4.5:1；实际值见 §3。聊天气泡不在这族里：它按 2026-10-19 走查单独处理（§6.8）。inline code 芯片同理不在 bgN 表面族内：DSH 把它当 `background-color` 用，映射浅色取调色板 `bg_blue`、深色取 `bg_dim` 向 `bg0` 提亮 30%（见 `src/tokens.js`），同样经 `readableSurface` 守卫；light·soft 例外（2026-11-15）：该档 `bg_blue` 会被守卫压成 `#e6e8da`（对画布 1.036:1，且 label 4.50 / code 3.00 两对都卡在门槛上，无法再加深），改从白锚向 `fg.blue` 抬 8% 的 `#eff6fa`（对画布 1.098:1，label 5.12、code 3.09，见 §35）。',
     '- **影响 token**：见 §3 全表（light 三档）；dark scheme 保持 design 原值（原生 bg1/bg2 已 ≥4.99，`bg-layer-3` 在 dark·soft 下 4.27 也由 `readableSurface` 微调到达标）。',
     '- **依据**：DSH 原生 light 主题的 `bg-layer-1/2/3` 全部是 `#fff`（`static-neutral-bluish-00`），层次靠边框/阴影；Everforest Enchanted 也是平铺风格（`palette.md` §5「主背景 bg0 平铺」）。因此 light 表面趋近 bg0 并不破坏 DSH 结构语义，只是修正 `fg` 在较暗浅色底上的可读性。',
     '',
@@ -1413,13 +1666,14 @@ function renderMarkdown () {
     '- **做法**：侧栏取 `mix(bg0, bg1, 80%)` 并经 `readableSurface` 守卫（light 更深、dark 更浅，方向与 native 侧栏 `#f9fafb`/`#fff`、`#1b1b1c`/`#151517` 一致）。light·soft 的正文 4.5:1 上限把步长压到 `#eee7ce`（边界 1.03），其余档 1.05–1.12；native 为 1.045 / 1.060，观感同级。数值见 §2c。',
     '- **连带影响**：`--dsw-specific-sidebar-fill` 同时是 DSH 桌面端 Windows 原生标题栏（DWM caption）的取色来源（`preload-app.cjs` 探针），标题栏会随侧栏一起变色，与自绘标题栏条保持一致；`settings-general` 的设置导航（`sidebar-nav-item-*`）位于内容区 `bg-base` 上，不受影响。',
     '',
-    '### 6.8 聊天气泡（2026-10-19 / 2026-10-21 / 2026-11-08 / 2026-11-10 走查修正）',
+    '### 6.8 聊天气泡（2026-10-19 / 2026-10-21 / 2026-11-08 / 2026-11-10 / 2026-11-15 走查修正）',
     '',
     '- **问题**：用户消息气泡 `--dsw-specific-bubble` 旧映射取 `surface(p, 1)`；light 下 `mix(bg0, bg1, 0.25)` = `#FDFAEE`，与画布 `#FFFBEF` 仅 1.02:1，用户报告「聊天气泡和背景融为一体，区分不出来」。DSH native light 气泡并不是中性色阶，而是 `static-deepseek-50` 的淡蓝色 tint（on `#fff` ≈ 1.08），靠色相 + 轻微明度区分。2026-10-21 二次走查：light·soft 的近白「抬起卡片」被用户描述为「聊天气泡框变成白色的了」，与暖色画布不像一家人。2026-11-10 三次走查：深色气泡仍只有 1.15–1.16:1，用户觉得「有点淡」，要求气泡直接沿用它旁边选中会话行的绿底 + 文字色；随后要求浅色气泡与侧栏保持一致。',
     '- **做法（底色）**：2026-11-08 定稿（用户从六方案 demo 里选了 light「苔纸」/ dark「只换字色」）：light 的 token 改为 `bg_green` → `bg5` 22% 的苔纸，并按 `label-primary` 4.5:1 守卫——hard `#e7ead0`（4.54:1）、medium `#e7e9cd`（4.50:1）；light·soft 的 `bg0` 仍只有 4.66:1 余量，继续走抬起方向，但改为白 → 同一苔纸 40% 的淡苔纸 `#f1f2e5`（文字 4.94:1，对画布 1.06:1，门槛 1.05）。dark 的 token 保持 `bg1`（边界 1.15–1.16，官方 `label-primary` ≥5.7:1）。2026-11-10 两个 scheme 的实际绘制都改为交互强调色 `statusline1` 实底（深色 `#A7C080`、浅色 `#93B259`，与选中会话行 / 选中导航项 / 发送键同一底色）；但只写在 `src/chat-bubble.js` 的作用域样式表里，token 仍是苔纸 / 被守卫的 `bg1`：气泡回落文字是 `label-primary`，奶油墨在 `#93B259` 上、淡鼠尾草在 `#A7C080` 上都只有约 2.0:1，若把绿底放进 token 层、样式表一旦失效就会变成不可读的色块；保留 token 则失效时回到浅色苔纸 / 深色 `bg1` + `label-primary` 的可读组合。',
-    '- **字色（accent 墨）**：DSH 把气泡文字写死为 `label-primary`，token 层不能只给气泡换字色，因此 `src/chat-bubble.js` 用一张常驻作用域样式表覆盖（按 scheme × strength 各一条规则）：墨色取该 variant 的画布 `bg0`——浅色 `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1），深色 `#272E33` / `#2D353B` / `#333C43`（5.62–6.88:1）。深色仍是 AA；浅色是强调层「奶油墨 on statusline1」的既有上限（§2i 的同类取舍），即浅色气泡与选中行同色对。长文本实测时曾把浅色字换成派生深墨 `#2F3B33`（4.88:1，AA）验证可读性，随后用户要求换回白色（「文字还是换回白色吧」），所以最终交付的是同色对版本，深墨只留在记录里。选择器按聊天包的类名片段 `[class*="_userStack"] [class*="_bubble"]` 匹配（`userStack` 祖先排除 tooltip 的 `_bubble_44yfq_1`），并把 `--dsw-alias-state-business-primary` 重指向带墨色（气泡内的会话引用 chip 自己声明这个 token）。该表失效时回到 token 表面 + 官方 `label-primary`，两个 scheme 都满足 AA。',
+    '- **字色（accent 墨）**：DSH 把气泡文字写死为 `label-primary`，token 层不能只给气泡换字色，因此 `src/chat-bubble.js` 用一张常驻作用域样式表覆盖（按 scheme × strength 各一条规则）：墨色取该 variant 的画布 `bg0`——深色 `#272E33` / `#2D353B` / `#333C43`（5.62–6.88:1，AA），浅色 `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1，已记录的奶油上限）。选择器按聊天包的类名片段 `[class*="_userStack"] [class*="_bubble"]` 匹配（`userStack` 祖先排除 tooltip 的 `_bubble_44yfq_1`），并把 `--dsw-alias-state-business-primary` 重指向带墨色（气泡内的会话引用 chip 自己声明这个 token）。该表失效时回到 token 表面 + 官方 `label-primary`，两个 scheme 都满足 AA。',
     '- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，light·soft 1.05:1）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1，测的是 token 表面 + 官方墨）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。',
     '- **影响范围**：light 三档 `--dsw-specific-bubble` + 常驻样式表 `dsh-everforest/chat-bubble`；2026-11-10 只改该样式表（两个 scheme 改为 accent 绘制；浅色长文本曾试派生深墨，随后换回奶油白），全部 token 不变；2026-11-13 同一张表再加各档一条气泡作用域的 `::selection`（见 §2k），token 仍不变。',
+    '- **回复卡与命令回显（2026-11-15）**：同一套绿底原先只锚在 `[class*="_userStack"]` 上，而 DSH 的问答回复卡（`QuestionReplyView`：`row > bubbleWidth > UserMessageBubble`）与 `/goal` 命令回显都不在 `_userStack` 里，卡片仍显示 token 的苔纸底。样式表改为三条锚点各带一次作用域；复卡锚点还要排除 `_bubbleWidth` 包装盒，否则绿底画在方角外盒上、20px 圆角消失。卡内问题行由气泡子树内的 `--dsw-alias-label-secondary` 承担：2026-11-15 曾重指向气泡墨色并另压一块纸条（浅色 `bg_green`、深色 `#5D6E56`），随后用户判「不好看」、要求「不想要两个不同颜色的块…问题用浅一点的文字稍微弱化」，纸条撤掉，该 token 改指「气泡墨色向气泡底移动 6 L*」的问题墨（浅色 1.70–1.99:1、深色 4.52–5.59:1，门槛见 §2m）。',
     '- **文字选区（2026-11-13）**：全局 `src/selection.js` 的 `bg_visual` 配气泡原字色不可读（浅色奶油字 1.17–1.36:1、深色气泡字 1.22–1.27:1）。第一版给气泡单独换选区底色，用户随即要求「勾选颜色各处都统一」，于是改为只重指选中文字颜色：浅色 `#2F3B33`（8.33:1）、深色 `#FFFBEF`（8.91–10.49:1）；选区底色保持全局 `bg_visual`，画布 / 代码块 / 侧栏不变。门槛见 §2k（G21）。',
     '',
     '## 7. 复现',

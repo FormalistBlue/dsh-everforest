@@ -20,8 +20,9 @@ import {
 const VARIANT_NAMES = SCHEMES.flatMap((scheme) => STRENGTHS.map((strength) => `${scheme}-${strength}`))
 
 /**
- * Pinned 2026-11-08 selected-item surfaces (palette review A7): `statusline1`
- * fill + scheme canvas `bg0` ink.
+ * Pinned selected-item surfaces: `statusline1` fill with the scheme canvas `bg0`
+ * as ink — cream in the light schemes (2.00–2.32:1, the documented ceiling),
+ * `#272E33`–`#333C43` in the dark ones (5.62–6.88:1).
  */
 const EXPECTED_FILL = {
   'light-hard': '#93B259',
@@ -69,7 +70,8 @@ test('one accent + canvas pair per variant, pinned to the palette', () => {
     const [scheme, strength] = variant.split('-')
     const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
     assert.equal(roles[variant].fill, palette.fg.statusline1, `${variant}: fill must be the palette statusline1`)
-    assert.equal(roles[variant].ink, palette.ramp.bg0, `${variant}: ink must be the scheme canvas bg0`)
+    const expectedInk = palette.ramp.bg0
+    assert.equal(roles[variant].ink, expectedInk, `${variant}: ink must be ${expectedInk}`)
     assert.match(roles[variant].fill, /^#[0-9a-f]{6}$/i, `${variant}: the selected fill is opaque`)
     assert.match(roles[variant].ink, /^#[0-9a-f]{6}$/i, `${variant}: the ink is opaque`)
     // 2026-11-09: the conversation title is no longer painted here, so a role
@@ -78,22 +80,14 @@ test('one accent + canvas pair per variant, pinned to the palette', () => {
   }
 })
 
-test('the canvas ink keeps its documented contrast on the accent fill', () => {
+test('the accent ink keeps its documented contrast on the selected fill', () => {
   const roles = uiAccentRoles()
   for (const variant of VARIANT_NAMES) {
-    const [scheme] = variant.split('-')
     const ratio = contrastRatio(roles[variant].ink, roles[variant].fill)
-    const floor = scheme === 'dark' ? UI_ACCENT_DARK_INK_CONTRAST : UI_ACCENT_LIGHT_INK_CONTRAST
+    // Dark is a real AA pair; the light one is the accent layer's documented
+    // cream ceiling and is gated at its own 1.95 floor.
+    const floor = variant.startsWith('dark') ? UI_ACCENT_DARK_INK_CONTRAST : UI_ACCENT_LIGHT_INK_CONTRAST
     assert.ok(ratio >= floor, `${variant}: ink on the selected fill = ${ratio.toFixed(2)} < ${floor}`)
-    if (scheme === 'dark') {
-      assert.ok(ratio >= 4.5, `${variant}: dark selected item must stay WCAG AA (${ratio.toFixed(2)})`)
-    }
-    // The light palette's cream ink on statusline1 is soft by construction
-    // (2.00–2.32:1); a guard would have to turn it into the grey ink, which is
-    // exactly the white-on-accent look upstream does not use.
-    if (scheme === 'light') {
-      assert.ok(ratio <= 2.5, `${variant}: light ink unexpectedly deepened (${ratio.toFixed(2)})`)
-    }
   }
 })
 

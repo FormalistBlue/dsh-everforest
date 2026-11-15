@@ -105,15 +105,23 @@ export const ACTIVE_SESSION_RULES_PER_VARIANT = 3
 const ROW_BUTTON_WASH = 0.16
 
 /**
- * The active-row surface of one variant: the palette accent green plus the
- * canvas ink the accent layer pairs it with.
+ * The active-row surface of one variant: the palette accent green plus the ink
+ * the accent layer pairs it with.
+ *
+ * Both schemes take the scheme canvas `bg0`: 5.62–6.88:1 on the dark green (WCAG
+ * AA) and 2.00–2.32:1 on the light one — the palette's own ceiling for cream ink
+ * on `statusline1`, the pairing the upstream reference tab uses, recorded in
+ * `docs/reference/contrast.md` §2g instead of being guarded away.
  * @param {'light' | 'dark'} scheme
  * @param {'hard' | 'medium' | 'soft'} strength
  * @returns {{ fill: string, ink: string }} both opaque `#RRGGBB`.
  */
 function activeRowFor (scheme, strength) {
   const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
-  return { fill: palette.fg.statusline1, ink: palette.ramp.bg0 }
+  return {
+    fill: palette.fg.statusline1,
+    ink: palette.ramp.bg0
+  }
 }
 
 /**

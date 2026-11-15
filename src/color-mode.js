@@ -28,11 +28,11 @@
 //       inline code text        blue, on the blue inline-code chip
 //       internal file links     aqua (external links keep the link token)
 //       del + done task items   label-tertiary (intentionally faint)
-//       marker / quote / hr     aqua
-//       checkbox                 light = green (`aqua`, the marker family),
-//                            dark = blue (`#7FBBB3`); both are a solid fill
-//                            carrying a canvas-colour check mark. DSH marks every
-//                            task-list box `disabled` and Chromium greys a
+//       marker / quote / hr     green (2026-11-15 request: the markdown decoration
+//                            family is the theme green, not the aqua accent)
+//       checkbox                 green as well, both schemes (same request); a solid
+//                            fill carrying a canvas-colour check mark. DSH marks
+//                            every task-list box `disabled` and Chromium greys a
 //                            disabled native control, so the box is drawn instead
 //                            of accent-coloured
 //       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%);
@@ -40,7 +40,9 @@
 //                            table come from the neutral border ramp instead of
 //                            a colour (a coloured 3:1 border desaturates into
 //                            grey-green, so the ramp is the honest choice)
-//       blockquote fill         aqua tint into bg-base (8%)
+//       blockquote fill         green tint into bg-base (8%, the marker hue —
+//                            2026-11-15, it was the aqua tint until the
+//                            decoration family moved to the theme green)
 //       session row warn / done   solid fill from the palette's own bg_yellow /
 //                            bg_green. The waiting row is the one status surface
 //                            whose hue sits next to Everforest's warm canvas, so
@@ -49,7 +51,15 @@
 //                            variants invert: a bright amber surface carrying the
 //                            scheme's deep contrast ink (2026-10-24 restyle and
 //                            follow-ups, design doc §13.8.1); hover is one step
-//                            stronger.
+//                            stronger. light·soft's finished row cannot use the
+//                            palette wash (it lands 0.08 L* from the sidebar), so
+//                            it is tinted from fg.blue over white instead and runs
+//                            on that variant's own 4.2 floor — the hue carries the
+//                            state (§34, deepened in §35). Its waiting row has the
+//                            opposite problem — the palette yellow lands 0.04 L*
+//                            from the cream sidebar and there is no hue step to
+//                            spend either — so it takes its own 4.2 / 4.1 pair and
+//                            is deepened along bg_yellow → fg.yellow (§37).
 //       status dots warn / done orange / blue, guarded on bg-base AND sidebar
 //
 //     Thresholds: large/bold headings h1–h4 and the decorations/checkbox accent
@@ -84,9 +94,10 @@
 // ("复选框的样式可以优化一下，不需要做成灰色，可以带上颜色") could not be met by a
 // colour token: the box is redrawn with the accent hue and the redundant list
 // marker is dropped. The first pass coloured every variant blue; the same-day
-// review accepted the dark boxes and asked the light ones to try green, so
-// `check` now takes `fg.aqua` (the list-marker emerald) in light and `fg.blue`
-// in dark. See `TASK_CHECKBOX`.
+// review accepted the dark boxes and asked the light ones to try green, so light
+// took `fg.aqua` and dark kept `fg.blue`. 2026-11-15: the whole decoration family
+// (`marker` / `quote` / `hr` / `check`) moved to `fg.green`, the theme green, at
+// the user's request. See `TASK_CHECKBOX`.
 //
 // The module is a pure ESM source: no DOM, no storage, no state. `node --test`
 // imports it directly and `scripts/build.mjs` bundles it into `client.js`
@@ -122,13 +133,15 @@ export const COLOR_MODE_ATTRS = Object.freeze({
  * @property {string} inlineCode - inline-code text colour (blue).
  * @property {string} linkInternal - internal file-link colour (aqua).
  * @property {string} faint - del and completed-task text (label-tertiary).
- * @property {string} marker - list bullet marker (aqua).
- * @property {string} quote - blockquote left border (aqua).
- * @property {string} hr - horizontal-rule fill (aqua).
- * @property {string} check - task-list checkbox accent: light = Everforest green
- *   (`aqua`, `#3f9779` at light·hard), dark = blue (`#7FBBB3`). The checked box's
- *   fill and the idle box's outline. DSH's box is always `disabled`, so Chromium
- *   ignores `accent-color` and the control is drawn by the stylesheet instead.
+ * @property {string} marker - list bullet / ordered-list number colour (green).
+ * @property {string} quote - blockquote left border (green, the marker role).
+ * @property {string} hr - horizontal-rule fill (green, the marker role).
+ * @property {string} check - task-list checkbox accent: the theme green in every
+ *   variant (2026-11-15 request — it used to be light aqua / dark blue). The
+ *   checked box's fill and border; the idle box is a lighter outline over a tint
+ *   of the same colour, and the check mark itself is the canvas `bg-base`.
+ *   DSH's box is always `disabled`, so Chromium ignores `accent-color` and the
+ *   control is drawn by the stylesheet instead.
  * @property {string} band - table-header background band (green tint).
  * @property {string} zebra - even table-row stripe (lighter green tint).
  * @property {string} tableHover - hovered table row (green tint).
@@ -137,17 +150,22 @@ export const COLOR_MODE_ATTRS = Object.freeze({
  *   one step deeper than the `fg.aqua` accent, so the line reads as a calm green
  *   on the header band in both schemes (2026-10-30: the accent aqua was too
  *   bright on the dark header band and too vivid on the light one).
- * @property {string} quoteBg - blockquote fill (aqua tint).
+ * @property {string} quoteBg - blockquote fill (green tint, the marker hue).
  * @property {string} rowWarn - session row waiting for the user: solid fill from
  *   the palette's `bg_yellow`, deepened toward `fg.yellow` on the light
  *   strengths until it separates from the sidebar; the dark variants use a bright
  *   amber surface with the deep contrast ink instead (design doc §13.8.1).
+ *   light·soft cannot separate on hue (the cream sidebar is the same yellow
+ *   family), so it runs on its own 4.2 / 4.1 pair and takes the deeper step (§37).
  * @property {string} rowWarnHover - `rowWarn` moved toward `fg.yellow` (re-guarded).
  * @property {string} rowDone - finished, not yet opened session row: solid fill
  *   from the palette's `bg_blue`. Blue came back on 2026-11-08 (design §22): the
  *   open session row owns the green accent band, and the "finished,
  *   not read" row must stay out of that hue; `bg_blue` is the palette1 status
- *   surface the plugin used before the green accent pass.
+ *   surface the plugin used before the green accent pass. light·soft is the
+ *   exception: the cream sidebar leaves that wash no lightness room, so its fill
+ *   is a pale tint of `fg.blue` over white (2026-11-15, design §34; deepened the
+ *   same day to that variant's 4.2 floor, §35).
  * @property {string} rowDoneHover - `rowDone` with the fill one step stronger.
  * @property {string} dotWarn - waiting session status dot (orange).
  * @property {string} dotDone - finished session status dot (blue).
@@ -208,11 +226,27 @@ const ROW_HOVER_TINT = 0.16
  * canvas (and its light strengths are only ~1 L* away from the sidebar), so the
  * palette value alone reads as "no background" in light. The fill is deepened
  * toward `fg.yellow` until it clears this floor, stopping where the 4.5:1 text
- * gate runs out — light·soft has no headroom and therefore keeps the palette
- * hue only (same ceiling as the active-session row, design doc §15). Dark values
- * already clear the floor and stay palette-exact.
+ * gate runs out. Dark values already clear the floor and stay palette-exact.
  */
 const ROW_WARN_SEPARATION = 3.5
+
+/**
+ * Text gates of the light·soft waiting row (`ROW_WARN_TINT_TARGET` resting,
+ * `ROW_WARN_HOVER_TARGET` hovered).
+ *
+ * This is the one row where a hue step is not available at all: light `bg_blue`
+ * at least reads as blue against cream, but a pale yellow on the warm cream
+ * sidebar (`#eee7ce`) is the same hue family, so the L* step has to carry the
+ * whole state. At 4.5:1 the fill only reaches ΔL* −0.04 (i.e. `#f2e6c9`, the
+ * 2026-11-15 report "待回答的会话的背景黄色太不明显了"), because the palette
+ * wash already sits on the gate. Deepening along `bg_yellow` → `fg.yellow` to
+ * 4.2 / 4.1:1 buys ΔL* −2.4 / −3.4 and lifts the chroma from 15.6 to ~25, i.e.
+ * a band that reads as yellow — the same sub-4.5 trade-off this variant already
+ * makes for its finished row (4.39/4.25, §35) and its diff rows (4.1, §13.7).
+ * Every other variant keeps 4.5:1.
+ */
+const ROW_WARN_TINT_TARGET = 4.2
+const ROW_WARN_HOVER_TARGET = 4.1
 
 /**
  * Minimum CIE L* step between a finished-row fill (`bg_blue`) and the sidebar.
@@ -223,6 +257,31 @@ const ROW_WARN_SEPARATION = 3.5
  * row keeps the look the user asked back on 2026-11-08 (design §22).
  */
 const ROW_DONE_SEPARATION = 4.5
+
+/**
+ * Where the light·soft "finished" row tint starts on the white → `fg.blue` line
+ * before the ink gate backs it off (see `doneRowTint`).
+ */
+const ROW_DONE_TINT_START = 0.3
+
+/**
+ * Text gate for the light·soft "finished" row, per state.
+ *
+ * This is the one row pair that sits below the 4.5:1 surface gate. The 2026-11-15
+ * tint (`#dcecf5`, 4.62:1) still read as "a bit bright" against the cream sidebar
+ * (2026-11-15 follow-up), and at 4.5:1 the white → `fg.blue` line has only
+ * 0.12 of contrast left to spend — i.e. no visible depth at all. The pair is
+ * therefore deepened to 4.35 / 4.25:1: still ~1.5 above the 3:1 decorative floor,
+ * the documented ceiling of this scheme (the same trade-off as its diff rows at
+ * 4.1:1, design §35). Every other variant keeps the 4.5:1 gate.
+ */
+const ROW_DONE_TINT_TARGET = 4.35
+
+/**
+ * One further step for `rowDoneHover`, so the resting row keeps the same
+ * 0.10 contrast interval the other variants use (light·hard is 4.58 / 4.52).
+ */
+const ROW_DONE_HOVER_TARGET = 4.25
 
 /**
  * Deepen a row fill toward its accent until it is `target` L* away from the
@@ -299,22 +358,50 @@ function guardTo (color, backgrounds, target, ink) {
 
 /**
  * Tint `base` with `tint` at up to `start` weight, backing off 1% at a time
- * until `ink` keeps `SURFACE_CONTRAST` on the result. The weight is never
+ * until `ink` keeps `min` contrast on the result. The weight is never
  * increased, so a too-strong start simply returns the untinted base.
  * @param {string} base - surface colour (`bg-base` or the sidebar fill).
  * @param {string} tint - accent hue blended into it.
  * @param {number} start - maximum tint weight (0-1).
  * @param {string} ink - text colour the surface must stay readable with.
+ * @param {number} [min=SURFACE_CONTRAST] - contrast the tint has to keep.
  * @returns {string}
  */
-function safeTint (base, tint, start, ink) {
+function safeTint (base, tint, start, ink, min = SURFACE_CONTRAST) {
   let weight = start
   let value = mix(base, tint, weight)
-  while (weight > 0 && contrastRatio(ink, value) < SURFACE_CONTRAST) {
+  while (weight > 0 && contrastRatio(ink, value) < min) {
     weight = Math.round((weight - 0.01) * 100) / 100
     value = mix(base, tint, weight)
   }
   return value
+}
+
+/**
+ * The light·soft "waiting" row fill: the palette `bg_yellow` deepened toward
+ * `fg.yellow` until the row ink reaches `target`.
+ *
+ * The other light strengths stop deepening at the 4.5:1 gate; this variant cannot
+ * (see `ROW_WARN_TINT_TARGET`), so the pair is taken down to 4.2 / 4.1:1 instead.
+ * The fill keeps the palette hue as its starting point (no white anchor: unlike
+ * the finished row, going lighter than the cream sidebar would only wash the
+ * yellow out) and walks toward the waiting accent one 1% step at a time, keeping
+ * the last step that still passes the gate — the same construction as
+ * `readableRowFill` / `liftRowFill`, just on a lower floor.
+ * @param {string} base - the palette `bg_yellow` wash.
+ * @param {string} accent - `fg.yellow`, the waiting accent.
+ * @param {string} ink - the variant's `label-primary`.
+ * @param {number} target - contrast the fill has to keep with `ink`.
+ * @returns {string}
+ */
+function warnRowTint (base, accent, ink, target) {
+  let best = base
+  for (let weight = 0.01; weight <= 0.5001; weight += 0.01) {
+    const next = mix(base, accent, weight)
+    if (contrastRatio(ink, next) < target) break
+    best = next
+  }
+  return best
 }
 
 /**
@@ -334,6 +421,33 @@ function readableRowFill (color, bg0, ink) {
     if (contrastRatio(ink, next) >= SURFACE_CONTRAST) return next
   }
   return mix(color, bg0, 1)
+}
+
+/**
+ * The light·soft "finished" row tint: the status blue mixed into the white
+ * anchor, deepened until `label-primary` reaches the variant's own gate.
+ *
+ * The palette `bg_blue` wash has no room on the cream sidebar. Light `bg_blue`
+ * `#E1E7DD` is already at 4.44:1 with `label-primary`, so `readableRowFill` has
+ * to pull it toward the warm `bg0` until the gate passes — and the resulting
+ * `#E6E8DA` sits **0.08 L\*** from the sidebar, i.e. the row reads as "no
+ * background" (2026-11-15 user report: "蓝色的已完成的蓝色背景颜色有点不显眼").
+ * Raising the tint's lightness is not available either (the sidebar is already
+ * the light end of the ramp). The state is carried by *hue* instead: a tint of
+ * the same `fg.blue` the status dot uses, so the band is blue at the sidebar's
+ * own luminance while the dot and the trailing label stay exactly where they
+ * were.
+ *
+ * The 2026-11-15 first landing pinned the tint at 4.62:1 and the user then asked
+ * for it "a little deeper" (same day), so the weight is no longer capped by
+ * 4.5:1: `target` is the pair's own gate (see `ROW_DONE_TINT_TARGET`).
+ * @param {string} blue - the scheme's `fg.blue` (the "finished" status hue).
+ * @param {string} ink - the variant's `label-primary`.
+ * @param {number} target - contrast the tint has to keep with `ink`.
+ * @returns {string}
+ */
+function doneRowTint (blue, ink, target) {
+  return safeTint('#ffffff', blue, ROW_DONE_TINT_START, ink, target)
 }
 
 /* ------------------------------------------------------------------ *
@@ -368,11 +482,21 @@ function buildColorModeRoles () {
     const band = safeTint(bg, fg.green, BAND_TINT, labelPrimary)
     const zebra = safeTint(bg, fg.green, ZEBRA_TINT, labelPrimary)
     const tableHover = safeTint(bg, fg.green, TABLE_HOVER_TINT, labelPrimary)
-    const quoteBg = safeTint(bg, fg.aqua, QUOTE_TINT, labelPrimary)
+    const quoteBg = safeTint(bg, fg.green, QUOTE_TINT, labelPrimary)
     /** Canvas + every surface a piece of markdown text can sit on. */
     const textSurfaces = [bg, band, zebra, tableHover, quoteBg]
 
-    const marker = guardTo(fg.aqua, [bg], DECORATION_CONTRAST, ink)
+    // The decoration family (list bullets and ordered-list numbers, the
+    // blockquote bar, the `hr` rule, the task-list checkbox) takes the palette's
+    // green. 2026-11-15 request: "对话中的 markdown 格式内容的颜色、分隔线、勾选框、
+    // list 前面的符号或者数字，都改为使用主题的绿色" — they were aqua (`#83C092` in
+    // dark), and the checkbox was aqua in light / blue in dark, i.e. the one part
+    // of the markdown palette that did not read as the theme's green. Green is the
+    // same guard h4 uses, so in dark the family is exactly `#A7C080` (the brand
+    // green) and in light it is the guarded `fg.green` the h4 heading already
+    // carries. The blockquote fill follows the bar: a green bar over an aqua wash
+    // would leave the mint accent behind in the one element the bar belongs to.
+    const marker = guardTo(fg.green, [bg], DECORATION_CONTRAST, ink)
     // The column-resize handle takes the palette's `header_aqua` instead of the
     // accent `aqua`: same hue, one step deeper (`#569D79` in both schemes), so
     // the 2px guide stays a calm green on the header band instead of the bright
@@ -392,6 +516,11 @@ function buildColorModeRoles () {
      * Finished rows use the `bg_blue` status surface and are deepened toward
      * `fg.blue` until they clear the visibility floor (§22). Hover moves the fill
      * one accent step further and is re-guarded, so the fills stay on one ramp.
+     * light·soft is the exception: the cream sidebar leaves the `bg_blue` wash no
+     * lightness room at all, so its finished row is tinted from the status blue
+     * itself (`doneRowTint`) at that variant's own 4.2 gate (§35), and its waiting
+     * row — whose palette yellow is the same hue as the sidebar — is deepened
+     * toward the waiting accent on its own 4.2 / 4.1 pair (`warnRowTint`, §37).
      */
     const rowFill = (preset) => {
       const warn = preset.startsWith('warn')
@@ -405,6 +534,21 @@ function buildColorModeRoles () {
         )
         if (!preset.endsWith('Hover')) return amber
         return readableDeepInk(mix(amber, fg.yellow, ROW_HOVER_TINT), deepInk, palette.ramp.bgDim)
+      }
+      if (warn && scheme === 'light' && strength === 'soft') {
+        return warnRowTint(
+          palette.ramp.bgYellow,
+          fg.yellow,
+          labelPrimary,
+          preset.endsWith('Hover') ? ROW_WARN_HOVER_TARGET : ROW_WARN_TINT_TARGET
+        )
+      }
+      if (!warn && scheme === 'light' && strength === 'soft') {
+        return doneRowTint(
+          fg.blue,
+          labelPrimary,
+          preset.endsWith('Hover') ? ROW_DONE_HOVER_TARGET : ROW_DONE_TINT_TARGET
+        )
       }
       const paletteFill = readableRowFill(palette.ramp[ramp.fill], palette.ramp.bg0, labelPrimary)
       const fill = liftRowFill(
@@ -436,12 +580,10 @@ function buildColorModeRoles () {
       quote: marker,
       hr: marker,
       tableHandle,
-      // Task-list checkbox: light takes Everforest's green (the `aqua` accent —
-      // the same hue as the list marker / quote / hr family, `#37a47c` at
-      // light·hard), the dark variants keep the blue accent (`#7FBBB3`, the
-      // aqua-toned dark blue). 2026-10-30: the user accepted the dark scheme and
-      // asked the light one to try green.
-      check: guardTo(scheme === 'light' ? fg.aqua : fg.blue, textSurfaces, DECORATION_CONTRAST, ink),
+      // Task-list checkbox: the theme green in both schemes (2026-11-15 request;
+      // it used to be light = aqua, dark = blue). Guarded on every surface the box
+      // can be drawn on, like the accent text.
+      check: guardTo(fg.green, textSurfaces, DECORATION_CONTRAST, ink),
       // Tinted fills.
       band,
       zebra,
@@ -609,12 +751,11 @@ const LITERAL_RULES = [
   // 灰色，可以带上颜色"). DSH keeps the list marker *and* the checkbox, so a task
   // list showed a stray bullet next to every box — the checkbox is the marker, so
   // the marker is dropped. The box itself is redrawn (see `TASK_CHECKBOX`): a 14px
-  // square in the accent hue — the idle box gets a 68% accent outline and a 10%
-  // accent wash, the checked box the solid role colour — with the check mark drawn
-  // as an `::after` border pair in the canvas colour. The accent is mixed with
-  // `transparent` rather than with a surface token so the same declaration holds
-  // on the canvas, inside a blockquote fill and on a table cell; the disabled
-  // state keeps its full colour (no grey native control left to grey out).
+  // square whose idle state is an accent outline over an accent tint and whose
+  // checked state is the solid accent fill, with the check mark drawn as an
+  // `::after` border pair in the canvas colour `bg-base`. The box is drawn, not
+  // delegated: DSH renders every task item `disabled` and Chromium greys a
+  // disabled native control out.
   [`${MARKDOWN_SCOPE} ul.contains-task-list > li.task-list-item`, [['list-style', 'none']]],
   [TASK_CHECKBOX, [
     ['-webkit-appearance', 'none'],
@@ -623,6 +764,10 @@ const LITERAL_RULES = [
     ['width', '14px'],
     ['height', '14px'],
     ['margin', '0 8px 0 0'],
+    // The idle box belongs to the same family as the checked one: a 68% accent
+    // hairline over a 10% accent tint, so an unchecked item still reads as part of
+    // the green decoration family instead of DSH's neutral grey. The checked box
+    // below is the one that turns fully solid.
     ['border', '1px solid color-mix(in srgb, var(--everforest-color-check) 68%, transparent)'],
     ['border-radius', '3px'],
     ['background-color', 'color-mix(in srgb, var(--everforest-color-check) 10%, transparent)'],
@@ -637,6 +782,8 @@ const LITERAL_RULES = [
     ['top', '0.5px'],
     ['width', '4px'],
     ['height', '8px'],
+    // Canvas ink in both schemes: cream on the light green, the deep slate on the
+    // dark one (6.88 / 6.23 / 5.62:1 there).
     ['border', 'solid var(--dsw-alias-bg-base)'],
     ['border-width', '0 1.5px 1.5px 0'],
     ['transform', 'rotate(42deg)']

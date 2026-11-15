@@ -33,6 +33,10 @@
 //     `bg0` cream ink. That is the accent layer's documented trade-off
 //     (`docs/reference/contrast.md` §2i), now an explicit user choice rather than
 //     a silent correction; the deep ink lives only in this history note.
+//   - 2026-11-15 review: the same deep ink was landed again off a side-by-side
+//     demo (the selected row's 11px badge and 12px time were the argument) and
+//     then withdrawn at the user's request — "效果都不太好…都还原吧". Cream ink
+//     is the shipped pair again; design doc §45 records the withdrawal.
 //
 // Current pairs:
 //
@@ -76,22 +80,67 @@
 //
 // Scope: the always-on color-mode attribute on `<html>` plus the strength
 // attribute the token layer writes, and DSH's own `body[data-ds-dark-theme]`
-// flag — the pattern every always-on sheet in this theme uses. The
-// `[class*="_userStack"]` ancestor keeps the tooltip bubble (`_bubble_44yfq_1`,
-// also a `_bubble` class) out of the rule.
+// flag — the pattern every always-on sheet in this theme uses.
+//
+// One bubble primitive, three places (2026-11-15). DSH's chat renders the user
+// row as `_userStack` and the bubble through the shared `UserMessageBubble`
+// primitive; two more callers render the *same* primitive (or the same `.bubble`
+// rule) outside that stack, so anchoring only on `_userStack` left them on the
+// token's moss paper while every other user bubble was accent-green:
+//
+//   - `[data-question-reply]` — the answered `ask_user_question` card
+//     (`QuestionReplyView`: row > bubbleWidth > UserMessageBubble). The user
+//     asked why that bubble was cream next to green chat bubbles (2026-11-15),
+//     and DSH paints it natively with the same `--dsw-specific-bubble` surface.
+//   - `[data-command-input]` — the `/goal` command echo, which DSH's own sheet
+//     documents as "the command echo is a user message". The 2026-11-15 rc.3
+//     review could not find the attribute in any shipped bundle (the runtime
+//     only has `data-composer-input`), so this rule matches nothing on rc.3; it
+//     is kept as a fallback for a host that does render it, and it is no longer
+//     treated as a verified anchor (design §12).
+//
+// The `_bubble` fragment still keeps the tooltip bubble (`_bubble_44yfq_1`, also
+// a `_bubble` class) out of every rule: tooltips are portaled to `<body>`, so
+// they never sit inside one of these anchors. The reply card's `_bubbleWidth`
+// max-width wrapper also contains that fragment, so its anchor excludes it —
+// without that, the paint landed on the square full-width box and the rounded
+// bubble disappeared into it (2026-11-15 report), see `CHAT_BUBBLE_SELECTORS`.
+//
+// The question-reply card also brings a muted line: its `dt` is
+// `color: var(--dsw-alias-label-secondary)` — DSH's own muted ink, which is
+// readable on the moss paper but collapses on the accent fill (1.40:1 in the
+// light schemes, 1.31:1 in the dark ones). The paint rule re-points that token —
+// and the reference-chip ink token — inside the bubble's subtree.
+//
+// 2026-11-15 (evening): the card is one accent surface again. The earlier rounds put
+// the question on a paper block (variant `bg_green` in the light schemes,
+// `#5D6E56` in the dark ones), which the user then judged "不好看" — a green
+// card holding pale blocks reads as two widgets, not as one answer. The ask is
+// now the default theme's own hierarchy: no second fill, the question simply
+// recedes by its ink (`dt` muted, `dd` at the bubble ink), so the paint rule
+// points `--dsw-alias-label-secondary` at `chatBubbleQuestionInk`: the bubble
+// ink one step softer, the step measured in CIE L* rather than in contrast,
+// because the light schemes only own ~2.3:1 above the fill — a ratio-based mute
+// would either vanish into the green or take the answer's contrast with it.
 //
 // The module is a pure ESM source: no DOM, no state. `scripts/build.mjs` bundles
 // it into `client.js`; `src/client-entry.js` owns the `<style>` element.
 
+import { mix, labLightness } from './color.js'
 import { FOREGROUNDS, RAMPS, STRENGTHS } from './palette.js'
 
 /** Light-scheme bubble fill: the interaction accent (selected-row green). */
 export const CHAT_BUBBLE_LIGHT_FILL = FOREGROUNDS.light.statusline1
 
 /**
- * Light-scheme bubble ink per strength: the scheme canvas `bg0`, the accent
- * layer's own ink for `statusline1` fills (cream ink, 2.00–2.32:1 — the
- * documented accent trade-off, kept because the user chose it explicitly).
+ * Light-scheme bubble ink per strength: the scheme canvas `bg0` (the cream the
+ * light canvases are already made of), which is the accent layer's own ink pair
+ * for `statusline1` fills.
+ *
+ * 2026-11-15 note: the 2026-11-15 review briefly re-inked every accent surface
+ * with the deep pine `#2F3B33` (4.88:1); the user compared both in a side-by-side
+ * demo and asked for the cream ink back, so the bubble keeps the sidebar's pair
+ * verbatim (2.00–2.32:1, contrast.md §6.8).
  * @type {Readonly<Record<'hard' | 'medium' | 'soft', string>>}
  */
 export const CHAT_BUBBLE_LIGHT_INK = Object.freeze({
@@ -127,11 +176,70 @@ export const CHAT_BUBBLE_SELECTION_INK = Object.freeze({
 })
 
 /**
- * The bubble element. DSH's chat package renders the user row as
+ * The bubble element(s): DSH's chat package renders the user row as
  * `_userStack` and the bubble as `_bubble`; the hashed class prefixes are build
- * output, the fragments are the published bundle's stable shapes.
+ * output, the fragments are the published bundle's stable shapes. The question
+ * reply and the command echo render the same primitive under their own data
+ * attributes instead (see the header note), so they are anchored separately.
+ * @type {readonly string[]}
  */
-export const CHAT_BUBBLE_SELECTOR = '[class*="_userStack"] [class*="_bubble"]'
+export const CHAT_BUBBLE_SELECTORS = Object.freeze([
+  '[class*="_userStack"] [class*="_bubble"]',
+  // `BfLV8a_bubbleWidth` is the reply card's max-width wrapper (`row >
+  // bubbleWidth > UserMessageBubble`) and its class name also contains the
+  // `_bubble` fragment. Without the exclusion the paint lands on that square,
+  // full-width box and the rounded bubble inside vanishes into it (2026-11-15
+  // user report: "现在看到回复卡是方的，圆边框没了").
+  '[data-question-reply] [class*="_bubble"]:not([class*="_bubbleWidth"])',
+  '[data-command-input] [class*="_bubble"]'
+])
+
+/**
+ * The question text inside a reply bubble. DSH gives it
+ * `color: var(--dsw-alias-label-secondary)`; the paint rule re-points that token
+ * on the bubble, so no extra selector is needed.
+ */
+export const CHAT_BUBBLE_QUESTION_INK_TOKEN = '--dsw-alias-label-secondary'
+
+/**
+ * How far the question ink sits from the answer ink, in CIE L* (2026-11-15).
+ *
+ * The reply card is one accent surface: the question line keeps the bubble ink's
+ * hue and only steps back, so the card reads as "question asked / answer given"
+ * the way DSH's own `QuestionReplyView` does (`dt` at `label-secondary`, `dd` at
+ * the bubble ink). The step is perceptual, not a contrast ratio: the light
+ * schemes own only ~2.3:1 above the fill, and a fixed ratio there would either
+ * disappear into the green or consume the answer's own contrast. 6 L* is the
+ * "slightly softer" step the 2026-11-15 review settled on — below 4 L* the two
+ * lines still read as one voice (4.1 L* was invisible in the demo), past 8 L* the
+ * question starts to look disabled.
+ */
+export const CHAT_BUBBLE_QUESTION_INK_STEP = 6
+
+/**
+ * One variant's question ink: the bubble ink moved `CHAT_BUBBLE_QUESTION_INK_STEP`
+ * L* toward the bubble fill (darker in the light schemes, lighter in the dark
+ * ones — always softer, never a second colour), found by walking the ink → fill
+ * blend in 1% shares. Derived instead of pinned so a palette edit moves the
+ * question with the answer instead of breaking the relationship; the gates in
+ * `scripts/check-contrast.mjs` (G23) hold both ends of the step.
+ *
+ * Measured (answer / question on the fill): light 2.32 / 1.99, 2.22 / 1.90,
+ * 2.00 / 1.70; dark 6.88 / 5.59, 6.23 / 5.03, 5.62 / 4.52.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string} an opaque `#RRGGBB`.
+ */
+export function chatBubbleQuestionInk (scheme, strength) {
+  const { fill, ink } = chatBubbleRole(scheme, strength)
+  const from = labLightness(ink)
+  const direction = labLightness(fill) > from ? 1 : -1
+  for (let step = 1; step <= 100; step += 1) {
+    const candidate = mix(ink, fill, step / 100)
+    if ((labLightness(candidate) - from) * direction >= CHAT_BUBBLE_QUESTION_INK_STEP) return candidate
+  }
+  return fill
+}
 
 /**
  * One variant's bubble paint: the accent fill and its canvas ink.
@@ -162,6 +270,20 @@ function scopeFor (scheme, strength) {
 }
 
 /**
+ * Every bubble anchor under one variant scope, as a single comma-separated
+ * selector list. The scope has to be repeated per anchor (a list after one scope
+ * would only scope the first entry).
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {string} [suffix] - additional selector steps (e.g. `' ::selection'`).
+ * @returns {string}
+ */
+function scopedBubbles (scheme, strength, suffix = '') {
+  const scope = scopeFor(scheme, strength)
+  return CHAT_BUBBLE_SELECTORS.map((selector) => `${scope} ${selector}${suffix}`).join(',\n')
+}
+
+/**
  * A variant's bubble-selection rule. The selector repeats the variant scope and
  * the bubble anchor, then adds a descendant `::selection`, so it is more
  * specific than the global sheet (`src/selection.js`) and only text inside the
@@ -173,7 +295,7 @@ function scopeFor (scheme, strength) {
  */
 function bubbleSelectionRule (scheme, strength) {
   return [
-    `${scopeFor(scheme, strength)} ${CHAT_BUBBLE_SELECTOR} ::selection {`,
+    `${scopedBubbles(scheme, strength, ' ::selection')} {`,
     `  color: ${CHAT_BUBBLE_SELECTION_INK[scheme]};`,
     '}'
   ].join('\n')
@@ -181,7 +303,10 @@ function bubbleSelectionRule (scheme, strength) {
 
 /**
  * The always-on bubble stylesheet: one paint rule per variant (accent fill, the
- * canvas ink and the reference-chip ink token) plus its text-selection rule.
+ * canvas ink, the muted question ink and the reference-chip token) plus its
+ * text-selection rule. No rule paints the question block itself any more — the
+ * card is one surface (2026-11-15), and the question recedes through the token
+ * the paint rule re-points.
  * @returns {string}
  */
 export function chatBubbleStyles () {
@@ -190,12 +315,17 @@ export function chatBubbleStyles () {
     for (const strength of STRENGTHS) {
       const { fill, ink } = chatBubbleRole(scheme, strength)
       rules.push([
-        `${scopeFor(scheme, strength)} ${CHAT_BUBBLE_SELECTOR} {`,
+        `${scopedBubbles(scheme, strength)} {`,
         `  background: ${fill};`,
         `  color: ${ink};`,
         // Session reference chips restate their own colour token; re-point it at
         // the band ink so a chip stays readable on the accent fill.
         `  --dsw-alias-state-business-primary: ${ink};`,
+        // The reply card paints its question line with the muted label token; on
+        // the accent fill DSH's own `label-secondary` is ~1.2:1. This is the one
+        // step that keeps the card's two voices apart after the paper block went
+        // away: the token takes the softened ink, everything else keeps the fill's.
+        `  ${CHAT_BUBBLE_QUESTION_INK_TOKEN}: ${chatBubbleQuestionInk(scheme, strength)};`,
         '}'
       ].join('\n'))
       rules.push(bubbleSelectionRule(scheme, strength))

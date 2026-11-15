@@ -222,7 +222,7 @@ npm trust github dsh-everforest `
 
 另外核对：
 
-- `engines.dsh` = `>=0.2.1-rc.2 <0.3.0-0`（安装前与装载 profile 时都会校验；2026-10-24 复核 0.2.1-rc.3、2026-10-30 复核 0.2.1-rc.5、2026-11-06 复核 0.2.2-rc.1、2026-11-13 复核 0.2.2-rc.2 均满足该区间，未抬高下限）；
+- `engines.dsh` = `>=0.2.1-rc.2 <0.3.0-0`（安装前与装载 profile 时都会校验；2026-10-24 复核 0.2.1-rc.3、2026-10-30 复核 0.2.1-rc.5、2026-11-06 复核 0.2.2-rc.1、2026-11-13 复核 0.2.2-rc.2、2026-11-15 复核 0.2.2-rc.3 均满足该区间，未抬高下限）；
 - 版本号与 git tag 一致（`v0.1.0` ↔ `0.1.0`）；预发布版本只能发到非 `latest` 的 dist-tag（例如 `--tag next`）；
 - `CHANGELOG.md` 有当前版本对应的 `## [<version>]` 小节且非空（`node scripts/release-notes.mjs --check`；`node --test` 与 publish 都会拦）。它是 GitHub Release 正文、也就是市场「更新内容」的唯一来源，不要再依赖 `--generate-notes` 从 commit/PR 自动生成；小节按「只写改了什么、有什么效果」的口径写（见 §5 的写法约定）；
 - `npm publish` 前工作区干净（`git status` 无输出），发布 commit 已推送。
@@ -357,12 +357,14 @@ description:
 
 ### 8.4 截图（仓库根 `screenshots.json`）
 
-市场优先读插件仓库根的 `screenshots.json`：1–8 张，路径相对该文件、不能跳出插件目录，或 GitHub 托管的 https 绝对地址（第三方图床被拒）；仓库没有声明时才回退到 README 里的图片。当前 2 张（真机完整窗口截图，默认深色 Soft / 浅色 Hard）：
+市场优先读插件仓库根的 `screenshots.json`：1–8 张，路径相对该文件、不能跳出插件目录，或 GitHub 托管的 https 绝对地址（第三方图床被拒）；仓库没有声明时才回退到 README 里的图片。当前 4 张（真机完整窗口截图：默认深色 Soft / 浅色 Hard 的聊天排版与表格问答各一张，1515×1114 未裁剪）：
 
 ```json
 [
   ".github/assets/everforest-dark-soft.png",
-  ".github/assets/everforest-light-hard.png"
+  ".github/assets/everforest-light-hard.png",
+  ".github/assets/everforest-dark-soft-conversation.png",
+  ".github/assets/everforest-light-hard-conversation.png"
 ]
 ```
 

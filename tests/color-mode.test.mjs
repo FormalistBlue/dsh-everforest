@@ -14,6 +14,29 @@ import { declarationsOf, styleRules } from './support/css.mjs'
 
 const HEX = /^#[0-9a-f]{6}$/i
 
+/**
+ * Text floors for the session-row fills. light·soft is the scheme's documented
+ * trade-off: on the cream sidebar the "finished" band can only read as blue by
+ * leaving the 4.5:1 surface gate, so that pair runs at 4.39 / 4.25:1 (design
+ * §35, the same ceiling its diff rows take at 4.1:1). Every other variant —
+ * including the rest of light·soft's own surfaces — keeps 4.5:1.
+ */
+const ROW_DONE_TEXT_FLOOR = Object.freeze({ 'light-soft': 4.2 })
+
+/**
+ * Text floors for the light·soft "waiting" row. A yellow wash cannot separate
+ * itself from the cream sidebar by hue (same family), so that pair leaves the
+ * 4.5:1 gate instead and runs at 4.2 / 4.1:1 (design §37). Every other variant
+ * keeps 4.5:1.
+ */
+const ROW_WARN_TEXT_FLOOR = Object.freeze({ 'light-soft': 4.1 })
+
+/**
+ * Resting gate of the same pair: the fill is deepened until it sits here, and
+ * hover takes the one further step down to `ROW_WARN_TEXT_FLOOR`.
+ */
+const ROW_WARN_RESTING_FLOOR = Object.freeze({ 'light-soft': 4.2 })
+
 /** All role keys of one variant, in the contract's order. */
 const ROLE_KEYS = [
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -25,22 +48,26 @@ const ROLE_KEYS = [
 ]
 
 /**
- * The approved "中彩" values. h1–h3 / marker / band / zebra / session rows are
- * the 2026-10-23 preview snapshot (`.tmp/color-mode-preview/spec.json`); the
+ * The approved "中彩" values. h1–h3 / band / zebra / session rows are the
+ * 2026-10-23 preview snapshot (`.tmp/color-mode-preview/spec.json`); the
  * rich-text roles added for the Enchanted pass are pinned on purpose too: the
  * formulas are only accepted if they reproduce exactly these colours. The four
  * session-row fills were re-derived by the 2026-10-24 restyle: done comes from
  * Everforest's own palette1 `bg_green`, waiting from `bg_yellow` (deepened
  * toward `fg.yellow` where the light palette value sits too close to the
  * sidebar, design.md §13.9). Hover is one accent step stronger and re-guarded.
+ * light·soft's done pair is the 2026-11-15 exception: the palette wash has no
+ * room on the cream sidebar, so it is tinted from `fg.blue` over white (§34).
+ * The decoration family (marker / quote / hr / check) and the blockquote fill
+ * moved from aqua to the theme green on 2026-11-15 (§43).
  */
 const EXPECTED_ROLES = {
-  'dark-hard': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#569D79', faint: '#7A8478', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#39423e', zebra: '#2f3738', tableHover: '#343d3b', quoteBg: '#2e3a3b', rowWarn: '#b19a6b', rowWarnHover: '#b89f6e', rowDone: '#384B55', rowDoneHover: '#40575e', dotWarn: '#E69875', dotDone: '#7FBBB3' },
-  'dark-medium': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#5b9f7b', faint: '#7A8478', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#3e4845', zebra: '#343d3f', tableHover: '#394342', quoteBg: '#344042', rowWarn: '#b39c6d', rowWarnHover: '#b9a170', rowDone: '#3A515D', rowDoneHover: '#3f575f', dotWarn: '#E69875', dotDone: '#7FBBB3' },
-  'dark-soft': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#6ea582', faint: '#7A8478', marker: '#83C092', tableHandle: '#569D79', check: '#7FBBB3', band: '#434e4c', zebra: '#3a4447', tableHover: '#3f4949', quoteBg: '#394749', rowWarn: '#b49d6f', rowWarnHover: '#baa272', rowDone: '#3f5764', rowDoneHover: '#415760', dotWarn: '#E69875', dotDone: '#7FBBB3' },
-  'light-hard': { h1: '#F85552', h2: '#d87934', h3: '#b18d28', h4: '#889b0d', h5: '#3d90bd', h6: '#c369ab', emphasis: '#c369ab', inlineCode: '#3A94C5', linkInternal: '#579478', faint: '#A6B0A0', marker: '#37a47c', tableHandle: '#569D79', check: '#3f9779', band: '#efeece', zebra: '#f8f6e1', tableHover: '#f4f2d7', quoteBg: '#eff4e6', rowWarn: '#fbeac0', rowWarnHover: '#f9e6b5', rowDone: '#dcece9', rowDoneHover: '#dceae8', dotWarn: '#d07838', dotDone: '#3A94C5' },
-  'light-medium': { h1: '#F85552', h2: '#d07838', h3: '#ac8b2c', h4: '#849715', h5: '#3f8db8', h6: '#bc69a7', emphasis: '#bc69a7', inlineCode: '#3c91c0', linkInternal: '#589077', faint: '#A6B0A0', marker: '#39a07b', tableHandle: '#569D79', check: '#419379', band: '#edeac3', zebra: '#f6f1d5', tableHover: '#f2eecc', quoteBg: '#edf0db', rowWarn: '#f8e6bb', rowWarnHover: '#f8e6b9', rowDone: '#ddeae6', rowDoneHover: '#e0e9e2', dotWarn: '#c7773d', dotDone: '#3b93c3' },
-  'light-soft': { h1: '#e45856', h2: '#bc7642', h3: '#9c843a', h4: '#7d8f25', h5: '#408cb6', h6: '#b969a5', emphasis: '#b969a5', inlineCode: '#408cb5', linkInternal: '#588f77', faint: '#A6B0A0', marker: '#409579', tableHandle: '#569D79', check: '#429279', band: '#efe7cb', zebra: '#efe7cb', tableHover: '#efe7cb', quoteBg: '#ede8d0', rowWarn: '#f2e6c9', rowWarnHover: '#f2e6c7', rowDone: '#e6e8da', rowDoneHover: '#ece7d4', dotWarn: '#b67545', dotDone: '#408cb6' }
+  'dark-hard': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#569D79', faint: '#959887', marker: '#A7C080', tableHandle: '#569D79', check: '#A7C080', band: '#39423e', zebra: '#2f3738', tableHover: '#343d3b', quoteBg: '#313a39', rowWarn: '#b19a6b', rowWarnHover: '#b89f6e', rowDone: '#384B55', rowDoneHover: '#40575e', dotWarn: '#E69875', dotDone: '#7FBBB3' },
+  'dark-medium': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#5b9f7b', faint: '#959887', marker: '#A7C080', tableHandle: '#569D79', check: '#A7C080', band: '#3e4845', zebra: '#343d3f', tableHover: '#394342', quoteBg: '#374041', rowWarn: '#b39c6d', rowWarnHover: '#b9a170', rowDone: '#3A515D', rowDoneHover: '#3f575f', dotWarn: '#E69875', dotDone: '#7FBBB3' },
+  'dark-soft': { h1: '#E67E80', h2: '#E69875', h3: '#DBBC7F', h4: '#A7C080', h5: '#7FBBB3', h6: '#D699B6', emphasis: '#D699B6', inlineCode: '#7FBBB3', linkInternal: '#6ea582', faint: '#959887', marker: '#A7C080', tableHandle: '#569D79', check: '#A7C080', band: '#434e4c', zebra: '#3a4447', tableHover: '#3f4949', quoteBg: '#3c4748', rowWarn: '#b49d6f', rowWarnHover: '#baa272', rowDone: '#3f5764', rowDoneHover: '#415760', dotWarn: '#E69875', dotDone: '#7FBBB3' },
+  'light-hard': { h1: '#F85552', h2: '#d87934', h3: '#b18d28', h4: '#889b0d', h5: '#3d90bd', h6: '#c369ab', emphasis: '#c369ab', inlineCode: '#3A94C5', linkInternal: '#579478', faint: '#909b92', marker: '#889b0d', tableHandle: '#569D79', check: '#7e9024', band: '#efeece', zebra: '#f8f6e1', tableHover: '#f4f2d7', quoteBg: '#f6f4dc', rowWarn: '#fbeac0', rowWarnHover: '#f9e6b5', rowDone: '#dcece9', rowDoneHover: '#dceae8', dotWarn: '#d07838', dotDone: '#3A94C5' },
+  'light-medium': { h1: '#F85552', h2: '#d07838', h3: '#ac8b2c', h4: '#849715', h5: '#3f8db8', h6: '#bc69a7', emphasis: '#bc69a7', inlineCode: '#3c91c0', linkInternal: '#589077', faint: '#909b92', marker: '#849715', tableHandle: '#569D79', check: '#7b8d2a', band: '#edeac3', zebra: '#f6f1d5', tableHover: '#f2eecc', quoteBg: '#f4efd1', rowWarn: '#f8e6bb', rowWarnHover: '#f8e6b9', rowDone: '#ddeae6', rowDoneHover: '#e0e9e2', dotWarn: '#c7773d', dotDone: '#3b93c3' },
+  'light-soft': { h1: '#e45856', h2: '#bc7642', h3: '#9c843a', h4: '#7d8f25', h5: '#408cb6', h6: '#b969a5', emphasis: '#b969a5', inlineCode: '#3A94C5', linkInternal: '#588f77', faint: '#909b92', marker: '#7d8f25', tableHandle: '#569D79', check: '#7a8c2c', band: '#efe7cb', zebra: '#efe7cb', tableHover: '#efe7cb', quoteBg: '#efe7cb', rowWarn: '#f0dfb5', rowWarnHover: '#efdcad', rowDone: '#d4e7f2', rowDoneHover: '#cee4f1', dotWarn: '#b67545', dotDone: '#408cb6' }
 }
 
 /** Role key → CSS custom property name (camelCase → kebab-case). */
@@ -242,12 +269,32 @@ test('colorModeRoles reproduces the approved 中彩 snapshot', () => {
   }
 })
 
-test('colorModeRoles reuses the aqua guard for marker, quote and hr', () => {
+test('colorModeRoles paints marker, quote and hr with the h4 green', () => {
+  // 2026-11-15 request: the decoration family (list bullets and ordered-list
+  // numbers, the blockquote bar, the `hr` rule) is the theme green, not the aqua
+  // accent. Green is the palette `green` guarded exactly like h4, so the family
+  // carries the same green as the green heading in every variant — `#A7C080`
+  // (the brand green) in dark, the guarded `fg.green` in light.
   const roles = colorModeRoles()
   for (const variant of VARIANT_NAMES) {
     const marker = roles[variant].marker
     assert.equal(roles[variant].quote, marker, `${variant}.quote`)
     assert.equal(roles[variant].hr, marker, `${variant}.hr`)
+    assert.equal(roles[variant].h4, marker, `${variant}.marker must be the h4 green`)
+    const rgb = hexToRgb(marker)
+    assert.ok(rgb.g > rgb.b + 20, `${variant}.marker must be green, not aqua/blue (${marker})`)
+  }
+})
+
+test('colorModeRoles paints the task-list checkbox green in both schemes', () => {
+  // It used to split by scheme (light aqua, dark blue); 2026-11-15 moved it onto
+  // the same green as the marker family.
+  const roles = colorModeRoles()
+  for (const variant of VARIANT_NAMES) {
+    const check = roles[variant].check
+    const rgb = hexToRgb(check)
+    assert.ok(rgb.g > rgb.b + 20, `${variant}.check must be green (${check})`)
+    assert.ok(rgb.g >= rgb.r, `${variant}.check must not read as yellow (${check})`)
   }
 })
 
@@ -326,13 +373,18 @@ test('colorModeRoles keeps the row text ink >= 4.5:1 on every tinted surface', (
     // The dark waiting rows carry the deep contrast ink (design §13.8.1); every
     // other tinted surface carries `label-primary`.
     const warnInk = variant.startsWith('dark') ? inverted : label
+    const doneFloor = ROW_DONE_TEXT_FLOOR[variant] ?? 4.5
+    const warnFloor = ROW_WARN_TEXT_FLOOR[variant] ?? 4.5
     for (const [role, ink] of [
       ['band', label], ['zebra', label], ['tableHover', label], ['quoteBg', label],
       ['rowDone', label], ['rowDoneHover', label],
       ['rowWarn', warnInk], ['rowWarnHover', warnInk]
     ]) {
+      const floor = role.startsWith('rowDone')
+        ? doneFloor
+        : role.startsWith('rowWarn') ? warnFloor : 4.5
       const ratio = contrastRatio(ink, roles[variant][role])
-      assert.ok(ratio >= 4.5, `${variant}.${role} text = ${ratio.toFixed(2)} < 4.5`)
+      assert.ok(ratio >= floor, `${variant}.${role} text = ${ratio.toFixed(2)} < ${floor}`)
     }
   }
 })
@@ -363,24 +415,45 @@ test('session-row fills come from the palette background accents', () => {
     // Finished rows: palette1 `bg_blue`, deepened toward `fg.blue` for the
     // light strengths' near-canvas wash, stopping where the 4.5:1 text gate
     // runs out (2026-11-08: blue is back for "finished, not read", design §22).
-    const endpoints = [palette.ramp.bgBlue, palette.ramp.bg0, palette.fg.blue].map(hexToRgb)
+    // light·soft is the exception: the cream sidebar leaves that wash 0.08 L* of
+    // room, so the tint is derived from the status blue over the white anchor
+    // (2026-11-15, design §34).
+    const doneEndpoints = variant === 'light-soft'
+      ? ['#ffffff', palette.fg.blue]
+      : [palette.ramp.bgBlue, palette.ramp.bg0, palette.fg.blue]
+    const endpoints = doneEndpoints.map(hexToRgb)
+    const doneFloor = ROW_DONE_TEXT_FLOOR[variant] ?? 4.5
     for (const role of ['rowDone', 'rowDoneHover']) {
-      assert.ok(contrastRatio(label, roles[variant][role]) >= 4.5, `${variant}.${role} must keep label-primary >= 4.5:1`)
+      assert.ok(contrastRatio(label, roles[variant][role]) >= doneFloor, `${variant}.${role} must keep label-primary >= ${doneFloor}:1`)
       const fill = hexToRgb(roles[variant][role])
       for (const channel of ['r', 'g', 'b']) {
         const low = Math.min(...endpoints.map((entry) => entry[channel])) - 1
         const high = Math.max(...endpoints.map((entry) => entry[channel])) + 1
         assert.ok(
           fill[channel] >= low && fill[channel] <= high,
-          `${variant}.${role}.${channel} left the bg_blue → bg0 / fg.blue range`
+          `${variant}.${role}.${channel} left the ${variant === 'light-soft' ? 'white / fg.blue' : 'bg_blue → bg0 / fg.blue'} range`
         )
       }
     }
-    // The resting fill sits on the legibility / visibility ceiling: one more
-    // step toward `fg.blue` must break the ink gate, unless the fill already
-    // cleared the separation target.
     const done = roles[variant].rowDone
-    if (Math.abs(labLightness(done) - labLightness(sidebar)) < 4.5) {
+    if (variant === 'light-soft') {
+      // The derived tint has to read as blue, and the resting step has to leave
+      // the hover one more step at the variant's own floor (4.35 / 4.25:1).
+      const fill = hexToRgb(done)
+      assert.ok(fill.b - fill.r >= 20, `${variant}.rowDone must lean blue (${done})`)
+      assert.ok(
+        contrastRatio(label, done) > contrastRatio(label, roles[variant].rowDoneHover),
+        `${variant}.rowDoneHover must be one step deeper than rowDone`
+      )
+      // The band is deepened to its own floor (4.39 / 4.25:1), not left
+      // anywhere between that floor and the old 4.62:1 pale tint: the whole
+      // point is a visibly deeper blue (2026-11-15 follow-up "有点亮了").
+      const resting = contrastRatio(label, done)
+      assert.ok(resting >= doneFloor && resting <= 4.45, `${variant}.rowDone sits at ${resting.toFixed(2)}, not just above its ${doneFloor} floor`)
+    } else if (Math.abs(labLightness(done) - labLightness(sidebar)) < 4.5) {
+      // The resting fill sits on the legibility / visibility ceiling: one more
+      // step toward `fg.blue` must break the ink gate, unless the fill already
+      // cleared the separation target.
       const next = mix(done, palette.fg.blue, 0.01)
       assert.ok(
         contrastRatio(label, next) < 4.5,
@@ -419,9 +492,11 @@ test('session-row fills come from the palette background accents', () => {
     }
 
     // Light: `bg_yellow` deepened toward `fg.yellow` until the visibility floor
-    // is met, stopping where the 4.5:1 `label-primary` gate runs out
-    // (light·medium / light·soft stop early, light·soft keeps the hue only).
-    assert.ok(contrastRatio(label, warn) >= 4.5, `${variant}.rowWarn must keep label-primary >= 4.5:1`)
+    // is met, stopping where the variant's `label-primary` gate runs out
+    // (light·medium stops early at 4.5:1; light·soft runs its own 4.2 / 4.1 pair,
+    // design §37).
+    const warnFloor = ROW_WARN_TEXT_FLOOR[variant] ?? 4.5
+    assert.ok(contrastRatio(label, warn) >= warnFloor, `${variant}.rowWarn must keep label-primary >= ${warnFloor}:1`)
     for (const channel of ['r', 'g', 'b']) {
       const values = [yellow[channel], bg0[channel], accent[channel]]
       assert.ok(
@@ -430,16 +505,28 @@ test('session-row fills come from the palette background accents', () => {
       )
     }
     const distance = Math.abs(labLightness(warn) - labLightness(sidebar))
-    if (distance < WARN_SEPARATION) {
-      // The text gate stopped the deepening: one more 1% step must break it.
-      const next = hexToRgb(warn)
-      const step = 0.01
-      const channels = ['r', 'g', 'b'].map((channel) => Math.round(next[channel] + (accent[channel] - next[channel]) * step))
-      const candidate = `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`
+    if (distance < WARN_SEPARATION && variant !== 'light-soft') {
+      // The 4.5:1 text gate stopped the deepening on the other light strengths:
+      // one more 1% step must break it. light·soft runs its own gate, pinned by
+      // the block below.
+      const candidate = mix(warn, palette.fg.yellow, 0.01)
       assert.ok(
         contrastRatio(label, candidate) < 4.5,
         `${variant}.rowWarn could still be deepened without hurting legibility (${candidate})`
       )
+    }
+    if (variant === 'light-soft') {
+      // The palette wash sits 0.04 L* from the cream sidebar (2026-11-15 report:
+      // "待回答的会话的背景黄色太不明显了"), so the pair is deepened until the
+      // band really steps away from it and hover takes one more step.
+      assert.ok(distance >= 2, `${variant}.rowWarn is only ${distance.toFixed(2)} L* from the sidebar`)
+      assert.ok(
+        contrastRatio(label, warn) > contrastRatio(label, roles[variant].rowWarnHover),
+        `${variant}.rowWarnHover must be one step deeper than rowWarn`
+      )
+      const restingGate = ROW_WARN_RESTING_FLOOR[variant]
+      const resting = contrastRatio(label, warn)
+      assert.ok(resting >= restingGate && resting <= 4.25, `${variant}.rowWarn sits at ${resting.toFixed(2)}, not on its ${restingGate} gate`)
     }
   }
 })
@@ -696,3 +783,5 @@ test('colorModeStyles only contains valid #RRGGBB colours and declared variables
     }
   }
 })
+
+

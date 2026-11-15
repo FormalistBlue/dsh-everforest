@@ -24,13 +24,21 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 
 ## ✨ Previews
 
-**Dark · Soft (default)**
+**Dark · Soft (default)** on the left, **Light · Hard (default)** on the right.
 
-![Everforest Dark Soft](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png)
+**Chat typography**
 
-**Light · Hard (default)**
+<p align="center">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png" width="49%" alt="Dark · Soft: chat typography">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png" width="49%" alt="Light · Hard: chat typography">
+</p>
 
-![Everforest Light Hard](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png)
+**Q&A display**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft-conversation.png" width="49%" alt="Dark · Soft: tables and question cards">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard-conversation.png" width="49%" alt="Light · Hard: tables and question cards">
+</p>
 
 ## 🚀 Installation
 
@@ -47,7 +55,7 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - 📐 Chat tables show borders; drag a header border to adjust column widths, kept across reloads and session switches.
 - 📄 The workspace session list is colour-coded by state: waiting for you / done at a glance.
 - ⌛️ The loading page shown when the app opens matches the active palette, so startup feels natural.
-- ⚙️ Open **Settings → Everforest** to choose one of six strengths:
+- ⚙️ Open **Settings → Everforest** to choose from six colour strengths:
   - Dark:
     - **Soft (default)** lowest contrast, softest;
     - **Medium** balanced contrast;
@@ -67,9 +75,9 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 
 **Content colouring and styling**
 - ✅ Markdown rich text: h1–h6 six-colour headings, bold / italic, inline code, internal file links, blockquotes, horizontal rules, task lists, tables (headers / zebra stripes / hover)
-- ✅ Session status rows: waiting for confirmation (yellow fill) and done-unread (green fill), with status dots
+- ✅ Session status rows: waiting for confirmation (yellow fill) and done-unread (blue fill), with status dots
 - ✅ Workspace active-session row highlight
-- ✅ Native text-selection colours, preserving each element's own text colour
+- ✅ Text-selection colours
 - ✅ First-paint loading page, spinner ring and progress arc
 - ✅ Table styling, with column width adjustment and memory
 
@@ -89,8 +97,6 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 - ⬜ Finer-grained custom palette controls
 - ⬜ Distinct colouring for thinking-process content and tool calls
 - ⬜ Richer first-paint (loading) page
-- ⬜ Refined colouring for dropdown options
-- ⬜ Built-in automatic light/dark schedule
 - ⬜ Compatibility polish for other third-party plugin pages
 
 ## 📚 References

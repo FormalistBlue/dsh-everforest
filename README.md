@@ -24,13 +24,21 @@ dsh-everforest 为 DeepSeek Harness 提供 Everforest 配色主题，同时支�
 
 ## ✨ 预览
 
-**深色 · Soft（默认）**
+左为**深色 · Soft（默认）**，右为**浅色 · Hard（默认）**。
 
-![Everforest Dark Soft](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png)
+**聊天排版**
 
-**浅色 · Hard（默认）**
+<p align="center">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png" width="49%" alt="深色 · Soft：聊天排版">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png" width="49%" alt="浅色 · Hard：聊天排版">
+</p>
 
-![Everforest Light Hard](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png)
+**问答显示**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft-conversation.png" width="49%" alt="深色 · Soft：表格与问答">
+  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard-conversation.png" width="49%" alt="浅色 · Hard：表格与问答">
+</p>
 
 ## 🚀 安装
 
@@ -47,7 +55,7 @@ dsh-everforest 为 DeepSeek Harness 提供 Everforest 配色主题，同时支�
 - 📐 聊天中表格显示边框，可拖动表头右边缘调整列宽，刷新或切换会话后保持。
 - 📄 工作区会话列表按状态着色：待确认 / 已完成一眼分辨。
 - ⌛️ 进入应用时的 loading 页面适配当前配色，启动更自然。
-- ⚙️ 打开 **Settings → Everforest**，可选 6 档强度：
+- ⚙️ 打开 **Settings → Everforest**，可选 6 档不同强度的颜色：
   - 深色：
     - **Soft（默认）** 对比度最低、最柔和；
     - **Medium** 对比度适中；
@@ -67,9 +75,9 @@ dsh-everforest 为 DeepSeek Harness 提供 Everforest 配色主题，同时支�
 
 **内容着色与样式**
 - ✅ Markdown 富文本：h1–h6 六色标题、加粗 / 斜体、行内代码、内部文件链接、引用块、分隔线、任务列表、表格（表头 / 斑马纹 / hover）
-- ✅ 会话状态行：待确认（黄底）、已完成未查看（绿底），附状态点
+- ✅ 会话状态行：待确认（黄底）、已完成未查看（蓝底），附状态点
 - ✅ 工作区当前会话行高亮
-- ✅ 原生文本选区配色，保留文字自身颜色
+- ✅ 文本选区配色
 - ✅ 首屏 loading 页、spinner 环与进度弧使用当前配色
 - ✅ 表格样式优化，提供列宽调整与记忆功能
 
@@ -89,8 +97,6 @@ dsh-everforest 为 DeepSeek Harness 提供 Everforest 配色主题，同时支�
 - ⬜ 更细粒度的自定义配色选项
 - ⬜ 思考过程中的内容与工具调用的差异化着色
 - ⬜ 首屏页面显示效果丰富化优化
-- ⬜ 下拉选项的着色优化
-- ⬜ 内置白天黑夜模式自动切换配置
 - ⬜ 其他第三方插件页面兼容性优化
 
 ## 📚 参考

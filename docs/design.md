@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.2（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27）；同日按用户要求把新会话首屏的鲸鱼标志与「探索未至之境」标题改为文字绿（§28）；2026-11-13 复核 0.2.2-rc.2：token 契约扩到 244，补 JSON 树 / 附件上传槽映射、19 项声明由 static 层继承（§4 / §12），删掉 rc.2 已不存在的 `selectedFill` 规则（§21），并修复 token / asar 两个提取脚本对 rc.2 产物格式的支持）**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.3（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27）；同日按用户要求把新会话首屏的鲸鱼标志与「探索未至之境」标题改为文字绿（§28）；2026-11-13 复核 0.2.2-rc.2：token 契约扩到 244，补 JSON 树 / 附件上传槽映射、19 项声明由 static 层继承（§4 / §12），删掉 rc.2 已不存在的 `selectedFill` 规则（§21），并修复 token / asar 两个提取脚本对 rc.2 产物格式的支持；2026-11-15 按用户逐处走查落下一整轮视觉调整：轮次导航加粗改绿（§33）、light·soft 的状态行 / 行内 code / 问答复卡（§34–§37）、次级文字提一档（§38）、问答回复卡的问题「纸条」（§39 / §40）、多选按钮改主题绿（§41）、运行中会话标题扫光（§42）、markdown 装饰族由 aqua 改绿（§43），并按复核修掉轮次导航的 reduced-motion 失效（§44）；复核 0.2.2-rc.3：token 与渲染锚点无破坏性变化（§12），同日晚间撤回强调层深墨与问答卡纸条（§45 / §46））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十三张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 14 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十六张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、问题面板多选按钮（§41）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 17 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -238,8 +238,9 @@ export const TOKEN_MAP = {
   '--dsw-alias-markdown-code-block':   r => r.bgDim,
   // 文字 / 边框
   '--dsw-alias-label-primary':         r => r.fg,
-  '--dsw-alias-label-secondary':       r => r.grey1,
-  '--dsw-alias-label-tertiary':        r => r.grey0,
+  // 2026-11-15：三档次级文字混入 30% 的 `fg`（`mutedInk`，见 §38）
+  '--dsw-alias-label-secondary':       r => mutedInk(r, r.grey1),
+  '--dsw-alias-label-tertiary':        r => mutedInk(r, r.grey0),
   '--dsw-alias-border-l1':             r => border(r, 'l1'),
   '--dsw-alias-border-l3':             r => border(r, 'l3'),
   // 强调 / 状态（Enchanted 语义；品牌 / 链接 2026-10-24 起改用官方 accent，见 §16.1）
@@ -443,7 +444,7 @@ export function apply(ctx) {
 
 1. **主题聚光灯**（§17）：`createThemeSpotlight()` → 卸载时 `dispose()`；注入 `data-plugin-css="dsh-everforest/theme-spotlight"` 样式表；`spotlight.trackOrigin()` 记录最后一次 `pointerdown`；包装 `ctx.theme.setTheme`（仅跨深浅走 `spotlight.run`，卸载按「原方法是否自有属性」还原）。见 `src/client-entry.js` L212–274。
 2. **token 层与状态属性**：`applyLayer()` = `overrideTokens`（pair 未变时不重栈）+ `applyStateAttributes()`（写 `data-everforest-color-mode` / `-light` / `-dark` 三个属性）。
-3. **常驻样式表（十三张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
+3. **常驻样式表（十六张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、问题面板多选按钮（§41），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
 4. **表单胶水**（把 §7 落到代码）：`queuedWrite`、`hasUserLayer`、`shouldSeed`、`seedHost(snapshot)`（播种时才带 `snapshot.revision`）、`adoptHostState()`、`writeToHost(ops, failureMessage)`（不带 revision）、`warnRefusedOnce()`、`writesInFlight` + `beginWrite()` / `flushQueuedWrite()`。`select()` 的跨深浅分支把 `applyLayer() + ctx.theme.setTheme(scheme)` 一起包进 `spotlight.run()`，同深浅分支只重栈（瞬切），`notify()` 在切换之后；`reset()` 先回默认状态，`persistReset()` 在 `writesInFlight > 0` 时把 unset 排到在途写入之后。
 5. **其它**：`setPreference()`（外观三卡 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
 
@@ -576,7 +577,7 @@ export function apply(ctx) {
 - **客户端入口文件名是 `src/client-entry.js`，不要改回 `src/index.js`**：npm 11 的 packlist 在根 `main` 为 `index.js` 且 `files` 含嵌套文件时，会把嵌套的 `src/index.js` 误打进 tarball（2026-10-19 实测；改名后 `npm pack` 只含白名单）。
 - `tests/host-boot.test.mjs` 用 `node:vm` 执行 boot 脚本文本，断言它与 Client token 层同值、scheme 解析与回退分支、B 方案（缓存优先 / Host 兜底 / 非法值回退）与 `window.__EVERFOREST_BOOT__` 发布正确；`tests/durable.test.mjs` 覆盖 Client 持久化胶水的纯函数（用户层判定、播种条件、set / unset 操作、归一化、boot hint），`tests/integration.test.mjs` 用假 configForms 覆盖生命周期。不依赖真机即可守住首帧与迁移不漂移。
 - 调色板提取脚本（开发期可重复）：按 [`reference/palette.md`](reference/palette.md) 的表格生成 `src/palette.js`（6 套背景色阶 + 两套前景/强调/header 色；light `bg_visual` 使用注记的生效值 `#DED8DB`）。
-- **仓库根另有非 npm 产物**：`screenshots.json`（市场预览清单，1.0.0 起为 2 张真机截图 `.github/assets/everforest-dark-soft.png` / `everforest-light-hard.png`，路径相对该文件、不能跳出插件目录，见 [`releasing.md`](releasing.md) §8.6）与 `icon.svg`（自包含 SVG；2026-11-08 起为透明底的绿色鲸鱼，填充 `#93B259`，仅单个鲸鱼图形、无山脊 / 松树，约 2.0 KB）。`screenshots.json` 与 `.github/assets/` 不进 `files`；`icon.svg` 在 `files` 与 `exports["./icon"]` 里。
+- **仓库根另有非 npm 产物**：`screenshots.json`（市场预览清单，2026-11-15 起为 4 张真机截图：默认深色 Soft / 浅色 Hard 的聊天排版 `everforest-dark-soft.png` / `everforest-light-hard.png` 与表格问答 `everforest-dark-soft-conversation.png` / `everforest-light-hard-conversation.png`，1515×1114 未裁剪；路径相对该文件、不能跳出插件目录，见 [`releasing.md`](releasing.md) §8.6）与 `icon.svg`（自包含 SVG；2026-11-08 起为透明底的绿色鲸鱼，填充 `#93B259`，仅单个鲸鱼图形、无山脊 / 松树，约 2.0 KB）。`screenshots.json` 与 `.github/assets/` 不进 `files`；`icon.svg` 在 `files` 与 `exports["./icon"]` 里。
 
 ## 9. 验证计划
 
@@ -591,21 +592,22 @@ export function apply(ctx) {
 | 非法配置 | 分两种情况验证：①**运行中**把 patch 的 `config.light` 改成 `nope` → Host 记 warning、entry 保持 ACTIVE、旧配色不丢，改回合法值热恢复（不必重启）；②**冷启动**时 patch 已是非法值 → entry 不激活（无主题、启动诊断可见），改回合法值 / 删除 `config` 后重启恢复 |
 | 深浅色 | 用 DSH 自带 Appearance、设置页外观控制或插件色卡切到 light/dark/system，主题自动使用对应调色板；**跨深浅切换走聚光灯**：新主题从最后一次 `pointerdown` 位置以 `circle()` 扩张揭示 400ms（无指针记录时从视口中心），旧主题快照留底层，浅→深结束不闪白；同深浅内的强度切换与跨窗口广播为瞬切；`system` 跟随下 OS 翻深/翻浅同样走揭示（无点击位置，从视口中心扩张）；`prefers-reduced-motion: reduce` / 无 View Transitions 一律瞬切（§17）；`system` 下改 OS 深浅色应实时跟随（聊天区、设置页「当前」行、Windows 标题栏都要变）；点另一 scheme 色卡后 Appearance 偏好被改写（设计如此），可用设置页「跟随系统」恢复；点同侧色卡不得改偏好 |
 | 代码高亮 | 三处代码块（聊天气泡 fenced code / 工具输出 / 右侧文件预览）的 token 色与块底正确；diff 的 add/del 底色与 marker 来自 `--dsw-alias-file-diff-*` / `code-diff-*`（diff 没有语法高亮，**不要**按 shiki 验收） |
-| 聊天气泡 | 两个 scheme 都绘制成交互强调绿底 + 画布墨（与选中会话行 / 选中导航项 / 发送键同色对）：浅色 `#93B259` + `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1，强调层奶油墨上限）、深色 `#A7C080` + `#272E33` / `#2D353B` / `#333C43`（6.88 / 6.23 / 5.62:1，AA）；token 保留苔纸 / `bg1` 作为样式表失效时的可读回落（`src/chat-bubble.js` 常驻样式表；2026-10-19 / 2026-10-21 / 2026-11-08 / 2026-11-10，见 §12） |
+| 聊天气泡 | 两个 scheme 都绘制成交互强调绿底 + 画布墨（与选中会话行 / 选中导航项 / 发送键同色对）：浅色 `#93B259` + 画布奶油墨 `#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1，已记录的强调层上限）、深色 `#A7C080` + `#272E33` / `#2D353B` / `#333C43`（6.88 / 6.23 / 5.62:1，AA）；token 保留苔纸 / `bg1` 作为样式表失效时的可读回落（`src/chat-bubble.js` 常驻样式表；2026-10-19 / 2026-10-21 / 2026-11-08 / 2026-11-10，见 §12；2026-11-15 曾短暂改用深松墨，当日按要求撤回，见 §45） |
+| 对话轮次导航（§33） | 对话右侧竖排目录：未选中为中性细条（`border-l4`）、当前轮为文字绿胶囊（22×3px）、悬停提亮到 `statusline1`、运行中 1.7s 呼吸；键盘聚焦保留 DSH 焦点环且横条满长；`prefers-reduced-motion` 下无过渡与呼吸；容器窄于 900px 时 DSH 自行隐藏（`src/turn-rail.js` 常驻样式表，2026-11-15） |
 | 聊天表格（1.2.0，§18） | 6 档下中性 `border-l3` 外框 + `border-l2` 列线可见（浅色档贴对比度门槛，属已接受）；首 / 末列 16px 内边距、末行无叠加下边框；表头色带 / 斑马纹 / 行 hover 不变。表头右缘 6px 命中：fill 表（<4 列）拖动相邻两列重分配、总宽不变、无幽灵滚动条；宽表（≥4 列）拖哪列只改哪列、表格总宽跟随列宽之和、**最后一列右边框也是拖动柄**、放不下时底部常驻 5px 横向滚动条（10px 条位、hover 时带 160ms 过渡长成 10px 便于按住，2026-10-29）且右缘不越过正文列；双击边缘复位、拖动中 Esc 取消、单列最小 64px；锁定宽表窗口变窄保持列宽只滚动。§18.4 的 106 项全场景矩阵与真机 fill / wide 复测为自动化证据 |
 | 停用 | 关闭插件 → 回到 DSH 原生配色，`body` 内联 `--dsw-*` 消失（验证 disposer 挂在 effect 上的清理）；重启 Host 后 boot row 消失；patch 里的 `config` 保留，重新启用后继续生效 |
 | 首帧 | Web：首屏 / loading 页即为 Everforest（DevTools 首帧截图，无 `#fff` / `#151517` 帧，spinner 环与进度弧同色系）；强度分别验证「有缓存」「无缓存但 Host 有值」「两者都缺」三条路径与 `window.__EVERFOREST_BOOT__` 的值；Desktop：完全退出应用后冷启动录屏，原生色 ≤ 1 帧（2026-10-19 接受）；loading 动效的 spinner / 边框随 boot token 一起着色（2026-10-21） |
 | 视觉走查 | 聊天区 / 代码块 / diff / 菜单 / 设置 / 侧栏 / composer / hover / 选中态 / 状态色；侧栏与内容卡边界（`sidebar-fill` ≠ `bg-base`，Windows 标题栏条同色）；深色边框可见度（设置卡片 / 行 / 输入框的 `.5px` 描边对自己的填充 ≥ 1.45:1、对页面底 ≥ 1.8:1，2026-10-24）；1.0.0 新增层：选中会话行 vs hover vs 待确认黄底 / 已完成蓝底三色可辨（§15 / §22）、文本选区六档底色（§16.2）、跨深浅聚光灯无闪色（§17）；记录已知缺口 |
-| 色彩模式（0.4.0 引入；2026-10-24 起默认提供、无设置开关） | 设置页**没有**色彩模式区块（无标题 / 说明 / 开关 / 色片）；默认即生效：聊天 h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接 aqua、删除线 / 已完成任务淡化、引用块淡底、列表 marker / 引用条 / 分隔线、表头色带 / 斑马纹 / 行 hover、checkbox，以及会话列表「待确认 / 已完成未查看」行底色与状态点变色（行底取 palette1 自带的状态背景色，见 §13.8 / §13.8.1；hover 再深一档）；`<html>` 上恒有 `data-everforest-color-mode="on"`（作用域锚点，不再表示开关状态）与两个强度属性，切换强度 / 深浅色时按 6 个变体块 × 25 个变量自动切换；色彩模式本身不改 token 层（与同版本 token 层一致；0.4.0 当时与 0.3.0 逐字节一致，后续强调色评审已更新 token 值）；选中行不覆盖选中态、hover 有加深；浅色档特别是 light·soft 的表格色带 / 会话行底会被压成极淡甚至不可辨（见 §13.3），属已接受的「淡彩」取舍；DSH 升级后若选择器失效，模式静默退回单色且控制台无报错 |
+| 色彩模式（0.4.0 引入；2026-10-24 起默认提供、无设置开关） | 设置页**没有**色彩模式区块（无标题 / 说明 / 开关 / 色片）；默认即生效：聊天 h1–h6 六色标题、strong + em 紫、行内 code 蓝、内部文件链接 aqua、删除线 / 已完成任务淡化、引用块淡底、列表 marker / 引用条 / 分隔线、表头色带 / 斑马纹 / 行 hover、checkbox，以及会话列表「待确认 / 已完成未查看」行底色与状态点变色（行底取 palette1 自带的状态背景色，见 §13.8 / §13.8.1；hover 再深一档）；`<html>` 上恒有 `data-everforest-color-mode="on"`（作用域锚点，不再表示开关状态）与两个强度属性，切换强度 / 深浅色时按 6 个变体块 × 25 个变量自动切换；色彩模式本身不改 token 层（与同版本 token 层一致；0.4.0 当时与 0.3.0 逐字节一致，后续强调色评审已更新 token 值）；选中行不覆盖选中态、hover 有加深；浅色档特别是 light·soft 的表格色带 / 「待确认」行底会被压成极淡甚至不可辨（见 §13.3），属已接受的「淡彩」取舍（「已完成」行 2026-11-15 起在 light·soft 改用 `fg.blue` 淡染，见 §34）；DSH 升级后若选择器失效，模式静默退回单色且控制台无报错 |
 | 聚光灯（1.0.0，§17；2026-10-25 追加跟随系统 OS 翻转） | 跨深浅切换：新主题从点击点圆形扩张 400ms，无灰峰（颜色插值中途仅 1.01:1）、浅→深结束无闪白；DSH Appearance 行 / 插件色卡 / 设置页外观控件三个入口都走揭示；`system` 偏好下 OS 翻转也走揭示（从视口中心扩张、不建立第二段过渡）；跨窗口广播、同深浅强度切换、reduced-motion、无 View Transitions 均瞬切；插件卸载后 `ctx.theme.setTheme` 与 `publish` 都恢复原方法；常驻样式表共 9 张（含 `dsh-everforest/theme-spotlight`），`<html>` 上无 `data-everforest-transition` |
-| 当前会话行（1.0.0，§15 / §22 / §23） | 选中会话行（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）恒为交互强调色 `statusline1` 实色底 + 方案画布 `bg0` 文字（2026-11-08 第三轮起：dark `#A7C080` / light `#93B259`；原为 `bg_blue` 蓝底 → 2026-11-07 绿色强调底 → 同日第二轮 `fg.green`），行内 tertiary 灰（状态槽 / 时间 / pin / 操作按钮 / spinner）**显式**写成墨色（时间嵌在 `rowResting` 内且父级自带 `label-tertiary`，`inherit` 会被截断），状态点保留语义色；与「待确认」黄底 /「已完成」蓝底并排可一眼区分；6 档实测见 §15 表格（深色 5.62–6.88:1；浅色 2.00–2.32:1，见 §2g）；hover 其他行不再与选中态混淆；卸载后样式表移除；**无行首竖条**（2026-11-08 移除） |
+| 当前会话行（1.0.0，§15 / §22 / §23） | 选中会话行（`[role="treeitem"][data-row-key^="session:"][aria-selected="true"]`）恒为交互强调色 `statusline1` 实色底 + 方案画布 `bg0` 文字（2026-11-08 第三轮起：dark `#A7C080` / light `#93B259`；原为 `bg_blue` 蓝底 → 2026-11-07 绿色强调底 → 同日第二轮 `fg.green`），行内 tertiary 灰（状态槽 / 时间 / pin / 操作按钮 / spinner）**显式**写成墨色（时间嵌在 `rowResting` 内且父级自带 `label-tertiary`，`inherit` 会被截断），状态点保留语义色；与「待确认」黄底 /「已完成」蓝底并排可一眼区分；6 档实测见 §15 表格（深色 5.62–6.88:1；浅色 2.00–2.32:1，已记录的强调层上限，见 §2g）；hover 其他行不再与选中态混淆；卸载后样式表移除；**无行首竖条**（2026-11-08 移除） |
 | 工作区目录名称（§22.3 / §25） | 侧栏工作区（项目）行的标题（`[role="treeitem"][data-row-key^="workspace:"] [class*="projectText"]`）为**文字绿 `green` 600 字重**（dark `#A7C080` / light `#8DA101`，原值不做守卫；上游把 `green` 当前景文字色、`statusline1` 当背景色，两者在浅色档差一档）；2026-11-08 用户两次要求绿色，A7 曾短暂撤回 `label-primary`，同日复核后恢复；**2026-11-13 用户要求名称加粗，并让「有当前打开会话」的工作区文件夹图标（`[class*="folderActive"]`）也变成同一文字绿**——浅色档图标由 DSH 的 business 强调绿 `#93B259` 改为 `#8DA101`，深色档两者同值无变化；静止行深色 5.00–6.17:1（AA）、A7 的 50% `bg4` hover 叠加底 4.01–4.98:1，浅色 2.35–2.68 / 2.13–2.47:1（见 `contrast.md` §2h）；卸载后样式表移除 |
-| 下拉选中项（§25 / §27） | 下拉列表选中项（`menuitem` / `menuitemradio`）以 `statusline1`（浅色 `#93B259`）实底 + 画布 `bg0` 文字与勾勾，选中项内的前导图标与次要文字（`--dsw-alias-menu-icon`、`label-*` 族：模式选项的标题 / 说明、工作区路径后缀、快捷键）同样取该墨色（2026-11-08 追加）：深色档墨色 5.62–6.88:1（AA），浅色档 2.00–2.32:1（`contrast.md` §2i）；会话标题曾取文字绿 `green`（2026-11-08 – 11-09），现回到 DSH 原生 `label-primary`（§27）；卸载后样式表移除 |
+| 下拉选中项（§25 / §27） | 下拉列表选中项（`menuitem` / `menuitemradio`）以 `statusline1`（浅色 `#93B259`）实底 + 画布 `bg0` 文字与勾勾，选中项内的前导图标与次要文字（`--dsw-alias-menu-icon`、`label-*` 族：模式选项的标题 / 说明、工作区路径后缀、快捷键）同样取该墨色（2026-11-08 追加）：深色档墨色 5.62–6.88:1（AA），浅色档 2.00–2.32:1（画布 `bg0`，已记录的 1.95 下限，`contrast.md` §2i）；会话标题曾取文字绿 `green`（2026-11-08 – 11-09），现回到 DSH 原生 `label-primary`（§27）；卸载后样式表移除 |
 | 新会话首屏鲸鱼 + 标题（§28） | 欢迎页 `HeroShell` 的鲸鱼标志与「探索未至之境」标题取**文字绿 `green`**（dark `#A7C080` / light `#8DA101`，与目录名称同角色，6 档 5.62–6.88 / 2.42–2.81:1）；`[class*="headline"]:has([class*="fishHitbox"])` 结构锚点只命中首屏 headline、不误伤上下文弹层的 `A6Bq1a_headline`，鲸鱼单独重墨（`.fish` 自带 `color`）；「预览版」角标保持 `statusline1`；卸载后样式表移除 |
 | 首页鲸鱼动画墨色（§32） | 空白新会话首页点击空白处播放的官方「像素鲸鱼」取**文字绿 `green`**（light `#8DA101` / dark `#A7C080`），两种填充（圆点 / 代码字母）同色；官方 `.canvas { filter: grayscale(1) }` 被本表取消，否则任何墨色都会渲染成灰；锚点 `canvas[data-home-whale]`；层不透明度改为 0.3（官方 0.18 的 5/3）；卸载后样式表移除 |
 | 文本选区（1.0.0，§16.2） | 六档 `::selection` 底色 = 各变体 `bg_visual`（light 统一 `#DED8DB`；dark `#4C3743` / `#543A48` / `#5C3F4F`），`color: inherit` 保留元素自身颜色（h2 / strong / 行内 code 选中后仍是原色）；与色彩模式解耦、常驻；不改变 `user-select` 与复制行为 |
 | dev 调试面板（1.0.0，§14） | `npm run build:dev` 后主界面出现浮动面板，可切换外观与两套强度、拖动、折叠成 38×38 圆钮且折叠 / 展开态都保留样式与内联兜底；`npm run build` 后消失；`--check` / CI / `prepack` 拒绝停留在开发产物；生产 `client.js` 无面板代码 |
-| 图标与 README 截图（1.0.0） | `icon.svg` 为自包含 SVG（无脚本 / 无外链，约 3.1 KB）：绿色鲸鱼 + 远景山脊 `#4D5960` / 森林山脊 `#A7C080` / 两棵松 `#293136`，36px 下均可辨；`README.md` / `README.en.md` 各只有 2 张真机截图（dark-soft / light-hard，1263×981 未裁剪），仓库根 `screenshots.json` 2 项与 README 引用逐项一致，README / 图标断言通过 |
+| 图标与 README 截图（1.0.0；2026-11-15 刷新） | `icon.svg` 为自包含 SVG（无脚本 / 无外链，约 3.1 KB）：绿色鲸鱼 + 远景山脊 `#4D5960` / 森林山脊 `#A7C080` / 两棵松 `#293136`，36px 下均可辨；`README.md` / `README.en.md` 各 4 张真机截图（默认深色 Soft / 浅色 Hard 的聊天排版与表格问答，1515×1114 未裁剪，左右各 49% 并排），仓库根 `screenshots.json` 4 项与 README 引用逐项一致，README / 图标断言通过 |
 | 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效；包名 `dsh-everforest` 仍可用 |
 
 **改动生效方式（开发循环）**：`client.js` 内容改动 → Plugins 页停用/启用该插件（Host 重新快照 bundle，浏览器经 HMR 换模块）或重启 Host；`package.json` / `cordis.patch.yml` 改动 → HMR 即时重组合；单纯刷新页面不会换 bundle 字节。
@@ -832,6 +834,16 @@ DSH Desktop 已升级到 `0.2.2-rc.2`（`resources/app.asar` 的 `dsh/package.js
 - **真机复核**：Desktop（0.2.2-rc.2）13 张 `dsh-everforest/*` 样式表挂载，`window.__EVERFOREST_BOOT__ = { version: 1, light: 'hard', dark: 'soft' }`，控制台只有 favicon 404；会话表格边框、设置导航选中行（`#93B259` / `#FFFBEF`）、菜单选中、聊天气泡（`#93B259`）、首页鲸鱼与标题、工作区目录名均为主题色；右侧栏新面板面板底 `#FFFBEF`、栏底 `#F9F6E6`，与主区口径一致。
 - **升级影响**：`engines.dsh` 不变（`>=0.2.1-rc.2 <0.3.0-0` 覆盖 rc.2）；主题主体无需改动，token 补齐与死规则清理属于本次适配。
 
+### 2026-11-15 0.2.2-rc.3 复核（token / 锚点均无破坏性变化）
+
+DSH Desktop 已升级到 `0.2.2-rc.3`（`window.__DSH_BOOT__.release.version` = `0.2.2-rc.3`、`commit` `6b729fe`）。本轮新增的三个样式表按 rc.3 产物校准，逐项复核结论：
+
+- **token 层未变**：`node scripts/extract-theme-tokens.mjs --from <rc.3 的 ui-theme/lib/client.js> --check` 通过，仍是 244 个颜色 token，`reference/token-inventory.*` 无需重生成。
+- **三个新样式表的锚点在 rc.3 都在**：`[data-conversation-scroll]` 与 `markBusy` / `markUnloaded`（`ui-chat` 的 `ChatView.module.css` / `TurnNavigator.module.css`）、`data-state="ongoing"`（会话行 `StateDot`）、`[data-question-key]` / `[data-option-row]` / `_checkboxChecked`（`ui-user-questions` 的 `QuestionComposer`）、`[data-question-reply]`（`QuestionReplyView`）。
+- **`[data-command-input]` 在 rc.3 找不到**：包源码与 web-frontend bundle 都没有这个属性（运行时 DOM 只有 `data-composer-input`），`src/chat-bubble.js` 的第三条锚点在 rc.3 命不中；该规则不产生任何样式，保留作后备，但不再当作已验证的契约。
+- **真机复核**：Desktop（0.2.2-rc.3）16 张常驻样式表挂载（设置页未打开，其样式表按需挂载，全部生效共 17 张），`window.__EVERFOREST_BOOT__ = { version: 1, light: 'hard', dark: 'soft' }`，聊天气泡实测 `#93B259` + `#FFFBEF`，token 覆盖层生效。
+- **升级影响**：`engines.dsh` 不变（`>=0.2.1-rc.2 <0.3.0-0` 覆盖 rc.3）；旧宿主仍可用，新锚点命不中时只是没有对应样式。
+
 ## 13. 2026-10-23 0.4.0：色彩模式（中彩；2026-10-24 起默认提供、无开关）
 
 > 前置：方案 0 样张（`.tmp/color-mode-preview/`，四列「关闭 / 轻彩 / 中彩 / 浓彩」× 6 变体，用真实 token 值复刻聊天区与会话列表）于 2026-10-23 经用户目检，选定**中彩**一档并确认初版范围。初版（h1–h3 + 表格 + 会话行）落地后用户验收反馈「还行」，随即要求把标题扩展到 h1–h6、并参考 Obsidian **Everforest Enchanted**（[FireIsGood/obsidian-everforest-enchanted](https://github.com/FireIsGood/obsidian-everforest-enchanted) 的 `theme.css` @ `bdd7ac7`，MIT）补齐富文本角色；扩展轮与初版同日完成。评估、参考与取舍过程见 [`assessment.md`](assessment.md) §14 / §15；样张截图见 `.tmp/color-mode-preview/shots/`（初版）；富文本扩展的预览页与截图在同一目录下另行生成（`rich.mjs` / `shots-rich/`，均为本地留档、不入库）。
@@ -861,9 +873,9 @@ DSH Desktop 已升级到 `0.2.2-rc.2`（`resources/app.asar` 的 `dsh/package.js
 | 行内 code 文字 | `blue`，落在 DSH 的蓝底 inline-code 芯片上，按芯片底色单独守卫 |
 | 内部文件链接 | `aqua`（`[class*="fileLink"]`）；外链继续用官方 `--dsw-alias-link` token（header-blue） |
 | 删除线 / 已完成任务 | `label-tertiary`（`del` 与 `li.task-list-item:has(input[type=checkbox]:checked)`）；刻意弱化，不参与对比度门槛 |
-| 引用块 | 左边框仍 aqua，另加 aqua 8% 淡底 + 右侧 12px padding / 右圆角（给淡底留白） |
+| 引用块 | 左边框仍 aqua，另加 aqua 8% 淡底 + 右侧 12px padding / 右圆角（给淡底留白）；2026-11-15 起条与淡底都改主题绿（§43） |
 | 表格 | 表头绿色带 14%、斑马纹 6%、行 hover 10%，权重都按 `label-primary` ≥4.5:1 反推 |
-| 复选框 | 深色档 `blue`（`#7FBBB3`，与行内 code / h5 同色系）；浅色档 `aqua` 绿（`#3f9779` 起，与列表 marker 同族；2026-10-30 用户目检后「深色的还行，浅色的用绿色试试」，试过「浅底深勾」后用户改口「还是用这种吧」，定回实心绿 + canvas 色勾）。DSH 的任务项复选框恒为 `disabled`，而 Chromium 对禁用控件忽略 `accent-color`、直接画原生灰框（2026-10-30 实测），所以改成重绘：选中为实心 accent + canvas 色勾，未选中为 accent 描边 + 淡底；同时去掉任务项多余的列表圆点（DSH 同时画 marker 与 checkbox） |
+| 复选框 | 深色档 `blue`（`#7FBBB3`，与行内 code / h5 同色系）；浅色档 `aqua` 绿（`#3f9779` 起，与列表 marker 同族；2026-10-30 用户目检后「深色的还行，浅色的用绿色试试」，试过「浅底深勾」后用户改口「还是用这种吧」，定回实心绿 + canvas 色勾）。DSH 的任务项复选框恒为 `disabled`，而 Chromium 对禁用控件忽略 `accent-color`、直接画原生灰框（2026-10-30 实测），所以改成重绘：选中为实心 accent + canvas 色勾，未选中为 accent 描边 + 淡底；同时去掉任务项多余的列表圆点（DSH 同时画 marker 与 checkbox）。2026-11-15 起深浅档统一取主题绿（§43） |
 | 未扩展 | fenced code 块与外部链接保持既有 token 颜色；「运行中」仍不上色 |
 | 定位 | 不变：实验性、默认开启（可关闭）、DSH 升级后需回归 |
 
@@ -949,7 +961,7 @@ DSH Desktop 已升级到 `0.2.2-rc.2`（`resources/app.asar` 的 `dsh/package.js
 1. **选择器脆弱性（最高）**：DSH 的组件类名是 CSS modules 哈希，markdown 正文容器没有稳定 data 锚点，只能依赖 `[class*="markdown"]` 子串；富文本扩展进一步依赖 `[class*="fileLink"]` / `:not(pre) > code` / `li.task-list-item` 等结构。DSH 升级若重命名容器 / 改变结构，色彩模式可能**静默失效**（颜色不生效，但 token 层与页面不会坏）。会话行锚点（`data-row-key` / `role=treeitem` / `data-state`）稳定得多。
 2. **违背官方主题契约**：DSH 官方扩展点是 alias token 覆盖（「token 样式表是颜色值的唯一权威来源」），选择器注入是本项目为内容层色彩做的**实验性例外**；不承诺跨 DSH 版本的兼容。
 3. **强调文字低于正文门槛**：h5/h6、strong/em、内部链接、行内 code 对画布 3:1（正文 `label-primary` 仍 4.5:1），浅色档尤其 muted；这是为保住色相而接受的取舍（G16，见 13.3）。
-4. **浅色档彩色表面接近不可辨**：light·soft 的表格三档绿染收敛为同一色；会话行底自 2026-10-24 palette 版起改为可见的淡黄 / 淡蓝（light·soft warn `#F2E6C9` / done `#E6E8DA`；done 2026-11-08 起改蓝，见 §22.2）。light 三档全部贴着 3:1 门槛，进一步加深会跌破门槛。已由用户接受为「淡彩」，但真机目检要确认可辨识度。
+4. **浅色档彩色表面接近不可辨**：light·soft 的表格三档绿染收敛为同一色；会话行底自 2026-10-24 palette 版起改为可见的淡黄 / 淡蓝（light·soft warn `#F2E6C9`；done 2026-11-08 起改蓝，2026-11-15 起 light·soft 改取 `fg.blue` 淡染 `#dcecf5` / hover `#d8eaf3`，见 §34，warn 仍为 palette 淡黄）。light 三档全部贴着 3:1 门槛，进一步加深会跌破门槛。已由用户接受为「淡彩」，但真机目检要确认可辨识度。（2026-11-15 后续：light·soft 的 warn 由 §37 加深到 `#f0dfb5` / `#efdcad`。）
 5. **视觉噪音**：6 色标题 + 富文本 + 表格 + 会话行同时上色，信息密度高的会话可能显得花。0.4.0 曾用设置页开关作为「一键关闭」的退路；**2026-10-24 起开关已按用户要求移除**——目前没有单独关闭色彩模式的入口，若要退回单色内容层只能停用整个插件（会同时失去配色主题），该取舍见 §13.9。
 6. **维护面**：每次 DSH 升级（尤其主题 / Markdown 渲染 / 会话列表相关）都要检查选择器是否仍命中；`check-contrast` 只能守住色值门槛，守不住 DOM。
 
@@ -1026,6 +1038,10 @@ OKLab 辅助函数已随派生方案一起移除。门禁 G13 覆盖 base + hove
 
 hover 在行底基础上向 `fg.yellow` 混 16% 后重新守卫（light `#F9E6B5` / `#F8E6B9` / `#F2E6C7`；
 dark `#B89F6E` / `#B9A170` / `#BAA272`，深墨对比度 6.21 / 5.82 / 5.36）。
+
+> 2026-11-15 后续：light·soft 一档不再按 4.5:1 停步，改为沿 `bg_yellow` → `fg.yellow` 加深到该档自己的
+> 4.2 / 4.1 下限，行底 `#F0DFB5` / hover `#EFDCAD`（ΔL* −2.4 / −3.4）；上表该行与本节「不能更黄」的
+> 结论只对当时六档中的其余五档有效，见 §37。
 
 **为什么浅色档不能更黄**：`label-primary` 已贴着 4.5:1（light·medium 4.53、light·soft 4.51），再深就把行内正文
 压到门槛以下；这是 §13.7 记录的浅色边界，与 active-session（§15）同源。深色档的 `bg_yellow` 本身就是低饱和
@@ -1514,7 +1530,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 
 **浅色档的 `accentFill`**：brand / 填充按钮要配 `bg0` 墨色（`label-primary-foreground`），palette `green` 在 light·soft 只有 2.42:1，低于本项目 2.5:1 的已接受门槛，因此 `accentFill()` 仅在品牌前景不足 2.5:1 时向 `fg` 微调（light·soft → `#8a9e08`，2.51:1；其余五档保持原色，light·hard 2.81:1 / dark·soft 5.62:1）。这是有意的派生值，`tests/tokens.test.mjs` 的「brand foreground on brand …」钉住该门槛。
 
-**保留蓝色**（文本 / 信息 / 内容层，不与交互混淆）：`link`、`--shiki-token-keyword`、色彩模式的行内 code 文字 / h5、`--dsw-static-blue-*` 与 `deepseek-*` 兼容色阶（第三方插件用的静态家族仍在 blue 色相上）。checkbox 不属于纯蓝：浅色档用 `aqua`（绿）、深色档用 `blue`（§13.1）。**aqua 的去向**：token 层不再用它做交互强调，但色彩模式仍用 `fg.aqua` 画列表 marker / 引用左条 / 分隔线（内容装饰层，Enchanted 语义），属于有意保留。
+**保留蓝色**（文本 / 信息 / 内容层，不与交互混淆）：`link`、`--shiki-token-keyword`、色彩模式的行内 code 文字 / h5、`--dsw-static-blue-*` 与 `deepseek-*` 兼容色阶（第三方插件用的静态家族仍在 blue 色相上）。checkbox 不属于纯蓝：2026-11-15 起深浅档统一用 `green`（此前浅色 `aqua` / 深色 `blue`，见 §43）。**aqua 的去向**：token 层不再用它做交互强调；色彩模式曾用 `fg.aqua` 画列表 marker / 引用左条 / 分隔线，2026-11-15 这一族也改成了 `green`（§43），aqua 只剩内部文件链接与表格列宽提示线（`headerAqua`）。
 
 **影响面**：焦点环（不经 token 覆盖、跟随 `state-business-primary`）、DSH 全部内置 UI 包的 active / selected 态、第三方插件读取的 `state-business-primary`；对比度上 `state-business` on bg0：dark 6.88 / 6.23 / 5.62:1，light 2.81 / 2.69 / 2.42:1（语义色，report-only，见 `contrast.md` §2b）；品牌前景 2.81（light·hard）~ 5.62（dark·soft），light·soft 由 `accentFill` 抬到 2.51:1。当前会话行 6 档 fill 与对比度见 §15。
 
@@ -1558,7 +1574,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - `ROW_RAMP.done` 改为 `{ fill: 'bgBlue', accent: 'blue' }`，`dotDone` 改为守护后的 `fg.blue`；
 - 行底先走 `readableRowFill(bgBlue, bg0, labelPrimary)`，再用新的 `liftRowFill()`（原 `liftWarnFill` 泛化，目标 `ROW_DONE_SEPARATION = 4.5`）
   向 `fg.blue` 加深到「距侧栏 4.5 L*」或「4.5:1 门槛先到」；hover 再混 16% `fg.blue` 并重新守卫；
-- 实测：dark-soft `#3f5764`、light-hard `#dcece9`，与 10-24 蓝色选中行同值；light·soft 因 4.5:1 无余量仍只剩极淡色（与 §13.7 记录的浅色限制同源，状态点仍是蓝的）。
+- 实测：dark-soft `#3f5764`、light-hard `#dcece9`，与 10-24 蓝色选中行同值；light·soft 因 4.5:1 无余量只剩极淡色（与 §13.7 记录的浅色限制同源，状态点仍是蓝的）。**2026-11-15 更新**：light·soft 改为 `fg.blue` 淡染（`#dcecf5` / hover `#d8eaf3`，见 §34），其余五档不变。
 
 ### 22.3 工作区目录名称：`fg.green` 原值 + 600 字重（第三轮改为 `statusline1`，复核后回到 `fg.green`）
 
@@ -1594,7 +1610,7 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - `scripts/check-contrast.mjs`：G4 品牌前景下限 1.95；G17 按 scheme 判定（深色 4.5 / 浅色 1.95）；G18 目录名称按静止 / hover 分档（深色静止 4.5、hover 4.0；浅色静止 2.3、hover 2.1）；**G19** 标题深 4.0（另检查标题本身 ≥4.5 的 AA）/ 浅 2.3，选中项墨色深 4.5 / 浅 1.95；重新生成 `contrast.md` §2g / §2h / §2i（2026-11-08 复核后：目录名 / 标题改文字绿 `green`，见 §25.6）；
 - 测试：`tests/active-session.test.mjs`、`tests/color-mode.test.mjs`、新增 `tests/workspace-labels.test.mjs` 与 `tests/ui-accents.test.mjs`、`tests/integration.test.mjs`（当时 8 张样式表）；
 - 结果：`node --test` **304/304**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建。
-- 边界：浅色档选中行 2.42–2.81:1、浅色目录名称 2.2–2.7:1、浅色标题 / 菜单 2.36–2.81:1、light·soft 完成行仍极淡 —— 均为「统一原绿 + 不做守卫」的第二轮取舍，**第三轮已按 §23 换成 `statusline1`（2.0–2.3:1）**；2026-11-08 复核后文字绿（目录名 / 标题）回到 `fg.green`，浅色档 2.13–2.81:1，选中块仍是 `statusline1`（见 §25.6）；
+- 边界：浅色档选中行 2.42–2.81:1、浅色目录名称 2.2–2.7:1、浅色标题 / 菜单 2.36–2.81:1 —— 均为「统一原绿 + 不做守卫」的第二轮取舍，**第三轮已按 §23 换成 `statusline1`（2.0–2.3:1）**；2026-11-08 复核后文字绿（目录名 / 标题）回到 `fg.green`，浅色档 2.13–2.81:1，选中块仍是 `statusline1`（见 §25.6）；light·soft 完成行「极淡」一项已于 2026-11-15 由 `fg.blue` 淡染解决（§34）；
   发送按钮图标仍由 DSH 硬编码 `color:#fff`（深色档 2.00:1），两轮都未改。
 
 ## 23. 2026-11-08 第三轮：浅色交互绿改用上游 `statusline1` + 修掉选中行时间 / 图标不可见
@@ -1657,6 +1673,8 @@ DSH 的 Markdown 渲染器（`MarkdownText`）是 memo 化的 mdast switch，没
 - 结果（第三轮当时）：`node --test` **304/304**、`npm run check`（palette / build / contrast）全绿，`client.js` 已重建（8 张样式表）；现行全量 **336/336**、常驻 11 张 / 含设置页 12 张（§12）。
 - **边界**：浅色档墨色 2.00–2.32:1、目录名称 1.94–2.21:1、菜单卡 1.95–2.26:1 —— 这是上游参考 tab 本身的配对（奶油墨 on `statusline1`），
   浅色调色板没有更深的墨；发送按钮图标仍是 DSH 硬编码 `#fff`（浅色档 2.90:1、深色档 2.00:1），本轮未改。
+  > 2026-11-15 复核曾据此试过「浅色档墨色改深松墨 `#2F3B33`（4.88:1）」，用户看并排 demo 后要求撤回，
+  > 强调层仍用画布奶油墨（§45 记录了这次撤回）。发送按钮的白图标与目录名称的绿色不受影响。
 
 ### 23.5 选中行操作按钮的 hover / focus：换成墨色薄雾
 
@@ -2226,3 +2244,667 @@ html[data-everforest-light="hard"] body:not([data-ds-dark-theme])
 - 边界：若官方改掉 `data-home-whale` 或改用别的墨色来源，本表静默失效、回落成灰色鲸鱼（动画本身不受影响）；
   `filter: none` 只取消去饱和、`opacity: 0.3` 只抬高整层存在感，都不改变 canvas 的层叠位置与可读性；
   0.3 是用户从「太淡」反馈后选定的「背景纹理」强度，再往上就会开始和标题 / 输入卡片抢注意力。
+
+## 33. 对话面板右侧的轮次导航（2026-11-15）
+
+### 33.1 现状与决定
+
+DSH 的聊天视图在对话区右缘画一条竖排目录：每一横条是一轮对话，点它跳到那一轮，悬停出预览卡（`@deepseek-ai/dsh-client-ui-chat` 0.2.2-rc.3 的 `TurnNavigator`，不是滚动条）。它完全由 token 上色：未选中 `border-l4`、悬停 `label-tertiary`、当前轮 `label-primary`（浅色 `#BEC5B2` / `#A6B0A0` / `#5C6A72`）；条形 20×2px、圆角 2px，未选中 `scaleX(.6)`、悬停 `.9`、当前 `1`，状态切换 `.14s ease`；运行中的一轮用 1s 的 `opacity 1 → .35` 闪烁。
+
+用户贴出裁图问「这里的样式可以调整吗？」，随后要求「颜色要改为主题绿，形状也要调整，现在感觉线条太细了，动画也不够优雅」。2026-11-15 的四方案对照页（`.tmp/turn-rail-demo.html`，A 现状 / B 柔绿 / C 胶囊加粗 / D 双色）选定 **D**：未选中保持中性（`border-l4` 不改），当前轮用文字绿 `green`；条形改成 3×22px 胶囊，未选中 14px（`scaleX(.64)`）、悬停 19px（`.86`）、当前 22px（`1`）；切换放慢到 `240ms cubic-bezier(.22, 1, .36, 1)`（起步快、收尾长）；悬停把未选中的横条提亮到背景绿 `statusline1`；运行中从闪烁改成 `1.7s` 呼吸（`opacity 1 → .5`）。
+
+### 33.2 规则与落点
+
+| 状态 | 选择器（都在 `[data-conversation-scroll] nav` 下） | 颜色（light / dark） | 几何 |
+|---|---|---|---|
+| 未选中 | `button[data-index]::before` | `border-l4`（不改） | 22×3px、`999px` 胶囊、`scaleX(.64)` |
+| 未加载 | `[class*="markUnloaded"]::before` | 继承未选中 | `opacity .6`、`scaleX(.44)` |
+| 悬停 | `:hover::before` | `statusline1`（`#93B259` / `#A7C080`） | `scaleX(.86)` |
+| 键盘聚焦 | `:focus-visible::before` | DSH 焦点环色 | `scaleX(1)` |
+| 当前轮 | `[aria-current="true"]::before` | `green`（`#8DA101` / `#A7C080`） | `scaleX(1)` |
+| 运行中 | `[class*="markBusy"]::before` | 继承 | `everforest-turn-breathe 1.7s` |
+
+- 锚点：DSH 把 `data-conversation-scroll` 写在 `ConversationRoot` 的滚动容器上，聊天视图的 `nav` 是其中唯一的 `nav`，每根横条是 `button[data-index]`；不依赖 `SNx2jG_` 这类构建哈希。两个没有属性契约的状态类用本地名后缀命中（`markBusy` / `markUnloaded`），与 §22.3 的 `projectText` / `folderActive` 同一手法。
+- 级联顺序：`:hover` 与 `[aria-current="true"]` 同权重，当前轮规则放在悬停之后，悬停当前轮时不会退回亮绿；`:focus-visible` 夹在两者之间恢复满长横条。
+- `prefers-reduced-motion`：DSH 自己的降级块（`.SNx2jG_mark:before`）权重低于本表，本表为每一档各写一条 reduce 规则取消 transition 与呼吸动画，并且**重复该档的完整作用域**——无作用域的 `[data-conversation-scroll] nav …`（2 class + 3 元素）比重更高的一条档规则（4 class + 4 元素）低，写进表里永远不会生效（2026-11-15 复核实测：呼吸与 240ms 过渡在 reduce 下仍在跑，见 §44）。
+- 颜色分工与 §22.3 一致：当前轮取前景文字绿 `green`，悬停取背景绿 `statusline1`；深色档两值相同（`#A7C080`），差异只在浅色档。
+
+### 33.3 验证与边界
+
+- 代码：`src/turn-rail.js`（`TURN_RAIL_*` 常量 / `turnRailRoles()` / `turnRailStyles()`）、`src/client-entry.js`（1o 常驻样式表，卸载移除）、`scripts/build.mjs`（SOURCES 增加 `turn-rail.js`）；token 层零改动。
+- 测试：`tests/turn-rail.test.mjs`（9 项）——6 档色值钉死为字面量、几何常量钉死、锚点不含模块哈希、每档 6 条规则、悬停 → 聚焦 → 当前轮的级联顺序、keyframes / reduce 各一次、当前轮对画布 ≥ 2.4:1（浅色·soft 实测 2.42，深色 5.62–6.88）、无 `!important` / 不挂色彩模式；`tests/integration.test.mjs` 的常驻样式表断言改为 14 / 15 张并新增本表。
+- 验证：`node --test` 364/364、`npm run check`（palette / build / contrast）全绿；用安装包里真实的 `TurnNavigator.module.css` + 本表在 Chromium 里合成同一 DOM（`[data-conversation-scroll]` → `nav` → `button[data-index]`），计算样式读到 22×3px、`scaleX(.64)`、当前轮 `#8DA101` / 深色 `#A7C080`、`markUnloaded` `.6` / `scaleX(.44)`、`markBusy` `everforest-turn-breathe 1.7s`，并确认容器窄于 900px 时 DSH 自己隐藏导航。
+- 边界：`[class*="markBusy"]` / `[class*="markUnloaded"]` 依赖 DSH 保留本地类名（哈希前缀会变）；若 DSH 改掉 `data-conversation-scroll` 或 `button[data-index]`，本表静默失效、回到原生细线，不影响布局；10px 行距 / 420px 高度上限 / 28px 点击区写死在 DSH 的虚拟列表里，CSS 不碰。
+
+## 34. 2026-11-15 浅色 soft 档「已完成未读」行：改取 `fg.blue` 淡染
+
+> 触发：用户贴侧栏裁图（light·soft，侧栏 `#eee7ce`）：「浅色soft模式下，这个蓝色的已完成的蓝色背景颜色有点不显眼，需要调整一下」。
+> 裁图里该行实测底色 `#e6e8da`，与侧栏 `#eee7ce` 的 L* 差只有 **0.08**、对比度 **1.00:1** —— 等于没有底色。
+
+### 34.1 原因：`bg_blue` 在奶油侧栏上没有明度余量
+
+- light `bg_blue` `#E1E7DD` 对 `label-primary` `#5C6A72` 只有 **4.44:1**，`readableRowFill()` 必须把它沿 `bg0`（`#F3EAD3`，暖奶油）方向提亮到 4.5:1；
+  混出来的 `#e6e8da` 是薄荷 + 奶油的中和色，色相几乎消失、明度又贴着侧栏，所以既不像蓝色也看不出底色。
+- 沿 `fg.blue` 继续加深（`liftRowFill` 的 4.5 L* 目标）会被 4.5:1 文本门槛在第一步就挡住：light·hard 的 `#dcece9`（4.58:1）已接近上限，
+  light·soft 的 4.5:1 余量为 0。**在保持 `label-primary` ≥ 4.5:1 的前提下，靠明度差做不出可见的完成行**。
+
+### 34.2 方案：让色相承载状态，而不是明度
+
+| 方案 | 结果 | 结论 |
+|---|---|---|
+| A 现状（`bg_blue` → `bg0` 守卫） | `#e6e8da`，ΔL* 0.08 | 不可辨（本次问题） |
+| B 放宽行底文字门槛到 4.1:1（沿用 §13.7 diff 行底先例） | `#d4e0db`，ΔL* 3.4，标题 4.12:1 | 可见但读作灰绿，且破了 AA |
+| C 白锚 + `fg.blue` 淡染（**采用**） | `#dcecf5` / hover `#d8eaf3`，标题 4.62 / 4.52:1 | 明度几乎不变、色相变蓝，全部对比度原地不动 |
+| D 现状 + 1px 描边 | 底色仍不可见，只多一圈边 | 用户要的是「底色」，否决 |
+
+- 底色 = 白锚 → `fg.blue` 的淡染（`fg.blue` `#3A94C5` 是状态点的蓝，渲染时守卫成 `#408cb6`），由 `safeTint()` 按 4.5:1 反推权重：20% `#d8eaf3`（4.52:1）。
+- resting 再留 0.1 的对比度余量（4.6:1 目标）取 18% `#dcecf5`（4.62:1），hover 才能在同一道门槛上再走一步到 20% `#d8eaf3`（4.52:1）——
+  与 light·hard 的 4.58 / 4.52 同一配对关系。
+- 关键点：`#d8eaf3` 与侧栏 `#eee7ce` 的 **WCAG 对比度仍是 1.00:1**，但 CIELAB ΔE 约 **19.6**（侧栏是暖黄、行底是冷蓝）。
+  一行 32px 的底色靠色相就足够被看见，而 resting 行上标题 4.62:1、状态点 3.08:1、尾标 1.86:1（改前 `#e6e8da` 为 4.50 / 3.00 / 1.81）——
+  **没有一处可读性下降**。
+- 只改 light·soft：light·hard 用 palette 淡染已能到 4.55 L*、medium 3.35 L*（用户未反馈），继续沿 `bg_blue` 斜坡；
+  深色三档 ΔL* 7.5–8.8，不动。
+
+### 34.3 落点与门禁
+
+- 代码：`src/color-mode.js` —— `safeTint()` 增加可选对比度下限、新增 `doneRowTint()` 与 `ROW_DONE_TINT_START` / `ROW_DONE_TINT_MARGIN`，
+  `rowFill()` 在 `light + soft` 的 done 分支改走淡染；`ROW_DONE_SEPARATION` / 其余五档公式不变。
+- 测试：`tests/color-mode.test.mjs` 的 6 档色值表更新 light·soft 两项，`session-row fills come from the palette background accents`
+  为 light·soft 增加「落在白 → `fg.blue` 线上」「蓝通道 − 红通道 ≥ 20」「resting 比 hover 高（同一道门槛上的两级）」三条断言。
+- 门禁：G13 `row-done / label-primary` 仍是 4.5:1 硬门槛，实测 light·soft **4.62 / 4.52:1**（改前 4.50 / 4.51），
+  G14 状态点对 `bg-base` / `sidebar-fill` 3.01 / 3.00:1 不变（行底上是 3.08:1）；`docs/reference/contrast.md` §2f 重新生成。
+  > 2026-11-15 同日后续：用户认为这版底色仍「稍微有点亮」，§35.1 把这一对加深到 4.39 / 4.25:1 并给出该档自己的 4.2 下限，
+  > 本节「仍是 4.5:1 硬门槛」的记录只对当次交付有效。
+- 验证：用真实 DSH 会话行几何（268 × 32、`.wnFoaW_sessionRow` / `.wnFoaW_title` / `.wnFoaW_rowResting`）+ 本模块的 `colorModeStyles()`
+  在 Chromium 里合成 row（`data-state="done"`、未选中），计算样式读到行底 `rgb(220,236,245)`、标题 `rgb(92,106,114)`、尾标 `rgb(166,176,160)`；
+  鼠标移入后行底变 `rgb(216,234,243)`（hover 规则确实命中）；选中行因 `:not([aria-selected="true"])` 不匹配、保持原样。
+- 边界：「已完成」与「待确认」的淡黄仍是 light·soft 的已知弱项（`#f2e6c9`，ΔL* 0.04），本轮未动；若同样改淡染，黄底会变成琥珀淡彩，需要用户单独确认。
+  > 2026-11-15 同日后续：「待确认」一项已在 §37 处理（`#f0dfb5` / `#efdcad`），淡染方向经样张比对后被否决。
+
+## 35. 2026-11-15 浅色 soft 的三个蓝面：完成行加深、行内 code 抬起、问答复卡回到强调绿
+
+> 触发：§34 交付后用户连问三处（侧栏裁图 + 一张米色聊天气泡裁图）：
+> 「light soft 中的其他 bg_blue 都一起调整了吧」「图1中这个蓝色我感觉稍微有点亮了，把改成稍微深色一点」
+> 「图2是回答问题过后的聊天气泡，颜色为什么是这样？能调整一下吗？」
+> 三处都在 light·soft：该档的画布 `#F3EAD3` 已经贴着正文 4.5:1 的上限，任何「更明显」的诉求都会撞上同一道门槛。
+
+### 35.1 「已完成」行：再深一档（4.39 / 4.25），并给该档一个已记录下限
+
+- §34 的 `#dcecf5` 标题 4.62:1，对侧栏 ΔL* **+0.90** —— 色相已经变蓝，但明度仍比侧栏**亮**，
+  观感是一层很淡的冷白，用户读作「有点亮」。
+- 在 4.5:1 门槛内再深一步只剩 0.12 的对比度：白 → `fg.blue` 线上最深只到 `#dae9f5`（4.51:1，ΔL* 0.00、对侧栏 1.000:1），
+  也就是说**视觉上一步都走不动**。
+- 同明度提高饱和度（如 `#c9ecff`，4.50:1，C 0.045）虽然更「蓝」，但蓝通道拉满、观感更**亮**，与「深色一点」相反，否决。
+- 采用：把这一对从 4.5 门槛上放下来，沿同一条白 → `fg.blue` 线按 4.35 / 4.25 的目标反推权重，落点：
+
+| 状态 | 改前（§34） | 改后 | 标题对比度 | 对侧栏 ΔL* | 对侧栏对比度 |
+|---|---|---|---|---|---|
+| resting | `#dcecf5` | `#d4e7f2` | 4.62 → **4.39** | +0.90 → −1.01 | 1.024 → 1.027 |
+| hover | `#d8eaf3` | `#cee4f1` | 4.52 → **4.25** | +0.06 → −2.21 | 1.002 → 1.060 |
+
+- 低于 4.5:1 的文本承载表面在该档已有先例（diff 行底 4.1:1，§13.7），因此 G13 改成「按档取阈值」：
+  light·soft 4.2，其余五档仍是 4.5。这是显式记录的让步，不是漏检。
+- 否决「同时把行内标题墨加深以保住 4.5」：需要在行子树里重定义 `--dsw-alias-label-primary`，
+  成功与否取决于 DSH 是否用 `var()` 取色，在当前安装里无法验证（Electron 调试端口没有开），而且同一列会出现两种标题墨色。
+
+### 35.2 行内 code 芯片：软档改为「抬起」，不再被压成中性色
+
+- `inlineCodeSurface()` 是 `bg_blue` 的另一个消费者。light·soft 的旧值 `#e6e8da` 正是 §34 那张「看不见的完成行」的颜色：
+  对画布 **1.036:1**（hard 1.077 / medium 1.075），且 label 4.50、行内 code 文字 3.00 **两对都卡在门槛上** ——
+  既不能加深（两对立刻破线），也不能维持（看不出来）。
+- 采用：白锚 → `fg.blue` 8%，`#eff6fa`。这是 light·soft 一贯的「抬起」方向（气泡、代码画布同理）：
+
+| | 芯片 | 对画布 | label-primary | 行内 code 文字 |
+|---|---|---|---|---|
+| 改前 | `#e6e8da` | 1.036:1 | 4.50:1 | 3.00:1（守卫到 `#408cb5`） |
+| 改后 | `#eff6fa` | **1.098:1** | **5.12:1** | **3.09:1**（`#3A94C5` 原色即可过线） |
+
+- hard / medium 不动（1.077 / 1.075，用户未反馈）；深色三档走 `bg_dim` 提亮，与本轮无关。
+- 副作用：`inlineCode` 角色色从被守卫的 `#408cb5` 回到调色板原色 `#3A94C5` —— 芯片变亮后原色本身就过 3:1，不必再向墨色混合。
+
+### 35.3 问答复卡：不是配色问题，是锚点漏了一处
+
+- 用户看到的米色气泡是 DSH 的**问答回复卡**（`QuestionReplyView`：标题 / 问题 / 回答三行那一条）。
+  0.2.2 的渲染结构是 `div[data-question-reply] > div(bubbleWidth) > UserMessageBubble`，
+  **不在** `_userStack` 里；而常驻样式表的气泡锚点只有 `[class*="_userStack"] [class*="_bubble"]`，
+  于是这张卡回落到 token 的苔纸 `--dsw-specific-bubble`（light·soft `#f1f2e5`）+ `label-primary` —— 就是裁图里的米色。
+  该结构是从安装版 `app.asar` 的编译产物里读出来的（`QuestionReplyBubble`），不是猜的。
+- 同一个图元在 0.2.2 还有第三处：`/goal` 命令回显（`rhSLKq_bubble`，DSH 自己的注释写着「the command echo is a user message」），同样漏掉。
+- 采用：三个锚点**各自**带一次作用域（写成逗号列表时作用域只作用于第一个选择器，是这类规则最容易踩的坑）：
+
+  ```css
+  /* 作用域前缀要重复到每个选择器上，逗号列表本身不会继承前缀 */
+  html[data-everforest-color-mode="on"][data-everforest-light="soft"] body:not([data-ds-dark-theme]) [class*="_userStack"] [class*="_bubble"],
+  html[data-everforest-color-mode="on"][data-everforest-light="soft"] body:not([data-ds-dark-theme]) [data-question-reply] [class*="_bubble"],
+  html[data-everforest-color-mode="on"][data-everforest-light="soft"] body:not([data-ds-dark-theme]) [data-command-input] [class*="_bubble"] {
+    background: #93B259;
+    color: #F3EAD3;
+  }
+  ```
+
+- 卡片里还有一行会被底色否掉：问题行 `dl > div > .question` 由 DSH 写成 `color: var(--dsw-alias-label-secondary)`（`#939F91`），
+  在苔纸上只有 2.44:1，放到强调绿底上约 1.2:1 —— 只换底色会让问题行消失。因此 paint 规则在气泡子树里把
+  `--dsw-alias-label-secondary` 一并重指向气泡墨色（与既有的 `--dsw-alias-state-business-primary` 同一手法），
+  问题行 / 答案行统一奶油墨（2.00:1，§2i 的 accent 上限）。
+- 兜底不变：样式表若丢失，卡片回到苔纸 + `label-primary`（4.94:1），即用户这次看到的样子 —— 可读，只是不绿。
+  > 2026-11-15 同日第二次走查：这条锚点还顺带命中了复卡的 `_bubbleWidth` 包装盒，把绿底画在方角外盒上，
+  > 圆角因此消失；问题与回答也还同色。两处都在 §36 修正。
+
+### 35.4 落点与验证
+
+- 代码：`src/color-mode.js`（`ROW_DONE_TINT_TARGET` / `ROW_DONE_HOVER_TARGET`，`doneRowTint()` 改为按目标对比度反推）、
+  `src/tokens.js`（`INLINE_CHIP_RAISED_MIX` + soft 分支）、
+  `src/chat-bubble.js`（`CHAT_BUBBLE_SELECTORS` 三条锚点、`scopedBubbles()`、问题行墨色 token）。
+- 测试：`tests/color-mode.test.mjs`（light·soft 两个值 + 4.2 按档下限）、`tests/tokens.test.mjs`（抬起芯片的三条断言）、
+  `tests/chat-bubble.test.mjs`（三条锚点各出现 12 次、问题行墨色每档一条、`label-secondary` 在强调底上确实不可读）。
+- 门禁：`node scripts/check-contrast.mjs` 全绿（G13 按档 4.5 / 4.2；G16 行内 code 3.09），`docs/reference/contrast.md` 重新生成。
+- 验证：用安装版 0.2.2 的真实类名 / 属性（`LOmM4q_userStack`、`_bubble_1sgyj_1`、`BfLV8a_*`、`data-question-reply`）
+  和 DSH 自己的两条样式表（`._bubble_1sgyj_1`、`.BfLV8a_*`）+ 本模块的 `colorModeStyles()` / `chatBubbleStyles()`，
+  在 Chromium 里合成普通气泡、问答复卡、行内芯片与完成行，读计算样式核对：
+  普通气泡与复卡底同为 `rgb(147,178,89)`、墨色同为 `rgb(243,234,211)`；卡片问题行（DSH 的 `label-secondary`）
+  也被重指向成 `rgb(243,234,211)`，卡片外的 `13:58` / 复制按钮仍是 `rgb(166,176,160)`；
+  芯片底 `rgb(239,246,250)`、code 文字 `rgb(58,148,197)`；完成行 `rgb(212,231,242)` + 标题 `rgb(92,106,114)`。
+  hover 值由 `--everforest-color-row-done-hover`（`#cee4f1`）单独提供，Chromium MCP 无法强制 `:hover` 伪类，
+  这一对由 `tests/color-mode.test.mjs` 与 `docs/reference/contrast.md` 的实测值钉住。
+- 边界：「待确认」黄底 `#f2e6c9`（ΔL* 0.04）是本档同一原因的最后一个弱项，本轮未动 —— 要改同样得离开 4.5:1，需用户单独确认。
+  > 2026-11-15 同日后续：用户确认后由 §37 加深到 `#f0dfb5` / hover `#efdcad`（4.2 / 4.1:1）。
+
+## 36. 2026-11-15 问答回复卡：方角回归与问题 / 回答分色
+
+> 触发：§35 交付后用户贴回复卡裁图：「1.现在看到回复卡是方的，圆边框没了。2.给问题和回答分成两个颜色，好区分一点。」
+
+### 36.1 方角是选择器的锅，不是配色
+
+- 复卡的 DOM 是 `row > bubbleWidth > UserMessageBubble > dl`，而 `bubbleWidth` 的类名 `BfLV8a_bubbleWidth`
+  **也包含 `_bubble` 片段**。§35.3 的锚点 `[data-question-reply] [class*="_bubble"]` 因此同时命中了那个方角、满宽的包装盒：
+  绿底画在外盒上，里面的圆角气泡和它同色，20px 圆角就"消失"了 —— 用户看到的方角其实是外盒。
+- 修法：锚点加 `:not([class*="_bubbleWidth"])`（`bubbleWidth` 是 DSH 的 CSS module 类名，片段稳定）。
+  实测：包装盒 `rgba(0, 0, 0, 0)` / 半径 0，气泡 `rgb(147,178,89)` / 20px 圆角。
+
+### 36.2 问题与回答分两色：问题块加深色底带
+
+- 底色统一成强调绿后两行都是奶油色，"哪句是问题、哪句是我答的"只剩字号（13px header）和间距在区分，
+  用户要求再分一层。候选：
+
+| 方案 | 结果 | 结论 |
+|---|---|---|
+| A 问题块加深色底带（**采用**） | 底带对气泡底 1.23:1；问题墨色 light·soft 2.00 → 2.46:1 | 两色清晰，且问题更好读 |
+| B 只压暗问题文字（奶油 86%） | 2.00 → ~1.6:1 | 更看不清，否决 |
+| C 问题文字换深松绿 `#2F3B33` | 绿底上 4.8:1 | 可读，但整块绿底里出现深色字，像另一个组件 |
+| D 回答改纯白 | 2.31:1，与奶油的差距太小 | 分不出来，否决 |
+
+- 采用值：`background: rgba(0, 0, 0, 0.1)`、`border-radius: var(--dsw-radius-md, 12px)`、
+  `margin: 0 -10px 6px`、`padding: 5px 10px`。负边距吃掉气泡 16px 内边距中的 10px，问题文字与下方回答左对齐；
+  12px 圆角落在气泡 20px 圆角之内，看起来是一块内嵌的引用带。
+- 深色档的方向相反但可接受：黑色叠加让底带更暗、深墨对比度略降（dark·hard 6.88 → **5.59:1**，仍 AA），
+  底带对气泡底仍是 1.23:1。底带值与变体无关，因此只在 color-mode 锚点下输出**一条**规则，不复制 6 份。
+
+### 36.3 落点与验证
+
+- 代码：`src/chat-bubble.js` —— 锚点的 `:not([class*="_bubbleWidth"])`、新增 `CHAT_BUBBLE_QUESTION_BAND` /
+  `CHAT_BUBBLE_QUESTION_SELECTOR`、`chatBubbleStyles()` 增加一条常驻底带规则。
+- 测试：`tests/chat-bubble.test.mjs` —— 锚点断言排除 `_bubbleWidth`；规则总数 12 → 13（6 档 × 2 + 底带）；
+  底带只出现一次、值为 `rgba(0, 0, 0, 0.1)`、负边距保留；6 档底带分离度 ≥ 1.2，浅色档墨色变好、深色档 ≥ 4.5。
+- 验证：真实 DOM（`dt` 内两个 `span`、`--dsw-radius-xl: 20px`）渲染后读计算样式：包装盒 `rgba(0,0,0,0)`、
+  气泡 `rgb(147,178,89)` + `border-radius: 20px`、问题块 `rgba(0,0,0,0.1)` + `border-radius: 12px` + 左边缘距气泡 6px、
+  回答文字与问题文字左边缘同为 x=138。
+
+## 37. 2026-11-15 浅色 soft 档「待回答」行：沿 `bg_yellow` → `fg.yellow` 加深
+
+> 触发：§36 交付后用户贴侧栏裁图（light·soft，侧栏 `#eee7ce`）：「浅色soft这个模式下，待回答的会话的背景黄色太不明显了，需要调整一下」。
+> 裁图里该行实测底色 `#f2e6c9`，与侧栏的 L* 差 **0.04**、对比度 **1.00:1**、彩度 15.6 / 13.1 —— 同色相、同明度，等于没有底色。
+> §34.3 / §35.4 已把这个色登记为「本档最后一个弱项」，本次即该弱项。
+
+### 37.1 原因：黄色既没有明度余量，也没有色相可用
+
+- light `bg_yellow` `#F1E4C5` 对 `label-primary` `#5C6A72` 只有 **4.43:1**，`readableRowFill()` 必须先沿 `bg0`（`#F3EAD3`，暖奶油）把它提亮到 4.5:1 → `#f2e6c9`（4.51:1）；
+  这一步把彩度从 16.7 压到 15.6，落点又正好压在侧栏的 L* 上。
+- `liftRowFill()` 的 3.5 L* 目标在**第一步**就被 4.5:1 拦住（沿 `fg.yellow` 走 1% 立刻破线），所以 light·soft 一直停在 ΔL* 0.04。
+- 与 §34 的蓝行不同，这次连「换色相」都借不到：侧栏与行底同为黄系（h 98 / 92），可用的只有明度与彩度，而明度被 4.5:1 锁死。
+  §34.2 的白锚淡染本质是**换色相**（冷蓝 on 暖奶油，ΔE ≈ 19.6），对黄色不成立 —— 白锚只会得到更亮的奶白。
+
+### 37.2 候选（真实侧栏 + 真实 DSH 行几何、Chromium 渲染比对）
+
+| 方案 | 结果 | 结论 |
+|---|---|---|
+| A 现状（`bg_yellow` → `bg0` 守卫） | `#f2e6c9`，ΔL* 0.04，彩度 15.6 | 不可辨（本次问题） |
+| B 白锚 + `fg.yellow` 淡染（照搬 §34） | `#faf1d9`（白 + 15%），ΔL* **+3.7**、标题 4.96:1 | 正文反而更好读，但行底比侧栏**亮**、读作「更亮的奶油白」而不是黄色，且与另两档的加深方向相反，否决 |
+| C 按完成行的 4.35 / 4.25 门槛加深 | `#f1e2be` / `#f1e1bb`，ΔL* −1.4 / −1.7，彩度 19.5 | 蓝行靠色相就够（ΔE ≈ 20），黄行同色系，1.4 L* 仍读不出来 |
+| D 加深到本档自己的 4.2 / 4.1（**采用**） | `#f0dfb5` / `#efdcad`，ΔL* −2.4 / −3.4，彩度 **22.7 / 25.5** | 黄色带明确，标题 4.24 / 4.13:1 |
+
+- 为什么比完成行更深：蓝行的可见性由色相承担，黄行只能由明度 + 彩度承担，因此需要更大的 L* 步子；两者都是本档显式记录的让步
+  （diff 行底 4.1:1、完成行 4.39 / 4.25:1，§13.7 / §35），G13 继续按档取阈值。
+- 同时在 4.5:1 上做不出来：该门槛下沿 `bg_yellow` → `fg.yellow` 最深只到 `#F1E4C5` 本身（4.43:1，未过线），
+  也就是说「过 4.5:1 的可见黄带」在本档不存在。
+
+### 37.3 落点与门禁
+
+- 代码：`src/color-mode.js` —— 新增 `ROW_WARN_TINT_TARGET`（4.2）/ `ROW_WARN_HOVER_TARGET`（4.1）与 `warnRowTint()`
+  （从 palette `bg_yellow` 沿 `fg.yellow` 按 1% 步进，保留最后一个仍过门槛的步子，与 `readableRowFill` / `liftRowFill` 同一构造，只是门槛更低）；
+  `rowFill()` 增加 `light + soft` 的 warn 分支；`ROW_WARN_SEPARATION`（3.5 L*）继续只约束 hard / medium，其余五档公式不变。
+- 测试：`tests/color-mode.test.mjs` 的 6 档色值表更新 light·soft 两项；新增 `ROW_WARN_TEXT_FLOOR`（4.1）与 `ROW_WARN_RESTING_FLOOR`（4.2）
+  两个按档下限，「could still be deepened」断言只对 hard / medium 生效，light·soft 改由「对侧栏 ≥ 2 L*」「hover 比 resting 更深」「resting 落在自己的门槛上」三条钉住。
+- 门禁：G13 的 `rowWarn` / `rowWarnHover` 改为按档取阈值（light·soft 4.1，其余 4.5），实测 **4.24 / 4.13:1**；G14 不变
+  （状态点仍对 `bg-base` / `sidebar-fill` ≥ 3:1）；`docs/reference/contrast.md` §2f 重新生成。
+- 验证：用本模块的 `colorModeStyles()`（light=soft 的六档块 + 元素规则）套真实 DSH 行结构
+  （`[role="treeitem"][data-row-key^="session:"] :has([data-state="warning"])`）在 Chromium 里渲染并读计算样式：
+  待回答行 `rgb(240, 223, 181)`（= `#f0dfb5`）、同列普通行为 `rgba(0, 0, 0, 0)`、选中行因 `:not([aria-selected="true"])` 不匹配保持透明；
+  hover 值由 `--everforest-color-row-warn-hover`（`#efdcad`）单独提供，Chromium MCP 无法强制 `:hover`，这一对由测试与本报告的值钉住。
+- 边界：尾标 `label-tertiary`（`#A6B0A0`）在该底色上 1.81 → **1.71:1**，状态点 `#b67545` 3.01 → **2.83:1** —— 两者都是语义弱化色，
+  本来就不走文本门槛（G14 只测 `bg-base` / `sidebar-fill`），且行底本身已经承担了状态提示；加深只带来 0.1–0.2 的下降，作为已记录代价接受。
+
+## 38. 2026-11-15 次级文字：muted 灰向正文混 30%（先深色，后补浅色）
+
+> 触发：用户贴深色（dark·soft）问答面板截图，框住三个选项描述：「深色模式下，这些次级重要的文字颜色太浅了…看着太不明显了，能不能稍微把颜色加深一点？先出几个 demo 我看看修改的效果再决定」。
+
+### 38.1 实测：面板里其实是三档灰
+
+- 卡片底 `--dsw-specific-input-major` = `surface(1)` = `#3A464C`，序号块底 `--dsw-alias-bg-overlay` `#434F55` —— 与截图逐像素取色一致（截图来自运行中的桌面端）。
+- 截图里描述与左上「口味」小标题的峰值色 `#7A8478`（`grey0`）、序号与「1/3」`#859289`（`grey1`）、占位符 `#68726B`，分别对应 `label-tertiary` / `label-secondary` / `label-caption`。
+- 对卡片底只有 **2.50 / 2.99 / 1.95:1**：13px 描述与占位符都在 AA 之外，是上游 muted 语义在深色层叠表面上的既有落点。
+- 这些颜色不是插件自己的选择器：DSH 的 `QuestionComposer.module.css` 里 `.description` / `.eyebrow` 取 `label-tertiary`、`.number` / `.progress` 取 `label-secondary`、`.fieldInput::placeholder` 取 `label-caption`，插件只决定 token 值。
+
+### 38.2 候选（demo：深色 soft 1:1 还原面板 + 1.4× 放大对照）
+
+| 方案 | secondary | tertiary | caption | 对卡片底（ter） | 结论 |
+|---|---|---|---|---|---|
+| 现状 | `#859289` | `#7A8478` | `#68726B` | 2.50 | 本次问题 |
+| A 四级灰向正文混 30%（**采用**） | `#9CA293` | `#959887` | `#888B7E` | 3.30 | 描述清楚可读，层级仍在 |
+| B 混 45% | `#A8A998` | `#A2A28F` | `#989887` | 3.75 | 更清楚，但已接近正文观感 |
+| C 灰阶上移一档（`grey2` 起跳，冷灰） | `#ADB2A5` | `#9DA9A0` | `#859289` | 3.99 | 强度够，占位符只到 2.99 |
+| D 只改问题面板 | 同 B（卡片内） | 同 B | 同 B | 3.75 | 要靠 hash 类名锚定，长期不稳定 |
+
+- 用户选 A：「用方案A调整吧」；随后在同一次问答里追加「浅色也提一档」—— 同一套 +30% 规则，两个 scheme 一起生效。
+- 也试过反方向（把灰压暗，`#6B7468` ≈ 2.0:1）：只会更难读，所以两档都是「向正文混」。
+
+### 38.3 落点
+
+- `src/tokens.js` 新增 `MUTED_INK_LIFT = 0.3` 与 `mutedInk(p, color)`：两个 scheme 都把传入的灰向 `fg` 混 30%（`MUTED_DARK_LIFT` 是浅色追加前那一版的名字，已并入 `MUTED_INK_LIFT`）。
+- 应用到 `--dsw-alias-label-secondary`（`grey1`）、`--dsw-alias-label-tertiary`（`grey0`）、`--dsw-alias-label-caption`（`grey0` 与 `bg0` 的 25% 混色）三处。
+- `label-dimmed` 刻意不动：它只画禁用字形（1.41:1），那是「不可用」该有的样子；`label-document-preview` / `menu-icon` / json-tree 的 `grey1` 也不动，图标不属于本次反馈。
+- 浅色档走同一条 `mutedInk()`：向 `fg`（`#5C6A72`）混 30% 得到更深的墨，而不是 `lift()` 的「向 `bg0` 提亮」——后者在浅色档只会更淡，方向相反。
+
+### 38.4 落点值（两档共用 `grey0` / `grey1`，只有 caption 随 `bg0` 微差）
+
+| token | dark-hard | dark-medium | dark-soft | 旧值（dark） |
+|---|---|---|---|---|
+| `label-secondary` | `#9CA293` | `#9CA293` | `#9CA293` | `#859289` |
+| `label-tertiary` | `#959887` | `#959887` | `#959887` | `#7A8478` |
+| `label-caption` | `#86897B` | `#878A7D` | `#888B7E` | `#656F67` / `#677069` / `#68726B` |
+
+| token | light-hard | light-medium | light-soft | 旧值（light） |
+|---|---|---|---|---|
+| `label-secondary` | `#838F88` | `#838F88` | `#838F88` | `#939F91` |
+| `label-tertiary` | `#909B92` | `#909B92` | `#909B92` | `#A6B0A0` |
+| `label-caption` | `#9FA8A0` | `#9FA89E` | `#9DA69B` | `#BCC3B4` |
+
+对 `bg-base` 画布 —— dark：tertiary 4.67 / 4.23 / 3.81，caption 3.85 / 3.54 / 3.23；
+light：tertiary 2.78 / 2.67 / 2.40，caption 2.36 / 2.27 / 2.10（旧值 2.17 / 2.08 / 1.88、1.75 / 1.69 / 1.58）。
+
+### 38.5 影响面
+
+- `label-tertiary` 是 DSH 全部次级文字的默认墨色：会话 / 工作区行的静止态、时间、meta、行内图标按钮；工具调用行摘要；聊天里的引用摘要、上下文压缩提示、重试行、错误码、文件元信息；队列停靠栏；问答复卡；设置页描述；代码块行号。全部同一方向：可读性上升、层级不变。
+- `src/color-mode.js` 的 `faint`（删除线 / 已完成任务）直接取 `label-tertiary`，随之变亮：dark 2.50 → 3.30，light 2.17 → 2.78 —— 仍是各档最弱的一档，弱化语义保留。
+- 选中会话行的绿底不受影响：`src/active-session.js` 把该行子元素显式重绘成画布墨，不读 token 值。
+- `src/work-steps.js` 的六个档位是独立取值；`tests/work-steps.test.mjs` 的「比 `label-tertiary` 更好读」断言仍成立（基线从 2.50 升到 3.30，档位值远在其上）。
+- 插件自己的组件（`dev-panel` / `settings-page` / 问答回复卡的问题墨）取 `label-secondary` / `label-tertiary`，同样变亮一档。
+
+### 38.6 门禁与验证
+
+- `docs/reference/contrast.md` 重新生成：`label-secondary` / `label-tertiary` 报告行与 §2f 的 `faint` 一行随新值更新；`REPORT_PAIRS` 只报告、不设文本门槛，硬门槛无变化，全部仍 `pass`。
+- `tests/color-mode.test.mjs` 的六档角色快照改 `faint`（dark `#7A8478` → `#959887`，light `#A6B0A0` → `#909B92`）；`tests/tokens.test.mjs` 的 label 断言改为按 `mix(grey, fg, 0.3)` 推导，两档都钉住。
+- 实测（运行中的桌面端，深色档）：body 上 `--dsw-alias-label-tertiary` / `-secondary` / `-caption` 读到 `#959887` / `#9CA293` / `#888B7E`；浅色档由同一个 `mutedInk()` 产出，`tokensFor` 计算为 `#909B92` / `#838F88` / `#9FA8A0`，并用 light·hard 的 1:1 面板页在 Chromium 里渲染核对（改前 / 改后同屏对照）。
+- `node --test` 376 项通过，`palette --check` / `build --check` / `check-contrast --check` 三者一致。
+
+## 39. 2026-11-15 问答回复卡：问题块换成每档自己的「纸条」
+
+> 2026-11-15：本节的「纸条」已被 §46 撤回 —— 用户判「不好看」，改回单块表面 + 浅一档的问题墨；
+> `CHAT_BUBBLE_QUESTION_INK` / `chatBubbleQuestionPaper()` / `CHAT_BUBBLE_QUESTION_SELECTOR` 均已删除。
+
+> 触发：§36 的分色被用户判定「效果不太好」，并附了一张自己涂的 mock —— 绿气泡里放三块奶油纸条（`#E5E6C5`，即 light·soft 的 `bg_green`）、
+> 纸上深墨、纸条之间留回答。原话：「还是按这种方案帮我修改出一个demo吧，不要青绿色了」。
+> 中间还试过一版青绿条 `#569D79`（内嵌 / 通栏、单条 / 三条各出了 demo），用户否决。
+
+### 39.1 为什么放弃前两版
+
+| 方案 | 纸条对气泡底 | 问题字 | 结论 |
+|---|---|---|---|
+| A `rgba(0,0,0,.1)` 压深（§36，已上线） | 1.23 | light·soft 2.46 / dark·hard 5.59 | 用户：分得不够；深色档反而把墨色压下去 |
+| B 青绿 `#569D79` | 1.35 / 1.62 | 2.70 / 3.48 | 用户：不要青绿色 |
+| C 青绿加深 `#4A8168` + 奶油字 | 1.89 / 2.27 | 3.78 | 数字更好，但仍是「青绿」 |
+| D 该档自己的 `bg_green` 纸条（**采用**） | light 1.88–2.16 / dark 3.77–4.78 | light 9.17–10.52 / dark 6.30–7.98 | 用户 mock 的同一个色；纸色永远来自调色板 |
+
+- 用户的 mock 里那块 `#E5E6C5` 正是 light·soft 的 `bg_green`，所以「纸条」不是新颜色，而是 diff 新增行已经在用的那一档；
+  每档各自取自己的纸色（light `#F3F5D9` / `#F0F1D2` / `#E5E6C5`，dark `#3C4841` / `#425047` / `#48584E`），不写死跨档常量。
+- 墨色取该 scheme 的深端：浅色深松墨 `#2F3B33`（气泡选区已经在用的同一个值），深色奶油 `#F3EAD3`。
+  没有取 `label-secondary`：它在纸条上只有 light 4.38 / dark 4.47，正好卡在 4.5 之下。
+
+### 39.2 几何：沿用内嵌，不改 DSH 的节奏
+
+- 纸条仍是 `border-radius: var(--dsw-radius-md, 12px)`、`margin: 0 -10px 6px`、`padding: 5px 10px`：
+  负边距吃掉气泡 16px 内边距中的 10px，问题文字与下方回答左边缘都落在距气泡 16px 处。
+- 多轮问答（一次 `ask_user_question` 多个问题 → 同一个气泡里 `dl > div×N`）实测：每条 `dt` 各带一张纸条，
+  纸条与自己的 `dd` 相距 4px（两 4px margin 折叠），上一条回答到下一条纸条是 DSH 自己的 12px（`BfLV8a_details>div+div`），
+  分组关系正确；最后一条回答距气泡底 10px，纸条不会压到 20px 底角。
+- 通栏版（纸条贴到气泡两侧、首条 20px 顶角、后续方角）也做了 demo：单条像卡片标题、三条像分节，但用户 mock 是内嵌，先按内嵌落地；
+  要换只需把 `margin` 改成 `0 -16px 4px`、首条加 `border-radius: var(--dsw-radius-xl) var(--dsw-radius-xl) 0 0` 与 `margin-top: -10px`。
+
+### 39.3 落点与验证
+
+- 代码：`src/chat-bubble.js` —— 删除 `CHAT_BUBBLE_QUESTION_BAND`，新增 `CHAT_BUBBLE_QUESTION_INK`
+  （`{ light: '#2F3B33', dark: '#F3EAD3' }`）与 `chatBubbleQuestionPaper(scheme, strength)`（取 `ramp.bgGreen`）；
+  纸条规则从「与变体无关的一条」变成「每档一条」，`chatBubbleStyles()` 每档输出 纸条 + 气泡 + 选区 三条。
+- 测试：`tests/chat-bubble.test.mjs` —— 规则总数 13 → 18（6 档 × 3）；纸条色等于该档 `bg_green`、墨色按 scheme；
+  6 档纸条 / 气泡底 ≥ 1.85、问题字 ≥ 4.5 且必须优于裸绿底。
+- 门槛：`scripts/check-contrast.mjs` 新增 G23（纸条 ≥ 1.8、问题字 ≥ 4.5），`docs/reference/contrast.md` 重新生成出 §2m。
+- 验证：真实 DOM（`dl > div×3`、`--dsw-radius-xl: 20px`）读计算样式 —— 纸条 `rgb(229,230,197)` / 12px / 距气泡 6px，
+  问题字 `rgb(47,59,51)`，回答字 `rgb(243,234,211)`，三段左边缘同为 16px；`build --check` 与 `check-contrast` 均通过。
+
+## 40. 2026-11-15 深色档的问题纸条：先试奶油，最后定在「提亮橄榄」
+
+> 2026-11-15：本轮定下的 `#5D6E56` 纸条随 §46 一起撤掉（卡片回到单块表面，问题只退墨色）。
+
+### 40.1 为什么改
+
+- 用户当天回看深色档：「深色模式下的深绿色看着颜色太深了」。深色档的卡片底是亮绿 `#A7C080`（`statusline1`），
+  本档 `bg_green` 却是比 `bg1` 只高一步的橄榄（`#3C4841` / `#425047` / `#48584E`，L* 28–36），压在亮绿卡上像在卡上打了个洞。
+- 第一轮六个候选（同一张真实样式表，只覆盖纸条两行声明）：
+
+  | 候选 | 纸条 / 气泡底 | 问题字 / 纸条 | 结论 |
+  |---|---|---|---|
+  | A 深色 `bg_green` `#48584E` + 奶油字 | 3.77 | 6.30 | 用户：太深 |
+  | B 提亮橄榄 `#5D6E56` + 奶油字 | 2.74 | 4.57 | 奶油字的亮度天花板：再亮一档问题字就掉到 4.5 以下 |
+  | C 用户 mock 的奶油 `#E5E6C5` + 深松墨 | 1.57 | 9.17 | 深色卡片比浅色卡更亮，同一块奶油反而比浅色档更糊，低于 1.8 门槛 |
+  | D 浅色画布奶油 `#FDF6E3` + 深松墨 | 1.86 | 10.85 | 过门槛，但深色页面上出现一整块浅色 |
+  | E 卡片本身压深到 `#93B259` + C 的纸条 | 1.88 | 9.17 | 最接近 mock，但要改卡片底色，与同屏普通用户气泡不一致 |
+
+- 先落了 D，用户否掉：「深色模式下最好不要用大块范围的浅色」—— 深色页面里卡片本来已经是最亮的面，纸条再亮就成主角。
+- 第二轮只做深色块，九个方案：四个换色相（暖褐 `bg_yellow`、蓝灰 `bg_blue`、深紫 `bg_purple`、炭灰 `bg2`），
+  三个换结构（挖空到页面色 + 1px 内描边、通栏深色带、深底 + 3px 强调绿左竖条），外加 A / B 两档绿色。
+  深色档这边能调的只有色相与结构 —— 明度被两端夹死：奶油字要求块足够暗（4.5），块相对卡片又要 ≥ 1.8，
+  比 `bg_green` 亮一档的 `#63755B` 只有 4.15，所以「深色块」这条线的上限就是 B。
+- 用户从九个里选了 B（提亮橄榄 `#5D6E56` + 奶油字）：绿色系留在卡片同一族里，块比 `bg_green` 亮一档，不再像洞；
+  4.57 是这套纸能过的 AA 下限，也正好是「深色块」这一侧能到的最高亮度。
+
+### 40.2 落点
+
+- `CHAT_BUBBLE_QUESTION_INK` 保持 per-scheme 记录：浅色深松墨 `#2F3B33`（9.17–10.52）、深色奶油 `#F3EAD3`（4.57）。
+- 新增 `CHAT_BUBBLE_QUESTION_PAPER_DARK = '#5D6E56'`：把本档橄榄向强调绿提一档的取色，写死为审阅过的十六进制
+  （不在运行时混色，避免调色板调整把纸色悄悄推过门槛）。浅色仍取本档 `bg_green`；几何、圆角、间距一行未动。
+
+### 40.3 验证
+
+- 真实 DOM（深色 soft）读计算样式：纸条 `rgb(93,110,86)`、墨 `rgb(243,234,211)`、`12px` 圆角、距气泡 6px；
+  纸条到自己那条回答 6px、对上一条回答 12px、问题与回答文字左边缘同在 16px；三条问答那张卡不压底角。
+- 浅色档回归不变（纸条 `rgb(229,230,197)`、墨 `rgb(47,59,51)`）。
+- `tests/chat-bubble.test.mjs` 钉住 `#5D6E56` 与墨色记录；纸条下限回到 1.85（浅色 1.88 仍是最紧的一对），
+  并且「纸比绿底好读」这条只在浅色档断言 —— 深色块的墨色天然比卡片上的画布色暗，那不是它的目标。
+- 376 个测试、G23（深色 2.74 / 4.57）、`build --check` 全过；`docs/reference/contrast.md` §2m 重新生成。
+
+## 41. 2026-11-15 问题面板的多选按钮改主题绿（question-choices）
+
+### 41.1 为什么改
+
+- 用户截图圈出 `ask_user_question` 卡片里的多选方框：「对话中提问的时候，多选按钮的样式可以调整一下吗？按主题的绿色调整」。
+- 这些方框是 DSH 自己画的：`QuestionComposer` 的 `.checkbox::before` 是 14×14、圆角 4、`0.5px solid var(--dsw-alias-border-l4)`；
+  选中态 `.checkboxChecked::before` 用 `label-primary` 实底 + `label-primary-foreground` 勾 —— 浅色档是「深炭方框 + 奶油勾」，
+  深色档反过来。它读得懂「已选」，但和这个主题的其它选中面（会话行、下拉选中项、发送键、聊天气泡）不是一套颜色。
+
+### 41.2 方案
+
+- 直接沿用主题里唯一的那套强调配对：`statusline1` 实底 + 方案画布 `bg0` 勾色（浅色 `#93B259`、深色 `#A7C080`），
+  与 `src/ui-accents.js`（G19）、`src/plugin-update.js`（G20）、`src/chat-bubble.js` 完全同值，不新增颜色。
+- 对比度：深色档 5.62–6.88:1（AA）；浅色档 2.00–2.32:1 —— `statusline1` 上奶油墨的调色板上限（contrast.md §2i 已记录的取舍），
+  与选中行 / 气泡 / 发送键同一档。方框本身对卡片底 1.98–2.29（浅色）/ 4.86–6.01（深色）。
+- 未选中的方框保留 DSH 的中性描边：五个框全描绿会把选项列表变成一片绿框，而这次要调的是「按钮」的选中态；
+  行 hover 时（`:hover` 落在 `[data-option-row]`）把描边提到强调绿，预览它即将变成的颜色，已选中的框边框本来就是绿色、不受影响。
+
+### 41.3 落点与验证
+
+- 代码：新增 `src/question-choices.js`（`questionChoiceRoles()` / `questionChoiceStyles()`，每档 3 条规则：勾色、实底、hover 描边），
+  `src/client-entry.js` 以 1q 挂成常驻样式表 `dsh-everforest/question-choices`；`scripts/build.mjs` 的 `SOURCES` 加入该模块。
+- 锚点全部是 DSH 契约，不碰构建哈希：`[data-question-key]`（卡片）、`[data-option-row]`（选项行）、
+  `[class*="_checkbox"]` / `[class*="_checkboxChecked"]`（本地类名后缀，实测编译后为 `wnLwla_checkbox`）。
+- 测试：`tests/question-choices.test.mjs` 钉住六档配色、勾色 ≥4.5（深）/≥1.95（浅）、方框对卡片 ≥1.9、规则数与锚点；
+  `tests/integration.test.mjs` 把常驻样式表数量 16→17、并断言标签内容与挂载 label。
+- 验证：用安装包里的**真实编译 CSS**（`wnLwla_*` 全量样式表）＋真实 token ＋已构建样式表，在 Chromium 里按
+  `html[data-everforest-*]` / `body[data-ds-dark-theme]` 真实作用域渲染，浅色 medium / 深色 soft 各出「改前 / 改后」对照：
+  选中框分别变成 `#93B259` + 奶油勾与 `#A7C080` + 画布勾，勾形、方框几何与行 hover 均未被改动。384 个测试全过，`build --check` 通过。
+
+## 42. 2026-11-15 运行中会话标题：文字绿 + 光影扫光（running-title）
+
+> 触发：用户贴出侧栏截图，「给正在进行中的对话的左侧工作区里面的对话标题增加一下样式，文字颜色改为主题绿，
+> 并且带有光影动画，先出几个demo我看看效果」。看完 A–F 六档对比后：「就用方案B吧，但是浅色模式的需要调整一下，
+> 白光会让文字看不清楚」。
+
+### 42.1 表面与命中条件
+
+- 侧栏会话行（`ui-workspace` `Rows.tsx` 的 `SessionRow`）在「运行中」时，行首状态槽渲染的是
+  `StateDot(state="ongoing")`——安装包里的真实标记是 `<svg data-state="ongoing">` 的灰色转圈；标题是行的第二个直接子
+  `<span class="_title">`（265×32 的行内 14px / 20px）。DSH 给它的颜色是 `label-primary`。
+- 命中条件：`[role="treeitem"][data-row-key^="session:"]:has([data-state="ongoing"]):not([aria-selected="true"]) > span[class*="title"]`。
+  四个锚点全是契约——`role` / `data-row-key` 前缀 / `aria-selected` / `data-state`，以及 CSS-module 的本地名 `title`
+  （哈希前缀不参与），与 `src/color-mode.js` 判「待确认 / 已完成」行用的是同一套 `:has()` 写法。
+- 为什么排除选中行：当前打开的会话行是 `statusline1` 实色底 + 画布墨（§15 / §23），绿字压绿底等于看不见。
+  为什么不会误伤别的行：待审批 / 待回答的行首是 `warning` 点、已完成是 `done` 点，都不含 `ongoing`。
+- 与 §27 不冲突：§27 撤的是**对话区头部**的当前会话 crumb（`crumbCurrent`）绿色；这里是**侧栏行标题**，两者不是同一个表面。
+
+### 42.2 方案：光带永远背离画布
+
+- 六档 demo（`.tmp/running-title/`，真实行 + 真实 token）：A 常亮绿 / B 单道扫光 2.4s / C 宽光呼吸 4.8s /
+  D 明暗呼吸 3.2s / E 双道流光 3.6s / F 反方向对照。用户选 B。
+- 写法：标题取与工作区目录名同一个文字绿 `green`（§22 / §25.6 的既有角色），叠一条 260% 宽的绿色渐变
+  （绿 0 / 36% → 光带 44–54% → 绿 62% / 100%），`background-clip: text` 把渐变裁进字形，`background-position`
+  从 100% 走到 0%，在一轮 2.4s 里用 45%（≈1.08s）扫过，其余 55% 停在盒外。只动背景与颜色，不动字号、行高、截断。
+- **本轮重点是方向**：第一版浅色档把绿提亮到近白（`#CCD384` / `#DBDEA3`，峰值 1.29–1.46:1），白光直接把字打掉，
+  用户退回（「白光会让文字看不清楚」）。定稿改成「光带永远朝背离侧栏画布的方向走」：
+  浅色档把绿压深 28%（`#8DA101` → `#667401`，2.35–2.68 → **4.17–4.76:1**），
+  深色档把绿提亮 50%（`#A7C080` → `#D3E0C0`，5.00–6.17 → **7.24–8.94:1**）。
+  两种方向都让局部比静止时更清楚；hover 叠加底上光带也不低于静止（3.79–4.40 / 5.81–7.21），所以悬停时同样掉不了档。
+- 否决：① `text-shadow` 辉光——标题是 20px 高、`overflow: hidden` 的裁切盒，阴影上下会被切掉一截；
+  ② 浅色档继续用白光（用户已否）；③ 选中行也上色（绿底绿字）；④ 借机加粗 / 改字号（超出本次范围，且会动截断）。
+
+### 42.3 落点
+
+- `src/running-title.js`：`RUNNING_SESSION_ROW` / `RUNNING_SESSION_TITLE`、`runningTitleRoles()`（六档 `{ rest, band }`）、
+  `runningTitleStyles()`——每档 3 条规则（常亮绿兜底 / `@supports ((-webkit-background-clip: text) or (background-clip: text))`
+  内的扫光 / `prefers-reduced-motion: reduce` 退回常亮绿）＋ 1 段共享 `@keyframes everforest-running-title`（6×3+1）。
+  `color: transparent` 只写在 `@supports` 里，宿主不支持文字裁切时标题仍是普通绿字。
+- `src/client-entry.js` 以 1p 挂成常驻样式表 `dsh-everforest/running-title`（与色彩模式无关：这是导航状态，不是正文配色）；
+  `scripts/build.mjs` 的 `SOURCES` 把它排进 `workspace-labels.js` 之后。
+- 测试：`tests/running-title.test.mjs` 9 项——六档配色钉死、`rest`＝palette `green`、band 的混合比例、方向不变量
+  （浅色更暗 / 深色更亮）、四道对比度下限（2.3 / 4.1 / 4.5 / 7.0）与「光带不低于静止」、每档 3 条 + keyframes、
+  2.4s / 45% / 260% 的节奏、锚点与「不设任何布局属性 / 无 `text-shadow` / 无 `!important`」、常驻且不被色彩模式门控。
+  `tests/integration.test.mjs` 把常驻样式表数量 +1（15 → 16，同一晚 question-choices 并入后为 17 张）并断言标签内容与命中片段。
+- `scripts/check-contrast.mjs` 新增硬门槛 **G24**（含方向不变量），`docs/reference/contrast.md` 重生成出 §2n 表。
+
+### 42.4 验证与边界
+
+- `node --test` **384/384**；`palette / build / contrast` 三项 check 全绿，`client.js` 已重建（9399 行）。
+- 浏览器实测：安装包真实行 CSS + 真实 token + 已构建样式表，在共享调试 Chromium 里按
+  `html[data-everforest-light|dark="soft"]` / `body[data-ds-dark-theme]` 真实作用域渲染（浅色 soft / 深色 soft 即本机配置）：
+  选择器 `matches()` 命中；定格到峰值时 `background-position: 50%`、渐变色正好是 `#667401`（浅）/ `#D3E0C0`（深）；
+  行仍是 265×32、标题 194–195×20、`line-height: 20px`、省略号与 `overflow: hidden` 均未变。
+  把 `prefers-reduced-motion` 块临时改成 `@media all` 后读数为 `#8DA101`、`background-image: none`、`animation: none`，
+  说明减弱动画的兜底真的生效，不是「规则写了但没命中」。
+- 边界：`:has()` 不支持的宿主整条选择器失效，标题退回 DSH 原生 `label-primary`（无副作用）；浅色档峰值 4.17:1 仍低于 AA
+  的 4.5（light·soft 最紧），这与目录名的既有取舍同源（§2h），按本仓习惯记录在 §2n 而不是再调色；
+  动画只影响那条扫光带，选中行 / 待确认行 / 已完成行完全不受影响。
+
+
+
+## 43. 2026-11-15 markdown 装饰色改主题绿：列表符号 / 编号、分隔线、引用条、勾选框
+
+### 43.1 为什么改
+
+- 用户截图圈出对话里三处：无序列表的圆点、有序列表的编号、任务清单的方块，并说「对话中的 markdown 格式内容的颜色，
+  分隔线，勾选框，还有 list 前面的符号或者数字，都改为使用主题的绿色」。
+- 当时这套装饰取的是 `fg.aqua`：深色档 `#83C092`、浅色档 `#37a47c` —— 在 Everforest 里 aqua 是「蓝绿」角色，
+  12px 的圆点 / 编号落在深色画布上肉眼读作青色；复选框更是分档（浅色 aqua、深色蓝 `#7FBBB3`），
+  和主题里那套黄绿（发送键 / 选中行 / 目录名 / 运行中标题的 `#A7C080`）不是同一个绿。
+
+### 43.2 方案
+
+- 整套装饰角色（`marker` / `quote` / `hr` / `check`）改取 palette 的 `green`，并复用 h4 的守卫
+  `guardTo(fg.green, [bg], 3:1, label-primary)`：深色三档正好是 `#A7C080`（＝品牌绿，与发送键 / 选中行同值，5.62–6.88:1）；
+  浅色三档 `#889b0d` / `#849715` / `#7d8f25`（与 h4 同值，3.01–3.03:1）。装饰的 3:1 门槛（G10）不变。
+- `check`（复选框）与 marker 同一支绿，但按「文字能落到的表面」守卫（画布 / 表头带 / 斑马纹 / 行 hover / 引用底），
+  浅色档因此比 marker 再深一档（`#7e9024` / `#7b8d2a` / `#7a8c2c`），深色档两者同值。勾仍是画布色，14px 方块几何未动。
+- 引用底色 `quoteBg` 从 aqua 淡染（8%）换成绿色淡染：引用条变绿而底色留青，会把这个面板拆成两种色系。
+  表格列宽提示线（`headerAqua`）、内部链接（aqua）、行内 code（蓝）、加粗 / 斜体（紫）不动 —— 它们不是这次点名的装饰。
+
+### 43.3 落点与验证
+
+- 代码：`src/color-mode.js`——`marker` / `check` 的取色、`quoteBg` 的 tint 色相、角色 JSDoc 与文件头映射说明。
+  元素规则（`li::marker` / `hr` / `blockquote` / checkbox 四条）一条没改，改的只是喂给它们的变量。
+- 测试：`tests/color-mode.test.mjs` 钉死六档 `marker` / `check` / `quoteBg`；新增不变量「`marker` === `h4`
+  且 `g > b + 20`」「`check` 两档同族绿」；装饰 3:1 断言沿用。
+- 报告：`scripts/check-contrast.mjs` §2f 的映射说明同步，`docs/reference/contrast.md` 重生成。
+- 浏览器实测：安装包里真实的 `_markdown_13jw0_5` 全量 CSS ＋ 真实 token（写在 `<body style>` 上，与 `overrideTokens`
+  的运行期落点一致）＋ 已构建样式表，按 `html[data-everforest-*]` / `body[data-ds-dark-theme]` 真实作用域渲染：
+  深色 soft 档 `li::marker` 的 `::marker` 计算色为 `rgb(167,192,128)`（圆点 / 嵌套 circle / square / 有序编号全部命中，
+  `hr` 背景、引用条、已选框实底同值）；浅色 hard 档为 `rgb(136,155,13)`，勾选框 `rgb(126,144,36)`、勾为画布色 `#FFFBEF`；
+  引用底色 `#3C4748` / `#F6F4DC` 随档变化。
+- 边界：浅色档没有直接用 `statusline1`（`#93B259`，2.13:1）—— 装饰的 3:1 门槛是既有契约，守卫后的 `fg.green`
+  才是 h4 已经带的那支绿；宿主不支持 `:has()` 时只有「去掉任务项多余圆点」「已完成项淡化」两条失效（任务项会同时显示
+  圆点和方框），方框自身的绿色不受影响（重绘规则本身不带 `:has()`）。
+
+## 44. 2026-11-15 复核：reduced-motion 失效与一轮文档对齐
+
+> 触发：整轮视觉调整后做整体复核（「最近调整了各处的配色和样式…帮我整体评估一下」），
+> 用 Chromium + CDP 强制 `prefers-reduced-motion: reduce` 逐张样式表读计算样式，并逐处比对代码与文档。
+
+### 44.1 轮次导航的 reduced-motion 块从来没生效
+
+- §33 的降级块写成了**无作用域**的 `[data-conversation-scroll] nav button[data-index]::before`（2 class + 3 元素），
+  而它要压过的档规则是 `html[…] body[…] [data-conversation-scroll] nav button[data-index]::before`（4 class + 4 元素）。
+- 实测（CDP `Emulation.setEmulatedMedia` + `getComputedStyle(::before)`）：reduce 下 `animationName` 仍是
+  `everforest-turn-breathe`、`transitionDuration` 仍是 `0.24s, 0.24s` —— 呼吸与过渡都还在跑，等于对
+  减弱动效的用户完全失效；DSH 自己的降级块（`.SNx2jG_mark:before`，1 class）本来就压不过这层。
+- `tests/turn-rail.test.mjs` 当时只断言「末尾有这段文本、含这两条声明」，不校验选择器权重，所以测试仍然是绿的。
+- 修法：降级块改为**每档一条**并重复该档完整作用域（与 `src/running-title.js` 的 `@media` 写法一致），
+  放在 keyframes 之后；测试改为「六档各有一条带作用域的降级块，且不存在任何无作用域的 reduce 块」。
+- 复核：同一 harness 再跑，reduce 下 `transition: none/0s`、`animation: none`；不模拟 reduce 时
+  仍然是 `240ms` 过渡 + `1.7s` 呼吸，正常路径未受影响。
+
+### 44.2 问题面板多选按钮：去掉多余的颜色模式门控
+
+- `src/question-choices.js` 的作用域带了 `html[data-everforest-color-mode="on"]`，是 16 张常驻样式表里唯一这样做的一张
+  （该属性当前恒为 `on`，所以没有观感差异，但语义上它是交互 chrome，不是 markdown 内容；它的测试也称「un-gated」却断言了这个门控）。
+- 改为与 `turn-rail` / `running-title` 一致的「强度属性 + `body[data-ds-dark-theme]`」，测试断言反向
+  （`!css.includes('data-everforest-color-mode')`）。
+
+### 44.3 文档对齐（代码已改、说明滞后的六处）
+
+| 位置 | 原文 | 改为 |
+|---|---|---|
+| `design.md` §2 / §6.1 | 十四张常驻 / 共 15 张 | **十六张 / 共 17 张**，补 `running-title`（§42）与 `question-choices`（§41） |
+| `design.md` §4 摘录 | `label-secondary: r => r.grey1`、`label-tertiary: r => r.grey0` | 两条都走 `mutedInk(...)`（§38） |
+| `design.md` §38.3 | `MUTED_DARK_LIFT`、light 原样返回 | `MUTED_INK_LIFT`，两档都混 30% |
+| `src/color-mode.js` 文件头 | 引用块淡底 aqua tint | 绿色淡染（§43） |
+| `reference/palette.md` §6 | 引用块淡底 = aqua 8%；「7 个强调色全部在内容层有角色」 | 引用块 8% 绿色；aqua 已退出内容层（只余 json-tree 的 token 角色） |
+| `assessment.md` 角色表 | 引用块 aqua 左边框 + aqua 淡底 | `fg.green` 左边框 + green 8% 淡底 |
+
+另外 `reference/contrast.md` §6.8 的气泡偏差记录补了 2026-11-15 的三条锚点与问题纸条（§39–§40），
+`design.md` 开头的状态行补齐这一整轮（§33–§43）。
+
+### 44.4 验证
+
+- `node --test` **385/385**；`palette --check` / `build --check` / `check-contrast --check` 三者一致
+  （`contrast.md` 因 §6.8 补充而重生成）。
+- 真机（Desktop，暗色 soft）：17 张样式表齐全；全页 409 个可见文本节点的最低对比度 **2.86:1**（12px 键帽，DSH 原生语义），
+  其余次级文字 3.30–3.81，无不可读文本；`label-secondary` / `-tertiary` / `-caption` 分别为 `#9CA293` / `#959887` / `#888B7E`。
+- 未改动的取舍（记录在案，等用户决定）：light·soft 三处低于 4.5:1 的行底、运行中标题静止绿 2.35–2.68:1。
+  两处取舍（浅色强调层的奶油墨、未选中任务框的绿描边）在同轮 demo 后曾改过一版，当日即按要求撤回，见 §45。
+
+## 45. 2026-11-15 撤回：强调层墨色与任务框描边退回原值
+
+> 触发：§44 复核把两处取舍摆成并排 demo（浅色强调层的奶油墨 vs 深松墨；任务清单未勾选框的绿描边 vs 中性描边）。
+> 用户先拍板「全换深墨 #2F3B33」＋「改为中心描边」，又追加「深色模式下，选中的多选框，中间的勾勾 icon 用浅色」；
+> 三处落地后当日被判「效果都不太好」，要求全部还原。所以本节不是取值定稿，而是**撤回记录**：
+> 这三处已经被试过、被否过一次，除非下面「前提」那条变了，不要再次提议。
+
+### 45.1 试过又退回的三处
+
+| 位置 | 曾改为 | 已退回 |
+|---|---|---|
+| 浅色强调层墨（选中会话行 / 气泡 / 下拉选中项 / 多选框 / 更新弹窗徽标） | 深松墨 `#2F3B33`（对 `#93B259` 三档同为 4.88:1） | 画布奶油 `bg0`：`#FFFBEF` / `#FDF6E3` / `#F3EAD3`（2.32 / 2.22 / 2.00:1） |
+| 未勾选的任务框 | DSH 中性 `border-l4` 细描边 + 透明底 | 同一支 `check` 绿的 68% 描边 + 10% 淡底 |
+| 勾（任务清单 + 问题面板多选框） | 浅色 `#2F3B33`（3.13–3.29 / 4.88:1）、深色 `#FFFBEF`（1.93:1） | 两档都取 token 的 `--dsw-alias-bg-base`（深色 6.88 / 6.23 / 5.62:1） |
+
+深色档那支浅勾当时量过四个候选：方案亮墨 `fg` `#D3C6AA` 1.18:1、淡绿 `#D3E0C0` 1.45:1、
+奶油 `#F3EAD3` 1.67:1、主题最白的 `#FFFBEF` 1.93:1 —— 深色档的绿实底本身就是该 scheme 最亮的面，
+任何浅色勾都必然掉到 2:1 上下。这个数字关系不因撤回而改变，留在这里是为了下次讨论时不用重测。
+
+### 45.2 撤回后的落点
+
+- `src/color-mode.js`：删除 `ACCENT_INK_LIGHT` / `CHECK_TICK_DARK` 与 `checkTick` 角色（角色数回到 **25**），
+  未勾选框回到 `color-mix()` 的 68% 描边 / 10% 淡底，勾色改读 token `--dsw-alias-bg-base`。
+- 五个消费者（`active-session` / `chat-bubble` / `ui-accents` / `question-choices` / `plugin-update`）的墨色统一回到
+  `palette.ramp.bg0`；`CHAT_BUBBLE_LIGHT_INK` 恢复成按强度分档的对象（三档各自的 `bg0`）。
+- 门禁：G25 与 `contrast.md` §2o 一并删除；G17 / G19 / G20 的浅色下限从 4.5 回到 **1.95**（深色仍 4.5）。
+  测试里的钉值 / 下限同步回到 §44 口径，`node --test` **385/385**，三项 check 全绿。
+- 未撤回的部分：§43 的绿色装饰族（marker / quote / hr / check）、§44.2 的问题面板门控修正；§39 / §40 的问题纸条于次日被 §46 撤回。
+- 前提：浅色强调层 2.00–2.32:1 是这套调色板的已知上限 —— 浅色调色板里没有比 `bg0` 更浅、又不落在 `statusline1`
+  同一明度带的中性墨。要再动它，先解决这个前提（换墨的色相 / 换实底），而不是重复一次深松墨。
+
+## 46. 2026-11-15 问答回复卡去掉纸条：单块表面 + 浅一档的问题墨
+
+> 触发：用户贴 light·hard 与深色档的卡片裁图（图1 是当时的线上样式，另两张是默认主题的同一段对话作参考）：
+> 「这个问答过后的聊天气泡显示需要调整一下，显示样式如图1，感觉不好看，不想要两个不同颜色的块来做显示，
+> 参考默认主题，帮我调整一下，问题用浅一点的文字稍微弱化显示就行了。」
+
+### 46.1 被否的不是配色，是「用底色分色」这个结构
+
+- 纸条是 §36 → §39 → §40 三轮的产物，方向一直是「问题与回答分成两个颜色」。线上效果是绿卡里嵌着两块奶油纸
+  （light·hard 实测纸 `#F3F5D9` 占 48% 像素、绿底 `#93B259` 占 34%），用户判定整体「不好看」。
+- 默认主题里同一张卡片只有**一块**底色，层次全在墨色上：DSH 的 `QuestionReplyView.module.css` 写的是
+  `.question { color: var(--dsw-alias-label-secondary) }`（`dt`）、`.answer { margin: 4px 0 0 }`（`dd` 继承气泡墨色），
+  没有第二个 surface。本节的方案就是把结构还给 DSH：一块强调色卡片，`dt` 退一档、`dd` 是气泡墨。
+- 记在案的否决：这块卡片以后不要再引入第二块底色（纸条 / 深色带 / 青绿条都已试过并被否），要分层次就只动墨色。
+
+### 46.2 取值：问题墨 = 气泡墨向气泡底移动 6 L*
+
+- `chatBubbleQuestionInk(scheme, strength)` 在「气泡墨 → 气泡底」的混合线上按 1% 步进走，取第一格亮度差 ≥ 6 L* 的颜色。
+  方向永远是「更软」：浅色档的墨比底亮，于是问题墨变深；深色档的墨比底暗，于是问题墨变亮。
+- **为什么按 L* 而不按对比度**：浅色三档的奶油墨压在 `statusline1` 上本来只有 2.00–2.32:1，按比例压一档（例如 90%）
+  在 light·soft 会掉到 1.6 上下，观感像被禁用；按亮度差取，深色档同样是 6.0–6.4 L* 的一步，却仍稳稳在 AA 之上。
+
+| 变体 | 问题墨 | 回答墨 | 气泡底 | 问题 / 底 | 回答 / 底 | L* 差 | 混合比例 |
+|---|---|---|---:|---:|---:|---:|---:|
+| light·hard | `#e9ecd1` | `#FFFBEF` | `#93B259` | 1.99 | 2.32 | 6.1 | 20% |
+| light·medium | `#e6e7c5` | `#FDF6E3` | `#93B259` | 1.90 | 2.22 | 6.2 | 22% |
+| light·soft | `#dbdcb5` | `#F3EAD3` | `#93B259` | **1.70** | 2.00 | 6.0 | 25% |
+| dark·hard | `#343d3b` | `#272E33` | `#A7C080` | 5.59 | 6.88 | 6.4 | 10% |
+| dark·medium | `#3a4443` | `#2D353B` | `#A7C080` | 5.03 | 6.23 | 6.3 | 11% |
+| dark·soft | `#404b4a` | `#333C43` | `#A7C080` | 4.52 | 5.62 | 6.2 | 11% |
+
+- 对照：DSH 自己的 `label-secondary` 压在强调绿上只有 1.40:1（浅色 `#838f88`）/ 1.31:1（深色 `#9ca293`），所以这一档必须由样式表给；
+  但也不能给成回答墨色 —— 那正是 §35 初版的「两行同色」。6 L* 就是这两者之间那一格。
+- 否决：4 L*（demo 里两行几乎仍是同一个声音，4.1 L* 的档位要盯着看才分得出）；8 L* 以上（问题开始像禁用态，
+  light·soft 会掉到 1.6 以下）；改字号 / 字重 / 加边框（用户只要「浅一点的文字」，
+  动字重会牵连 13px header 与行高，加边框又会回到「第二种块」）。
+- 不按档位另调：六档都取同一个 6 L*，不因为 light·soft 余量小就少退一档 —— 同一张卡在六档之间的层次感一致，
+  而 light·soft 的 1.70:1 与它自己回答墨的 2.00:1 是同一条已记录的上限（§2i / §6.8），不是新一轮让步。
+
+### 46.3 落点与验证
+
+- 代码：`src/chat-bubble.js` —— 删除 `CHAT_BUBBLE_QUESTION_INK` / `CHAT_BUBBLE_QUESTION_PAPER_DARK` /
+  `CHAT_BUBBLE_QUESTION_SELECTOR` / `chatBubbleQuestionPaper()` 与每档那条纸条规则，新增
+  `CHAT_BUBBLE_QUESTION_INK_STEP = 6` 与 `chatBubbleQuestionInk()`；paint 规则把 `--dsw-alias-label-secondary`
+  指向问题墨。每档规则数 **3 → 2**（paint + `::selection`），全表 18 → 12 条。
+- 门槛：G23 重写为四道 —— 亮度差 ≥ 4 且 ≤ 8、问题必须比回答淡、浅色 ≥ 1.65:1、深色 ≥ 4.4:1；
+  `docs/reference/contrast.md` §2m 重新生成（问题墨 / 回答墨 / L* 差三列）。
+- 测试：`tests/chat-bubble.test.mjs` —— 六档取色与实测对比度逐个钉死、亮度差落在 5.5–7、方向朝气泡底、
+  取色必须落在「墨 → 底」混合线上且比例 ≤ 30%、问题墨色不进回答墨色、`_question` 选择器与纸条几何不得回归、
+  每档 2 条规则、`label-secondary` 每档一条重指向。
+- 浏览器实测：安装包真实规则（`._bubble_1sgyj_1` / `.BfLV8a_*`）+ 真实 token + 已构建样式表，在共享调试 Chromium 里
+  按 `html[data-everforest-light|dark]` / `body[data-ds-dark-theme]` 真实作用域渲染 light·hard 与 dark·soft：
+  问题块 `background: rgba(0,0,0,0)`、`padding: 0`、`margin: 0`、`border-radius: 0`（纸条的几何确实没了）；
+  气泡 `rgb(147,178,89)` / `rgb(167,192,128)`、20px 圆角、`10px 16px` 内边距；问题字 `rgb(233,236,209)` / `rgb(64,75,74)`；
+  回答字 `rgb(255,251,239)` / `rgb(51,60,67)`；问题与回答左边缘同为 x=152，问题 → 回答 4px、回答 → 下一条问题 12px；
+  卡片外的时间与复制键仍是 `label-tertiary`。
+- 边界：浅色三档的问题字低于回答一档，**light·soft 1.70:1 是本轮最紧的一对**（回答墨本身 2.00:1 已是这套调色板在
+  `statusline1` 上的上限）；深色档全部 ≥ 4.52:1。样式表失效时卡片回到 token 苔纸底 + `label-primary`，
+  问题行重新吃 DSH 自己的 `label-secondary`（可读，只是不绿、也不再分两档）。

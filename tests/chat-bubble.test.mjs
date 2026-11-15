@@ -6,12 +6,15 @@ import {
   CHAT_BUBBLE_DARK_INK,
   CHAT_BUBBLE_LIGHT_FILL,
   CHAT_BUBBLE_LIGHT_INK,
+  CHAT_BUBBLE_QUESTION_INK_STEP,
+  CHAT_BUBBLE_QUESTION_INK_TOKEN,
   CHAT_BUBBLE_SELECTION_INK,
-  CHAT_BUBBLE_SELECTOR,
+  CHAT_BUBBLE_SELECTORS,
+  chatBubbleQuestionInk,
   chatBubbleRole,
   chatBubbleStyles
 } from '../src/chat-bubble.js'
-import { contrastRatio } from '../src/color.js'
+import { contrastRatio, labLightness, mix } from '../src/color.js'
 import { FOREGROUNDS, RAMPS, STRENGTHS } from '../src/palette.js'
 import { tokensFor } from '../src/tokens.js'
 
@@ -21,9 +24,9 @@ const VARIANTS = ['light', 'dark'].flatMap((scheme) => STRENGTHS.map((strength) 
 test('bubble paint is the pinned 2026-11-10 selected-row pair in both schemes', () => {
   // 2026-11-10: the user asked the bubble to look like the selected sidebar row
   // in dark ("试试直接改成侧边栏选中那种绿色和文字颜色") and then in light
-  // ("浅色气泡的也和侧边栏颜色保持一致"). A deep-ink experiment for long messages
-  // was tried and reverted the same day ("文字还是换回白色吧"), so the light
-  // bubble keeps the sidebar pair verbatim.
+  // ("浅色气泡的也和侧边栏颜色保持一致"). Both schemes therefore use the accent fill
+  // with the scheme canvas `bg0` as ink. 2026-11-15 review: a deep light ink was
+  // landed off a demo and withdrawn at the user's request (design §45).
   assert.equal(CHAT_BUBBLE_LIGHT_FILL, '#93B259')
   assert.deepEqual({ ...CHAT_BUBBLE_LIGHT_INK }, { hard: '#FFFBEF', medium: '#FDF6E3', soft: '#F3EAD3' })
   assert.equal(CHAT_BUBBLE_DARK_FILL, '#A7C080')
@@ -35,17 +38,16 @@ test('bubble paint is the pinned 2026-11-10 selected-row pair in both schemes', 
   }
 })
 
-test('bubble paint is the accent layer pair (statusline1 fill + canvas bg0 ink)', () => {
+test('bubble paint is the accent layer pair (statusline1 fill + the canvas ink)', () => {
   assert.equal(CHAT_BUBBLE_LIGHT_FILL, FOREGROUNDS.light.statusline1, 'light fill is the interaction accent')
   assert.equal(CHAT_BUBBLE_DARK_FILL, FOREGROUNDS.dark.statusline1, 'dark fill is the interaction accent')
   for (const strength of STRENGTHS) {
     assert.equal(CHAT_BUBBLE_LIGHT_INK[strength], RAMPS.light[strength].bg0, `light-${strength}: ink is the canvas bg0`)
     assert.equal(CHAT_BUBBLE_DARK_INK[strength], RAMPS.dark[strength].bg0, `dark-${strength}: ink is the canvas bg0`)
   }
-  // The dark pair is AA (6.88 / 6.23 / 5.62 measured). The light pair is the
-  // palette's cream-on-statusline1 ceiling (2.32 / 2.22 / 2.00, the §2i accent
-  // trade-off) — the user chose it explicitly after testing deep ink.
-  const lightFloors = { hard: 2.32, medium: 2.22, soft: 2.0 }
+  // Dark is a real AA pair (6.88 / 6.23 / 5.62); light is the accent layer's
+  // documented cream ceiling (2.32 / 2.22 / 2.00) with its 1.95 floor.
+  const lightFloors = { hard: 2.32, medium: 2.22, soft: 2.00 }
   const darkFloors = { hard: 6.88, medium: 6.23, soft: 5.62 }
   for (const strength of STRENGTHS) {
     const light = contrastRatio(CHAT_BUBBLE_LIGHT_INK[strength], CHAT_BUBBLE_LIGHT_FILL)
@@ -57,7 +59,7 @@ test('bubble paint is the accent layer pair (statusline1 fill + canvas bg0 ink)'
   }
 })
 
-test('bubble rules stay scoped to the user message row', () => {
+test('bubble rules cover every surface DSH paints a user message on', () => {
   const css = chatBubbleStyles()
   // Scope anchors: the always-on color-mode attribute on <html>, DSH's own dark
   // theme flag on <body>, and the token layer's strength attributes.
@@ -68,26 +70,133 @@ test('bubble rules stay scoped to the user message row', () => {
     assert.ok(css.includes(`[data-everforest-light="${strength}"]`), `light-${strength} rule missing`)
     assert.ok(css.includes(`[data-everforest-dark="${strength}"]`), `dark-${strength} rule missing`)
   }
-  // The bubble is matched through the chat package's class-name fragments; the
-  // `_userStack` ancestor keeps the tooltip bubble (`_bubble_44yfq_1`) out.
-  assert.equal(CHAT_BUBBLE_SELECTOR, '[class*="_userStack"] [class*="_bubble"]')
-  assert.ok(css.includes('[class*="_userStack"]'))
-  assert.ok(css.includes('[class*="_bubble"]'))
+  // One primitive, three anchors (2026-11-15): the chat row (`_userStack`), the
+  // answered question card (`QuestionReplyView` renders the same
+  // `UserMessageBubble` outside that stack, so it kept the moss-paper token) and
+  // the `/goal` command echo (DSH: "the command echo is a user message"). The
+  // `_bubble` fragment still keeps the portaled tooltip bubble out; the reply
+  // card's `_bubbleWidth` wrapper is excluded so the paint lands on the rounded
+  // bubble, not on that square full-width box (2026-11-15 regression report).
+  assert.deepEqual([...CHAT_BUBBLE_SELECTORS], [
+    '[class*="_userStack"] [class*="_bubble"]',
+    '[data-question-reply] [class*="_bubble"]:not([class*="_bubbleWidth"])',
+    '[data-command-input] [class*="_bubble"]'
+  ])
+  for (const selector of CHAT_BUBBLE_SELECTORS) {
+    assert.ok(css.includes(selector), `${selector}: anchor is painted`)
+    // Each anchor has to carry the variant scope itself: a comma list after one
+    // scope would only scope the first selector.
+    assert.equal(
+      css.split(selector).length - 1,
+      VARIANTS.length * 2,
+      `${selector}: paint + selection rule per variant`
+    )
+  }
   assert.ok(!css.includes('!important'))
-  // Two rules per variant since 2026-11-13: the accent paint and its
-  // bubble-scoped `::selection`.
+  // Two rules per variant since 2026-11-15: the accent paint (with the muted
+  // question token) and its bubble-scoped `::selection`. The question paper that
+  // used to add a third rule per variant is gone — the card is one surface.
   assert.equal((css.match(/{/g) ?? []).length, VARIANTS.length * 2, 'paint + selection per variant')
-  assert.equal((css.match(/::selection/g) ?? []).length, VARIANTS.length, 'one selection rule per variant')
-  // Nested session-reference chips restate their own colour token; the band ink
-  // must be re-pointed at it inside every bubble subtree.
+  assert.equal(
+    (css.match(/::selection/g) ?? []).length,
+    VARIANTS.length * CHAT_BUBBLE_SELECTORS.length,
+    'every bubble anchor is covered by the selection rule'
+  )
+  // Nested session-reference chips restate their own colour token, and the
+  // question-reply card paints its question line with the muted label token; the
+  // paint rule re-points both inside every bubble subtree.
   assert.equal(
     (css.match(/--dsw-alias-state-business-primary/g) ?? []).length,
     VARIANTS.length,
     'every rule re-points the reference-chip ink token'
   )
+  assert.equal(CHAT_BUBBLE_QUESTION_INK_TOKEN, '--dsw-alias-label-secondary')
+  assert.equal(
+    (css.match(new RegExp(`  ${CHAT_BUBBLE_QUESTION_INK_TOKEN}:`, 'g')) ?? []).length,
+    VARIANTS.length,
+    'every rule re-points the muted question ink'
+  )
+  // No second fill on the card: the pencil-down rules that used to paint a paper
+  // block (`[data-question-reply] [class*="_question"]`) must not come back.
+  assert.ok(!css.includes('_question'), 'the reply card no longer paints a question block')
+  assert.ok(!css.includes('border-radius: var(--dsw-radius-md, 12px)'))
   for (const { scheme, strength } of VARIANTS) {
     const { fill } = chatBubbleRole(scheme, strength)
     assert.ok(css.includes(fill), `${scheme}-${strength}: fill is painted`)
+  }
+})
+
+test('the reply card is one surface and the question recedes by its ink', () => {
+  // 2026-11-15: the user looked at the paper block and asked for the default
+  // theme instead ("不想要两个不同颜色的块来做显示，参考默认主题…问题用浅一点的文字稍微
+  // 弱化显示就行了"). So the paper is gone; `dt` keeps the bubble ink's hue and
+  // only steps back, `dd` keeps the answer ink — DSH's own `QuestionReplyView`
+  // hierarchy (`dt` = `label-secondary`, `dd` = the bubble ink).
+  assert.equal(CHAT_BUBBLE_QUESTION_INK_STEP, 6)
+  for (const { scheme, strength } of VARIANTS) {
+    const { fill, ink } = chatBubbleRole(scheme, strength)
+    const question = chatBubbleQuestionInk(scheme, strength)
+    const step = Math.abs(labLightness(question) - labLightness(ink))
+    // The step is perceptual, and it always moves toward the fill: darker in the
+    // light schemes, lighter in the dark ones.
+    assert.ok(step >= 5.5 && step <= 7, `${scheme}-${strength}: the step is ${step.toFixed(1)} L*, outside 5.5-7`)
+    assert.ok(
+      labLightness(fill) > labLightness(ink)
+        ? labLightness(question) > labLightness(ink)
+        : labLightness(question) < labLightness(ink),
+      `${scheme}-${strength}: the question moves toward the fill`
+    )
+    // Same voice, not a second colour: the question is a small share of the
+    // ink → fill blend, so no new hue enters the card.
+    const share = Array.from({ length: 100 }, (_, index) => (index + 1) / 100)
+      .find((value) => mix(ink, fill, value) === question)
+    assert.ok(share !== undefined, `${scheme}-${strength}: the question ink sits on the ink → fill blend`)
+    assert.ok(share <= 0.3, `${scheme}-${strength}: the question moves only ${share} of the way to the fill`)
+    // Softer than the answer, and still legible on the palette's own accent pair.
+    const questionRatio = contrastRatio(question, fill)
+    assert.ok(questionRatio < contrastRatio(ink, fill), `${scheme}-${strength}: the question is softer than the answer`)
+    const floor = scheme === 'dark' ? 4.4 : 1.65
+    assert.ok(questionRatio >= floor, `${scheme}-${strength}: question ink on the fill = ${questionRatio.toFixed(2)} < ${floor}`)
+    // Pinned measured pairs (G23 in `scripts/check-contrast.mjs`).
+    const pinned = {
+      'light-hard': ['#e9ecd1', 1.99],
+      'light-medium': ['#e6e7c5', 1.90],
+      'light-soft': ['#dbdcb5', 1.70],
+      'dark-hard': ['#343d3b', 5.59],
+      'dark-medium': ['#3a4443', 5.03],
+      'dark-soft': ['#404b4a', 4.52]
+    }[`${scheme}-${strength}`]
+    assert.equal(question, pinned[0], `${scheme}-${strength}: pinned question ink`)
+    assert.equal(Math.round(questionRatio * 100) / 100, pinned[1], `${scheme}-${strength}: measured question ratio`)
+  }
+  const css = chatBubbleStyles()
+  // The token is the only lever: one declaration per variant, and the value is
+  // the softened ink rather than the answer ink.
+  for (const { scheme, strength } of VARIANTS) {
+    const question = chatBubbleQuestionInk(scheme, strength)
+    const { ink } = chatBubbleRole(scheme, strength)
+    assert.ok(css.includes(`  ${CHAT_BUBBLE_QUESTION_INK_TOKEN}: ${question};`), `${scheme}-${strength}: question token carries the softened ink`)
+    assert.ok(!css.includes(`  ${CHAT_BUBBLE_QUESTION_INK_TOKEN}: ${ink};`), `${scheme}-${strength}: the question is not the answer ink`)
+  }
+})
+
+test('the question-reply bubble is re-inked, not just re-filled', () => {
+  // The reply card's question line is `label-secondary` by DSH's own stylesheet.
+  // On the moss paper that is already weak (2.44:1 in light·soft) and on the
+  // accent fill it collapses (~1.2:1), so the paint rule has to carry it —
+  // and since 2026-11-15 it carries the softened ink, not the answer's.
+  for (const { scheme, strength } of VARIANTS) {
+    const overlay = tokensFor({ light: strength, dark: strength })
+    const muted = overlay['--dsw-alias-label-secondary'][scheme]
+    const { fill, ink } = chatBubbleRole(scheme, strength)
+    const question = chatBubbleQuestionInk(scheme, strength)
+    assert.ok(contrastRatio(muted, fill) < 3, `${scheme}-${strength}: muted label on the accent fill is unreadable`)
+    // The repointed token is the softened ink: softer than the answer, but still
+    // clear of the unreadable range DSH's own token falls into.
+    assert.ok(contrastRatio(question, fill) > contrastRatio(muted, fill), `${scheme}-${strength}: the question beats DSH's own muted label`)
+    assert.ok(contrastRatio(question, fill) < contrastRatio(ink, fill), `${scheme}-${strength}: the question stays below the answer`)
+    // The rule's own ink keeps the pair the bubble was approved with.
+    assert.ok(contrastRatio(ink, fill) >= 1.95, `${scheme}-${strength}: bubble ink stays on the accent pair`)
   }
 })
 
@@ -100,9 +209,14 @@ test('bubble text selection keeps the one global highlight and re-inks only the 
   assert.equal(CHAT_BUBBLE_SELECTION_INK.light, '#2F3B33')
   assert.equal(CHAT_BUBBLE_SELECTION_INK.dark, '#FFFBEF')
   const css = chatBubbleStyles()
-  // The band must not be repainted here: no `background-color` at all in the
-  // sheet, so every surface keeps `src/selection.js`'s `bg_visual` band.
-  assert.ok(!css.includes('background-color'), 'bubble sheet leaves the global selection band alone')
+  // The band must not be repainted here: every surface keeps `src/selection.js`'s
+  // `bg_visual` band, so none of the `::selection` rules in this sheet may paint
+  // a background.
+  const selectionRules = css.split('\n\n').filter((rule) => rule.includes('::selection'))
+  assert.equal(selectionRules.length, VARIANTS.length)
+  for (const rule of selectionRules) {
+    assert.ok(!rule.includes('background'), 'selection rules leave the global band alone')
+  }
   for (const { scheme, strength } of VARIANTS) {
     const ink = CHAT_BUBBLE_SELECTION_INK[scheme]
     const bubble = chatBubbleRole(scheme, strength)
@@ -113,7 +227,7 @@ test('bubble text selection keeps the one global highlight and re-inks only the 
     // only steps 1.71:1 off the accent bubble, but the user chose consistency.
     const bandStep = contrastRatio(band, bubble.fill)
     assert.ok(bandStep >= 1.6, `${scheme}-${strength}: shared selection band vanished on the bubble (${bandStep.toFixed(2)}:1)`)
-    const rule = `${CHAT_BUBBLE_SELECTOR} ::selection`
+    const rule = `${CHAT_BUBBLE_SELECTORS[0]} ::selection`
     assert.ok(css.includes(rule), `${scheme}-${strength}: bubble-scoped selection rule missing`)
     assert.ok(css.includes(`color: ${ink}`), `${scheme}-${strength}: selected text is re-inked`)
   }

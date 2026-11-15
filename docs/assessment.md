@@ -10,6 +10,7 @@
 > 2026-10-30 更新：DSH Desktop 已升级 **0.2.1-rc.5**（rc.3→rc.4 只有 ACP stdout 修复，rc.4→rc.5 只有思考内容展示优化）；对照安装包复核 token（提取 SHA-256 与 rc.3 相同）、web-frontend 渲染 bundle（逐字节相同）、markdown / 表格 / 会话行锚点、settings / `configForms` / `locale` / `slots` / `index-inject` 集成点均无变化，真机复核 6 张样式表与 token 生效；`engines.dsh` 区间仍满足，文档目标改为 rc.5（证据见 [design.md](design.md) §12）。
 > 2026-11-06 更新：DSH Desktop 已升级 **0.2.2-rc.1**（0.2.2 系列首个 RC；手机 / 平板适配、聊天引用、统一右键菜单、官方插件设置导航图标槽位等）。对照安装包复核：token 契约从 206 扩到 **217**（82 static + 114 alias + 10 specific + 11 shiki；+12 / −1），已补 illustration / state-done 映射并重生成 token inventory；设置导航行结构与官方 `settings.section.icon` 槽位变化使旧 DOM hack 出现双图标，已迁移到官方槽位；`markdown` / 表格 / 会话行 / `data-chat-node-key` 等锚点与 `configForms` / `locale` / `slots` / `index-inject` 集成点均未变；`engines.dsh` 区间仍满足、不抬高下限。证据见 [design.md](design.md) §4 / §12 / §19。
 > 2026-11-13 更新：DSH Desktop 已升级 **0.2.2-rc.2**。对照安装包复核：token 契约从 217 扩到 **244**（82 static + 138 alias + 13 specific + 11 shiki；+27 / −0 / 改值 0），其中 9 条已显式补齐（JSON 树 7 + 附件上传槽 1 + 同日补的 composer `label-on-color` 1），其余 18 条只引用 static / alias、由继承得到主题色（`INHERITED_TOKEN_NAMES`）；`selectedFill` 子元素在 rc.2 不再渲染，对应规则删除；两个提取脚本已适配 rc.2 的产物格式（模板字符串编码 / asar header NUL padding）；`markdown` / `tableScroll` / `data-chat-node-key` / 菜单 `selected` / `settings.section.icon` 等锚点与集成点均未变，真机复核 13 张样式表与 token 生效；`engines.dsh` 区间仍满足。证据见 [design.md](design.md) §4 / §12 / §21。
+> 2026-11-15 更新：DSH Desktop 已升级 **0.2.2-rc.3**（`window.__DSH_BOOT__.release.version`）。对照安装包复核：token 契约不变（`extract-theme-tokens --check` 通过，仍是 244 条），本轮新增的轮次导航 / 运行中标题 / 多选按钮三个样式表所需锚点在 rc.3 都在；`[data-command-input]`（`/goal` 回显）在 rc.3 找不到，对应规则命不中、保留作后备；真机复核 16 张常驻样式表挂载、气泡与 token 生效，`engines.dsh` 区间仍满足。证据见 [design.md](design.md) §12。
 > 2026-10-24 更新（色彩模式）：用户要求把设置里的「色彩模式」选项去掉、作为默认提供的功能——设置页区块 / 开关 / 5 个色片与 5 个 locale 键移除，状态、Host `Config`、缓存回到两个强度，旧 `colorMode` 缓存字段与 profile patch 残留键兼容忽略。见新增 §18 与 [design.md](design.md) §13.9。
 > 2026-10-25 更新：**1.0.0 首个稳定版发布**（tag `v1.0.0` / npm `latest`）——0.4.0 之后未发布的批次作为稳定行为一起发布：UI 强调色改用官方 accent、会话状态行改 palette 原色、工作区当前会话行、原生文本选区、深浅切换聚光灯、dev-only 调试面板、图标与市场素材；token 计数与分类口径同日复核修正。见新增 §19 与 [design.md](design.md) §14–§17 / §10。
 > 2026-10-27 更新：**1.1.0 发布**（tag `v1.1.0`）——「跟随系统」下 OS 深浅翻转也走聚光灯；README 重写「特性」并新增「功能实现」清单。见 §20。
@@ -349,10 +350,10 @@
 | 行内 code 文字 | `fg.blue` | Enchanted 是 fg-blue 前景；DSH 的 inline-code chip 底色是另一个 token，故只对 chip 守卫 |
 | 内部文件链接 | `fg.header-aqua` | 外链仍走官方 `--dsw-alias-link`（header-blue） |
 | 删除线 / 已完成任务 | `label-tertiary` | 刻意弱化，不参与门槛（对应 Enchanted 的 `text-faint`） |
-| 引用块 | aqua 左边框 + aqua 8% 淡底 | 淡底 + 右侧 12px padding / 圆角，给底色留白 |
+| 引用块 | `fg.green` 左边框 + `green` 8% 淡底（2026-11-15 起；此前 aqua） | 淡底 + 右侧 12px padding / 圆角，给底色留白 |
 | 表格 | 表头绿色带 14% / 斑马纹 6% / 行 hover 10% | 权重按 `label-primary ≥ 4.5:1` 反推 |
-| 复选框 | `fg.blue` accent | 初版为 aqua |
-| marker / quote / hr | `fg.aqua` | 沿用初版 |
+| 复选框 | `fg.green` accent（深浅档一致，2026-11-15） | 初版 aqua；10-30 起浅色 aqua / 深色 blue |
+| marker / quote / hr | `fg.green`（2026-11-15） | 初版沿用 aqua；与 checkbox、引用淡底同族 |
 
 **阈值取舍（本轮核心决策）**
 

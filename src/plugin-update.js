@@ -70,8 +70,12 @@ export const PLUGIN_UPDATE_TEXT_LIGHT_CONTRAST = 1.9
 export const PLUGIN_UPDATE_BADGE_DARK_CONTRAST = 4.5
 
 /**
- * Documented floor of the light schemes' canvas ink on the solid green badge
- * (2.00–2.32:1; the same cream-on-green pairing as the brand fill, §2g).
+ * Documented floor of the light schemes' accent ink on the solid green badge.
+ *
+ * 1.95: the light ink is the cream canvas `bg0`, which sits at 2.00–2.32:1 on the
+ * `statusline1` badge — the palette's own ceiling for cream ink on that green
+ * (contrast.md §2j). The 2026-11-15 review briefly raised it to 4.5 behind a deep
+ * ink; the user asked for the cream pair back (design §45).
  */
 export const PLUGIN_UPDATE_BADGE_LIGHT_CONTRAST = 1.95
 

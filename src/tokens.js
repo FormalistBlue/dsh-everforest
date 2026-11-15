@@ -139,6 +139,33 @@ function tint (p, color, amount) {
 }
 
 /**
+ * How far the muted inks are blended toward the primary ink
+ * (2026-11-15 user request: the `ask_user_question` panel's option descriptions
+ * and eyebrow read as washed out; the same lift was then extended to light).
+ *
+ * The upstream greys are the muted family (`grey0` / `grey1`) and sit at
+ * 2.50–2.99:1 on the dark elevated surfaces and 2.17–2.67:1 on the light
+ * canvases — a deliberate Enchanted muted look, but too faint for 13px copy.
+ * Mixing 30% of `fg` into each muted role buys ~0.8 ratio in dark (grey0
+ * 2.50 → 3.30, grey1 2.99 → 3.70, caption 1.95 → 2.80 on `#3A464C`) and
+ * ~0.6 in light (grey0 2.17 → 2.78, grey1 2.67 → 3.25, caption 1.75 → 2.36 on
+ * `bg0`), while keeping every role clearly below `label-primary` (5.75:1 dark,
+ * 4.5+:1 light), so the hierarchy — and the "muted" reading — survives.
+ */
+const MUTED_INK_LIFT = 0.3
+
+/**
+ * Muted text ink: the given grey blended `MUTED_INK_LIFT` toward the primary
+ * ink (darker on the light canvases, lighter on the dark ones).
+ * @param {{ fg: object }} p
+ * @param {string} color
+ * @returns {string}
+ */
+function mutedInk (p, color) {
+  return mix(color, p.fg.fg, MUTED_INK_LIFT)
+}
+
+/**
  * Light scheme background ramp step; dark scheme uses the upstream value.
  * The light blend is a deliberate contrast correction (docs/reference/contrast.md).
  */
@@ -317,6 +344,15 @@ function codeSurface (p) {
  * contrast guard keeps the inherited primary text at WCAG AA; the light value
  * differs per strength because `bgBlue` moves with the ramp.
  *
+ * light·soft is the exception (2026-11-15): its cream canvas leaves `bg_blue`
+ * `#E1E7DD` no room at all, so `readableSurface` pulls it toward the warm `bg0`
+ * down to `#e6e8da` — 1.036:1 from the canvas, i.e. the chip is invisible, and
+ * that surface pins both of its inks (label 4.50, inline-code text 3.00) to
+ * their floors, so it cannot be deepened either. The chip is raised from white
+ * toward the same `fg.blue` the finished session row uses instead
+ * (`INLINE_CHIP_RAISED_MIX`): 1.10:1 from the canvas, label 5.12, code 3.09.
+ * That is the light·soft direction for every soft surface (raised, not recessed).
+ *
  * The dark scheme starts from `bgDim` (2026-10-24 user report, compared with
  * Enchanted's rendered inline code): `bgBlue` sits a ramp step *above* the dark
  * canvas, so the chip read as a raised slate block instead of a recess. Plain
@@ -328,11 +364,17 @@ function codeSurface (p) {
  */
 const DARK_INLINE_CHIP_LIFT = 0.3
 
+/** How far the light·soft inline chip is raised from white toward `fg.blue`. */
+const INLINE_CHIP_RAISED_MIX = 0.08
+
 function inlineCodeSurface (p) {
-  const upstream = p.scheme === 'dark'
-    ? mix(p.ramp.bgDim, p.ramp.bg0, DARK_INLINE_CHIP_LIFT)
-    : p.ramp.bgBlue
-  return readableSurface(p, upstream)
+  if (p.scheme === 'dark') {
+    return readableSurface(p, mix(p.ramp.bgDim, p.ramp.bg0, DARK_INLINE_CHIP_LIFT))
+  }
+  if (p.strength === 'soft') {
+    return readableSurface(p, mix('#ffffff', p.fg.blue, INLINE_CHIP_RAISED_MIX))
+  }
+  return readableSurface(p, p.ramp.bgBlue)
 }
 
 /**
@@ -761,7 +803,11 @@ const ALIAS_TOKENS = {
   // (line numbers / fold columns / concealed text / foreground UI elements).
   // DSH paints code line numbers with `label-tertiary`, so the muted family is
   // `grey0` here; `grey2` stays out of the token layer.
-  '--dsw-alias-label-caption': (p) => mix(p.fg.grey0, p.ramp.bg0, 0.25),
+  // The three text roles run through `mutedInk`: both schemes blend them toward
+  // `fg` (2026-11-15 「次级文字太浅」 — see MUTED_INK_LIFT).
+  // `label-dimmed` is deliberately NOT lifted: it only paints disabled glyphs,
+  // which should keep looking unavailable.
+  '--dsw-alias-label-caption': (p) => mutedInk(p, mix(p.fg.grey0, p.ramp.bg0, 0.25)),
   // "deep diving" is the running-turn status label in chat: an activity cue, so
   // it follows the interaction accent (2026-11-07: blue → aqua → green).
   '--dsw-alias-label-deep-diving': (p) => interactionAccent(p),
@@ -780,9 +826,9 @@ const ALIAS_TOKENS = {
   // Contrast ink: paired with label-primary / button-contrast-fill / brand mark in
   // DSH (must invert against them, so dark scheme uses the deep background ink).
   '--dsw-alias-label-primary-inverted': (p) => contrastInk(p),
-  '--dsw-alias-label-secondary': (p) => p.fg.grey1,
+  '--dsw-alias-label-secondary': (p) => mutedInk(p, p.fg.grey1),
   '--dsw-alias-label-shimmer': (p) => transparentMix(p.fg.fg, 30),
-  '--dsw-alias-label-tertiary': (p) => p.fg.grey0,
+  '--dsw-alias-label-tertiary': (p) => mutedInk(p, p.fg.grey0),
 
   // Links / markdown ---------------------------------------------------------
   '--dsw-alias-link': (p) => p.fg.blue,

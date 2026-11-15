@@ -393,6 +393,28 @@ test('inline code is a background chip, not a foreground accent', () => {
   assert.ok(darkChipLuminance < relativeLuminance(darkRamp.bg0), 'dark chip must stay darker than bg0')
 })
 
+test('the light·soft inline chip is raised from white, not washed into the canvas', () => {
+  // 2026-11-15 follow-up: `bg_blue` has no room on the cream canvas. The guard
+  // pulled it to #e6e8da — 1.036:1 from the canvas — and both of its inks landed
+  // exactly on their floors (label 4.50, code 3.00), so it could neither be
+  // deepened nor left as is: next to the hard / medium chips (1.077 / 1.075) it
+  // read as "no background". The chip is raised toward `fg.blue` instead, the
+  // direction every light·soft surface takes.
+  const overlay = tokensFor({ light: 'soft', dark: 'soft' })
+  const chip = overlay['--dsw-alias-markdown-inline-code'].light
+  const canvas = overlay['--dsw-alias-bg-base'].light
+  const label = overlay['--dsw-alias-label-primary'].light
+  assert.equal(chip, '#eff6fa')
+  assert.ok(relativeLuminance(chip) > relativeLuminance(canvas), 'the raised chip sits above the canvas')
+  const step = contrastRatio(chip, canvas)
+  assert.ok(step >= 1.08, `chip / canvas = ${step.toFixed(3)} < 1.08`)
+  assert.ok(contrastRatio(label, chip) >= 4.5, 'label-primary stays AA on the chip')
+  assert.ok(
+    contrastRatio(FOREGROUNDS.light.blue, chip) >= 3,
+    'inline-code text keeps its 3:1 floor on the raised chip'
+  )
+})
+
 test('sidebar surface is one ramp step off bg-base so the column edge stays visible', () => {
   // DSH paints the sidebar column / Windows titlebar / content-card frame with
   // --dsw-specific-sidebar-fill and the content card itself with bg-base; mapping
@@ -526,8 +548,14 @@ test('semantic state mapping follows Enchanted', () => {
   // since 2026-11-08), while the success green stays the semantic `green`.
   assert.equal(overlay['--dsw-alias-state-business-primary'].light, FOREGROUNDS.light.statusline1)
   assert.equal(overlay['--dsw-alias-state-idle-primary'].light, FOREGROUNDS.light.grey0)
-  assert.equal(overlay['--dsw-alias-label-secondary'].light, FOREGROUNDS.light.grey1)
-  assert.equal(overlay['--dsw-alias-label-tertiary'].light, FOREGROUNDS.light.grey0)
+  // 2026-11-15: the three muted text roles are blended 30% toward the primary
+  // ink in BOTH schemes (MUTED_INK_LIFT in src/tokens.js), so they no longer
+  // equal the upstream grey verbatim.
+  const muted = (scheme, grey) => mix(FOREGROUNDS[scheme][grey], FOREGROUNDS[scheme].fg, 0.3)
+  assert.equal(overlay['--dsw-alias-label-secondary'].light, muted('light', 'grey1'))
+  assert.equal(overlay['--dsw-alias-label-tertiary'].light, muted('light', 'grey0'))
+  assert.equal(overlay['--dsw-alias-label-secondary'].dark, muted('dark', 'grey1'))
+  assert.equal(overlay['--dsw-alias-label-tertiary'].dark, muted('dark', 'grey0'))
 })
 
 test('0.2.2-rc.1 additions: illustration artwork and the violet done state', () => {

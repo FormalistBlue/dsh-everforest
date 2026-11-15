@@ -15,9 +15,14 @@ import {
 const VARIANT_NAMES = SCHEMES.flatMap((scheme) => STRENGTHS.map((strength) => `${scheme}-${strength}`))
 
 /**
- * Pinned surfaces of the 2026-11-08 third-pass solid selection band: the palette
- * interaction accent `statusline1` as the fill (dark `#A7C080` = `green`, light
- * `#93B259`), the scheme canvas `bg0` as the ink.
+ * Pinned surfaces of the solid selection band: the palette interaction accent
+ * `statusline1` as the fill (dark `#A7C080` = `green`, light `#93B259`).
+ *
+ * The ink is the scheme canvas `bg0`: cream `#FFFBEF` / `#FDF6E3` / `#F3EAD3` in
+ * the light schemes (2.00–2.32:1, the palette's documented ceiling for cream ink
+ * on `statusline1`) and `#272E33`–`#333C43` in the dark ones (5.62–6.88:1, AA).
+ * 2026-11-15 review: both were briefly re-inked with a deep pine; the user asked
+ * for the cream canvas pair back (design §45).
  */
 const EXPECTED = {
   'light-hard': { fill: '#93b259', ink: '#fffbef' },
@@ -28,11 +33,11 @@ const EXPECTED = {
   'dark-soft': { fill: '#a7c080', ink: '#333c43' }
 }
 
-/** Measured ink contrast of the accent + canvas pair (recorded in contrast.md §2g). */
+/** Measured ink contrast of the accent pair (recorded in contrast.md §2g). */
 const EXPECTED_INK_CONTRAST = {
   'light-hard': 2.32,
   'light-medium': 2.22,
-  'light-soft': 2.0,
+  'light-soft': 2.00,
   'dark-hard': 6.88,
   'dark-medium': 6.23,
   'dark-soft': 5.62
@@ -77,10 +82,12 @@ test('the surface is the palette values verbatim, not a derived tint', () => {
       palette.fg.statusline1.toLowerCase(),
       `${variant}: the fill must be the palette interaction accent (statusline1)`
     )
+    // Both schemes take the scheme canvas `bg0` as the accent ink.
+    const expectedInk = palette.ramp.bg0
     assert.equal(
       roles[variant].ink.toLowerCase(),
-      palette.ramp.bg0.toLowerCase(),
-      `${variant}: the ink must be the scheme canvas bg0`
+      expectedInk.toLowerCase(),
+      `${variant}: the ink must be ${expectedInk}`
     )
   }
 })
@@ -90,15 +97,10 @@ test('dark schemes keep the canvas ink >= 4.5:1; light keeps the documented acce
   for (const variant of VARIANT_NAMES) {
     const ratio = contrastRatio(roles[variant].ink, roles[variant].fill)
     assert.equal(Number(ratio.toFixed(2)), EXPECTED_INK_CONTRAST[variant], `${variant}: ink contrast drifted`)
-    if (variant.startsWith('dark')) {
-      assert.ok(ratio >= 4.5, `${variant}: canvas ink on the accent fill = ${ratio.toFixed(2)} < 4.5`)
-    } else {
-      // The reference tab itself pairs cream ink with `statusline1`: 2.00–2.32:1
-      // is the palette's ceiling (no light ink is lighter). The floor pins the
-      // measured pair; the deviation is recorded in contrast.md §2g.
-      assert.ok(ratio >= 1.95, `${variant}: accent ink pair fell below the documented 1.95 floor`)
-      assert.ok(ratio < 4.5, `${variant}: light pair unexpectedly reached 4.5:1 (update the documented deviation)`)
-    }
+    // Dark is a real AA pair; the light floor is the documented 1.95 (the cream
+    // canvas ink sits at 2.00–2.32:1, contrast.md §2g).
+    const floor = variant.startsWith('dark') ? 4.5 : 1.95
+    assert.ok(ratio >= floor, `${variant}: accent ink on the fill = ${ratio.toFixed(2)} < ${floor}`)
   }
 })
 
@@ -163,7 +165,7 @@ test('every variant emits the band rule, the child-ink rule and the button hover
       // `rowResting`). The trailing time is a nested span inside DSH's
       // `rowResting` cell (0.2.2-rc.1), so it needs its own class hook.
       const inkRule = rules.find((rule) =>
-        rule.includes('> span') && rule.toLowerCase().includes(`color: ${EXPECTED[variant].ink}`))
+        rule.startsWith(row) && rule.includes('> span') && rule.toLowerCase().includes(`color: ${EXPECTED[variant].ink}`))
       assert.ok(inkRule, `${variant}: missing the child-ink rule`)
       assert.ok(!inkRule.includes('color: inherit'), `${variant}: the ink must be explicit, not inherited`)
       for (const hook of ['> span', '[class*="time"]', '[class*="pinIndicator"]', '[class*="iconButton"]', 'button', 'svg:not([data-state])', '[data-state="ongoing"]']) {

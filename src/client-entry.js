@@ -75,12 +75,15 @@ import { selectionStyles } from './selection.js'
 import { activeSessionStyles } from './active-session.js'
 import { navAccentStyles } from './nav-accent.js'
 import { workspaceLabelStyles } from './workspace-labels.js'
+import { runningTitleStyles } from './running-title.js'
 import { heroTitleStyles } from './hero-title.js'
 import { uiAccentStyles } from './ui-accents.js'
 import { pluginUpdateStyles } from './plugin-update.js'
 import { chatBubbleStyles } from './chat-bubble.js'
 import { workStepStyles } from './work-steps.js'
 import { homeWhaleStyles } from './home-whale.js'
+import { turnRailStyles } from './turn-rail.js'
+import { questionChoiceStyles } from './question-choices.js'
 import { createSettingsNavIcon, NAV_ICON_SLOT } from './nav-icon.js'
 import { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
@@ -700,6 +703,71 @@ export function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: home whale ink')
+
+  // 1o. Turn-navigator rail. DSH's chat view draws a vertical column of dashes
+  // down the right edge of the conversation, one per turn ("目录导航", the
+  // `TurnNavigator` of `dsh-client-ui-chat`): resting `border-l4`, hover
+  // `label-tertiary`, the current turn `label-primary`. The 2026-11-15 request
+  // ("这里的样式可以调整吗？") chose scheme D of the comparison demo: resting dashes
+  // stay neutral, the current turn takes the palette text green, the bar grows
+  // from 2×20px to 3×22px, and the 140ms snap becomes a 240ms settle.
+  // `src/turn-rail.js` owns the rules; the anchor is DSH's
+  // `[data-conversation-scroll]` contract plus `button[data-index]`, never the
+  // hashed CSS-module prefix. Always-on chrome, same injection pattern as 1c–1n.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/turn-rail'
+    tag.textContent = turnRailStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: turn rail')
+
+  // 1p. Running-session title glare. DSH paints every session title with
+  // `label-primary`; while a Session is live its row carries a neutral
+  // `[data-state="ongoing"]` spinner, and the 2026-11-15 request ("给正在进行中的
+  // 对话的左侧工作区里面的对话标题增加一下样式，文字颜色改为主题绿，并且带有光影动画")
+  // wanted that title to read as the theme's text green with a light sweeping
+  // across it. The selected row is excluded — it already carries the solid
+  // accent band, where green text would be invisible. `src/running-title.js`
+  // owns the rules: a green gradient clipped to the glyphs (no DOM change, no
+  // line-height / truncation change) whose band travels right for ~1.1s every
+  // 2.4s, and it always moves away from the canvas — a shadow pass in the light
+  // schemes, a pale glint in the dark ones. Round one swept a white glare in
+  // the light schemes and the user sent it back ("浅色模式的需要调整一下，白光会让
+  // 文字看不清楚"), so the light band deepens the green instead (2.68 → ~4.4:1).
+  // Always-on chrome, same injection pattern as 1c–1o.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/running-title'
+    tag.textContent = runningTitleStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: running session title')
+
+  // 1q. Multi-select checkbox. DSH's question composer paints a checked
+  // multi-select box with `label-primary` (a dark charcoal square in the light
+  // schemes) and its tick with `label-primary-foreground`; the 2026-11-15 request
+  // ("对话中提问的时候，多选按钮的样式可以调整一下吗？按主题的绿色调整") asked for the
+  // theme's green instead. `src/question-choices.js` re-inks that pair with the
+  // interaction accent — `statusline1` solid fill plus the scheme canvas `bg0`
+  // tick — the same pair the selected session row, the dropdown option and the
+  // chat bubble already carry, and it lifts the idle hairline to that fill while
+  // an option row is hovered. The anchors are DSH's `data-question-key` frame and
+  // `data-option-row` rows plus the `_checkbox` local-name fragment, never the
+  // hashed CSS-module prefix. Always-on chrome, same injection pattern as 1c–1p.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/question-choices'
+    tag.textContent = questionChoiceStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: question choices')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must

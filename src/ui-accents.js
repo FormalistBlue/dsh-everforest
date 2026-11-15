@@ -100,22 +100,30 @@ export const MENU_INK_TOKENS = [
 export const UI_ACCENT_DARK_INK_CONTRAST = 4.5
 
 /**
- * Documented floor of the light schemes' canvas ink on `statusline1`
- * (2.00–2.32:1; the light palette offers no deeper ink, and the upstream
- * reference tab pairs cream with the same green).
+ * Documented floor of the light schemes' accent ink on `statusline1`.
+ *
+ * 1.95, not 4.5: the light accent ink is the cream canvas `bg0`, which sits at
+ * 2.00–2.32:1 on `#93B259` — the palette's own ceiling for cream ink on the
+ * accent green and the pairing the upstream reference tab uses. The floor only
+ * has to catch an ink that silently darkens (a light ink below 1.95 means the
+ * option's label is being faded out). The 2026-11-15 review briefly raised it to
+ * 4.5 behind a deep ink; the user asked for the cream pair back (design §45).
  */
 export const UI_ACCENT_LIGHT_INK_CONTRAST = 1.95
 
 /**
- * One variant's accent surface: the `statusline1` background fill and the
- * scheme canvas `bg0` ink used on that fill.
+ * One variant's accent surface: the `statusline1` background fill and the ink
+ * used on that fill — the scheme canvas `bg0` in both schemes.
  * @param {'light' | 'dark'} scheme
  * @param {'hard' | 'medium' | 'soft'} strength
  * @returns {{ fill: string, ink: string }} both opaque `#RRGGBB`.
  */
 function accentFor (scheme, strength) {
   const palette = resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme]
-  return { fill: palette.fg.statusline1, ink: palette.ramp.bg0 }
+  return {
+    fill: palette.fg.statusline1,
+    ink: palette.ramp.bg0
+  }
 }
 
 /**

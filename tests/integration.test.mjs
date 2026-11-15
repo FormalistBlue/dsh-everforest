@@ -732,6 +732,18 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(workspaceLabelStylesheets[0].textContent.includes('projectText'))
   assert.ok(workspaceLabelStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
+  // The always-on running-session title stylesheet paints the title of a live
+  // Session (the row carrying the ongoing spinner, never the selected row) with
+  // the text green plus a glare clipped to the glyphs (2026-11-15 request; the
+  // light schemes sweep a shadow pass instead of a white glare).
+  const runningTitleStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/running-title')
+  assert.equal(runningTitleStylesheets.length, 1, 'running-title stylesheet was not injected')
+  assert.ok(runningTitleStylesheets[0].textContent.includes('[data-state="ongoing"]'))
+  assert.ok(runningTitleStylesheets[0].textContent.includes(':not([aria-selected="true"])'))
+  assert.ok(runningTitleStylesheets[0].textContent.includes('background-clip: text'))
+  assert.ok(runningTitleStylesheets[0].textContent.includes('prefers-reduced-motion: reduce'))
+  assert.ok(runningTitleStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
   // The always-on chrome accent stylesheet paints the selected dropdown option
   // (a solid fill plus the canvas ink — upstream "Menu Selection Background"
   // semantics, A7 of the 2026-11-08 palette review). The conversation title is
@@ -798,6 +810,30 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(homeWhaleStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
   assert.ok(homeWhaleStylesheets[0].textContent.includes('opacity: 0.3'))
 
+  // The always-on turn-navigator stylesheet re-inks the conversation's
+  // right-edge turn rail (2026-11-15 "这里的样式可以调整吗？" → scheme D: the
+  // resting dashes stay neutral, the current turn takes the text green and the
+  // bar grows to 3 × 22px). Anchored on DSH's `[data-conversation-scroll]`
+  // contract plus `button[data-index]`, never the hashed module prefix.
+  const turnRailStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail')
+  assert.equal(turnRailStylesheets.length, 1, 'turn-rail stylesheet was not injected')
+  assert.ok(turnRailStylesheets[0].textContent.includes('[data-conversation-scroll] nav button[data-index]'))
+  assert.ok(turnRailStylesheets[0].textContent.includes('aria-current="true"'))
+  assert.ok(turnRailStylesheets[0].textContent.includes('#8DA101'))
+  assert.ok(turnRailStylesheets[0].textContent.includes('#A7C080'))
+  assert.ok(turnRailStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
+  // The always-on multi-select checkbox stylesheet re-inks the question
+  // composer's checked box with the interaction accent (2026-11-15: "多选按钮的
+  // 样式可以调整一下吗？按主题的绿色调整"). Anchored on `data-question-key` /
+  // `data-option-row` plus the `_checkbox` local-name fragment.
+  const questionChoiceStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices')
+  assert.equal(questionChoiceStylesheets.length, 1, 'question-choices stylesheet was not injected')
+  assert.ok(questionChoiceStylesheets[0].textContent.includes('[data-question-key]'))
+  assert.ok(questionChoiceStylesheets[0].textContent.includes('[class*="_checkboxChecked"]'))
+  assert.ok(questionChoiceStylesheets[0].textContent.includes('#93B259'))
+  assert.ok(questionChoiceStylesheets[0].textContent.includes('#A7C080'))
+
   // The table column-resize stylesheet and its DOM interaction are mounted with
   // the token layer, not with the Settings UI.
   const tableResizeStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize')
@@ -829,6 +865,14 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     effectLabels.includes('everforest: home whale ink'),
     'the home-whale ink stylesheet must be mounted with the token layer'
   )
+  assert.ok(
+    effectLabels.includes('everforest: turn rail'),
+    'the turn-rail stylesheet must be mounted with the token layer'
+  )
+  assert.ok(
+    effectLabels.includes('everforest: question choices'),
+    'the question-choices stylesheet must be mounted with the token layer'
+  )
 
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
@@ -838,7 +882,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 14, 'exactly fourteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
+  assert.equal(styleTags.length, 17, 'exactly seventeen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + running title + turn rail + question choices + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -980,6 +1024,9 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/nav-accent').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-title').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
@@ -988,7 +1035,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 13)
+  assert.equal(styleTags.length, 16)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -1001,7 +1048,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 14)
+  assert.equal(styleTags.length, 17)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1559,6 +1606,9 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/active-session').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/nav-accent').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-title').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
@@ -1567,7 +1617,7 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 14)
+  assert.equal(styleTags.length, 17)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 
@@ -1769,7 +1819,14 @@ test('contrast gate script passes for all six palettes', () => {
 })
 
 test('READMEs document the implemented state in both languages', () => {
-  const previews = ['.github/assets/everforest-dark-soft.png', '.github/assets/everforest-light-hard.png'].sort()
+  // 2026-11-15: four real window shots — chat typography and table/question
+  // demos for the default Dark Soft / Light Hard pairing, in README order.
+  const previews = [
+    '.github/assets/everforest-dark-soft.png',
+    '.github/assets/everforest-light-hard.png',
+    '.github/assets/everforest-dark-soft-conversation.png',
+    '.github/assets/everforest-light-hard-conversation.png',
+  ]
   const icon = '.github/assets/everforest-icon.png'
 
   for (const file of ['README.md', 'README.en.md']) {
@@ -1778,17 +1835,17 @@ test('READMEs document the implemented state in both languages', () => {
     assert.doesNotMatch(readme, /插件代码尚未落地/)
     assert.match(readme, /Settings → Everforest/)
 
-    // Each language carries the two real preview screenshots (the plugin's
-    // default Dark Soft / Light Hard pair) plus the header icon; every
-    // referenced image must exist in the repository (the URLs are absolute for
-    // the npm page).
+    // Each language carries the four real preview screenshots (the plugin's
+    // default Dark Soft / Light Hard pair, chat typography plus table/question
+    // demos) and the header icon; every referenced image must exist in the
+    // repository (the URLs are absolute for the npm page).
     const referenced = [...readme.matchAll(/raw\.githubusercontent\.com\/FormalistBlue\/dsh-everforest\/[^/]+\/(\.github\/assets\/[^)\s]+\.png)/g)]
     assert.deepEqual([...new Set(referenced.map(([, path]) => path))].sort(), [...previews, icon].sort())
     for (const path of [...previews, icon]) assert.ok(existsSync(join(ROOT, path)), `missing image in ${file}: ${path}`)
   }
 
   // The market reads the repository-root screenshots.json (1-8 entries); it must
-  // list the same two committed previews and nothing else.
+  // list the same four committed previews, in the order the README shows them.
   assert.deepEqual(JSON.parse(read('screenshots.json')), previews)
 
   // The default README is Chinese and links to the English one; the English
@@ -1977,3 +2034,4 @@ test('the OS-flip wrapper leaves every other theme publish on the instant path',
     harness.disposeAll()
   }
 })
+

@@ -11,6 +11,54 @@
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-11-15
+
+**中文**
+
+本轮统一了导航与问答区的绿色细节：轮次导航更醒目、运行中的会话标题带扫光、多选框选中后变绿；浅色 soft 档的几处底色与深浅两档的次级文字也调得更清楚。
+
+### Changed
+
+- **DSH 0.2.2-rc.3 适配**
+- 对话右侧轮次导航加粗，当前轮改为主题绿
+- 运行中的会话标题改为主题绿，并带扫光
+- 问题面板的多选按钮选中后改为主题绿
+- 浅色 soft 档已完成会话行底色更深
+- 浅色 soft 档待回答会话行底色更明显
+- 浅色 soft 档行内代码底色更清楚
+- 问答回复气泡改为与聊天气泡同色
+- 问答回复卡不再分两块底色，问题文字更浅
+- 深浅色档的次级文字都更清楚
+- 对话里的列表符号与编号、分隔线、引用条、勾选框改为主题绿
+
+### Fixed
+
+- 减弱动态效果时，对话右侧轮次导航不再脉动
+
+---
+
+**English**
+
+This round unifies the green details across the navigation and question areas: the turn navigator stands out more, running session titles carry a light sweep, and multi-select boxes turn green when checked; several light soft palette surfaces and the secondary text in both schemes also read more clearly.
+
+### Changed
+
+- **DSH 0.2.2-rc.3 support**
+- The turn navigator on the right of a conversation is thicker, with the current turn in theme green
+- Running session titles turn theme green with a light sweep
+- The question panel's multi-select boxes turn theme green when checked
+- The finished session row runs a deeper blue in the light soft palette
+- The waiting session row reads more clearly in the light soft palette
+- Inline code chips read more clearly in the light soft palette
+- The answered-question bubble uses the same green as chat bubbles
+- The answered-question card drops its second fill, with the questions set one step lighter
+- Secondary text reads more clearly in both light and dark
+- List markers and numbers, rules, quote bars and checkboxes in chat turn theme green
+
+### Fixed
+
+- The conversation turn navigator no longer pulses under reduced motion
+
 ## [1.6.0] - 2026-11-13
 
 **中文**
@@ -567,6 +615,7 @@ First release: six Everforest schemes (Dark / Light × Hard / Medium / Soft) cov
 - **Settings → Everforest**: six swatches, Chinese/English copy, restore defaults and appearance controls.
 - **Contrast guard**: automatic WCAG AA checks for body text on every surface level.
 
+[1.6.2]: https://github.com/FormalistBlue/dsh-everforest/compare/v1.6.0...v1.6.2
 [1.6.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v1.5.0...v1.6.0
 [1.0.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/FormalistBlue/dsh-everforest/compare/v0.3.0...v0.4.0
