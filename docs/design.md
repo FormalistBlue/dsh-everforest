@@ -607,7 +607,7 @@ export function apply(ctx) {
 | 首页鲸鱼动画墨色（§32） | 空白新会话首页点击空白处播放的官方「像素鲸鱼」取**文字绿 `green`**（light `#8DA101` / dark `#A7C080`），两种填充（圆点 / 代码字母）同色；官方 `.canvas { filter: grayscale(1) }` 被本表取消，否则任何墨色都会渲染成灰；锚点 `canvas[data-home-whale]`；层不透明度改为 0.3（官方 0.18 的 5/3）；卸载后样式表移除 |
 | 文本选区（1.0.0，§16.2） | 六档 `::selection` 底色 = 各变体 `bg_visual`（light 统一 `#DED8DB`；dark `#4C3743` / `#543A48` / `#5C3F4F`），`color: inherit` 保留元素自身颜色（h2 / strong / 行内 code 选中后仍是原色）；与色彩模式解耦、常驻；不改变 `user-select` 与复制行为 |
 | dev 调试面板（1.0.0，§14） | `npm run build:dev` 后主界面出现浮动面板，可切换外观与两套强度、拖动、折叠成 38×38 圆钮且折叠 / 展开态都保留样式与内联兜底；`npm run build` 后消失；`--check` / CI / `prepack` 拒绝停留在开发产物；生产 `client.js` 无面板代码 |
-| 图标与 README 截图（1.0.0；2026-11-15 刷新） | `icon.svg` 为自包含 SVG（无脚本 / 无外链，约 3.1 KB）：绿色鲸鱼 + 远景山脊 `#4D5960` / 森林山脊 `#A7C080` / 两棵松 `#293136`，36px 下均可辨；`README.md` / `README.en.md` 各 4 张真机截图（默认深色 Soft / 浅色 Hard 的聊天排版与表格问答，1515×1114 未裁剪，左右各 49% 并排），仓库根 `screenshots.json` 4 项与 README 引用逐项一致，README / 图标断言通过 |
+| 图标与 README 截图（1.0.0；2026-11-15 刷新） | `icon.svg` 为自包含 SVG（无脚本 / 无外链，约 3.1 KB）：绿色鲸鱼 + 远景山脊 `#4D5960` / 森林山脊 `#A7C080` / 两棵松 `#293136`，36px 下均可辨；`README.md` / `README.en.md` 各 4 张真机截图（默认深色 Soft / 浅色 Hard 的聊天排版与表格问答，1515×1114 未裁剪，每张一行满宽显示），仓库根 `screenshots.json` 4 项与 README 引用逐项一致，README / 图标断言通过 |
 | 发布 | `npm pack --dry-run` 文件清单齐全（`files` 与 `exports` 对齐）；`engines.dsh` 校验生效；包名 `dsh-everforest` 仍可用 |
 
 **改动生效方式（开发循环）**：`client.js` 内容改动 → Plugins 页停用/启用该插件（Host 重新快照 bundle，浏览器经 HMR 换模块）或重启 Host；`package.json` / `cordis.patch.yml` 改动 → HMR 即时重组合；单纯刷新页面不会换 bundle 字节。

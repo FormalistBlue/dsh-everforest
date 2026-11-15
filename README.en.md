@@ -24,21 +24,23 @@ dsh-everforest provides an Everforest colour theme for DeepSeek Harness, on both
 
 ## ✨ Previews
 
-**Dark · Soft (default)** on the left, **Light · Hard (default)** on the right.
+Default **Dark · Soft** and **Light · Hard**, captured in the real app.
 
-**Chat typography**
+**Chat typography · Dark Soft (default)**
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png" width="49%" alt="Dark · Soft: chat typography">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png" width="49%" alt="Light · Hard: chat typography">
-</p>
+![Dark Soft chat typography](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png)
 
-**Q&A display**
+**Chat typography · Light Hard (default)**
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft-conversation.png" width="49%" alt="Dark · Soft: tables and question cards">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard-conversation.png" width="49%" alt="Light · Hard: tables and question cards">
-</p>
+![Light Hard chat typography](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png)
+
+**Q&A display · Dark Soft**
+
+![Dark Soft tables and question panels](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft-conversation.png)
+
+**Q&A display · Light Hard**
+
+![Light Hard tables and question panels](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard-conversation.png)
 
 ## 🚀 Installation
 

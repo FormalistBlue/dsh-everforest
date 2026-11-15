@@ -24,21 +24,23 @@ dsh-everforest 为 DeepSeek Harness 提供 Everforest 配色主题，同时支�
 
 ## ✨ 预览
 
-左为**深色 · Soft（默认）**，右为**浅色 · Hard（默认）**。
+以下为默认的**深色 · Soft** 与 **浅色 · Hard** 两档真机截图。
 
-**聊天排版**
+**聊天排版 · 深色 Soft（默认）**
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png" width="49%" alt="深色 · Soft：聊天排版">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png" width="49%" alt="浅色 · Hard：聊天排版">
-</p>
+![深色 Soft 的聊天排版](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft.png)
 
-**问答显示**
+**聊天排版 · 浅色 Hard（默认）**
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft-conversation.png" width="49%" alt="深色 · Soft：表格与问答">
-  <img src="https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard-conversation.png" width="49%" alt="浅色 · Hard：表格与问答">
-</p>
+![浅色 Hard 的聊天排版](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard.png)
+
+**问答显示 · 深色 Soft**
+
+![深色 Soft 的表格与问答](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-dark-soft-conversation.png)
+
+**问答显示 · 浅色 Hard**
+
+![浅色 Hard 的表格与问答](https://raw.githubusercontent.com/FormalistBlue/dsh-everforest/main/.github/assets/everforest-light-hard-conversation.png)
 
 ## 🚀 安装
 
