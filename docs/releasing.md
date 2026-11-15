@@ -21,11 +21,13 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 | 1.3.0 | 2026-10-30 | GitHub Actions + Trusted Publishing（tag `v1.3.0`，run `41075123199`） | `latest` | `8e6bf013a39963c6976612c4c0bae1d3c8aca301` | 有（SLSA v1） |
 | 1.4.0 | 2026-11-07 | GitHub Actions + Trusted Publishing（tag `v1.4.0`，run `42253364321`） | `latest` | `ec49ae73d399694e1e0f4f51641cf1fed63c8cca` | 有（SLSA v1） |
 | 1.5.0 | 2026-11-08 | GitHub Actions + Trusted Publishing（tag `v1.5.0`，run `42494099760`） | `latest` | `b713cb066b4ff82d805e30d7435acb43c203155a` | 有（SLSA v1） |
+| 1.6.0 | 2026-11-13 | GitHub Actions + Trusted Publishing（tag `v1.6.0`，run `43395428684`） | `latest` | `7fbcfbbbeb540a7ba4d1744a6511cc7f8fda0e63` | 有（SLSA v1） |
+| 1.6.2 | 2026-11-15 | GitHub Actions + Trusted Publishing（tag `v1.6.2`，run `43730942050`） | `latest` | `342c3989605ea72a518df4242b3c7a57d2b6b459` | 有（SLSA v1） |
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
 - 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.2.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。本机 npm 默认 registry 是 `registry.npmmirror.com`（镜像同步有延迟），验证时务必显式指定 npmjs.org。
 - **发布后 registry 有分层传播**（0.2.0 实测）：版本元数据先出现（`https://registry.npmjs.org/dsh-everforest/0.2.0` 200），npm 命令在约 2 分钟内仍可能对 tarball 返回 404；直接 `GET .../-/dsh-everforest-0.2.0.tgz` 成功后再用空缓存安装即可。workflow 里的 `npm view` 校验步骤同理可能仍显示上一版，以 run 日志里的 `+ dsh-everforest@x.y.z` 为准。
-- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.3.0 / 0.4.0 / 1.0.0 / 1.1.0 / 1.2.0 / 1.3.0 / 1.4.0 / 1.5.0 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
+- **Trusted Publishing 已配置**（2026-10-18，`id 177c86cc-8d54-450d-b06f-d38d6b18bde3`：GitHub Actions / `FormalistBlue/dsh-everforest` / `publish.yml`，permissions = publish + stage publish）。**0.1.1 / 0.1.2 / 0.2.0 / 0.3.0 / 0.4.0 / 1.0.0 / 1.1.0 / 1.2.0 / 1.3.0 / 1.4.0 / 1.5.0 / 1.6.0 / 1.6.2 均已由 CI 成功发布**（无 2FA、带 provenance）；此后按 §3 的 tag 流程发布即可。**不要补推 `v0.1.0` tag**——0.1.0 已由本地发布，tag 会触发 CI 重复发布并得到 `EPUBLISHCONFLICT`。
 
 > **0.3.0 发布注意**（首个把强度偏好迁到 Host 配置的版本）
 >
@@ -105,6 +107,15 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **CHANGELOG 从本版起双语**：小节先 `**中文**`、后 `**English**`，GitHub Release 正文两段都带（1,276 字符 / 1,703 字节，仍远低于市场 4096 字符截断线）；「DSH 0.2.2-rc.2 适配」按发布要求排在中文段与英文段的第一条。
 > - **验收口径**：`node --test` **355/355**；`npm run check`（palette / build / contrast）全绿，`contrast.md` 与 palette 无需重生成。
 > - **2026-11-13 已发布**：tag `v1.6.0`（commit `292b386`）→ publish run `43395428684` → npm `latest` = `1.6.0`（`dist.shasum` `7fbcfbbbeb540a7ba4d1744a6511cc7f8fda0e63`，SLSA provenance v1，transparency log index `3850218565`），GitHub Release `v1.6.0` 已由 workflow 自动创建（正文取自 CHANGELOG 1.6.0 小节，1,276 字符 / 1,703 字节）；verify run `43395428101` 在 Linux / Windows × Node 20/22/24 全绿。发布后 `registry.npmjs.org` 边缘缓存短时仍返回 1.5.0（发布约 10 分钟后 `registry.npmjs.com/1.6.0` 已是 1.6.0、`dist-tags` 也是 `latest: 1.6.0`），复核时改用 `registry.npmjs.com` 或给请求加查询串。
+
+> **1.6.2 发布注意（已发布，2026-11-15）**
+>
+> - **只改 Client 半部，升级不需要重启 DSH**：对话右侧轮次导航、运行中会话标题扫光、问题面板多选按钮三张新增常驻样式表，加上浅色 soft 档的行底色 / 行内 code、深浅两档次级文字、markdown 装饰族改绿与问答回复卡的单块表面，都是 Client 侧；Host 半部与 `Config` schema 未变，插件升级后刷新页面即可。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交 `408804d` 里重建，419,430 字节，md5 `44AAD238…`）。
+> - **token / API 契约不变**：244 个颜色 token 与 `engines.dsh`（`>=0.2.1-rc.2 <0.3.0-0`）均未变；0.2.2-rc.3 复核只确认三个新样式表的锚点仍在、token 层无变化，不抬高下限（design.md §12）。
+> - **验收口径**：`node --test` **385/385**；`npm run check`（palette / build / contrast）全绿；`npm pack --dry-run` 16 个文件与 §4 白名单一致。
+> - **市场「更新内容」**：1.6.2 小节 1,571 字符 / 2,098 字节，远低于 4096 字符截断线；市场冷静期同前（发布后 24 小时内市场仍可能装到 1.6.0，§8.6）。
+> - **2026-11-15 已发布**：tag `v1.6.2`（commit `408804d`）→ publish run `43730942050` → npm `latest` = `1.6.2`（`dist.shasum` `342c3989…`，SLSA provenance v1，transparency log index `3904987288`），GitHub Release `v1.6.2` 已由 workflow 自动创建（正文取自 CHANGELOG 1.6.2 小节，1,571 字符 / 2,098 字节）；verify run `43730937824` 在 Linux / Windows × Node 20/22/24 全绿。发布后 `npm view`（默认镜像 / npmjs）短时仍返回 1.6.0，`registry.npmjs.com/dsh-everforest/1.6.2` 与 tarball 已 200，`dist-tags` 已是 `latest: 1.6.2`。
 
 ## 0. 发布前必须确认
 
