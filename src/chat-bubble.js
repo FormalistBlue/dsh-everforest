@@ -55,21 +55,22 @@
 //
 // Text selection (2026-11-13): the global `::selection` sheet (`src/selection.js`)
 // paints every surface with the scheme's `bg_visual` — a pale grey in the light
-// schemes (#DED8DB) and a dark plum in the dark ones. On this accent-filled
-// bubble the *text* colour that comes with it is unreadable, because the bubble
-// ink is inverted relative to the canvas: cream on #DED8DB is 1.17-1.36:1, and
-// the dark canvas ink on the dark plum is 1.22-1.27:1. The first landing that day
-// gave the bubble its own selection band as well (light "A 同色系加深", dark "C
-// 反相取词"), but the user asked to keep the highlight colour identical on every
-// surface and let option C repaint only the selected text ("先还原，改成用方案C
-// 试试，只变动修改文字颜色"). So the band stays the one global `bg_visual` and
-// this sheet only overrides the selected text ink:
+// schemes (#DED8DB / #D9D4D6 / #CFC9CC) and a dark plum in the dark ones. On this
+// accent-filled bubble the *text* colour that comes with it is unreadable, because
+// the bubble ink is inverted relative to the canvas: cream on the light bands is
+// 1.36-1.38:1, and the dark canvas ink on the dark plum is 1.22-1.27:1. The first
+// landing that day gave the bubble its own selection band as well (light "A
+// 同色系加深", dark "C 反相取词"), but the user asked to keep the highlight colour
+// identical on every surface and let option C repaint only the selected text
+// ("先还原，改成用方案C 试试，只变动修改文字颜色"). So the band stays the one
+// global `bg_visual` and this sheet only overrides the selected text ink:
 //
-//   light  #2F3B33 deep pine on the shared #DED8DB band   8.33:1
+//   light  #2F3B33 deep pine on the light bands   7.09-8.33:1
 //   dark   #FFFBEF cream on the shared #4C3743-#5C3F4F   8.91-10.49:1
 //
 // The trade-off the user accepted: a single highlight colour everywhere (light
-// band vs the green bubble is 1.71:1) instead of a stronger bubble-only band.
+// band vs the green bubble is 1.47:1 at light·soft) instead of a stronger
+// bubble-only band.
 
 // Nested content: the bubble text inherits the painted ink, and session
 // reference chips restate their own colour through

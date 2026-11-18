@@ -11,10 +11,11 @@
  * - 6 background ramps + the two foreground / accent color sets: sainnhe/everforest
  *   `palette.md` @ 85a86eb (2026-06-08);
  * - `header-*` colors: Everforest Enchanted `theme.css` @ bdd7ac7 (2026-10-10);
- * - light `bg_visual`: the reference table records the official values, while the
- *   effective value is Enchanted's visibility fix `#DED8DB` (note in section 3).
- *   This script substitutes it for all three light strengths; the upstream change
- *   only targets light-hard, so light-medium / light-soft are a project extrapolation.
+ * - light `bg_visual`: the reference table records the official values; the
+ *   effective values are `#DED8DB` / `#D9D4D6` / `#CFC9CC` (note in section 3).
+ *   The upstream visibility fix only targets light-hard (`#DED8DB`); this script
+ *   re-derives that same hue at the same canvas contrast for light-medium and
+ *   light-soft, which is a project extrapolation, not upstream data.
  *
  * Usage:
  *   node scripts/palette.mjs           # (re)generate src/palette.js
@@ -83,7 +84,7 @@ const FOREGROUND_KEYS = [
 /**
  * Official light `bg_visual` values as recorded in the docs/reference/palette.md
  * table. They are kept here only for traceability; the generated module uses the
- * effective value `#DED8DB` instead (see EFFECTIVE_LIGHT_BG_VISUAL).
+ * effective values instead (see EFFECTIVE_LIGHT_BG_VISUAL).
  */
 const OFFICIAL_LIGHT_BG_VISUAL = {
   hard: '#F0F2D4',
@@ -190,11 +191,20 @@ const RAMPS = {
 }
 
 /**
- * Effective light `bg_visual`: Everforest Enchanted's document-selection visibility
- * fix. Upstream applies it to light-hard only; this project extrapolates it to
- * light-medium and light-soft (docs/reference/palette.md section 3 note).
+ * Effective light `bg_visual`, one value per strength. `#DED8DB` is Everforest
+ * Enchanted's document-selection visibility fix for light-hard (upstream); the
+ * medium / soft values re-use that hue at the same canvas contrast (each band
+ * sits at 1.36:1 against its own `bg0`, the way the three dark bands sit at
+ * 1.22-1.27:1 against theirs), so the highlight reads equally strongly in every
+ * strength. Re-derivation: keep #DED8DB's hue and drop its Lab lightness by the
+ * amount that reproduces that ratio against the strength's own `bg0` — do not
+ * hand-pick new hues.
  */
-const EFFECTIVE_LIGHT_BG_VISUAL = '#DED8DB'
+const EFFECTIVE_LIGHT_BG_VISUAL = {
+  hard: '#DED8DB',
+  medium: '#D9D4D6',
+  soft: '#CFC9CC'
+}
 
 for (const strength of STRENGTHS) {
   const ramp = RAMPS.light[strength]
@@ -203,7 +213,7 @@ for (const strength of STRENGTHS) {
       `internal data error: RAMPS.light.${strength}.bgVisual does not match the official reference value`
     )
   }
-  ramp.bgVisual = EFFECTIVE_LIGHT_BG_VISUAL
+  ramp.bgVisual = EFFECTIVE_LIGHT_BG_VISUAL[strength]
 }
 
 /** @type {Record<'light' | 'dark', Record<string, string>>} */
@@ -462,8 +472,9 @@ function generateSource () {
     '//   the header-* colors and the light document-selection fix.',
     '//',
     '// Effective-value note (docs/reference/palette.md section 3): the reference table',
-    '// keeps the official light bg_visual values, but all three light strengths use',
-    '// #DED8DB here (Enchanted visibility fix; medium / soft extrapolated by this project).',
+    '// keeps the official light bg_visual values, but the three light strengths use',
+    '// #DED8DB / #D9D4D6 / #CFC9CC (Enchanted visibility fix at hard, re-derived at the',
+    '// same canvas contrast for medium / soft).',
     '//',
     '// Regenerate: node scripts/palette.mjs',
     '// Verify:     node scripts/palette.mjs --check',

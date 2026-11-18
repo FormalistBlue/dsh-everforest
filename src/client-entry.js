@@ -76,6 +76,7 @@ import { activeSessionStyles } from './active-session.js'
 import { navAccentStyles } from './nav-accent.js'
 import { workspaceLabelStyles } from './workspace-labels.js'
 import { runningTitleStyles } from './running-title.js'
+import { runningSpinnerStyles } from './running-spinner.js'
 import { heroTitleStyles } from './hero-title.js'
 import { uiAccentStyles } from './ui-accents.js'
 import { pluginUpdateStyles } from './plugin-update.js'
@@ -569,8 +570,8 @@ export function apply(ctx) {
   // 颜色保持一致"); a deep-ink experiment for the light long-message case was
   // reverted the same day ("文字还是换回白色吧"). 2026-11-13 the bubble also got
   // a bubble-scoped text-selection ink: the inherited colour is unreadable on the
-  // global highlight in both schemes (cream on #DED8DB 1.17-1.36:1; the dark ink
-  // on the dark plum 1.22-1.27:1). The user asked to keep the highlight colour
+  // global highlight in both schemes (cream on the light bands 1.36-1.38:1; the dark
+  // ink on the dark plum 1.22-1.27:1). The user asked to keep the highlight colour
   // identical on every surface ("保持勾选颜色各处都统一") and let option C repaint
   // only the selected text — so the sheet writes `color` only and leaves the
   // global `bg_visual` band alone. The token layer still keeps `label-primary`
@@ -748,7 +749,27 @@ export function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: running session title')
 
-  // 1q. Multi-select checkbox. DSH's question composer paints a checked
+  // 1q. Running-session spinner ink. The same rows carry ui-primitives'
+  // `StateDot(state="ongoing")` ring in the leading slot, painted
+  // `label-tertiary` grey (`._spinner_…{color: var(--dsw-alias-label-tertiary)}`,
+  // both circles `stroke: currentColor`). The 2026-11-18 request ("没有选中，正在
+  // 进行的对话，前面的转圈的icon，帮我改成主题绿色试试，dark和light都改") wanted it
+  // in the theme green next to the now-green title. The selected row is excluded —
+  // it is the solid accent band and `src/active-session.js` already inks its whole
+  // slot. `src/running-spinner.js` emits one `color` per variant (the palette text
+  // green), so DSH keeps the ring's stroke width, dash pattern and animation.
+  // Always-on chrome, same injection pattern as 1c–1p.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/running-spinner'
+    tag.textContent = runningSpinnerStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: running session spinner')
+
+  // 1r. Multi-select checkbox. DSH's question composer paints a checked
   // multi-select box with `label-primary` (a dark charcoal square in the light
   // schemes) and its tick with `label-primary-foreground`; the 2026-11-15 request
   // ("对话中提问的时候，多选按钮的样式可以调整一下吗？按主题的绿色调整") asked for the

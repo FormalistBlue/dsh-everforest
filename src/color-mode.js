@@ -31,10 +31,12 @@
 //       marker / quote / hr     green (2026-11-15 request: the markdown decoration
 //                            family is the theme green, not the aqua accent)
 //       checkbox                 green as well, both schemes (same request); a solid
-//                            fill carrying a canvas-colour check mark. DSH marks
-//                            every task-list box `disabled` and Chromium greys a
-//                            disabled native control, so the box is drawn instead
-//                            of accent-coloured
+//                            fill carrying a check mark — the canvas cream in the
+//                            light schemes, the theme white in the dark ones
+//                            (2026-11-18 request: "深色模式里面的黑色的勾勾改成白色
+//                            的"). DSH marks every task-list box `disabled` and
+//                            Chromium greys a disabled native control, so the box
+//                            is drawn instead of accent-coloured
 //       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%);
 //                            the frame / column hairlines around and inside the
 //                            table come from the neutral border ramp instead of
@@ -98,6 +100,9 @@
 // took `fg.aqua` and dark kept `fg.blue`. 2026-11-15: the whole decoration family
 // (`marker` / `quote` / `hr` / `check`) moved to `fg.green`, the theme green, at
 // the user's request. See `TASK_CHECKBOX`.
+// 2026-11-18: the dark schemes' check mark turned white — on the green fill the
+// canvas-colour mark read as a black tick. Light keeps the canvas cream. See
+// `CHECK_TICK_DARK` and design §48.
 //
 // The module is a pure ESM source: no DOM, no storage, no state. `node --test`
 // imports it directly and `scripts/build.mjs` bundles it into `client.js`
@@ -646,7 +651,10 @@ const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 /**
  * Markdown content container (DSH hashes the class, `markdown` stays a substring).
  */
-export const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-markdown-variant="compact"])`
+const MARKDOWN_CONTAINER = '[class*="markdown"]:not([data-markdown-variant="compact"])'
+
+/** The markdown container behind the always-on colour-mode gate. */
+export const MARKDOWN_SCOPE = `${COLOR_MODE_ON} ${MARKDOWN_CONTAINER}`
 
 /**
  * The horizontal-scroll wrapper DSH wraps around every markdown table. It is
@@ -663,9 +671,29 @@ const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
  * debug Chrome — an accent-coloured disabled checkbox still rendered grey). The
  * colour therefore has to be drawn, not delegated: the native appearance is
  * removed and the box takes an accent-tinted border / fill, with the check mark
- * as an `::after` border pair in the canvas colour.
+ * as an `::after` border pair — the canvas cream in the light schemes (kept per
+ * strength) and the theme white in the dark ones (`CHECK_TICK_DARK`).
  */
 const TASK_CHECKBOX = `${MARKDOWN_SCOPE} input[type="checkbox"]`
+
+/**
+ * The same box in the dark schemes, where the check mark is re-inked white. The
+ * extra `body[data-ds-dark-theme]` gives the override both its scope and the
+ * specificity to beat the base rule, which reads the scheme canvas instead.
+ */
+const DARK_TASK_CHECKBOX = `${COLOR_MODE_ON} body[data-ds-dark-theme] ${MARKDOWN_CONTAINER} input[type="checkbox"]`
+
+/**
+ * The dark-scheme check mark of a checked task-list box: the theme white
+ * `#FFFBEF` (the light canvas `bg0`). The mark used to read the scheme canvas
+ * (`--dsw-alias-bg-base`, the dark slate) — fine on paper, but on the dark green
+ * fill it reads as a black tick (2026-11-18 request: "深色模式里面的黑色的勾勾改成
+ * 白色的"). 1.93:1 on `statusline1` `#A7C080`: a tick is a graphical mark, not
+ * body text, the solid fill still carries the checked state, and this is the same
+ * ~2:1 ceiling the light schemes have always run on that fill (design §45 / §48).
+ * The light schemes keep the per-strength canvas cream unchanged.
+ */
+export const CHECK_TICK_DARK = '#FFFBEF'
 
 /**
  * Session-tree row selector for one state, keyed by the status dot it contains.
@@ -782,12 +810,16 @@ const LITERAL_RULES = [
     ['top', '0.5px'],
     ['width', '4px'],
     ['height', '8px'],
-    // Canvas ink in both schemes: cream on the light green, the deep slate on the
-    // dark one (6.88 / 6.23 / 5.62:1 there).
+    // Light schemes: the canvas cream of that strength, so the mark reads as the
+    // paper showing through the green. The dark schemes override the colour with
+    // the theme white in the next rule (2026-11-18).
     ['border', 'solid var(--dsw-alias-bg-base)'],
     ['border-width', '0 1.5px 1.5px 0'],
     ['transform', 'rotate(42deg)']
   ]],
+  // 2026-11-18: on the dark green fill the canvas mark reads as a black tick; the
+  // dark schemes take the theme white instead (1.93:1 on `#A7C080`, design §48).
+  [`${DARK_TASK_CHECKBOX}:checked::after`, [['border-color', CHECK_TICK_DARK]]],
   // Table frame and column rules. DSH's table only draws horizontal cell rules,
   // so without them a table reads as a list of loose rows. Fill tables are 100%
   // wide, so their scroll wrapper can carry the outer border (and clip it to a

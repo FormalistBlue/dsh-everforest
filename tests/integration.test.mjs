@@ -744,6 +744,16 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(runningTitleStylesheets[0].textContent.includes('prefers-reduced-motion: reduce'))
   assert.ok(runningTitleStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
 
+  // The always-on running-session spinner stylesheet re-inks the leading
+  // `StateDot(state="ongoing")` ring of those same rows with the text green
+  // (2026-11-18 request) and leaves the selected row to the accent band.
+  const runningSpinnerStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/running-spinner')
+  assert.equal(runningSpinnerStylesheets.length, 1, 'running-spinner stylesheet was not injected')
+  assert.ok(runningSpinnerStylesheets[0].textContent.includes('svg[data-state="ongoing"]'))
+  assert.ok(runningSpinnerStylesheets[0].textContent.includes(':not([aria-selected="true"])'))
+  assert.ok(runningSpinnerStylesheets[0].textContent.includes('color: #A7C080'))
+  assert.ok(runningSpinnerStylesheets[0].textContent.includes('data-everforest-color-mode') === false)
+
   // The always-on chrome accent stylesheet paints the selected dropdown option
   // (a solid fill plus the canvas ink — upstream "Menu Selection Background"
   // semantics, A7 of the 2026-11-08 palette review). The conversation title is
@@ -870,6 +880,10 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     'the turn-rail stylesheet must be mounted with the token layer'
   )
   assert.ok(
+    effectLabels.includes('everforest: running session spinner'),
+    'the running-spinner stylesheet must be mounted with the token layer'
+  )
+  assert.ok(
     effectLabels.includes('everforest: question choices'),
     'the question-choices stylesheet must be mounted with the token layer'
   )
@@ -882,7 +896,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 17, 'exactly seventeen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + running title + turn rail + question choices + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
+  assert.equal(styleTags.length, 18, 'exactly eighteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + running title + running spinner + turn rail + question choices + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -1025,6 +1039,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/nav-accent').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-title').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-spinner').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
@@ -1035,7 +1050,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 16)
+  assert.equal(styleTags.length, 17)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -1048,7 +1063,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 17)
+  assert.equal(styleTags.length, 18)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1607,6 +1622,7 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/nav-accent').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/workspace-labels').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-title').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-spinner').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
@@ -1617,7 +1633,7 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 17)
+  assert.equal(styleTags.length, 18)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

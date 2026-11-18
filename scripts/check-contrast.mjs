@@ -44,7 +44,9 @@
  * inline-code text, internal file links, del/completed-task text, subtle
  * blockquote and table-row fills.
  *   9. colour-mode large headings h1-h4 on bg-base >= 3.0:1;
- *  10. colour-mode marker/quote/hr/check on bg-base >= 3.0:1;
+ *  10. colour-mode marker/quote/hr/check on bg-base >= 3.0:1 (the checked task
+ *      box is a solid fill plus a mark: the scheme canvas cream in the light
+ *      schemes, the theme white `#FFFBEF` in the dark ones, 1.93:1, design §48);
  *  11. label-primary on the table-header band >= 4.5:1;
  *  12. label-primary on the table zebra stripe, the hovered row and the
  *      blockquote fill >= 4.5:1;
@@ -118,12 +120,13 @@
  *  21. the highlight colour stays the one global `::selection` `bg_visual` on
  *      every surface (2026-11-13 user request: "保持勾选颜色各处都统一"), but on
  *      the accent-filled bubble the inherited text colour is unreadable (light
- *      cream on #DED8DB 1.17-1.36:1; the dark canvas ink on the dark plum
+ *      cream on the light bands 1.36-1.38:1; the dark canvas ink on the dark plum
  *      1.22-1.27:1), so a bubble-scoped rule repaints only the selected text:
- *      option C's ink, light #2F3B33 (8.33:1 on the shared pale band) and dark
+ *      option C's ink, light #2F3B33 (7.09-8.33:1 on the light bands) and dark
  *      #FFFBEF (8.91-10.49:1 on the shared dark plum). The band still has to be
- *      visible through the bubble fill (>= 1.6:1): light runs 1.71:1, the
- *      accepted price of one highlight colour everywhere; dark runs 4.61-5.42:1.
+ *      visible through the bubble fill (light >= 1.45:1, dark >= 4.5:1): light
+ *      runs 1.47-1.71:1 — the accepted price of one highlight colour everywhere,
+ *      and the light·soft band is the binding case; dark runs 4.61-5.42:1.
  *
  * The composer send / stop glyph (src/tokens.js, design §12) adds gate 22:
  *  22. `--dsw-alias-label-on-color` is DSH's literal white ink on saturated fills
@@ -160,6 +163,14 @@
  *      resting green, and on the hover overlay it may never drop below the
  *      resting title's contrast.
  *
+ * The running-session spinner ink (src/running-spinner.js, design §43) adds gate 25:
+ *  25. the leading `[data-state="ongoing"]` ring of those same rows takes the
+ *      palette text green instead of DSH's `label-tertiary` grey, so the swap may
+ *      never cost legibility: the ring keeps the same measured floors as the rest
+ *      of the row (light 2.3 / dark 4.5) AND stays at least as strong as the
+ *      neutral it replaced, on the resting sidebar and on the hover overlay
+ *      (tolerance 0.02 for the palette's rounding).
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -186,6 +197,12 @@ import {
   RUNNING_TITLE_LIGHT_RESTING_CONTRAST,
   runningTitleRoles
 } from '../src/running-title.js'
+import {
+  RUNNING_SPINNER_DARK_CONTRAST,
+  RUNNING_SPINNER_LIGHT_CONTRAST,
+  RUNNING_SPINNER_NEUTRAL_TOLERANCE,
+  runningSpinnerRoles
+} from '../src/running-spinner.js'
 import {
   UI_ACCENT_DARK_INK_CONTRAST,
   UI_ACCENT_LIGHT_INK_CONTRAST,
@@ -922,10 +939,11 @@ const BUBBLE_SELECTION_TEXT_CONTRAST = 4.5
 /**
  * Minimum contrast between the shared `bg_visual` band and the accent bubble
  * fill: only has to catch a band that vanished into the bubble. Light sits at
- * the documented 1.71:1 (one pale grey everywhere is the user's explicit choice);
- * dark runs 4.61-5.42:1.
+ * the documented 1.47-1.71:1 (one pale grey everywhere is the user's explicit
+ * choice; the 2026-11-18 three-strength gradient darkens the soft band, so the
+ * light·soft pair is the binding case at 1.47:1); dark runs 4.61-5.42:1.
  */
-const BUBBLE_SELECTION_MIN_CONTRAST = 1.6
+const BUBBLE_SELECTION_BAND_MIN_CONTRAST = { light: 1.45, dark: 4.5 }
 const bubbleSelectionRows = []
 for (const variant of states) {
   const ink = CHAT_BUBBLE_SELECTION_INK[variant.scheme]
@@ -956,8 +974,8 @@ for (const variant of states) {
   if (textRatio < BUBBLE_SELECTION_TEXT_CONTRAST) {
     recordFailure(`g21:${variant.variant}:text`, `${variant.variant}: selected bubble text on the shared band = ${textRatio.toFixed(2)} < ${BUBBLE_SELECTION_TEXT_CONTRAST}`)
   }
-  if (bandRatio < BUBBLE_SELECTION_MIN_CONTRAST) {
-    recordFailure(`g21:${variant.variant}:band`, `${variant.variant}: shared selection band vanished on the bubble = ${bandRatio.toFixed(2)} < ${BUBBLE_SELECTION_MIN_CONTRAST}`)
+  if (bandRatio < BUBBLE_SELECTION_BAND_MIN_CONTRAST[variant.scheme]) {
+    recordFailure(`g21:${variant.variant}:band`, `${variant.variant}: shared selection band vanished on the bubble = ${bandRatio.toFixed(2)} < ${BUBBLE_SELECTION_BAND_MIN_CONTRAST[variant.scheme]}`)
   }
 }
 
@@ -1122,6 +1140,59 @@ for (const variant of states) {
   }
 }
 
+/* ---- Gate 25: running-session spinner ink (always-on navigation glyph) ---- */
+/**
+ * The ring is a 14px, 2px-stroke glyph, so it is a graphical object: the floors
+ * are the measured palette values (light 2.3, dark 4.5 — the same pair G18/G24
+ * use for this green) and the gate additionally refuses a green that would come
+ * out weaker than the neutral `label-tertiary` ring it replaces, on the resting
+ * sidebar and under the hover wash (a running row can be hovered).
+ */
+const RUNNING_SPINNER_ROLES = runningSpinnerRoles()
+const runningSpinnerRows = []
+for (const variant of states) {
+  const ink = RUNNING_SPINNER_ROLES[variant.variant]
+  if (!ink) {
+    recordFailure(`g25:${variant.variant}`, `${variant.variant}: src/running-spinner.js has no colour for this variant`)
+    continue
+  }
+  const sidebar = variant.get('--dsw-specific-sidebar-fill')
+  const { r, g, b, a } = hexToRgb(variant.get('--dsw-alias-interactive-bg-hover'))
+  const hover = mix(sidebar, rgbToHex({ r, g, b, a: 1 }), a)
+  const neutral = variant.get('--dsw-alias-label-tertiary')
+  const ratio = contrastRatio(ink, sidebar)
+  const hoverRatio = contrastRatio(ink, hover)
+  const neutralRatio = contrastRatio(neutral, sidebar)
+  const neutralHoverRatio = contrastRatio(neutral, hover)
+  const floor = variant.scheme === 'dark'
+    ? RUNNING_SPINNER_DARK_CONTRAST
+    : RUNNING_SPINNER_LIGHT_CONTRAST
+  runningSpinnerRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    ink,
+    neutral,
+    sidebar,
+    ratio,
+    hoverRatio,
+    neutralRatio,
+    neutralHoverRatio,
+    floor
+  })
+  if (!LEGAL_ROLE_COLOR.test(ink)) {
+    recordFailure(`g25:${variant.variant}:legal`, `${variant.variant}: running-spinner colour is not #RRGGBB: ${ink}`)
+  }
+  if (ratio < floor) {
+    recordFailure(`g25:${variant.variant}:rest`, `${variant.variant}: running spinner green = ${ratio.toFixed(2)} < ${floor}`)
+  }
+  if (ratio + RUNNING_SPINNER_NEUTRAL_TOLERANCE < neutralRatio) {
+    recordFailure(`g25:${variant.variant}:neutral`, `${variant.variant}: running spinner ${ratio.toFixed(2)} is weaker than the neutral ring it replaces (${neutralRatio.toFixed(2)})`)
+  }
+  if (hoverRatio + RUNNING_SPINNER_NEUTRAL_TOLERANCE < neutralHoverRatio) {
+    recordFailure(`g25:${variant.variant}:hover`, `${variant.variant}: hovered running spinner ${hoverRatio.toFixed(2)} is weaker than the neutral ring it replaces (${neutralHoverRatio.toFixed(2)})`)
+  }
+}
+
 /* ---- Report-only measurements -------------------------------------------- */
 const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
   const ratios = {}
@@ -1179,7 +1250,7 @@ function renderMarkdown () {
     '7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（light·soft 为 1.05:1 的可见性取舍，见 §2d），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；',
     '8. FileDiff 的 added / deleted 行底色（`--dsw-alias-file-diff-*-bg`）上的 `label-primary` 代码文本 ≥ 4.5:1（light·soft 为 4.1:1 的可见性取舍，见 §2e）；DSH 用这两个 token 画行底色、文字继承 `label-primary`（2026-10-21 走查：「浅绿色背景配白色文字」与「浅色绿色背景太不明显」，见 §6.3）；',
     '9. 色彩模式（中彩）大号标题 h1 / h2 / h3 / h4 对 `bg-base` ≥ 3.0:1（6 档）；',
-    '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；未勾选的任务框是同一支绿的 68% 描边 + 10% 淡底，已勾选框是实底 + 画布 `bg-base` 勾；',
+    '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；未勾选的任务框是同一支绿的 68% 描边 + 10% 淡底，已勾选框是实底 + 勾：浅色档是该档画布奶油，深色档是主题白 `#FFFBEF`（1.93:1，图形标记，见 design §48）；',
     '11. 色彩模式（中彩）表头色带上的 `label-primary` ≥ 4.5:1（6 档）；',
     '12. 色彩模式（中彩）斑马纹 / 行 hover / 引用块淡底上的 `label-primary` ≥ 4.5:1（6 档）；',
     '13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档；light·soft 的「已完成」行按 §35 记 4.2 下限，实测 4.39 / 4.25:1；「待确认」行按 §37 记 4.1 下限，实测 4.24 / 4.13:1）；',
@@ -1190,13 +1261,14 @@ function renderMarkdown () {
     '18. 工作区目录名称（`src/workspace-labels.js`，常驻、与色彩模式无关）：颜色是合法 `#RRGGBB` 的**文字绿 `green`**（上游 foreground green，浅色 `#8DA101` 比背景绿 `statusline1` `#93B259` 深一档；深色两者同为 `#A7C080`）；深色档静止行 ≥4.5:1（AA 下限，实测 5.00–6.17）、A7 的 50% `bg4` hover 叠加底上 ≥4.0:1（已记录取舍）；浅色档静止行 ≥2.3、hover 底固定 2.1 的已记录下限（文字绿实测下限）；6 档实测值见 §2h；',
     '19. 下拉选中项（`src/ui-accents.js`，常驻、与色彩模式无关）：菜单 / 单选列表的选中项以`statusline1`（浅色 `#93B259`）作实色底、方案画布 `bg0` 作文字与勾勾墨色（深色档 ≥ 4.5:1，浅色档 2.00–2.32:1，已记录的 1.95 下限），选中项内由 DSH 单独上色的图标与次要文字（`--dsw-alias-menu-icon` 与 `label-*` 族）同样取该墨色，并对菜单卡保持 ≥ 0.02 的 L* 步长；会话标题自 2026-11-09 起回到 DSH 原生 `label-primary`（用户「标题不需要绿色显示了」），不再由本样式表染色；6 档实测值见 §2i；',
     '20. 插件更新弹窗（`src/plugin-update.js`，常驻、与色彩模式无关）：完成步骤的文字是合法 `#RRGGBB` 的交互强调色 `statusline1`（浅色档即 `#93B259`，与弹窗「完成」按钮同色）、失败步骤是语义红 `fg.red`（语义色，仅报告不设门槛，实测 2.66–3.82:1）、其余状态回到 `label-primary`；完成步骤的 20px 圆点与结果大图标改为「`statusline1` 实底 + 画布 `bg0` 墨色」（深色 5.62–6.88:1，浅色 2.00–2.32:1，门槛 1.95）；完成步骤的绿色**文字**在浅色奶油面板上仍是 1.95–2.26:1 的已记录下限（与徽标不同，那是绿字压奶油，门槛 1.9），深色档文字 ≥ 4.0:1；6 档实测值见 §2j；',
-    '21. 聊天气泡文字选区（`src/chat-bubble.js`，常驻、与色彩模式无关）：选区底色保持全局 `::selection` 的 `bg_visual`（用户要求「勾选颜色各处都统一」），只把气泡内选中文字重新上色：浅色 `#2F3B33`（深松墨，对 `#DED8DB` 8.33:1）、深色 `#FFFBEF`（奶油，对深梅色选区 8.91–10.49:1）；原字色在选区上不可读（浅色奶油字 1.17–1.36:1、深色气泡字 1.22–1.27:1）；气泡外仍 `color: inherit` 保留原色；6 档选中文字 ≥ 4.5:1、选区带对气泡底 ≥ 1.6:1（浅色 1.71 是同色取舍、深色 4.61–5.42），6 档实测值见 §2k；',
+    '21. 聊天气泡文字选区（`src/chat-bubble.js`，常驻、与色彩模式无关）：选区底色保持全局 `::selection` 的 `bg_visual`（用户要求「勾选颜色各处都统一」），只把气泡内选中文字重新上色：浅色 `#2F3B33`（深松墨，对浅色选区带 7.09–8.33:1）、深色 `#FFFBEF`（奶油，对深梅色选区 8.91–10.49:1）；原字色在选区上不可读（浅色奶油字 1.36–1.38:1、深色气泡字 1.22–1.27:1）；气泡外仍 `color: inherit` 保留原色；6 档选中文字 ≥ 4.5:1、选区带对气泡底 ≥ 1.45:1（浅色，下限是 light·soft 的 1.47）/ ≥ 4.5:1（深色 4.61–5.42），6 档实测值见 §2k；',
     '22. 发送 / 终止按钮图标（`src/tokens.js` 的 `--dsw-alias-label-on-color`，常驻、与色彩模式无关）：DSH 用它在饱和实底上画白墨（`ui-conversation` 的 `InputBar.module.css` 里 `.primary { color: var(--dsw-alias-label-on-color) }`，发送箭头与终止方块共用该圆钮），配 `--dsw-alias-button-info-fill`（主题的交互强调色 `statusline1`）及其 hover；DSH 原生就是「白字压饱和底」（2.00–2.40:1，靠色相而不是明度辨识），因此门槛固定为字面 `#FFFFFF` 且两种 scheme 对实底 / hover 都 ≥ 1.9:1；它此前是继承 token，亮度锚定把 `neutral-bluish-00` 解析成深色档的 `fg` `#D3C6AA`，图标变成 1.18:1 的土黄（2026-11-13 用户反馈「发送和终止的按钮里面的图标变色了」），6 档实测值见 §2l；',
     '23. 问答回复卡的「问题墨」（`src/chat-bubble.js`，常驻、与色彩模式无关）：回复卡是一块强调色表面，问题行不再有单独的底色 —— 它只在墨色上退一档：' +
       '`dt` 用的 `--dsw-alias-label-secondary` 在气泡子树内被重指向「气泡墨色向气泡底移动 6 L*」的取色（`chatBubbleQuestionInk()`，浅色三档 `#e9ecd1` / `#e6e7c5` / `#dbdcb5`，深色三档 `#343d3b` / `#3a4443` / `#404b4a`），' +
       '回答行保持气泡墨色。这就是 DSH 自己的层次（`QuestionReplyView` 的 `dt` 是 `label-secondary`、`dd` 继承气泡墨色）；' +
       '门槛同时卡住这一档的两端：L* 差 ≥ 4（否则两行还是一个声音）、≤ 8（再远就像禁用态）、问题必须比回答淡，并且仍可读 —— 浅色 ≥ 1.65:1（实测 1.70–1.99，light·soft 最紧）、深色 ≥ 4.4:1（AA，实测 4.52–5.59）；6 档实测值见 §2m；',
     '24. 运行中会话标题（`src/running-title.js`，常驻、与色彩模式无关）：命中「行首有 `[data-state="ongoing"]` 且未选中」的会话行标题，静止色是合法 `#RRGGBB` 的**文字绿 `green`**（与工作区目录名同色），扫光带永远朝「背离侧栏画布」的方向走——浅色档把绿压深（`#8DA101` → `#667401`，2.35–2.68 → 4.17–4.76:1），深色档把绿提亮（`#A7C080` → `#D3E0C0`，5.00–6.17 → 7.24–8.94:1）；门槛除两档静止 / 光带下限（2.3 / 4.1、4.5 / 7.0）外，还钉住「光带在 CIE L* 上比静止绿离侧栏更远」与「hover 叠加底上的光带不低于静止绿」两条方向不变量——第一版在浅色档刷的是白光（1.29–1.46:1），被用户退回「白光会让文字看不清楚」，6 档实测值见 §2n；',
+    '25. 运行中会话 spinner（`src/running-spinner.js`，常驻、与色彩模式无关）：同一批「行首有 `[data-state="ongoing"]` 且未选中」的行，行首那圈 `StateDot` 从 DSH 的 `label-tertiary` 灰改成合法 `#RRGGBB` 的**文字绿 `green`**（与标题 / 目录名同色），只写 `color`，环宽 / 虚线 / 动画仍归 DSH；门槛除沿用该绿的实测下限（浅色 2.3、深色 4.5，实测 2.35–2.68 / 5.00–6.17）外，还钉住「不得比它替换掉的中性灰更弱」（静止与 hover 叠加底上各比一次，容差 0.02）——浅色档实测 2.35–2.68 对中性灰 2.33–2.65，是同对比度下的换色而非可读性取舍；选中行不参与（实色强调底 + 画布墨由 G17 负责），语义状态点也不参与，6 档实测值见 §2o；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -1471,11 +1543,11 @@ function renderMarkdown () {
     '## 2k. 聊天气泡文字选区（chat-bubble，硬门槛 G21）',
     '',
     '2026-11-13 用户报告「浅色状态下选中文字是浅灰色，在绿色气泡中白字和浅灰不容易区分」：' +
-      '全局 `src/selection.js` 用各档 `bg_visual` 画选区（浅色 `#DED8DB`、深色 `#4C3743` / `#543A48` / `#5C3F4F`），' +
+      '全局 `src/selection.js` 用各档 `bg_visual` 画选区（浅色三档 `#DED8DB` / `#D9D4D6` / `#CFC9CC`、深色 `#4C3743` / `#543A48` / `#5C3F4F`），' +
       '这套底色是为「深字压浅米」的画布设计的；气泡是反过来的「浅字压中绿」，同一底色配原来的字色就失效了——' +
-      '浅色奶油字在 `#DED8DB` 上只有 1.17–1.36:1，深色气泡字在深梅色选区上只有 1.22–1.27:1。' +
+      '浅色奶油字在浅色选区带上只有 1.36–1.38:1，深色气泡字在深梅色选区上只有 1.22–1.27:1。' +
       '第一版给气泡单独换了一套选区底色；同日用户要求「保持勾选颜色各处都统一」，于是改为**只改选中文字颜色**（方案 C 的墨色），' +
-      '选区底色仍是全局 `bg_visual`：浅色选中文字 `#2F3B33`（深松墨，对 `#DED8DB` 8.33:1）、' +
+      '选区底色仍是全局 `bg_visual`：浅色选中文字 `#2F3B33`（深松墨，对浅色选区带 7.09–8.33:1）、' +
       '深色选中文字 `#FFFBEF`（奶油，对深梅色选区 8.91–10.49:1）。' +
       '规则是气泡作用域的 `::selection`，只覆盖 `color`；画布 / 代码块 / 侧栏仍由全局表的 `color: inherit` 保留各自原色。',
     '',
@@ -1483,16 +1555,18 @@ function renderMarkdown () {
     '|---|---|---|---|---:|---:|---:|---|'
   )
   for (const row of bubbleSelectionRows) {
-    const ok = row.legal && row.textRatio >= BUBBLE_SELECTION_TEXT_CONTRAST && row.bandRatio >= BUBBLE_SELECTION_MIN_CONTRAST
+    const ok = row.legal &&
+      row.textRatio >= BUBBLE_SELECTION_TEXT_CONTRAST &&
+      row.bandRatio >= BUBBLE_SELECTION_BAND_MIN_CONTRAST[row.scheme]
     push(
       `| ${row.variant} | \`${row.band}\` | \`${row.ink}\` | \`${row.fill}\` | ${format(row.textRatio)} | ${format(row.bandRatio)} | ${BUBBLE_SELECTION_TEXT_CONTRAST} | ${pass(ok)} |`
     )
   }
   push(
     '',
-    '浅色档全局选区带（`#DED8DB`）对绿气泡只有 1.71:1 —— 这是「各处同色」的既有代价，用户明确选择保留；' +
-      '可读性由深松墨 8.33:1 承担（原来的奶油字只有 1.17–1.36:1）。深色档选区带对气泡 4.61–5.42:1，奶油字 8.91–10.49:1。' +
-      'G21 因此要求：选中文字 ≥4.5:1、选区带对气泡底 ≥1.6:1（带没有消失）。气泡之外的选区文字颜色不变（`color: inherit`）。',
+    '浅色档全局选区带对绿气泡只有 1.47–1.71:1（light·soft 最深、为下限）—— 这是「各处同色」的既有代价，用户明确选择保留；' +
+      '可读性由深松墨 7.09–8.33:1 承担（原来的奶油字只有 1.36–1.38:1）。深色档选区带对气泡 4.61–5.42:1，奶油字 8.91–10.49:1。' +
+      'G21 因此要求：选中文字 ≥4.5:1、选区带对气泡底 ≥1.45:1（浅色，带没有消失）/ ≥4.5:1（深色）。气泡之外的选区文字颜色不变（`color: inherit`）。',
   )
   push(
     '',
@@ -1575,6 +1649,37 @@ function renderMarkdown () {
       '第一版浅色档刷的是白光（绿提亮到近白，峰值 1.29–1.46:1），字被打掉，用户原话「白光会让文字看不清楚」。' +
       'hover 叠加底上光带仍不低于静止绿本身，所以行被悬停时也不会掉档；' +
       '`text-shadow` 辉光方案被排除——会话标题是 20px 高、`overflow: hidden` 的裁切盒，阴影上下会被切掉一截，光影因此做在字形内部（`background-clip: text`）。',
+  )
+  push(
+    '',
+    '## 2o. 运行中会话 spinner（running-spinner，硬门槛 G25）',
+    '',
+    '同一批「运行中、未选中」的会话行，行首那圈环是 ui-primitives 的 `StateDot(state="ongoing")`（`<svg data-state="ongoing">`，' +
+      '两个 `circle` 都用 `stroke: currentColor`，轨道 `opacity: .25`、圆弧是走动的虚线），DSH 在 `<svg>` 上只写了一句 ' +
+      '`color: var(--dsw-alias-label-tertiary)`。2026-11-18 用户裁图要求「没有选中，正在进行的对话，前面的转圈的 icon，帮我改成主题绿色试试，dark 和 light 都改」——' +
+      '标题已是文字绿 + 扫光（§2n），行首这圈灰是整行最后一块中性色。',
+    '',
+    '实现只写 `color`：环色取与标题相同的**文字绿 `green`**（环宽 / 虚线 / 1.5s 动画仍归 DSH，样式表不碰 stroke 与几何）。' +
+      '为什么不是更亮的 `statusline1`：那是选中 / 强调**表面**的角色（§2g / §23），浅色档 `#93B259` 在奶油侧栏上只有 1.94–2.21:1，比文字绿更弱；' +
+      '文字绿则与标题、目录名同色，一行读起来是一支绿。选中行不参与（实色强调底上的整槽已由 G17 改成画布墨），语义状态点（`warning` / `done` / `error`）也不参与。',
+    '',
+    '| 变体 | 环色 | 替换前中性灰 | 侧栏底 | 环 / 侧栏 | 中性灰 / 侧栏 | hover 上环 / 中性灰 | 阈值 | 结果 |',
+    '|---|---|---|---:|---:|---:|---:|---:|---|'
+  )
+  for (const row of runningSpinnerRows) {
+    const ok = row.ratio >= row.floor &&
+      row.ratio + RUNNING_SPINNER_NEUTRAL_TOLERANCE >= row.neutralRatio &&
+      row.hoverRatio + RUNNING_SPINNER_NEUTRAL_TOLERANCE >= row.neutralHoverRatio
+    push(
+      `| ${row.variant} | \`${row.ink}\` | \`${row.neutral}\` | \`${row.sidebar}\` | ${format(row.ratio)} | ${format(row.neutralRatio)} | ${format(row.hoverRatio)} / ${format(row.neutralHoverRatio)} | ${row.floor} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '关键是这道门槛不只卡「环要够清楚」，还卡「不能比它替换掉的中性灰更弱」：浅色三档新环 2.68 / 2.56 / 2.35:1，' +
+      '对旧灰 2.65 / 2.54 / 2.33:1 是**同对比度下的换色**（差 0.01–0.03，容差 0.02）；深色三档 6.17 / 5.56 / 5.00:1 比旧灰 4.19 / 3.77 / 3.39:1 明显更亮。' +
+      '所以这一步没有拿可读性换颜色 —— 浅色档仍然停在调色板上限（与目录名、运行中标题同一档，2.35–2.68 的已记录取舍），' +
+      '只是把「中性」换成了这支绿。hover 叠加底上的两组数值同时成立，行被悬停时也不会掉档。',
   )
   push(
     '',
@@ -1674,7 +1779,7 @@ function renderMarkdown () {
     '- **门槛**：新增硬门槛 §2d（气泡 vs `bg-base` ≥ 1.10:1，light·soft 1.05:1）+ §3 的文本承载表面检查（气泡文字 ≥ 4.5:1，测的是 token 表面 + 官方墨）。`--dsw-specific-bubble-highlight` 当前 chat 未使用，保持 `surface(p, 2)`。',
     '- **影响范围**：light 三档 `--dsw-specific-bubble` + 常驻样式表 `dsh-everforest/chat-bubble`；2026-11-10 只改该样式表（两个 scheme 改为 accent 绘制；浅色长文本曾试派生深墨，随后换回奶油白），全部 token 不变；2026-11-13 同一张表再加各档一条气泡作用域的 `::selection`（见 §2k），token 仍不变。',
     '- **回复卡与命令回显（2026-11-15）**：同一套绿底原先只锚在 `[class*="_userStack"]` 上，而 DSH 的问答回复卡（`QuestionReplyView`：`row > bubbleWidth > UserMessageBubble`）与 `/goal` 命令回显都不在 `_userStack` 里，卡片仍显示 token 的苔纸底。样式表改为三条锚点各带一次作用域；复卡锚点还要排除 `_bubbleWidth` 包装盒，否则绿底画在方角外盒上、20px 圆角消失。卡内问题行由气泡子树内的 `--dsw-alias-label-secondary` 承担：2026-11-15 曾重指向气泡墨色并另压一块纸条（浅色 `bg_green`、深色 `#5D6E56`），随后用户判「不好看」、要求「不想要两个不同颜色的块…问题用浅一点的文字稍微弱化」，纸条撤掉，该 token 改指「气泡墨色向气泡底移动 6 L*」的问题墨（浅色 1.70–1.99:1、深色 4.52–5.59:1，门槛见 §2m）。',
-    '- **文字选区（2026-11-13）**：全局 `src/selection.js` 的 `bg_visual` 配气泡原字色不可读（浅色奶油字 1.17–1.36:1、深色气泡字 1.22–1.27:1）。第一版给气泡单独换选区底色，用户随即要求「勾选颜色各处都统一」，于是改为只重指选中文字颜色：浅色 `#2F3B33`（8.33:1）、深色 `#FFFBEF`（8.91–10.49:1）；选区底色保持全局 `bg_visual`，画布 / 代码块 / 侧栏不变。门槛见 §2k（G21）。',
+    '- **文字选区（2026-11-13）**：全局 `src/selection.js` 的 `bg_visual` 配气泡原字色不可读（浅色奶油字 1.36–1.38:1、深色气泡字 1.22–1.27:1）。第一版给气泡单独换选区底色，用户随即要求「勾选颜色各处都统一」，于是改为只重指选中文字颜色：浅色 `#2F3B33`（7.09–8.33:1）、深色 `#FFFBEF`（8.91–10.49:1）；选区底色保持全局 `bg_visual`，画布 / 代码块 / 侧栏不变。2026-11-18 起浅色三档换成同色相的三档梯度（`#DED8DB` / `#D9D4D6` / `#CFC9CC`，对各自 `bg0` 同为 1.36:1），见 `docs/reference/palette.md` §3。门槛见 §2k（G21）。',
     '',
     '## 7. 复现',
     '',

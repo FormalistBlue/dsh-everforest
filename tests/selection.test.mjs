@@ -37,13 +37,18 @@ test('selection keeps each element’s own text colour (Enchanted behaviour)', (
   assert.ok(!/(?:^|[;\s])color: #[0-9a-f]{6}/i.test(css), 'selection must not force a fixed foreground colour')
 })
 
-test('light selection uses the Enchanted #DED8DB effective value', () => {
+test('light selection uses the per-strength effective bg_visual values', () => {
   const css = selectionStyles()
+  const effective = { hard: '#DED8DB', medium: '#D9D4D6', soft: '#CFC9CC' }
   for (const strength of STRENGTHS) {
     assert.ok(css.includes(scopeOf('light', strength) + ' ::selection'), `missing light-${strength} rule`)
+    assert.equal(RAMPS.light[strength].bgVisual, effective[strength], `light-${strength}.bgVisual`)
+    assert.equal(
+      (css.match(new RegExp(effective[strength], 'gi')) || []).length,
+      1,
+      `light-${strength} band must be used by its own rule only`
+    )
   }
-  assert.equal(RAMPS.light.hard.bgVisual, '#DED8DB')
-  assert.equal((css.match(/#DED8DB/g) || []).length, STRENGTHS.length)
 })
 
 test('the selection sheet is independent of the color mode and uses no !important', () => {

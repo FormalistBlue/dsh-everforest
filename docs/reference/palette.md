@@ -19,7 +19,7 @@
   - `Light` = 官方 **light · hard**（`bg_dim #F2EFDF`、`bg0 #FFFBEF` …）
 - 在此之上，Enchanted 增加了：
   - `header-*` 自定义色（比 `fg-*` 强调色更沉稳，用于链接 / 标题 / 交互强调）；
-  - 一处 light 选中色修正：`bg_visual` 由官方 `#F0F2D4` 改为 `#DED8DB`（提高可见性）。该修正发生在 Enchanted 的 **Light（= 官方 light · hard）** 上；本插件把它**外推到 light · medium / light · soft**（属于本项目外推，不是上游数据，见 §3 表注）；
+  - 一处 light 选中色修正：`bg_visual` 由官方 `#F0F2D4` 改为 `#DED8DB`（提高可见性）。该修正发生在 Enchanted 的 **Light（= 官方 light · hard）** 上；本插件对 light · medium / light · soft 按同一色相、同一画布对比度重新取值（属于本项目外推，不是上游数据，见 §3 表注）；
   - UI 语义约定（见 §5）。
 - 因此本插件的**默认配对**是：深色 = `soft`，浅色 = `hard`；6 个变体只是把背景色阶换成另外四套官方值，前景 / 强调 / header 色在同一 scheme 内保持不变（官方语义也是这样：强调色不随对比度变化）。
 
@@ -38,7 +38,15 @@
 
 - 官方 light 色阶中 `bg_dim` 与 `bg2` 同值（表中已合并）。
 - `bg5` 官方标注「当前未使用」；Enchanted 用它作边框色，本项目沿用（见 §5）。
-- **Enchanted 的 light 选中色修正**：`bg_visual` 使用 `#DED8DB`（而非官方值），因为官方值在浅色下几乎不可见。**表里 `bg_visual` 列保留官方值；`scripts/palette.mjs` 对 light 三档必须改用生效值 `#DED8DB`**（Enchanted 只在 light · hard 上用该修正，light · medium / soft 沿用是本项目外推）。
+- **Enchanted 的 light 选中色修正（三档梯度）**：官方 light `bg_visual` 在浅色下几乎不可见（对各自 `bg0` 只有 1.09–1.12:1），Enchanted 在 light · hard 上改用 `#DED8DB`（1.36:1）。本项目沿用该修正色相，并为 medium / soft 各取一个同色相、同画布对比度（≈1.36:1）的值，使三档「选中」在各自纸面上看起来一样明显（深色三档的选区带对 `bg0` 也是同一水平：1.22–1.27:1）：
+
+  | 档位 | 表里官方值 | 生成物生效值 | 对各自 `bg0` |
+  |---|---|---|---|
+  | light · hard | `#F0F2D4` | `#DED8DB`（上游修正值） | 1.36:1 |
+  | light · medium | `#EAEDC8` | `#D9D4D6`（本项目派生） | 1.36:1 |
+  | light · soft | `#E1E4BD` | `#CFC9CC`（本项目派生） | 1.36:1 |
+
+  **表里 `bg_visual` 列保留官方值；`scripts/palette.mjs` 对 light 三档必须改用上表的生效值**，`tests/palette.test.mjs` 会校验「三档对各自 `bg0` 的对比度一致」与三档明度递减，因此派生值不许随手改。
 - 本表是配色数据的**唯一来源**：表格中的「生效值」以注记为界，`scripts/palette.mjs` 按注记替换；`tests/palette.test.mjs` 解析本表并与生成物逐值比对，不得手改 `src/palette.js`。
 
 ## 4. 前景 / 强调 / 灰阶（按 scheme 共享，不随 hard/medium/soft 变化）
@@ -89,7 +97,7 @@
 | 次级表面 / 输入框 | `bg1` | 表单、行 hover 底 |
 | 边框 | `bg5`（hover `bg3`） | 表单边框、分隔线 |
 | 表格 | 表头 / 隔行斑马纹 / 行 hover = `green` 混入 `bg0` 的 14% / 6% / 10% 淡染（对比度守卫后的派生值） | 上游没有表格角色；由色彩模式按 Enchanted 口径落地（`src/color-mode.js`），不是 palette 原值（见 §6） |
-| 选中 | `bg_visual`（light 用 `#DED8DB`） | 文档预览选区 = `bg_visual` 40% 透明 token；原生文本选区由插件 `::selection` 用实色 `bg_visual`、文字 `color: inherit`（2026-10-24，见 `design.md` §16.2）。**例外：聊天气泡内选中文字**（2026-11-13，见 `design.md` §30）——底色仍是全局 `bg_visual`（各处同色），只把气泡内选中文字改成方案 C 的墨色：浅色 `#2F3B33`、深色 `#FFFBEF` |
+| 选中 | `bg_visual`（light 用三档生效值 `#DED8DB` / `#D9D4D6` / `#CFC9CC`） | 文档预览选区 = `bg_visual` 40% 透明 token；原生文本选区由插件 `::selection` 用实色 `bg_visual`、文字 `color: inherit`（2026-10-24，见 `design.md` §16.2）。**例外：聊天气泡内选中文字**（2026-11-13，见 `design.md` §30）——底色仍是全局 `bg_visual`（各处同色），只把气泡内选中文字改成方案 C 的墨色：浅色 `#2F3B33`、深色 `#FFFBEF` |
 | 搜索高亮 | — | DSH 没有接管搜索高亮，当前**无落点**；上游 Search Highlights 取 `green`。`bg_yellow` 实际只用于「待确认 / 待审批」会话行底 |
 | 链接（内部） | `header-aqua`（hover `fg-aqua`） | 色彩模式的内部文件链接仍用此色；基础 `--dsw-alias-link` 2026-10-24 起改用官方 `fg-blue`（见偏差 5） |
 | 链接（外部）/ 文本强调 | `fg-blue` | 2026-10-24 起由 header-blue 改为官方 accent（见偏差 5） |

@@ -7,8 +7,9 @@
 //   the header-* colors and the light document-selection fix.
 //
 // Effective-value note (docs/reference/palette.md section 3): the reference table
-// keeps the official light bg_visual values, but all three light strengths use
-// #DED8DB here (Enchanted visibility fix; medium / soft extrapolated by this project).
+// keeps the official light bg_visual values, but the three light strengths use
+// #DED8DB / #D9D4D6 / #CFC9CC (Enchanted visibility fix at hard, re-derived at the
+// same canvas contrast for medium / soft).
 //
 // Regenerate: node scripts/palette.mjs
 // Verify:     node scripts/palette.mjs --check
@@ -168,7 +169,7 @@ export const RAMPS = freezePaletteData({
       bg3: '#E6E2CC',
       bg4: '#E0DCC7',
       bg5: '#BDC3AF',
-      bgVisual: '#DED8DB',
+      bgVisual: '#D9D4D6',
       bgRed: '#FDE3DA',
       bgYellow: '#FAEDCD',
       bgGreen: '#F0F1D2',
@@ -183,7 +184,7 @@ export const RAMPS = freezePaletteData({
       bg3: '#DDD8BE',
       bg4: '#D8D3BA',
       bg5: '#B9C0AB',
-      bgVisual: '#DED8DB',
+      bgVisual: '#CFC9CC',
       bgRed: '#FADBD0',
       bgYellow: '#F1E4C5',
       bgGreen: '#E5E6C5',

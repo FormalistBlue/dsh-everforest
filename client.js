@@ -14,8 +14,9 @@ const __mod_0_palette_js = (() => {
 //   the header-* colors and the light document-selection fix.
 //
 // Effective-value note (docs/reference/palette.md section 3): the reference table
-// keeps the official light bg_visual values, but all three light strengths use
-// #DED8DB here (Enchanted visibility fix; medium / soft extrapolated by this project).
+// keeps the official light bg_visual values, but the three light strengths use
+// #DED8DB / #D9D4D6 / #CFC9CC (Enchanted visibility fix at hard, re-derived at the
+// same canvas contrast for medium / soft).
 //
 // Regenerate: node scripts/palette.mjs
 // Verify:     node scripts/palette.mjs --check
@@ -175,7 +176,7 @@ const RAMPS = freezePaletteData({
       bg3: '#E6E2CC',
       bg4: '#E0DCC7',
       bg5: '#BDC3AF',
-      bgVisual: '#DED8DB',
+      bgVisual: '#D9D4D6',
       bgRed: '#FDE3DA',
       bgYellow: '#FAEDCD',
       bgGreen: '#F0F1D2',
@@ -190,7 +191,7 @@ const RAMPS = freezePaletteData({
       bg3: '#DDD8BE',
       bg4: '#D8D3BA',
       bg5: '#B9C0AB',
-      bgVisual: '#DED8DB',
+      bgVisual: '#CFC9CC',
       bgRed: '#FADBD0',
       bgYellow: '#F1E4C5',
       bgGreen: '#E5E6C5',
@@ -1822,10 +1823,12 @@ const __mod_3_color_mode_js = (() => {
 //       marker / quote / hr     green (2026-11-15 request: the markdown decoration
 //                            family is the theme green, not the aqua accent)
 //       checkbox                 green as well, both schemes (same request); a solid
-//                            fill carrying a canvas-colour check mark. DSH marks
-//                            every task-list box `disabled` and Chromium greys a
-//                            disabled native control, so the box is drawn instead
-//                            of accent-coloured
+//                            fill carrying a check mark — the canvas cream in the
+//                            light schemes, the theme white in the dark ones
+//                            (2026-11-18 request: "深色模式里面的黑色的勾勾改成白色
+//                            的"). DSH marks every task-list box `disabled` and
+//                            Chromium greys a disabled native control, so the box
+//                            is drawn instead of accent-coloured
 //       table band / zebra / hover   green tints into bg-base (14% / 6% / 10%);
 //                            the frame / column hairlines around and inside the
 //                            table come from the neutral border ramp instead of
@@ -1889,6 +1892,9 @@ const __mod_3_color_mode_js = (() => {
 // took `fg.aqua` and dark kept `fg.blue`. 2026-11-15: the whole decoration family
 // (`marker` / `quote` / `hr` / `check`) moved to `fg.green`, the theme green, at
 // the user's request. See `TASK_CHECKBOX`.
+// 2026-11-18: the dark schemes' check mark turned white — on the green fill the
+// canvas-colour mark read as a black tick. Light keeps the canvas cream. See
+// `CHECK_TICK_DARK` and design §48.
 //
 // The module is a pure ESM source: no DOM, no storage, no state. `node --test`
 // imports it directly and `scripts/build.mjs` bundles it into `client.js`
@@ -2434,7 +2440,10 @@ const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 /**
  * Markdown content container (DSH hashes the class, `markdown` stays a substring).
  */
-const MARKDOWN_SCOPE = `${COLOR_MODE_ON} [class*="markdown"]:not([data-markdown-variant="compact"])`
+const MARKDOWN_CONTAINER = '[class*="markdown"]:not([data-markdown-variant="compact"])'
+
+/** The markdown container behind the always-on colour-mode gate. */
+const MARKDOWN_SCOPE = `${COLOR_MODE_ON} ${MARKDOWN_CONTAINER}`
 
 /**
  * The horizontal-scroll wrapper DSH wraps around every markdown table. It is
@@ -2451,9 +2460,29 @@ const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
  * debug Chrome — an accent-coloured disabled checkbox still rendered grey). The
  * colour therefore has to be drawn, not delegated: the native appearance is
  * removed and the box takes an accent-tinted border / fill, with the check mark
- * as an `::after` border pair in the canvas colour.
+ * as an `::after` border pair — the canvas cream in the light schemes (kept per
+ * strength) and the theme white in the dark ones (`CHECK_TICK_DARK`).
  */
 const TASK_CHECKBOX = `${MARKDOWN_SCOPE} input[type="checkbox"]`
+
+/**
+ * The same box in the dark schemes, where the check mark is re-inked white. The
+ * extra `body[data-ds-dark-theme]` gives the override both its scope and the
+ * specificity to beat the base rule, which reads the scheme canvas instead.
+ */
+const DARK_TASK_CHECKBOX = `${COLOR_MODE_ON} body[data-ds-dark-theme] ${MARKDOWN_CONTAINER} input[type="checkbox"]`
+
+/**
+ * The dark-scheme check mark of a checked task-list box: the theme white
+ * `#FFFBEF` (the light canvas `bg0`). The mark used to read the scheme canvas
+ * (`--dsw-alias-bg-base`, the dark slate) — fine on paper, but on the dark green
+ * fill it reads as a black tick (2026-11-18 request: "深色模式里面的黑色的勾勾改成
+ * 白色的"). 1.93:1 on `statusline1` `#A7C080`: a tick is a graphical mark, not
+ * body text, the solid fill still carries the checked state, and this is the same
+ * ~2:1 ceiling the light schemes have always run on that fill (design §45 / §48).
+ * The light schemes keep the per-strength canvas cream unchanged.
+ */
+const CHECK_TICK_DARK = '#FFFBEF'
 
 /**
  * Session-tree row selector for one state, keyed by the status dot it contains.
@@ -2570,12 +2599,16 @@ const LITERAL_RULES = [
     ['top', '0.5px'],
     ['width', '4px'],
     ['height', '8px'],
-    // Canvas ink in both schemes: cream on the light green, the deep slate on the
-    // dark one (6.88 / 6.23 / 5.62:1 there).
+    // Light schemes: the canvas cream of that strength, so the mark reads as the
+    // paper showing through the green. The dark schemes override the colour with
+    // the theme white in the next rule (2026-11-18).
     ['border', 'solid var(--dsw-alias-bg-base)'],
     ['border-width', '0 1.5px 1.5px 0'],
     ['transform', 'rotate(42deg)']
   ]],
+  // 2026-11-18: on the dark green fill the canvas mark reads as a black tick; the
+  // dark schemes take the theme white instead (1.93:1 on `#A7C080`, design §48).
+  [`${DARK_TASK_CHECKBOX}:checked::after`, [['border-color', CHECK_TICK_DARK]]],
   // Table frame and column rules. DSH's table only draws horizontal cell rules,
   // so without them a table reads as a list of loose rows. Fill tables are 100%
   // wide, so their scroll wrapper can carry the outer border (and clip it to a
@@ -2719,7 +2752,7 @@ function colorModeStyles () {
   return cachedStyles
 }
 
-  return { COLOR_MODE_ATTRS, colorModeRoles, colorModeDataset, MARKDOWN_SCOPE, colorModeStyles }
+  return { COLOR_MODE_ATTRS, colorModeRoles, colorModeDataset, MARKDOWN_SCOPE, CHECK_TICK_DARK, colorModeStyles }
 })()
 
 // ---------------------------------------------------------------- src/colwidth-store.js
@@ -4212,15 +4245,16 @@ const __mod_7_selection_js = (() => {
 // the color mode, which only adds content-layer colours.
 //
 // `RAMPS[scheme][strength].bgVisual` already carries the effective value: the
-// light ramps hold Enchanted's #DED8DB visibility fix (docs/reference/palette.md
-// section 3), so this module needs no special case.
+// light ramps hold the visibility fix (#DED8DB / #D9D4D6 / #CFC9CC, one per
+// strength; docs/reference/palette.md section 3), so this module needs no
+// special case.
 //
 // The accent-filled chat bubble keeps this background but re-inks the selected
 // text through `src/chat-bubble.js`: the bubble's ink is inverted relative to
-// the canvas, so the inherited colour is unreadable on the band (cream on
-// #DED8DB 1.17-1.36:1, the dark ink on the dark plum 1.22-1.27:1). The highlight
-// colour itself stays this sheet's `bg_visual` on every surface — 2026-11-13
-// user choice ("保持勾选颜色各处都统一 ... 只变动修改文字颜色").
+// the canvas, so the inherited colour is unreadable on the band (cream on the
+// light bands 1.36-1.38:1, the dark ink on the dark plum 1.22-1.27:1). The
+// highlight colour itself stays this sheet's `bg_visual` on every surface —
+// 2026-11-13 user choice ("保持勾选颜色各处都统一 ... 只变动修改文字颜色").
 
 
 /**
@@ -5078,8 +5112,163 @@ function runningTitleStyles () {
   return { RUNNING_SESSION_ROW, RUNNING_SESSION_TITLE, RUNNING_TITLE_CYCLE_MS, RUNNING_TITLE_TRAVEL_PERCENT, RUNNING_TITLE_TILE_PERCENT, RUNNING_TITLE_KEYFRAMES, RUNNING_TITLE_LIGHT_DEEPEN, RUNNING_TITLE_DARK_LIFT, RUNNING_TITLE_RULES_PER_VARIANT, RUNNING_TITLE_LIGHT_RESTING_CONTRAST, RUNNING_TITLE_LIGHT_BAND_CONTRAST, RUNNING_TITLE_DARK_RESTING_CONTRAST, RUNNING_TITLE_DARK_BAND_CONTRAST, runningTitleRoles, runningTitleStyles }
 })()
 
+// ---------------------------------------------------------------- src/running-spinner.js
+const __mod_12_running_spinner_js = (() => {
+  const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
+  const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
+  const { RUNNING_SESSION_ROW } = __mod_11_running_title_js
+
+// Everforest ink for the "running" spinner of a DSH workspace session row.
+//
+// 2026-11-18 user request (crop of the sidebar: two rows, each preceded by the
+// grey ring, red box around the slot): 「没有选中，正在进行的对话，前面的转圈的
+// icon，帮我改成主题绿色试试，dark和light都改」. The titles of those rows already
+// carry the text green with the glare (`src/running-title.js`), so the row's
+// leading ring was the last neutral glyph on an otherwise green row.
+//
+// Surface: the row's leading slot renders ui-primitives' `StateDot(state="ongoing")`
+// while the Session is live — `<span class="…slot"><svg data-state="ongoing"
+// class="_spinner_…"><g class="_spinnerMotion_…"><circle class="_spinnerTrack_…">
+// <circle class="_spinnerArc_…">` (verified against the installed 0.2.2-rc.3
+// bundle and the live DOM). Its own rule sets the ring's colour once, on the
+// `<svg>`: `._spinner_1i3xo_37 { flex: none; color: var(--dsw-alias-label-tertiary) }`,
+// and both circles then take that colour through `stroke: currentColor` (track
+// `opacity: .25`, arc the animated dash). So re-pointing `color` on the svg
+// recolours ring and arc together — no `stroke`, no `stroke-width`, no dash
+// pattern, no animation in this sheet: DSH keeps owning the geometry.
+//
+// The ink is the palette *text* green `green` — the same colour as the running
+// title's resting green (`src/running-title.js`) and the workspace folder names
+// (`src/workspace-labels.js`), and the same role split the palette review settled
+// on: `statusline1` for selected / accent *surfaces*, `fg.green` for *content*
+// colouring. The lighter `statusline1` would also be a step DOWN in the light
+// schemes (`#93B259` at 1.94–2.21:1, the ring is small), while the text green
+// keeps the row reading as one green unit.
+//
+// Measured on the sidebar fill (the row's own background): dark 5.00–6.17:1,
+// light 2.35–2.68:1. In the light schemes that is the palette's ceiling — the
+// neutral `label-tertiary` ring it replaces sat at 2.33–2.65:1, so this change
+// is a hue swap at equal-or-better contrast, not a legibility trade (the floor is
+// pinned in `docs/reference/contrast.md` §2o, G25, and the gate also refuses a
+// green that would come out weaker than the neutral it replaced).
+//
+// The selected row is deliberately excluded: there the row is the solid
+// `statusline1` band and the whole leading slot is already painted with the canvas
+// ink (`src/active-session.js`, 2026-11-08 「整块高亮的时候，前面这个转圈的图标
+// 显示不明显」) — a green ring on a green band would vanish again. Semantic dots
+// (`warning` / `done` / `error`) never match the anchor: this rule only targets
+// the `ongoing` spinner, whose colour is a neutral, not a state hue.
+//
+// Always-on and independent of the color mode, like every other piece of
+// navigation chrome: the row's state is not markdown content. The anchor is
+// DSH's own contract — the session row (`src/running-title.js`'s
+// `RUNNING_SESSION_ROW`, itself built from `[role="treeitem"]` +
+// `data-row-key^="session:"` + `[data-state="ongoing"]` + `:not([aria-selected])`)
+// plus the real `svg[data-state="ongoing"]` markup — never the hashed
+// CSS-module class.
+
+
+/**
+ * The running spinner of an unselected session row: the real `StateDot` markup
+ * (`<svg data-state="ongoing">`) inside the row's leading slot. The row anchor
+ * is shared with the running-title glare so the title and the ring can never
+ * cover different rows.
+ */
+const RUNNING_SPINNER = `${RUNNING_SESSION_ROW} svg[data-state="ongoing"]`
+
+/** One rule per variant: a single `color` declaration. */
+const RUNNING_SPINNER_RULES_PER_VARIANT = 1
+
+/**
+ * Measured floor of the light schemes: the text green on the cream sidebar is
+ * 2.35–2.68:1 — the same palette ceiling the folder names and the running title
+ * already carry (G18 / G24), and a hair better than the `label-tertiary` ring it
+ * replaces (2.33–2.65:1).
+ */
+const RUNNING_SPINNER_LIGHT_CONTRAST = 2.3
+
+/**
+ * Floor of the dark schemes: the same green is a real WCAG AA pair on the dark
+ * sidebar (5.00–6.17:1), and the neutral ring it replaces was 3.39–4.19:1 there.
+ */
+const RUNNING_SPINNER_DARK_CONTRAST = 4.5
+
+/**
+ * How far the new green may undercut the neutral `label-tertiary` ring it
+ * replaces before the gate fails. The light schemes end up marginally *better*
+ * (2.35 vs 2.33 on light·soft); the tolerance only absorbs the palette's own
+ * rounding, so a future palette drag that makes the ring genuinely fainter than
+ * today's grey still fails.
+ */
+const RUNNING_SPINNER_NEUTRAL_TOLERANCE = 0.02
+
+/**
+ * The ring colour of one variant: the palette text green, untouched.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string} opaque `#RRGGBB`.
+ */
+function runningSpinnerFor (scheme, strength) {
+  return resolvePalette({ ...DEFAULT_STATE, [scheme]: strength })[scheme].fg.green
+}
+
+/**
+ * The six ring colours, keyed by `${scheme}-${strength}`.
+ * @returns {Record<string, string>} keyed `light-hard` … `dark-soft`.
+ */
+function runningSpinnerRoles () {
+  const roles = {}
+  for (const scheme of SCHEMES) {
+    for (const strength of STRENGTHS) {
+      roles[`${scheme}-${strength}`] = runningSpinnerFor(scheme, strength)
+    }
+  }
+  return roles
+}
+
+/**
+ * The scope of one variant: the strength attribute the token layer writes on
+ * `<html>` plus DSH's own dark-theme flag on `<body>`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function scopeFor (scheme, strength) {
+  return scheme === 'dark'
+    ? `html[${COLOR_MODE_ATTRS.dark}="${strength}"] body[data-ds-dark-theme]`
+    : `html[${COLOR_MODE_ATTRS.light}="${strength}"] body:not([data-ds-dark-theme])`
+}
+
+/**
+ * One variant's rule: the ink only. The two circles already paint themselves
+ * with `stroke: currentColor`, so the inherited colour is the whole change; the
+ * track keeps DSH's own 25% opacity and the arc keeps its dash animation.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @param {string} ink opaque `#RRGGBB`.
+ * @returns {string}
+ */
+function runningSpinnerRule (scheme, strength, ink) {
+  return `${scopeFor(scheme, strength)} ${RUNNING_SPINNER} {\n  color: ${ink};\n}`
+}
+
+/**
+ * The complete running-spinner stylesheet: six variants × one rule.
+ * @returns {string}
+ */
+function runningSpinnerStyles () {
+  const roles = runningSpinnerRoles()
+  return SCHEMES
+    .flatMap((scheme) => STRENGTHS.map((strength) =>
+      runningSpinnerRule(scheme, strength, roles[`${scheme}-${strength}`])))
+    .join('\n\n')
+}
+
+  return { RUNNING_SPINNER, RUNNING_SPINNER_RULES_PER_VARIANT, RUNNING_SPINNER_LIGHT_CONTRAST, RUNNING_SPINNER_DARK_CONTRAST, RUNNING_SPINNER_NEUTRAL_TOLERANCE, runningSpinnerRoles, runningSpinnerStyles }
+})()
+
 // ---------------------------------------------------------------- src/turn-rail.js
-const __mod_12_turn_rail_js = (() => {
+const __mod_13_turn_rail_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5328,7 +5517,7 @@ const TURN_RAIL_REDUCED_MOTION_PER_VARIANT = 1
 })()
 
 // ---------------------------------------------------------------- src/question-choices.js
-const __mod_13_question_choices_js = (() => {
+const __mod_14_question_choices_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5500,7 +5689,7 @@ function questionChoiceStyles () {
 })()
 
 // ---------------------------------------------------------------- src/hero-title.js
-const __mod_14_hero_title_js = (() => {
+const __mod_15_hero_title_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5639,7 +5828,7 @@ function heroTitleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/ui-accents.js
-const __mod_15_ui_accents_js = (() => {
+const __mod_16_ui_accents_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5848,7 +6037,7 @@ function uiAccentStyles () {
 })()
 
 // ---------------------------------------------------------------- src/plugin-update.js
-const __mod_16_plugin_update_js = (() => {
+const __mod_17_plugin_update_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -6013,7 +6202,7 @@ function pluginUpdateStyles () {
 })()
 
 // ---------------------------------------------------------------- src/chat-bubble.js
-const __mod_17_chat_bubble_js = (() => {
+const __mod_18_chat_bubble_js = (() => {
   const { mix, labLightness } = __mod_1_color_js
   const { FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
 
@@ -6074,21 +6263,22 @@ const __mod_17_chat_bubble_js = (() => {
 //
 // Text selection (2026-11-13): the global `::selection` sheet (`src/selection.js`)
 // paints every surface with the scheme's `bg_visual` — a pale grey in the light
-// schemes (#DED8DB) and a dark plum in the dark ones. On this accent-filled
-// bubble the *text* colour that comes with it is unreadable, because the bubble
-// ink is inverted relative to the canvas: cream on #DED8DB is 1.17-1.36:1, and
-// the dark canvas ink on the dark plum is 1.22-1.27:1. The first landing that day
-// gave the bubble its own selection band as well (light "A 同色系加深", dark "C
-// 反相取词"), but the user asked to keep the highlight colour identical on every
-// surface and let option C repaint only the selected text ("先还原，改成用方案C
-// 试试，只变动修改文字颜色"). So the band stays the one global `bg_visual` and
-// this sheet only overrides the selected text ink:
+// schemes (#DED8DB / #D9D4D6 / #CFC9CC) and a dark plum in the dark ones. On this
+// accent-filled bubble the *text* colour that comes with it is unreadable, because
+// the bubble ink is inverted relative to the canvas: cream on the light bands is
+// 1.36-1.38:1, and the dark canvas ink on the dark plum is 1.22-1.27:1. The first
+// landing that day gave the bubble its own selection band as well (light "A
+// 同色系加深", dark "C 反相取词"), but the user asked to keep the highlight colour
+// identical on every surface and let option C repaint only the selected text
+// ("先还原，改成用方案C 试试，只变动修改文字颜色"). So the band stays the one
+// global `bg_visual` and this sheet only overrides the selected text ink:
 //
-//   light  #2F3B33 deep pine on the shared #DED8DB band   8.33:1
+//   light  #2F3B33 deep pine on the light bands   7.09-8.33:1
 //   dark   #FFFBEF cream on the shared #4C3743-#5C3F4F   8.91-10.49:1
 //
 // The trade-off the user accepted: a single highlight colour everywhere (light
-// band vs the green bubble is 1.71:1) instead of a stronger bubble-only band.
+// band vs the green bubble is 1.47:1 at light·soft) instead of a stronger
+// bubble-only band.
 
 // Nested content: the bubble text inherits the painted ink, and session
 // reference chips restate their own colour through
@@ -6355,7 +6545,7 @@ function chatBubbleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/work-steps.js
-const __mod_18_work_steps_js = (() => {
+const __mod_19_work_steps_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
   const { mix } = __mod_1_color_js
@@ -6546,7 +6736,7 @@ function workStepStyles () {
 })()
 
 // ---------------------------------------------------------------- src/home-whale.js
-const __mod_19_home_whale_js = (() => {
+const __mod_20_home_whale_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -6696,7 +6886,7 @@ function homeWhaleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_20_nav_icon_js = (() => {
+const __mod_21_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -6758,7 +6948,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_21_state_js = (() => {
+const __mod_22_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -7052,9 +7242,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_22_durable_js = (() => {
+const __mod_23_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_21_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_22_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -7219,7 +7409,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_23_locale_js = (() => {
+const __mod_24_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -7302,7 +7492,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_24_settings_page_js = (() => {
+const __mod_25_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -7942,7 +8132,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_25_theme_spotlight_js = (() => {
+const __mod_26_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -8249,7 +8439,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_26_client_entry_js = (() => {
+const __mod_27_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -8260,21 +8450,22 @@ const __mod_26_client_entry_js = (() => {
   const { navAccentStyles } = __mod_9_nav_accent_js
   const { workspaceLabelStyles } = __mod_10_workspace_labels_js
   const { runningTitleStyles } = __mod_11_running_title_js
-  const { heroTitleStyles } = __mod_14_hero_title_js
-  const { uiAccentStyles } = __mod_15_ui_accents_js
-  const { pluginUpdateStyles } = __mod_16_plugin_update_js
-  const { chatBubbleStyles } = __mod_17_chat_bubble_js
-  const { workStepStyles } = __mod_18_work_steps_js
-  const { homeWhaleStyles } = __mod_19_home_whale_js
-  const { turnRailStyles } = __mod_12_turn_rail_js
-  const { questionChoiceStyles } = __mod_13_question_choices_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_20_nav_icon_js
+  const { runningSpinnerStyles } = __mod_12_running_spinner_js
+  const { heroTitleStyles } = __mod_15_hero_title_js
+  const { uiAccentStyles } = __mod_16_ui_accents_js
+  const { pluginUpdateStyles } = __mod_17_plugin_update_js
+  const { chatBubbleStyles } = __mod_18_chat_bubble_js
+  const { workStepStyles } = __mod_19_work_steps_js
+  const { homeWhaleStyles } = __mod_20_home_whale_js
+  const { turnRailStyles } = __mod_13_turn_rail_js
+  const { questionChoiceStyles } = __mod_14_question_choices_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_21_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_21_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_22_durable_js
-  const { EN, NS, ZH } = __mod_23_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_24_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_25_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_22_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_23_durable_js
+  const { EN, NS, ZH } = __mod_24_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_25_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_26_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -8805,8 +8996,8 @@ function apply(ctx) {
   // 颜色保持一致"); a deep-ink experiment for the light long-message case was
   // reverted the same day ("文字还是换回白色吧"). 2026-11-13 the bubble also got
   // a bubble-scoped text-selection ink: the inherited colour is unreadable on the
-  // global highlight in both schemes (cream on #DED8DB 1.17-1.36:1; the dark ink
-  // on the dark plum 1.22-1.27:1). The user asked to keep the highlight colour
+  // global highlight in both schemes (cream on the light bands 1.36-1.38:1; the dark
+  // ink on the dark plum 1.22-1.27:1). The user asked to keep the highlight colour
   // identical on every surface ("保持勾选颜色各处都统一") and let option C repaint
   // only the selected text — so the sheet writes `color` only and leaves the
   // global `bg_visual` band alone. The token layer still keeps `label-primary`
@@ -8984,7 +9175,27 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: running session title')
 
-  // 1q. Multi-select checkbox. DSH's question composer paints a checked
+  // 1q. Running-session spinner ink. The same rows carry ui-primitives'
+  // `StateDot(state="ongoing")` ring in the leading slot, painted
+  // `label-tertiary` grey (`._spinner_…{color: var(--dsw-alias-label-tertiary)}`,
+  // both circles `stroke: currentColor`). The 2026-11-18 request ("没有选中，正在
+  // 进行的对话，前面的转圈的icon，帮我改成主题绿色试试，dark和light都改") wanted it
+  // in the theme green next to the now-green title. The selected row is excluded —
+  // it is the solid accent band and `src/active-session.js` already inks its whole
+  // slot. `src/running-spinner.js` emits one `color` per variant (the palette text
+  // green), so DSH keeps the ring's stroke width, dash pattern and animation.
+  // Always-on chrome, same injection pattern as 1c–1p.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/running-spinner'
+    tag.textContent = runningSpinnerStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: running session spinner')
+
+  // 1r. Multi-select checkbox. DSH's question composer paints a checked
   // multi-select box with `label-primary` (a dark charcoal square in the light
   // schemes) and its tick with `label-primary-foreground`; the 2026-11-15 request
   // ("对话中提问的时候，多选按钮的样式可以调整一下吗？按主题的绿色调整") asked for the
@@ -9462,6 +9673,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_26_client_entry_js
+    return __mod_27_client_entry_js
   },
 })

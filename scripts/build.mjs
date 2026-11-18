@@ -53,6 +53,7 @@ const SOURCES = [
   'nav-accent.js',
   'workspace-labels.js',
   'running-title.js',
+  'running-spinner.js',
   'turn-rail.js',
   'question-choices.js',
   'hero-title.js',

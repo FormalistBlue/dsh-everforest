@@ -2,8 +2,9 @@
 // they are transcribed from docs/reference/palette.md (the single source of truth),
 // so any accidental manual edit of the generated module is caught.
 //
-// The light ramps below use the *effective* bgVisual #DED8DB, not the official
-// values kept in the reference table (see the section 3 note in palette.md).
+// The light ramps below use the *effective* bgVisual values (#DED8DB / #D9D4D6 /
+// #CFC9CC), not the official values kept in the reference table (see the
+// section 3 note in palette.md).
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -13,6 +14,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { contrastRatio, labLightness } from '../src/color.js'
 import {
   DEFAULT_STATE,
   FOREGROUNDS,
@@ -76,8 +78,8 @@ const EXPECTED_RAMPS = {
   },
   light: {
     hard: ['#F2EFDF', '#FFFBEF', '#F8F5E4', '#F2EFDF', '#EDEADA', '#E8E5D5', '#BEC5B2', '#DED8DB', '#FFE7DE', '#FEF2D5', '#F3F5D9', '#ECF5ED', '#FCECED'],
-    medium: ['#EFEBD4', '#FDF6E3', '#F4F0D9', '#EFEBD4', '#E6E2CC', '#E0DCC7', '#BDC3AF', '#DED8DB', '#FDE3DA', '#FAEDCD', '#F0F1D2', '#E9F0E9', '#FAE8E2'],
-    soft: ['#E5DFC5', '#F3EAD3', '#EAE4CA', '#E5DFC5', '#DDD8BE', '#D8D3BA', '#B9C0AB', '#DED8DB', '#FADBD0', '#F1E4C5', '#E5E6C5', '#E1E7DD', '#F1DDD4']
+    medium: ['#EFEBD4', '#FDF6E3', '#F4F0D9', '#EFEBD4', '#E6E2CC', '#E0DCC7', '#BDC3AF', '#D9D4D6', '#FDE3DA', '#FAEDCD', '#F0F1D2', '#E9F0E9', '#FAE8E2'],
+    soft: ['#E5DFC5', '#F3EAD3', '#EAE4CA', '#E5DFC5', '#DDD8BE', '#D8D3BA', '#B9C0AB', '#CFC9CC', '#FADBD0', '#F1E4C5', '#E5E6C5', '#E1E7DD', '#F1DDD4']
   }
 }
 
@@ -125,18 +127,42 @@ test('RAMPS matches all 6 background ramps of docs/reference/palette.md', () => 
   }
 })
 
-test('light ramps use the effective bgVisual #DED8DB from the reference note', () => {
-  // Official values are kept in the palette.md table only; effective value replaces them.
-  const officialLightBgVisual = { hard: '#F0F2D4', medium: '#EAEDC8', soft: '#E1E4BD' }
+const EFFECTIVE_LIGHT_BG_VISUAL = { hard: '#DED8DB', medium: '#D9D4D6', soft: '#CFC9CC' }
+const OFFICIAL_LIGHT_BG_VISUAL = { hard: '#F0F2D4', medium: '#EAEDC8', soft: '#E1E4BD' }
+
+test('light ramps use the effective bgVisual values from the reference note', () => {
+  // Official values are kept in the palette.md table only; effective values replace them.
   for (const strength of STRENGTHS) {
-    assert.equal(RAMPS.light[strength].bgVisual, '#DED8DB', `light-${strength}.bgVisual`)
-    assert.notEqual(RAMPS.light[strength].bgVisual, officialLightBgVisual[strength])
+    assert.equal(
+      RAMPS.light[strength].bgVisual,
+      EFFECTIVE_LIGHT_BG_VISUAL[strength],
+      `light-${strength}.bgVisual`
+    )
+    assert.notEqual(RAMPS.light[strength].bgVisual, OFFICIAL_LIGHT_BG_VISUAL[strength])
   }
   assert.deepEqual(
     [RAMPS.dark.hard.bgVisual, RAMPS.dark.medium.bgVisual, RAMPS.dark.soft.bgVisual],
     ['#4C3743', '#543A48', '#5C3F4F'],
     'dark bgVisual values stay on the official palette'
   )
+})
+
+test('the three light selection bands keep one canvas contrast and darken with the paper', () => {
+  // The effective-value rule (palette.md section 3 note): every light strength's
+  // band sits at the same contrast against its own bg0, so "selected" reads
+  // equally strongly on all three papers. hard keeps Enchanted's #DED8DB.
+  const ratios = STRENGTHS.map((strength) =>
+    contrastRatio(RAMPS.light[strength].bgVisual, RAMPS.light[strength].bg0)
+  )
+  for (const [index, ratio] of ratios.entries()) {
+    assert.ok(
+      Math.abs(ratio - ratios[0]) < 0.01,
+      `light-${STRENGTHS[index]} band is ${ratio.toFixed(3)}:1, hard is ${ratios[0].toFixed(3)}:1`
+    )
+  }
+  assert.ok(ratios[0] > 1.3 && ratios[0] < 1.4, `anchor ratio out of range: ${ratios[0]}`)
+  const lightness = STRENGTHS.map((strength) => labLightness(RAMPS.light[strength].bgVisual))
+  assert.ok(lightness[0] > lightness[1] && lightness[1] > lightness[2], 'bands must darken hard -> soft')
 })
 
 test('FOREGROUNDS matches both schemes of docs/reference/palette.md', () => {
@@ -313,13 +339,12 @@ test('docs/reference/palette.md tables match the generated palette', () => {
     }
   }
 
-  // The effective-value note (light bg_visual = #DED8DB) must stay in the doc.
-  assert.match(doc, /#DED8DB/)
+  // The effective-value note must stay in the doc, one value per light strength.
+  for (const value of Object.values(EFFECTIVE_LIGHT_BG_VISUAL)) assert.match(doc, new RegExp(value, 'i'))
 
   // palette.md §3 keeps the official bg_visual values in the table (the
-  // documented note turns #DED8DB into the effective value for all light
-  // strengths), so the document's official cells must be checked too.
-  const OFFICIAL_LIGHT_BG_VISUAL = { hard: '#F0F2D4', medium: '#EAEDC8', soft: '#E1E4BD' }
+  // documented note turns them into the effective values for each light
+  // strength), so the document's official cells must be checked too.
 
   assert.deepEqual(Object.keys(docRamps).sort(), [...VARIANT_NAMES].sort(), 'palette.md ramp coverage')
   for (const variant of VARIANT_NAMES) {
@@ -332,7 +357,7 @@ test('docs/reference/palette.md tables match the generated palette', () => {
         `palette.md official light bg_visual drifted: ${variant}`,
       )
       // Effective value per the section-3 note; the generated module uses it.
-      expected.bgVisual = '#DED8DB'
+      expected.bgVisual = EFFECTIVE_LIGHT_BG_VISUAL[strength]
     }
     assert.deepEqual(RAMPS[scheme][variant.split('-')[1]], expected, `palette.md ramp drift: ${variant}`)
   }
