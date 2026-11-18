@@ -526,7 +526,7 @@ export function apply(ctx) {
   "homepage": "https://github.com/FormalistBlue/dsh-everforest#readme",
   "bugs": { "url": "https://github.com/FormalistBlue/dsh-everforest/issues" },
   "keywords": ["deepseek", "harness", "dsh", "dsh-plugin", "plugin", "theme", "everforest", "dark-theme", "light-theme"],
-  "engines": { "node": ">=20", "dsh": ">=0.2.1-rc.2 <0.3.0-0" },
+  "engines": { "node": ">=20", "dsh": ">=0.2.1-rc.2" },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

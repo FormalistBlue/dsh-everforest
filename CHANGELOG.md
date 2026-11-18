@@ -15,6 +15,7 @@
 
 ### Changed
 
+- 去掉宿主版本上限，0.3 起也可安装
 - 浅色三档的选中底色按档位分段加深，浅色 soft 档的选中更清楚
 - 深色模式下任务清单的勾选改为白色
 - 运行中会话前面的转圈图标改为主题绿
@@ -25,6 +26,7 @@
 
 ### Changed
 
+- Removed the host upper version bound, so 0.3 and later install too
 - The light selection highlight deepens per strength, so selections read clearly in light soft too
 - Task-list check marks turn white in the dark schemes
 - The spinner before a running conversation turns theme green

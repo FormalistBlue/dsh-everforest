@@ -511,7 +511,7 @@ test('manifest declares the dsh bundle and client half correctly', () => {
   assert.equal(manifest.name, PACKAGE_ID)
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/)
   assert.equal(manifest.type, 'module')
-  assert.equal(manifest.engines.dsh, '>=0.2.1-rc.2 <0.3.0-0')
+  assert.equal(manifest.engines.dsh, '>=0.2.1-rc.2')
   assert.equal(manifest.engines.node, '>=20')
   assert.deepEqual(manifest.exports['.'], './index.js')
   assert.deepEqual(manifest.exports['./client'], './client.js')

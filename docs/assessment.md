@@ -91,6 +91,7 @@
 | 跨窗口同步（2026-10-21） | 监听 `storage` 事件：同 origin 其他窗口写入后重读状态、重建覆盖层并刷新设置页 | 修复「多标签页各持旧值、后操作者把对方选择写回」的丢失更新；0.3.0 起 Host 广播是主路径，`storage` 只作没有广播时的兜底 |
 | 恢复默认范围（2026-10-21） | 只重置深浅强度，不改 DSH 全局外观偏好 | 用户确认；Appearance 是 DSH 的全局 Host 偏好，插件页的「恢复默认」不应代改 |
 | 兼容范围（2026-10-18） | `engines.dsh = ">=0.2.1-rc.2 <0.3.0-0"` | DSH 安装前与装载 profile 时都会强制；排除 0.3 及其预发布，避免 token 改名后半残 |
+| 兼容范围（2026-11-18，**取代上一行**） | `engines.dsh = ">=0.2.1-rc.2"`（去掉 `<0.3.0-0` 上限） | 旧上限的理由是 2026-10-18 实现前审计里写下的推测，**无任何 DSH 来源**（当时 0.3 尚未发布，至今 npm 最高仍是 0.2.2-rc.x）；0.3 及以后是否兼容未验证，改为不预先封版 |
 | 首帧闪动（2026-10-18） | 0.1.0 接受 loading/首帧为 DSH 原生色，0.3.0 再评估消除 | 首帧底色来自 Host boot 注入的字面 CSS；`dsh.client.immediately` 只用于 prefetch，不能依赖。**实际在 0.2.0 已由 Host boot 注入消除**（2026-10-21 spinner 补齐），见下方首帧注入行 |
 | 首帧注入（2026-10-19） | **Host 半部监听 `webserver/index-inject` 追加 body script row**，在 Client 加载前写 boot 调色板；Web 首帧即 Everforest，Desktop 接受最多 1 帧原生色 | 8 个 boot token 与 `tokensFor()` 同值（2026-10-21 起含 spinner 环 / 进度弧）；写 body 内联变量（不用 `!important`），presenter 首次 apply 覆盖 |
 | Host 侧强度偏好（2026-10-19） | ~~暂缓，先不做~~ → **2026-10-22 已落地（0.3.0）** | 0.2.1 的暂缓理由（第三方条目是否被 serve 需 spike、异步读取、跨浏览器事件）已被实现与集成测试覆盖；见下「2026-10-22 决策」与 §13 |
@@ -219,7 +220,7 @@
 - 「除 mask 黑白外无硬编码」不成立：终端空态 SVG、首帧 CSS、darwin 渐变、artwork 等为例外（其中首帧 CSS 已于 0.2.0 由 Host boot 注入覆盖）；
 - `static` 色阶不能「按明度一一对应」，需要插值 / 混合公式；
 - 文档选中色要保留 40% 透明语义（`color-mix`），不能直接给实色；
-- light 选中色 `#DED8DB` 上游只用于 light · hard，其余两档是本项目外推（已在 palette.md 标注）。
+- light 选中色 `#DED8DB` 上游只用于 light · hard，其余两档是本项目派生的三档梯度（同色相、对各自 `bg0` 同为 1.36:1；已在 palette.md §3 标注，见 design.md §47）。
 
 **环境**：本会话 sandbox 的 pwsh 曾因 Windows ACL 受限令牌 DLL 初始化失败（`0xC0000142`）完全不可用；切换 Full access 后恢复。本机 node 24.21.0 / pnpm 11.28.5 位于 Desktop 运行时目录（`dsh-runtimes/dsh-primary-runtime/dependencies`）；`plugin_manager` 的读操作可正常调用。
 
