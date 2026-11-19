@@ -97,3 +97,77 @@ test('every released version heading in the real CHANGELOG round-trips', () => {
     assert.ok(notes !== null && notes !== '', `CHANGELOG.md section for ${version} failed to extract`)
   }
 })
+
+/**
+ * The last release that still opens with a one-sentence summary. Since
+ * 2026-11-18 the user does not want that lead-in ("下次 changelog 别写这个了"),
+ * so new sections start straight at `###`; 1.6.2 and older keep theirs.
+ */
+const LAST_SECTION_WITH_SUMMARY = [1, 6, 2]
+
+/** `1.6.2` / `1.6.3-rc.1` from a heading, or null when it names no version. */
+function versionOf(heading) {
+  const match = /^\[?v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\]?/.exec(heading)
+  return match === null ? null : match[1]
+}
+
+/** Whether `version` comes after `cutoff` (a release of the cutoff itself does not). */
+function isAfter(version, cutoff) {
+  const parts = version.split('-')[0].split('.').map((part) => Number.parseInt(part, 10))
+  for (let i = 0; i < cutoff.length; i += 1) {
+    if (parts[i] !== cutoff[i]) return parts[i] > cutoff[i]
+  }
+  return false
+}
+
+/**
+ * The first line of running prose in a section, per language block; null when
+ * every block opens with a heading, a bullet or a table row.
+ */
+function openingParagraph(body) {
+  const blocks = [[]]
+  for (const line of body) {
+    const text = line.trim()
+    if (/^\*\*(中文|English)\*\*$/.test(text)) {
+      blocks.push([])
+      continue
+    }
+    blocks[blocks.length - 1].push(text)
+  }
+  for (const block of blocks) {
+    const first = block.find((text) => text !== '' && !/^---+$/.test(text))
+    if (first !== undefined && !/^(#|-|\|)/.test(first)) return first
+  }
+  return null
+}
+
+test('sections newer than 1.6.2 open with a heading, not a summary paragraph', () => {
+  const markdown = readFileSync(CHANGELOG, 'utf8')
+  const sections = []
+  let current = null
+  for (const line of markdown.split(/\r?\n/)) {
+    const heading = /^##\s+(.+)$/.exec(line)
+    if (heading !== null) {
+      current = { heading: heading[1], body: [] }
+      sections.push(current)
+    } else if (current !== null) {
+      current.body.push(line)
+    }
+  }
+  const checked = []
+  for (const section of sections) {
+    const version = versionOf(section.heading)
+    const isNew = version === null
+      ? section.heading.startsWith('[Unreleased]')
+      : isAfter(version, LAST_SECTION_WITH_SUMMARY)
+    if (!isNew) continue
+    checked.push(section.heading)
+    const paragraph = openingParagraph(section.body)
+    assert.equal(
+      paragraph,
+      null,
+      `CHANGELOG.md "${section.heading}" opens with a summary paragraph — drop it and start with a "###" heading (AGENTS.md): ${paragraph}`,
+    )
+  }
+  assert.ok(checked.some((heading) => heading.startsWith('[Unreleased]')), 'the check must cover [Unreleased]')
+})

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
-  CHECK_TICK_DARK,
   COLOR_MODE_ATTRS,
   colorModeDataset,
   colorModeRoles,
@@ -81,8 +80,7 @@ const ROLE_VARIABLES = Object.fromEntries(ROLE_KEYS.map((role) => [
 const COLOR_VARIABLES = Object.values(ROLE_VARIABLES)
 
 const STYLE_SCOPE = `html[${COLOR_MODE_ATTRS.mode}="on"]`
-const MARKDOWN_CONTAINER = '[class*="markdown"]:not([data-markdown-variant="compact"])'
-const MARKDOWN_SCOPE = `${STYLE_SCOPE} ${MARKDOWN_CONTAINER}`
+const MARKDOWN_SCOPE = `${STYLE_SCOPE} [class*="markdown"]:not([data-markdown-variant="compact"])`
 const SESSION_ROW = `${STYLE_SCOPE} [role="treeitem"][data-row-key^="session:"]`
 
 /** [selector, CSS property, custom property] for every variable-driven rule. */
@@ -125,12 +123,6 @@ const TABLE_FRAME = `${MARKDOWN_SCOPE} [class*="tableScroll"]`
 /** The task-list checkbox DSH renders `disabled` (see the source comment). */
 const TASK_CHECKBOX = `${MARKDOWN_SCOPE} input[type="checkbox"]`
 
-/** The same box in the dark schemes, where the check mark is re-inked white. */
-const DARK_TASK_CHECKBOX = `${STYLE_SCOPE} body[data-ds-dark-theme] ${MARKDOWN_CONTAINER} input[type="checkbox"]`
-
-/** The theme white a dark check mark takes (design §48). */
-const DARK_CHECK_MARK = '#FFFBEF'
-
 /** Rules that are not a single role variable (checked verbatim). */
 const EXPECTED_LITERAL_RULES = [
   [`${MARKDOWN_SCOPE} :where(h1,h2,h3,h4,h5,h6) :is(strong,em)`, [['color', 'inherit']]],
@@ -165,9 +157,6 @@ const EXPECTED_LITERAL_RULES = [
     ['border-width', '0 1.5px 1.5px 0'],
     ['transform', 'rotate(42deg)']
   ]],
-  // 2026-11-18: on the dark green fill the canvas-colour mark reads black, so the
-  // dark schemes take the theme white (1.93:1 on `statusline1`, design §48).
-  [`${DARK_TASK_CHECKBOX}:checked::after`, [['border-color', DARK_CHECK_MARK]]],
   [`${TABLE_FRAME}.md-table-wide`, [
     ['width', 'max-content'],
     ['max-width', '100%'],
@@ -306,33 +295,6 @@ test('colorModeRoles paints the task-list checkbox green in both schemes', () =>
     const rgb = hexToRgb(check)
     assert.ok(rgb.g > rgb.b + 20, `${variant}.check must be green (${check})`)
     assert.ok(rgb.g >= rgb.r, `${variant}.check must not read as yellow (${check})`)
-  }
-})
-
-test('the dark task-list check mark is the theme white (design §48)', () => {
-  assert.equal(CHECK_TICK_DARK, DARK_CHECK_MARK, 'the exported tick ink drifted from the pinned white')
-  const rules = styleRules(colorModeStyles())
-  // The dark override must exist and come after the base mark rule, so the
-  // cascade is unambiguous: the base rule still paints the light schemes'
-  // per-strength canvas cream (`var(--dsw-alias-bg-base)`).
-  const baseSelector = `${TASK_CHECKBOX}:checked::after`
-  const darkSelector = `${DARK_TASK_CHECKBOX}:checked::after`
-  const base = findRule(rules, baseSelector, 'border')
-  const dark = findRule(rules, darkSelector, 'border-color')
-  assert.ok(base, 'missing the base task-checkbox mark rule')
-  assert.ok(dark, 'missing the dark task-checkbox mark rule')
-  assert.equal(declarationsOf(base.body).get('border'), 'solid var(--dsw-alias-bg-base)')
-  assert.equal(declarationsOf(dark.body).get('border-color'), DARK_CHECK_MARK)
-  const selectors = rules.map((rule) => rule.selector)
-  assert.ok(selectors.indexOf(darkSelector) > selectors.indexOf(baseSelector), 'the dark mark must follow the base mark')
-  assert.match(darkSelector, /body\[data-ds-dark-theme\]/)
-  // Measured: the theme white on the dark green fill is ~2:1 — the same ceiling
-  // the light schemes already run on `statusline1`, accepted as a graphical mark
-  // (the solid fill still carries the checked state).
-  const roles = colorModeRoles()
-  for (const variant of ['dark-hard', 'dark-medium', 'dark-soft']) {
-    const ratio = contrastRatio(DARK_CHECK_MARK, roles[variant].check)
-    assert.equal(Number(ratio.toFixed(2)), 1.93, `${variant}: white mark on the green fill = ${ratio.toFixed(2)}`)
   }
 })
 
@@ -805,9 +767,8 @@ test('colorModeStyles only contains valid #RRGGBB colours and declared variables
   for (const variable of COLOR_VARIABLES) assert.ok(declared.has(variable), `missing variable ${variable}`)
 
   const hexes = css.match(/#[0-9a-zA-Z]+/g) ?? []
-  // Six variant blocks plus the one literal colour outside them — the dark
-  // task-list check mark (`CHECK_TICK_DARK`, design §48).
-  assert.equal(hexes.length, 6 * COLOR_VARIABLES.length + 1)
+  // Six variant blocks; every other colour in the sheet is a var() reference.
+  assert.equal(hexes.length, 6 * COLOR_VARIABLES.length)
   for (const hex of hexes) assert.match(hex, HEX, `invalid colour ${hex}`)
 
   for (const rule of rules) {

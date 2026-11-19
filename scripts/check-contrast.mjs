@@ -45,8 +45,8 @@
  * blockquote and table-row fills.
  *   9. colour-mode large headings h1-h4 on bg-base >= 3.0:1;
  *  10. colour-mode marker/quote/hr/check on bg-base >= 3.0:1 (the checked task
- *      box is a solid fill plus a mark: the scheme canvas cream in the light
- *      schemes, the theme white `#FFFBEF` in the dark ones, 1.93:1, design §48);
+ *      box is a solid fill plus the scheme canvas mark: cream on the light green,
+ *      the deep slate on the dark one, 5.62-6.88:1 there, design §51);
  *  11. label-primary on the table-header band >= 4.5:1;
  *  12. label-primary on the table zebra stripe, the hovered row and the
  *      blockquote fill >= 4.5:1;
@@ -171,6 +171,22 @@
  *      neutral it replaced, on the resting sidebar and on the hover overlay
  *      (tolerance 0.02 for the palette's rounding).
  *
+ * The chat bubble's links / file references (src/chat-bubble.js, design §50) add
+ * gate 26:
+ *  26. DSH paints every link affordance with `--dsw-alias-link` (the scheme's
+ *      `fg.blue`), including the user-text file reference chip — its button
+ *      carries the markdown module's `_fileMention` class, whose colour rule wins
+ *      over the chip's own business token. On the accent-filled bubble that blue
+ *      is 1.41:1 (light) / 1.09:1 (dark), the 2026-11-19 report. The sheet
+ *      re-points the token and re-inks the affordances with `CHAT_BUBBLE_LINK_INK`,
+ *      a deepened blue plus a solid underline (option 3 of the demo the user
+ *      picked): light #1E4152 (4.53:1), dark #204A5A (4.80:1). The gate also
+ *      requires a >= 3:1 step above the canvas blue and that the canvas blue is
+ *      still below AA on the fill — a palette edit that lifts it would make the
+ *      override redundant, and that has to fail loudly instead of leaving two
+ *      blues around. Assistant markdown file links keep the color-mode aqua; the
+ *      override is bubble-scoped only.
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -215,7 +231,7 @@ import {
   PLUGIN_UPDATE_TEXT_LIGHT_CONTRAST,
   pluginUpdateRoles
 } from '../src/plugin-update.js'
-import { CHAT_BUBBLE_SELECTION_INK, chatBubbleQuestionInk, chatBubbleRole } from '../src/chat-bubble.js'
+import { CHAT_BUBBLE_LINK_INK, CHAT_BUBBLE_SELECTION_INK, chatBubbleQuestionInk, chatBubbleRole } from '../src/chat-bubble.js'
 import { RAMPS } from '../src/palette.js'
 import { contrastRatio, hexToRgb, isHex, labLightness, mix, rgbToHex } from '../src/color.js'
 
@@ -1193,6 +1209,63 @@ for (const variant of states) {
   }
 }
 
+/* ---- Gate 26: chat-bubble links / file references (always-on accent surface) - */
+/**
+ * DSH colours every link affordance it paints through `--dsw-alias-link`
+ * (markdown anchors, the markdown file-mention button, and the user-text file
+ * reference chip — that button carries the markdown module's `_fileMention`
+ * class, whose colour wins over the chip's own business token). The token is the
+ * scheme's `fg.blue`, a canvas pair: on the accent-filled bubble it lands at
+ * 1.41:1 (light) / 1.09:1 (dark), which is the 2026-11-19 report ("这个蓝色的文件
+ * 链接…显示的很不清晰"). `src/chat-bubble.js` re-points the token and re-inks the
+ * affordances with `CHAT_BUBBLE_LINK_INK`, a deepened blue plus a solid
+ * underline (option 3 of the demo the user picked).
+ *
+ * The gate holds three things: the bubble ink clears AA on the fill, it is a
+ * real step away from the canvas blue (a "slightly darker blue" is not a fix),
+ * and the canvas blue is still the pair the report was filed against — so a
+ * palette edit that lifts `fg.blue` into range would invalidate the fix rather
+ * than silently keep it.
+ */
+const BUBBLE_LINK_TEXT_CONTRAST = 4.5
+const BUBBLE_LINK_STEP = 3
+const bubbleLinkRows = []
+for (const variant of states) {
+  const ink = CHAT_BUBBLE_LINK_INK[variant.scheme]
+  if (!ink) {
+    recordFailure(`g26:${variant.variant}`, `${variant.variant}: src/chat-bubble.js has no link ink for this scheme`)
+    continue
+  }
+  const bubble = chatBubbleRole(variant.scheme, variant.strength)
+  const canvas = variant.get('--dsw-alias-link')
+  const ratio = contrastRatio(ink, bubble.fill)
+  const canvasRatio = contrastRatio(canvas, bubble.fill)
+  bubbleLinkRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    ink,
+    canvas,
+    fill: bubble.fill,
+    ratio,
+    canvasRatio
+  })
+  if (!LEGAL_ROLE_COLOR.test(ink)) {
+    recordFailure(`g26:${variant.variant}:legal`, `${variant.variant}: bubble link ink is not a #RRGGBB colour: ${ink}`)
+  }
+  if (!LEGAL_ROLE_COLOR.test(canvas)) {
+    recordFailure(`g26:${variant.variant}:legal-token`, `${variant.variant}: --dsw-alias-link is not a #RRGGBB colour: ${canvas}`)
+  }
+  if (ratio < BUBBLE_LINK_TEXT_CONTRAST) {
+    recordFailure(`g26:${variant.variant}:text`, `${variant.variant}: bubble link ink on the accent fill = ${ratio.toFixed(2)} < ${BUBBLE_LINK_TEXT_CONTRAST}`)
+  }
+  if (ratio < canvasRatio + BUBBLE_LINK_STEP) {
+    recordFailure(`g26:${variant.variant}:step`, `${variant.variant}: bubble link ink (${ratio.toFixed(2)}) is not a ${BUBBLE_LINK_STEP}:1 step above the canvas blue (${canvasRatio.toFixed(2)})`)
+  }
+  if (canvasRatio >= BUBBLE_LINK_TEXT_CONTRAST) {
+    recordFailure(`g26:${variant.variant}:stale`, `${variant.variant}: --dsw-alias-link already clears AA on the accent fill (${canvasRatio.toFixed(2)}) — the bubble override is stale`)
+  }
+}
+
 /* ---- Report-only measurements -------------------------------------------- */
 const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
   const ratios = {}
@@ -1250,7 +1323,7 @@ function renderMarkdown () {
     '7. 聊天气泡 `--dsw-specific-bubble` 与 `bg-base` 的边界对比度 ≥ 1.10:1（light·soft 为 1.05:1 的可见性取舍，见 §2d），且气泡上的 `label-primary` ≥ 4.5:1（文本承载表面，见 §3）：气泡画在聊天画布上，同色时用户消息和背景融为一体（2026-10-19 走查，见 §2d / §6.8）；',
     '8. FileDiff 的 added / deleted 行底色（`--dsw-alias-file-diff-*-bg`）上的 `label-primary` 代码文本 ≥ 4.5:1（light·soft 为 4.1:1 的可见性取舍，见 §2e）；DSH 用这两个 token 画行底色、文字继承 `label-primary`（2026-10-21 走查：「浅绿色背景配白色文字」与「浅色绿色背景太不明显」，见 §6.3）；',
     '9. 色彩模式（中彩）大号标题 h1 / h2 / h3 / h4 对 `bg-base` ≥ 3.0:1（6 档）；',
-    '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；未勾选的任务框是同一支绿的 68% 描边 + 10% 淡底，已勾选框是实底 + 勾：浅色档是该档画布奶油，深色档是主题白 `#FFFBEF`（1.93:1，图形标记，见 design §48）；',
+    '10. 色彩模式（中彩）`marker` / `quote` / `hr` / `check` 对 `bg-base` ≥ 3.0:1（6 档）；未勾选的任务框是同一支绿的 68% 描边 + 10% 淡底，已勾选框是实底 + 画布 `bg-base` 勾（深色档即深板岩，对绿实底 5.62–6.88:1，见 design §51）；',
     '11. 色彩模式（中彩）表头色带上的 `label-primary` ≥ 4.5:1（6 档）；',
     '12. 色彩模式（中彩）斑马纹 / 行 hover / 引用块淡底上的 `label-primary` ≥ 4.5:1（6 档）；',
     '13. 色彩模式（中彩）会话行底色（待确认 / 已完成，含 `:hover`）上的 `label-primary` ≥ 4.5:1（6 档；light·soft 的「已完成」行按 §35 记 4.2 下限，实测 4.39 / 4.25:1；「待确认」行按 §37 记 4.1 下限，实测 4.24 / 4.13:1）；',
@@ -1269,6 +1342,7 @@ function renderMarkdown () {
       '门槛同时卡住这一档的两端：L* 差 ≥ 4（否则两行还是一个声音）、≤ 8（再远就像禁用态）、问题必须比回答淡，并且仍可读 —— 浅色 ≥ 1.65:1（实测 1.70–1.99，light·soft 最紧）、深色 ≥ 4.4:1（AA，实测 4.52–5.59）；6 档实测值见 §2m；',
     '24. 运行中会话标题（`src/running-title.js`，常驻、与色彩模式无关）：命中「行首有 `[data-state="ongoing"]` 且未选中」的会话行标题，静止色是合法 `#RRGGBB` 的**文字绿 `green`**（与工作区目录名同色），扫光带永远朝「背离侧栏画布」的方向走——浅色档把绿压深（`#8DA101` → `#667401`，2.35–2.68 → 4.17–4.76:1），深色档把绿提亮（`#A7C080` → `#D3E0C0`，5.00–6.17 → 7.24–8.94:1）；门槛除两档静止 / 光带下限（2.3 / 4.1、4.5 / 7.0）外，还钉住「光带在 CIE L* 上比静止绿离侧栏更远」与「hover 叠加底上的光带不低于静止绿」两条方向不变量——第一版在浅色档刷的是白光（1.29–1.46:1），被用户退回「白光会让文字看不清楚」，6 档实测值见 §2n；',
     '25. 运行中会话 spinner（`src/running-spinner.js`，常驻、与色彩模式无关）：同一批「行首有 `[data-state="ongoing"]` 且未选中」的行，行首那圈 `StateDot` 从 DSH 的 `label-tertiary` 灰改成合法 `#RRGGBB` 的**文字绿 `green`**（与标题 / 目录名同色），只写 `color`，环宽 / 虚线 / 动画仍归 DSH；门槛除沿用该绿的实测下限（浅色 2.3、深色 4.5，实测 2.35–2.68 / 5.00–6.17）外，还钉住「不得比它替换掉的中性灰更弱」（静止与 hover 叠加底上各比一次，容差 0.02）——浅色档实测 2.35–2.68 对中性灰 2.33–2.65，是同对比度下的换色而非可读性取舍；选中行不参与（实色强调底 + 画布墨由 G17 负责），语义状态点也不参与，6 档实测值见 §2o；',
+    '26. 气泡内的链接 / 文件引用（`src/chat-bubble.js`，常驻、与色彩模式无关）：DSH 把文件引用渲染成 `ReferenceChip appearance="file"`，其按钮同时带 markdown 的 `_fileMention` 类，于是拿到画布链接蓝 `--dsw-alias-link`（`fg.blue`），压在强调绿气泡上只有 1.41 / 1.09:1；气泡作用域把该 token 重指向**加深蓝**（浅色 `#1E4152` 4.53:1、深色 `#204A5A` 4.80:1）并补实线下划线，助手 markdown 里的文件链接仍走色彩模式 aqua；门槛除 AA 外，还要求新墨比画布蓝高出 ≥ 3:1、且画布蓝本身仍不达标（否则这层 override 已多余，调色板变动时要报警）；6 档实测值见 §2p；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -1680,6 +1754,38 @@ function renderMarkdown () {
       '对旧灰 2.65 / 2.54 / 2.33:1 是**同对比度下的换色**（差 0.01–0.03，容差 0.02）；深色三档 6.17 / 5.56 / 5.00:1 比旧灰 4.19 / 3.77 / 3.39:1 明显更亮。' +
       '所以这一步没有拿可读性换颜色 —— 浅色档仍然停在调色板上限（与目录名、运行中标题同一档，2.35–2.68 的已记录取舍），' +
       '只是把「中性」换成了这支绿。hover 叠加底上的两组数值同时成立，行被悬停时也不会掉档。',
+  )
+  push(
+    '',
+    '## 2p. 气泡内的链接 / 文件引用（chat-bubble link ink，硬门槛 G26）',
+    '',
+    '2026-11-19 用户裁图报告「这个蓝色的文件链接在气泡聊天中显示的很不清晰」：截图里的用户消息是一条带 `@` 文件引用的 `@.gitignore test`，' +
+      'DSH 把文件引用渲染成 `ReferenceChip appearance="file"`，并且带上 markdown 模块的 `_fileMention` 类——' +
+      '`._fileMention{color:var(--dsw-alias-link)}` 与 `._refChip{color:var(--dsw-alias-state-business-primary)}` 同为单类选择器，前者在后、胜出，' +
+      '于是这颗芯片拿到的是画布链接蓝 `fg.blue`（浅色 `#3A94C5`、深色 `#7FBBB3`）。这套蓝是给奶油 / 深色画布配的，' +
+      '压在强调绿气泡上只有 **1.41:1 / 1.09:1**，几乎融进绿底。',
+    '',
+    '为什么不是「气泡墨色 + 下划线」那类方案：用户看了浅色 / 深色各六档的 demo（`气泡字色 + 虚线`、`深墨 + 实线`、`加深蓝 + 实线`、`加深蓝无下划线`、`浅底胶囊` 等），' +
+      '选了**加深蓝 + 实线下划线**——既保住「链接是蓝的」语义，又压到 AA；下划线让识别不靠色相单独承担。' +
+      '作用域只有气泡：助手 markdown 里的文件链接继续走色彩模式的 aqua（`linkInternal`），画布上的其它链接一个字节不动。',
+    '',
+    '| 变体 | 气泡链接墨 | 画布链接蓝（--dsw-alias-link） | 气泡底（statusline1） | 新墨 / 气泡底 | 画布蓝 / 气泡底 | 阈值 | 结果 |',
+    '|---|---|---|---|---:|---:|---:|---|'
+  )
+  for (const row of bubbleLinkRows) {
+    const ok = LEGAL_ROLE_COLOR.test(row.ink) && LEGAL_ROLE_COLOR.test(row.canvas) &&
+      row.ratio >= BUBBLE_LINK_TEXT_CONTRAST &&
+      row.ratio >= row.canvasRatio + BUBBLE_LINK_STEP &&
+      row.canvasRatio < BUBBLE_LINK_TEXT_CONTRAST
+    push(
+      `| ${row.variant} | \`${row.ink}\` | \`${row.canvas}\` | \`${row.fill}\` | ${format(row.ratio)} | ${format(row.canvasRatio)} | ${BUBBLE_LINK_TEXT_CONTRAST} / +${BUBBLE_LINK_STEP} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '浅色三档 4.53:1（画布蓝 1.41）、深色三档 4.80:1（画布蓝 1.09）；深色一档反而更容易看清，因为气泡是浅绿底。' +
+      '这道门槛同时卡「比画布蓝高出 ≥ 3:1」和「画布蓝本身仍然不达标」：如果哪天调色板把 `fg.blue` 抬到能在绿底上直接读，' +
+      '气泡这层 override 就成了多余的一层，门槛会先报警，而不是悄悄留下两个蓝。',
   )
   push(
     '',

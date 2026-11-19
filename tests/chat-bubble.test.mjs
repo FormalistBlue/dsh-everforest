@@ -6,6 +6,9 @@ import {
   CHAT_BUBBLE_DARK_INK,
   CHAT_BUBBLE_LIGHT_FILL,
   CHAT_BUBBLE_LIGHT_INK,
+  CHAT_BUBBLE_LINK_INK,
+  CHAT_BUBBLE_LINK_SELECTOR,
+  CHAT_BUBBLE_LINK_TOKEN,
   CHAT_BUBBLE_QUESTION_INK_STEP,
   CHAT_BUBBLE_QUESTION_INK_TOKEN,
   CHAT_BUBBLE_SELECTION_INK,
@@ -88,15 +91,16 @@ test('bubble rules cover every surface DSH paints a user message on', () => {
     // scope would only scope the first selector.
     assert.equal(
       css.split(selector).length - 1,
-      VARIANTS.length * 2,
-      `${selector}: paint + selection rule per variant`
+      VARIANTS.length * 3,
+      `${selector}: paint + selection + link rule per variant`
     )
   }
   assert.ok(!css.includes('!important'))
-  // Two rules per variant since 2026-11-15: the accent paint (with the muted
-  // question token) and its bubble-scoped `::selection`. The question paper that
-  // used to add a third rule per variant is gone — the card is one surface.
-  assert.equal((css.match(/{/g) ?? []).length, VARIANTS.length * 2, 'paint + selection per variant')
+  // Three rules per variant since 2026-11-19: the accent paint (with the muted
+  // question token and the link token), its bubble-scoped `::selection`, and the
+  // link rule. The question paper that used to add a rule per variant is gone —
+  // the card is one surface.
+  assert.equal((css.match(/{/g) ?? []).length, VARIANTS.length * 3, 'paint + selection + link per variant')
   assert.equal(
     (css.match(/::selection/g) ?? []).length,
     VARIANTS.length * CHAT_BUBBLE_SELECTORS.length,
@@ -115,6 +119,14 @@ test('bubble rules cover every surface DSH paints a user message on', () => {
     (css.match(new RegExp(`  ${CHAT_BUBBLE_QUESTION_INK_TOKEN}:`, 'g')) ?? []).length,
     VARIANTS.length,
     'every rule re-points the muted question ink'
+  )
+  // The canvas link ink (`--dsw-alias-link`) collapses on the accent fill, so the
+  // paint rule re-points it inside the bubble subtree (2026-11-19).
+  assert.equal(CHAT_BUBBLE_LINK_TOKEN, '--dsw-alias-link')
+  assert.equal(
+    (css.match(new RegExp(`  ${CHAT_BUBBLE_LINK_TOKEN}:`, 'g')) ?? []).length,
+    VARIANTS.length,
+    'every rule re-points the link token'
   )
   // No second fill on the card: the pencil-down rules that used to paint a paper
   // block (`[data-question-reply] [class*="_question"]`) must not come back.
@@ -238,6 +250,48 @@ test('bubble text selection keeps the one global highlight and re-inks only the 
   assert.equal(contrastRatio(CHAT_BUBBLE_SELECTION_INK.light, RAMPS.light.soft.bgVisual).toFixed(2), '7.18')
   assert.equal(contrastRatio(CHAT_BUBBLE_SELECTION_INK.dark, RAMPS.dark.hard.bgVisual).toFixed(2), '10.49')
   assert.equal(contrastRatio(CHAT_BUBBLE_SELECTION_INK.dark, RAMPS.dark.soft.bgVisual).toFixed(2), '8.91')
+})
+
+test('bubble links keep their blue but move to a readable step on the accent fill', () => {
+  // 2026-11-19 report: a user message carrying a composer file reference
+  // (`@.gitignore` + text) showed the file name in the canvas link blue
+  // (`--dsw-alias-link` = `fg.blue`) on the green bubble — 1.41:1 in the light
+  // schemes, 1.09:1 in the dark ones. The user picked option 3 of the demo:
+  // deepened blue plus a solid underline. Scope is the bubble only; assistant
+  // markdown file links keep the color-mode aqua.
+  assert.deepEqual({ ...CHAT_BUBBLE_LINK_INK }, { light: '#1E4152', dark: '#204A5A' })
+  assert.equal(CHAT_BUBBLE_LINK_SELECTOR, ':is(a, [class*="fileLink"], [data-ref-chip="file"])')
+  const css = chatBubbleStyles()
+  for (const { scheme, strength } of VARIANTS) {
+    const ink = CHAT_BUBBLE_LINK_INK[scheme]
+    const { fill } = chatBubbleRole(scheme, strength)
+    const canvas = FOREGROUNDS[scheme].blue
+    // The pair the report was filed against: the canvas blue on the accent fill.
+    assert.ok(contrastRatio(canvas, fill) < 1.5, `${scheme}-${strength}: canvas blue still collapses on the fill`)
+    // The shipped ink clears AA and is a clear step above the canvas pair.
+    const ratio = contrastRatio(ink, fill)
+    assert.ok(ratio >= 4.5, `${scheme}-${strength}: bubble link ink on the fill = ${ratio.toFixed(2)} < 4.5`)
+    assert.ok(ratio > contrastRatio(canvas, fill) + 3, `${scheme}-${strength}: bubble link ink is a real step, not a nudge`)
+    // Same hue family: the link still reads as a blue, not as body ink.
+    assert.ok(ink.startsWith('#') && ink.length === 7, `${scheme}: link ink is a literal #RRGGBB`)
+    // The rule anchors on every bubble and carries the underline affordance.
+    assert.ok(css.includes(`  color: ${ink};`), `${scheme}-${strength}: link ink is painted`)
+    assert.ok(css.includes('  text-decoration: underline solid;'), `${scheme}-${strength}: link carries the underline`)
+    assert.ok(css.includes('  text-decoration-color: currentColor;'), `${scheme}-${strength}: underline follows the ink`)
+  }
+  // The sheet must not touch anything outside the bubble: the color-mode sheet
+  // still owns the canvas file-link aqua, so no bare `[class*="fileLink"]` rule
+  // may appear without a bubble anchor.
+  for (const rule of css.split('\n\n')) {
+    if (!rule.includes('[class*="fileLink"]')) continue
+    assert.ok(rule.includes('_bubble'), 'file-link rule is scoped to a bubble anchor')
+  }
+  // Pinned measured pairs (G26 in `scripts/check-contrast.mjs`).
+  for (const { scheme, strength } of VARIANTS) {
+    const { fill } = chatBubbleRole(scheme, strength)
+    const pinned = { light: 4.53, dark: 4.80 }[scheme]
+    assert.equal(Math.round(contrastRatio(CHAT_BUBBLE_LINK_INK[scheme], fill) * 100) / 100, pinned, `${scheme}-${strength}: measured link ratio`)
+  }
 })
 
 test('losing the sheet falls back to the token layer, not to an unreadable band', () => {

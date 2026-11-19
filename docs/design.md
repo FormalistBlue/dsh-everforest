@@ -1,6 +1,6 @@
 # 实施方案
 
-> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.3（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27）；同日按用户要求把新会话首屏的鲸鱼标志与「探索未至之境」标题改为文字绿（§28）；2026-11-13 复核 0.2.2-rc.2：token 契约扩到 244，补 JSON 树 / 附件上传槽映射、19 项声明由 static 层继承（§4 / §12），删掉 rc.2 已不存在的 `selectedFill` 规则（§21），并修复 token / asar 两个提取脚本对 rc.2 产物格式的支持；2026-11-15 按用户逐处走查落下一整轮视觉调整：轮次导航加粗改绿（§33）、light·soft 的状态行 / 行内 code / 问答复卡（§34–§37）、次级文字提一档（§38）、问答回复卡的问题「纸条」（§39 / §40）、多选按钮改主题绿（§41）、运行中会话标题扫光（§42）、markdown 装饰族由 aqua 改绿（§43），并按复核修掉轮次导航的 reduced-motion 失效（§44）；复核 0.2.2-rc.3：token 与渲染锚点无破坏性变化（§12），同日晚间撤回强调层深墨与问答卡纸条（§45 / §46）；2026-11-18 浅色选区改为同色相三档梯度（§47）、深色档任务清单勾改主题白（§48）、运行中会话的转圈图标改文字绿（§49））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
+> 配套：[`assessment.md`](assessment.md)（为什么这样做）· [`reference/palette.md`](reference/palette.md)（配色数据与来源）· 目标环境：DSH 0.2.2-rc.3（兼容范围自 rc.2 起） · 状态：**已实现（v0.2.0，2026-10-19 增加首帧 Host boot 注入与系统跟随/文档收尾；2026-10-21 并入 0.2.1 的 P1 打磨；2026-10-22 0.3.0 落地 Host 侧持久化；2026-10-23 0.4.0 增加实验性色彩模式，含参考 Enchanted 的富文本扩展，见 §13；2026-10-24 复核 0.2.1-rc.3：token 集合 / 色彩模式锚点 / 集成点均无变化，见 §12；2026-10-24 色彩模式改为默认提供、移除设置开关（§13.9），同日落地工作区当前会话行（§15）、原生文本选区（§16.2）、dev-only 调试面板（§14）与深浅切换聚光灯（§17）；2026-10-25 追加「跟随系统」OS 翻转也走聚光灯（§17.1）；2026-10-25 发布 1.0.0 首个稳定版，含「鲸鱼 + 山脊松树」图标与 2 张真机截图，见 §10；2026-10-27 发布 1.1.0（OS 跟随翻转聚光灯 + README 重写）；2026-10-28 发布 1.2.0：聊天表格细边框与列宽拖动 / 宽表 Element 表格式滚动，见 §18；2026-10-30 复核 0.2.1-rc.5：token / 渲染层锚点 / 集成点均无变化，见 §12；同日实现任务列表复选框重绘（§13.1）、列宽提示线改用 header_aqua 并加长（§18.2）、设置导航松树图标（§19）与第三方插件兼容别名桥（§20）；2026-10-31 增加表格列宽记忆（本地缓存，§18.6）；2026-11-06 复核 0.2.2-rc.1：token 扩到 217 并补 illustration / done 映射（§4 / §12）、设置导航图标改走官方 `settings.section.icon` 槽位（§19）；2026-11-07/08 交互强调色改为上游 `statusline1`、选中会话行改实色绿底（§15 / §21 / §23）、聊天气泡改苔纸底与派生墨（§12）、新增目录名称 / 标题与下拉选中项 / 插件更新弹窗 / 聊天气泡等常驻样式表（§12 / §22–§25），插件图标改为透明底鲸鱼；2026-11-09 修复设置导航与侧栏面板列表选中项没有高亮（§26），同日按用户要求撤掉会话标题的文字绿、标题回到 DSH 原生 `label-primary`（§27）；同日按用户要求把新会话首屏的鲸鱼标志与「探索未至之境」标题改为文字绿（§28）；2026-11-13 复核 0.2.2-rc.2：token 契约扩到 244，补 JSON 树 / 附件上传槽映射、19 项声明由 static 层继承（§4 / §12），删掉 rc.2 已不存在的 `selectedFill` 规则（§21），并修复 token / asar 两个提取脚本对 rc.2 产物格式的支持；2026-11-15 按用户逐处走查落下一整轮视觉调整：轮次导航加粗改绿（§33）、light·soft 的状态行 / 行内 code / 问答复卡（§34–§37）、次级文字提一档（§38）、问答回复卡的问题「纸条」（§39 / §40）、多选按钮改主题绿（§41）、运行中会话标题扫光（§42）、markdown 装饰族由 aqua 改绿（§43），并按复核修掉轮次导航的 reduced-motion 失效（§44）；复核 0.2.2-rc.3：token 与渲染锚点无破坏性变化（§12），同日晚间撤回强调层深墨与问答卡纸条（§45 / §46）；2026-11-18 浅色选区改为同色相三档梯度（§47）、深色档任务清单勾改主题白（§48）、运行中会话的转圈图标改文字绿（§49）、深色档任务清单勾改回画布墨（§51））**；实现实况见 [`reference/token-inventory.md`](reference/token-inventory.md) 与 [`reference/contrast.md`](reference/contrast.md)
 
 ## 1. 目标与非目标
 
@@ -889,11 +889,11 @@ DSH Desktop 已升级到 `0.2.2-rc.3`（`window.__DSH_BOOT__.release.version` = 
   - `COLOR_MODE_ATTRS`：`data-everforest-color-mode`（本版恒为 `on`，只作样式表作用域锚点）、`data-everforest-light`、`data-everforest-dark`（各自 scheme 的强度）。
   - `colorModeRoles()`：6 变体 × **25 个角色色值**（2026-10-30 新增列宽提示线 `tableHandle`，直接取 `headerAqua`、不做文本守卫），全部由 `tokensFor()` 的表面值（`bg-base`、`sidebar-fill`、`label-primary`、`label-tertiary`、行内 code 芯片、代码块表面）+ `resolvePalette()` 的强调色实算并做对比度守卫（见 13.3）。
   - `colorModeDataset(state)`：Client 写到 `document.documentElement` 的属性映射。
-  - `colorModeStyles()`：静态样式表 = 6 个自定义属性块 + **50 条元素规则**（27 条变量驱动 + 23 条字面规则：标题内强调色 `inherit`、引用块右内边距 / 圆角、§13.8.1 的 6 条深色 warn 反相，2026-10-27 的 8 条表格框与 2026-10-29 的 2 条表格滚动条 literal 规则（§18.1 / §18.3），2026-10-30 的 3 条任务列表复选框字面规则：去圆点、重绘方框、`::after` 勾，2026-11-10 的 1 条宽表滚动条下沿线规则（§18.1），以及 2026-11-18 的 1 条深色档勾色覆盖规则（§48）），共 **56 条**规则（0.4.0 时为 40 条），全部以 `html[data-everforest-color-mode="on"]` 开头；深浅色由 `body[data-ds-dark-theme]` 区分（DSH ui-theme 在 boot row 写 body 属性），强度由 `<html>` 上的两个 data 属性选择。
+  - `colorModeStyles()`：静态样式表 = 6 个自定义属性块 + **49 条元素规则**（27 条变量驱动 + 22 条字面规则：标题内强调色 `inherit`、引用块右内边距 / 圆角、§13.8.1 的 6 条深色 warn 反相，2026-10-27 的 8 条表格框与 2026-10-29 的 2 条表格滚动条 literal 规则（§18.1 / §18.3），2026-10-30 的 3 条任务列表复选框字面规则：去圆点、重绘方框、`::after` 勾，2026-11-10 的 1 条宽表滚动条下沿线规则（§18.1）），共 **55 条**规则（0.4.0 时为 40 条），全部以 `html[data-everforest-color-mode="on"]` 开头；深浅色由 `body[data-ds-dark-theme]` 区分（DSH ui-theme 在 boot row 写 body 属性），强度由 `<html>` 上的两个 data 属性选择。
 - **`src/client-entry.js`**：`applyLayer()` 在 token 层之外同步 `<html>` 属性（色彩模式没有开关，不再有「切换模式」动作；CSS 与 token 层彻底解耦）；一个独立的 `ctx.effect` 注入 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/color-mode">`，与设置页样式 / slots / locale 完全解耦（设置 UI 不可用时色彩模式仍生效）。
 - **作用域选择器**：
   - 聊天 Markdown：`[class*="markdown"]:not([data-markdown-variant="compact"])`（DSH 的容器类名是 CSS modules 哈希，但 `markdown` 子串保留；排除 compact 推理变体）。DSH 0.2.1-rc.2 / rc.3 / rc.5 的 markdown 正文容器**没有稳定 data 锚点**（rc.3 / rc.5 构建类名仍含 `markdown` 子串），这是本功能最脆弱的依赖（见 13.7）。
-  - 富文本元素：h1–h6、`strong`、`em`、`del`、`:not(pre) > code`（行内 code）、`[class*="fileLink"]`（内部文件链接）、`li::marker`、`blockquote`（左边框 + 淡底）、`hr`、`thead th`、`tbody tr:nth-child(even) > td`（斑马纹）、`tbody tr:hover > td`（行 hover）、`ul.contains-task-list > li.task-list-item`（去掉多余圆点）、`input[type="checkbox"]`（重绘的复选框：accent 描边 / 淡底 + 勾，浅色档取该档画布奶油、深色档取主题白 `#FFFBEF`，§48）、`li.task-list-item:has(input[type=checkbox]:checked)`（已完成任务淡化）。
+  - 富文本元素：h1–h6、`strong`、`em`、`del`、`:not(pre) > code`（行内 code）、`[class*="fileLink"]`（内部文件链接）、`li::marker`、`blockquote`（左边框 + 淡底）、`hr`、`thead th`、`tbody tr:nth-child(even) > td`（斑马纹）、`tbody tr:hover > td`（行 hover）、`ul.contains-task-list > li.task-list-item`（去掉多余圆点）、`input[type="checkbox"]`（重绘的复选框：accent 描边 / 淡底 + 勾，勾取 token `--dsw-alias-bg-base`：浅色档画布奶油、深色档深板岩，§51）、`li.task-list-item:has(input[type=checkbox]:checked)`（已完成任务淡化）。
   - 状态点：`[data-state="warning"]` / `[data-state="done"]`（StateDot 的语义属性，稳定）。
   - 会话行：`[role="treeitem"][data-row-key^="session:"]:has([data-state="warning"|"done"]):not([aria-selected="true"])`（`data-row-key` / `role` / `data-state` 都是稳定锚点；选中行不覆盖，hover 用单独规则加深）。**2026-10-24 晚更新**：选中行改由常驻的 `src/active-session.js` 上 `bg_blue` 底（不再「完全交还 DSH」），见 §15；本条 `:not([aria-selected="true"])` 保持不变，避免状态色盖掉当前行。
 
@@ -2980,6 +2980,8 @@ hard 保留 Enchanted 的 `#DED8DB` 不动；medium / soft 取**同一色相**�
 - 文档：`scripts/check-contrast.mjs` 的门槛 10 描述补上深色勾取值，`docs/reference/contrast.md` 重新生成。
 - 验证：`node --test` **392/392** 通过；`npm run check`（palette / build / contrast）全绿；`client.js` 已重建；`.tmp/build-md-decor-harness.mjs` 的六档页面（真实 DSH web-frontend CSS + 主题 CSS + 真实 token 层）在共享调试 Chrome 实测：dark 三档勾 `rgb(255,251,239)`，light · soft 仍是 `rgb(243,234,211)`，方框、未选框与行文字颜色均未变。
 
+> 2026-11-19：本节已被 §51 撤回 —— 用户要求深色档的勾「用黑色显示」，勾色回到方案画布 `bg-base`。
+
 ## 49. 2026-11-18 运行中会话的转圈图标：中性灰 → 文字绿（running-spinner）
 
 ### 49.1 触发与表面
@@ -3012,3 +3014,58 @@ hard 保留 Enchanted 的 `#DED8DB` 不动；medium / soft 取**同一色相**�
 - 浏览器实测（`.tmp/running-spinner/`：真实行标记 + 安装包真实 spinner CSS + 真实 token + 已构建样式表）：未选中运行行的 `svg` 计算色 light·hard `rgb(141,161,1)`、dark·soft `rgb(167,192,128)`，圆弧 `stroke` 同值、`animation` 仍是 `_dsh-state-dot-dash_1i3xo_1 1.5s`、轨道 `opacity: .25` 未变；选中行仍是画布墨（light `rgb(255,251,239)` / dark `rgb(51,60,67)`），未命中本表。
 - 真机（Desktop，light·hard）：17 张常驻样式表 + 设置页样式表共 18 张齐全，`dsh-everforest/running-spinner` 已挂载并命中真实侧栏行（计算色 `#8DA101`），运行中行的圆环在截图里已经是绿环，旁边的「已完成」蓝点、选中行的墨色环都没有被波及。
 - 边界：`:has()` 不支持的宿主整条选择器失效，圆环退回 DSH 原生灰（无副作用）；本表不写 `!important`，靠 `[role="treeitem"]` + `:has()` + `svg[data-state]` 的特异性压过 `._spinner_…{color: …}`。
+
+## 50. 2026-11-19 气泡内的文件链接：画布蓝 → 加深蓝 + 实线下划线（chat-bubble link ink）
+
+### 50.1 触发与表面
+
+> 触发：用户贴了浅色 / 深色两张气泡裁图（绿底、浅色奶油字），「这个蓝色的文件链接在气泡聊天中显示的很不清晰，看看有没有办法调整一下，出几个 demo 我先看看效果」，选定方案 3 后补充「注意只有气泡里面的需要改，其他的文件链接颜色不动」。
+
+- 截图取色：浅色链接 `#3A94C5`（= `fg.blue`）、气泡底 `#93B259`；深色链接 `#7FBBB3`、气泡底 `#A7C080`。字色是气泡墨（浅 `#FFFBEF` / 深 `#333C43`），链接单独一色。
+- 来源（0.2.2-rc.5 安装包，已核对 `dsh-web-frontend/dist/assets/index-CSAdOBx6.css` + `dsh-client-ui-reference/lib/client.js`）：用户消息里的 `@文件引用` 由 `UserText` 的 file 规则渲染成 `FileReference` → `ReferenceChip appearance="file"`，而带 `onActivate` 的芯片渲染为 `button`，类名同时带 `_refChip_…` 与 markdown 模块的 `_fileMention_…`；`._refChip{color:var(--dsw-alias-state-business-primary)}` 与 `._fileMention{color:var(--dsw-alias-link)}` 同为单类选择器，后者在样式表里靠后，**胜出**。
+- 所以子弹链接拿到的是 `--dsw-alias-link`（token 层映射到 `fg.blue`），对强调绿气泡只有 **1.41:1（浅）/ 1.09:1（深）**；气泡涂装此前只重指向了 `--dsw-alias-state-business-primary`（会话引用芯片用），没有覆盖 link token。
+
+### 50.2 配色：同色相压到 AA，下划线承担「这是链接」
+
+- 方案对比（浅色 / 深色各六档 demo，真实 DSH CSS + 真实 token + 既有气泡涂装）：0 现状、1 气泡字色 + 虚线、2 深墨 + 实线、3 加深蓝 + 实线、4 加深蓝无下划线、5 浅底胶囊。用户选 **3**。
+- 定值：浅色 `#1E4152`（对 `#93B259` **4.53:1**）、深色 `#204A5A`（对 `#A7C080` **4.80:1**）；实线 1px、`text-decoration-color: currentColor`、`text-underline-offset: 2.5px`。
+- 为什么保留下划线：气泡里这次只有文件芯片，但同一组选择器也覆盖 markdown 锚点；颜色是加深蓝、与正文墨区分明显，线只用来兜底「可点」的语义，不靠色相单独承担。
+- 为什么不是「气泡墨 + 下划线」（方案 1）：浅色档只有 2.32:1，和正文同色，链接只能靠线识别；深色档 6.88:1 但同样丢掉了「蓝=链接」的既有约定。
+- 为什么不用浅底胶囊（方案 5）：对比度最高（11.31 / 13.31:1），但气泡里多一块奶油底显得吵，用户没有选。
+
+### 50.3 落点
+
+- `src/chat-bubble.js`：新增 `CHAT_BUBBLE_LINK_INK`（六档共用两值：浅 `#1E4152`、深 `#204A5A`）、`CHAT_BUBBLE_LINK_TOKEN`（`--dsw-alias-link`）、`CHAT_BUBBLE_LINK_SELECTOR`（`:is(a, [class*="fileLink"], [data-ref-chip="file"])`）与 `bubbleLinkRule()`；涂装规则里加一句 `--dsw-alias-link: …`（兜底继承），每个变体多一条链接规则（`color` + 下划线三件套），规则数 6×2 → 6×3。
+- 作用域只有气泡：三个气泡锚点（`_userStack` 用户消息、`[data-question-reply]` 问答卡、`[data-command-input]` 命令回显）共用同一段规则；气泡外的 `--dsw-alias-link` 没有被重指向，助手 markdown 的文件链接仍由 `src/color-mode.js` 画成 aqua（`linkInternal`），画布链接蓝也原样。
+- 没有排除 `data-ref-chip="session"`：会话引用芯片不是链接，继续读 `--dsw-alias-state-business-primary`（已被涂装重指向成气泡墨），不参与下划线。
+- 测试：`tests/chat-bubble.test.mjs` 规则计数 2 → 3（每条锚点、每条变体），新增 1 项「气泡链接保持蓝、加深到可读档」——钉六档比值（4.53 / 4.80）、要求比画布蓝高 ≥ 3:1、`fileLink` 规则必须带气泡锚点（防止漏到画布上）。
+- 门槛：`scripts/check-contrast.mjs` 新增硬门槛 **G26**（AA + 比画布蓝高 ≥ 3:1 + 画布蓝本身仍不达标），`docs/reference/contrast.md` 重生成出 §2p。
+
+### 50.4 验证与边界
+
+- `node --test` **394/394** 通过；`scripts/build.mjs` 重建 `client.js`（434214 字节）；`scripts/check-contrast.mjs` 硬门槛全过、报告项全部 ≥ 1.5。
+- 浏览器实测（`.tmp/link-verify-*.html`：真实 DSH 前端 CSS + 主题 CSS + 真实 token 层 + 已构建的两张样式表，无任何 demo override）：
+  - 气泡内文件芯片：浅 `rgb(30,65,82)` = `#1E4152`、深 `rgb(32,74,90)` = `#204A5A`，`text-decoration-line: underline`、`solid`、offset `2.5px`；
+  - 气泡内会话引用芯片：浅 `rgb(255,251,239)` / 深 `rgb(51,60,67)`（气泡墨），无下划线；
+  - 气泡外 markdown 文件链接：浅 `rgb(87,148,120)` = `#579478`、深 `rgb(110,165,130)` = `#6EA582`（色彩模式 aqua），无下划线；
+  - 气泡外普通锚点：浅 `rgb(58,148,197)`、深 `rgb(127,187,179)`（画布链接蓝），未变。
+- 边界：芯片的 `color` 来自 DSH 的 `_fileMention` 类，与 `_refChip` 的级联顺序是构建期事实；如果上游改掉类名，涂装里的 `--dsw-alias-link` 重指向仍会兜住颜色，但下划线会失效。链接规则不写 `!important`，靠气泡锚点 + `:is()` 的特异性压过 `._fileMention` 的 hover 下划线（hover 时不再跳回画布蓝的虚线）。
+
+## 51. 2026-11-19 深色档任务清单的勾改回画布墨（撤回 §48）
+
+> 触发：用户贴出深色档任务清单的裁图（深板岩底、绿色方框、浅色勾，两条已勾）：
+> 「这个勾选框调整一下，light 模式没问题，dark 模式下，中间的勾勾用黑色显示」。
+
+### 51.1 只动勾色：撤回 §48 的白色覆盖
+
+- 删掉 `DARK_TASK_CHECKBOX` 覆盖规则与 `CHECK_TICK_DARK`，勾重新读 token `--dsw-alias-bg-base`：浅色三档仍是各自的画布奶油（`#FFFBEF` / `#FDF6E3` / `#F3EAD3`），深色三档回到深板岩（`#272E33` / `#2D353B` / `#333C43`），也就是用户口中的「黑勾」。
+- 对比度反而更清楚：深色三档 6.88 / 6.23 / 5.62:1（§48 的白色只有 1.93:1）；浅色档维持 2.00–2.32:1 的既有上限，本轮不动。
+- 不动：未勾选框的 68% 描边 / 10% 淡底、方框几何（14px、3px 圆角、`::after` 的 4×8 边框对）、已完成行的淡化。
+- 规则数 56 → **55**（元素规则 50 → 49，字面规则 23 → 22）；样式表色值 151 → 150；导出少一个 `CHECK_TICK_DARK`。
+- 与 §45 / §48 的关系：§45 撤回过一整包（深色勾改浅）；§48 是用户单独点名改白；本节是用户点名改回黑。取值落点与 §45 的「已退回」一栏一致。
+
+### 51.2 落点与验证
+
+- `src/color-mode.js`：删覆盖规则，`::after` 的 `border` 回到 `solid var(--dsw-alias-bg-base)`；测试契约删该条字面规则、删 §48 用例、色值计数回到 6 × 25。
+- 门槛：`scripts/check-contrast.mjs` 的门槛 10 描述回到「实底 + 画布 `bg-base` 勾」，`docs/reference/contrast.md` 重生成。
+- 验证：`node --test` **393/393**；`npm run check`（palette / build / contrast `--check`）全绿；`.tmp/build-md-decor-harness.mjs` 六档页在共享调试 Chrome 实测——dark · hard 勾 `rgb(39,46,51)`、dark · soft 勾 `rgb(51,60,67)`（各自画布色），light · soft 仍是 `rgb(243,234,211)`，方框实底 `rgb(167,192,128)` 与未选框描边未变。

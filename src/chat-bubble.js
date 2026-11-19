@@ -71,6 +71,25 @@
 // The trade-off the user accepted: a single highlight colour everywhere (light
 // band vs the green bubble is 1.47:1 at light·soft) instead of a stronger
 // bubble-only band.
+//
+// File links (2026-11-19 report): a user message that carries a composer file
+// reference (`@.gitignore` + text — the screenshot showed `.gitignore test` in
+// the green bubble) renders DSH's `ReferenceChip appearance="file"` as a
+// `button`, and that element also carries the markdown sheet's `_fileMention`
+// class, whose `color: var(--dsw-alias-link)` wins over the chip's own
+// business-ink token. `--dsw-alias-link` is the scheme's `fg.blue` — a canvas
+// pair — so on the accent fill it collapsed to 1.41:1 (light) / 1.09:1 (dark)
+// and the link vanished into the green. This sheet re-points `--dsw-alias-link`
+// on the bubble subtree and re-inks the link affordances with a deepened blue
+// (option 3 of the side-by-side demo the user picked), so a file reference
+// stays a *blue* link and reads at AA on both fills:
+//
+//   light #1E4152 on #93B259  4.53:1
+//   dark  #204A5A on #A7C080  4.80:1
+//
+// Scope is the bubble and only the bubble: assistant markdown file links keep
+// the color-mode aqua (`linkInternal` in `src/color-mode.js`), and nothing else
+// on the canvas moves.
 
 // Nested content: the bubble text inherits the painted ink, and session
 // reference chips restate their own colour through
@@ -175,6 +194,42 @@ export const CHAT_BUBBLE_SELECTION_INK = Object.freeze({
   light: '#2F3B33',
   dark: '#FFFBEF'
 })
+
+/**
+ * The bubble's link ink per scheme (2026-11-19 user choice: option 3 of the
+ * demo — "加深蓝 + 实线下划线"). DSH colours file references, markdown anchors
+ * and the file-mention button through `--dsw-alias-link`, i.e. the scheme's
+ * `fg.blue` (`#3A94C5` / `#7FBBB3`) — a blue tuned for the canvas, which lands
+ * at 1.41:1 / 1.09:1 on the accent fill and reads as a smudge of the green.
+ * These are the same hue pressed down to a readable step:
+ *
+ *   light #1E4152 on #93B259  4.53:1
+ *   dark  #204A5A on #A7C080  4.80:1
+ *
+ * The underline (solid, 1px, currentColor) carries the "this is a link" cue, so
+ * the pair never has to rely on the hue alone.
+ * @type {Readonly<Record<'light' | 'dark', string>>}
+ */
+export const CHAT_BUBBLE_LINK_INK = Object.freeze({
+  light: '#1E4152',
+  dark: '#204A5A'
+})
+
+/**
+ * The token DSH reads for every link affordance it paints. Re-pointed on the
+ * bubble subtree so a link that arrives through an anchor we do not name here
+ * still inherits the readable ink.
+ */
+export const CHAT_BUBBLE_LINK_TOKEN = '--dsw-alias-link'
+
+/**
+ * The link elements a user bubble can contain: a markdown anchor, a markdown
+ * file mention (`_fileLink`), and the user-text file reference chip
+ * (`ReferenceChip appearance="file"` → `button[data-ref-chip="file"]`). Session
+ * reference chips are *not* links (`data-ref-chip="session"`) and keep the
+ * bubble ink.
+ */
+export const CHAT_BUBBLE_LINK_SELECTOR = ':is(a, [class*="fileLink"], [data-ref-chip="file"])'
 
 /**
  * The bubble element(s): DSH's chat package renders the user row as
@@ -303,11 +358,34 @@ function bubbleSelectionRule (scheme, strength) {
 }
 
 /**
+ * A variant's bubble-link rule: the deepened blue ink plus the underline that
+ * carries the link affordance, anchored per bubble and limited to the link
+ * elements DSH can render inside one. It repeats the variant scope and the bubble
+ * anchor, so it outranks both DSH's `._fileMention` colour and its hover
+ * `text-decoration` (which would otherwise re-colour the underline with the
+ * canvas blue) without `!important`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function bubbleLinkRule (scheme, strength) {
+  return [
+    `${scopedBubbles(scheme, strength, ` ${CHAT_BUBBLE_LINK_SELECTOR}`)} {`,
+    `  color: ${CHAT_BUBBLE_LINK_INK[scheme]};`,
+    '  text-decoration: underline solid;',
+    '  text-decoration-thickness: 1px;',
+    '  text-decoration-color: currentColor;',
+    '  text-underline-offset: 2.5px;',
+    '}'
+  ].join('\n')
+}
+
+/**
  * The always-on bubble stylesheet: one paint rule per variant (accent fill, the
- * canvas ink, the muted question ink and the reference-chip token) plus its
- * text-selection rule. No rule paints the question block itself any more — the
- * card is one surface (2026-11-15), and the question recedes through the token
- * the paint rule re-points.
+ * canvas ink, the muted question ink and the reference-chip token), one
+ * text-selection rule and one link rule. No rule paints the question block
+ * itself any more — the card is one surface (2026-11-15), and the question
+ * recedes through the token the paint rule re-points.
  * @returns {string}
  */
 export function chatBubbleStyles () {
@@ -322,6 +400,11 @@ export function chatBubbleStyles () {
         // Session reference chips restate their own colour token; re-point it at
         // the band ink so a chip stays readable on the accent fill.
         `  --dsw-alias-state-business-primary: ${ink};`,
+        // Links inherit their colour from this token (DSH reads it for anchors,
+        // file mentions and the file reference chip). The canvas blue collapses
+        // on the accent fill, so the readable step lives here as well as in the
+        // link rule — that way an affordance we do not name still inherits it.
+        `  ${CHAT_BUBBLE_LINK_TOKEN}: ${CHAT_BUBBLE_LINK_INK[scheme]};`,
         // The reply card paints its question line with the muted label token; on
         // the accent fill DSH's own `label-secondary` is ~1.2:1. This is the one
         // step that keeps the card's two voices apart after the paper block went
@@ -330,6 +413,7 @@ export function chatBubbleStyles () {
         '}'
       ].join('\n'))
       rules.push(bubbleSelectionRule(scheme, strength))
+      rules.push(bubbleLinkRule(scheme, strength))
     }
   }
   return rules.join('\n\n')
