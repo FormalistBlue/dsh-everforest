@@ -85,6 +85,7 @@ import { workStepStyles } from './work-steps.js'
 import { homeWhaleStyles } from './home-whale.js'
 import { turnRailStyles } from './turn-rail.js'
 import { questionChoiceStyles } from './question-choices.js'
+import { formCheckboxStyles } from './form-checkbox.js'
 import { createSettingsNavIcon, NAV_ICON_SLOT } from './nav-icon.js'
 import { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
@@ -789,6 +790,24 @@ export function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: question choices')
+
+  // 1s. Native form checkbox. The shared `Checkbox` component (the 「确认启用完全
+  // 权限？」 dialog's acknowledgement, and any other form checkbox) lets Chromium
+  // paint a native control from `accent-color: var(--dsw-alias-brand-primary)`;
+  // with the theme's light green accent the browser derives a BLACK tick (2026-11-20
+  // report: 「浅色模式下对话里面的勾勾没问题了，这里看到还是黑色的」). `src/form-checkbox.js`
+  // redraws the box with the accent fill and the scheme canvas tick, the pair the
+  // markdown task list and the question composer already carry. Always-on chrome,
+  // same injection pattern as 1c–1r.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/form-checkbox'
+    tag.textContent = formCheckboxStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: form checkbox')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must

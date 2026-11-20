@@ -56,6 +56,7 @@ const SOURCES = [
   'running-spinner.js',
   'turn-rail.js',
   'question-choices.js',
+  'form-checkbox.js',
   'hero-title.js',
   'ui-accents.js',
   'plugin-update.js',

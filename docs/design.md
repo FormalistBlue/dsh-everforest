@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十七张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 18 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十八张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41）、表单勾选框（§52）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 19 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -444,7 +444,7 @@ export function apply(ctx) {
 
 1. **主题聚光灯**（§17）：`createThemeSpotlight()` → 卸载时 `dispose()`；注入 `data-plugin-css="dsh-everforest/theme-spotlight"` 样式表；`spotlight.trackOrigin()` 记录最后一次 `pointerdown`；包装 `ctx.theme.setTheme`（仅跨深浅走 `spotlight.run`，卸载按「原方法是否自有属性」还原）。见 `src/client-entry.js` L212–274。
 2. **token 层与状态属性**：`applyLayer()` = `overrideTokens`（pair 未变时不重栈）+ `applyStateAttributes()`（写 `data-everforest-color-mode` / `-light` / `-dark` 三个属性）。
-3. **常驻样式表（十七张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
+3. **常驻样式表（十八张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41）、表单勾选框（§52），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
 4. **表单胶水**（把 §7 落到代码）：`queuedWrite`、`hasUserLayer`、`shouldSeed`、`seedHost(snapshot)`（播种时才带 `snapshot.revision`）、`adoptHostState()`、`writeToHost(ops, failureMessage)`（不带 revision）、`warnRefusedOnce()`、`writesInFlight` + `beginWrite()` / `flushQueuedWrite()`。`select()` 的跨深浅分支把 `applyLayer() + ctx.theme.setTheme(scheme)` 一起包进 `spotlight.run()`，同深浅分支只重栈（瞬切），`notify()` 在切换之后；`reset()` 先回默认状态，`persistReset()` 在 `writesInFlight > 0` 时把 unset 排到在途写入之后。
 5. **其它**：`setPreference()`（外观三卡 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
 
@@ -3069,3 +3069,27 @@ hard 保留 Enchanted 的 `#DED8DB` 不动；medium / soft 取**同一色相**�
 - `src/color-mode.js`：删覆盖规则，`::after` 的 `border` 回到 `solid var(--dsw-alias-bg-base)`；测试契约删该条字面规则、删 §48 用例、色值计数回到 6 × 25。
 - 门槛：`scripts/check-contrast.mjs` 的门槛 10 描述回到「实底 + 画布 `bg-base` 勾」，`docs/reference/contrast.md` 重生成。
 - 验证：`node --test` **393/393**；`npm run check`（palette / build / contrast `--check`）全绿；`.tmp/build-md-decor-harness.mjs` 六档页在共享调试 Chrome 实测——dark · hard 勾 `rgb(39,46,51)`、dark · soft 勾 `rgb(51,60,67)`（各自画布色），light · soft 仍是 `rgb(243,234,211)`，方框实底 `rgb(167,192,128)` 与未选框描边未变。
+
+## 52. 2026-11-20 完全权限确认框的勾选框改为画布勾
+
+> 触发：用户贴出「确认启用完全权限？」对话框的裁图，红框圈住「我已了解风险，并愿意继续」前的绿色勾选框：
+> 「浅色模式下对话里面的勾勾没问题了，这里看到还是黑色的」。
+
+### 52.1 为什么是黑勾
+
+- 这个框是 DSH 共享 `Checkbox` 组件的原生 `<input type="checkbox">`，DSH 只写 `accent-color: var(--dsw-alias-brand-primary)`，勾由 Chromium 自己画。
+- Chromium 按 accent 的明度选勾色：共享调试 Chrome 40px 实测，`#93B259` 与 `#A7C080` 都得到黑勾，只有深一档的 `#4F6B2F` 才翻成白勾 —— 浅绿实底靠 `accent-color` 永远拿不到奶油勾。
+- 它和 markdown 任务清单（§13.1 / §51）不是同一类元素：任务清单在 `[class*="markdown"]` 里且被 DSH 标成 `disabled`，这个框在对话框里、输入可用，所以此前完全交给浏览器。
+
+### 52.2 做法：画，不委托
+
+- 新增常驻样式表 `src/form-checkbox.js`（`src/client-entry.js` 1s），照任务清单的画法：68% accent 描边 + 10% 淡底作未勾选态，勾选后取 `--dsw-alias-brand-primary`（= `statusline1`）实底，勾用 `--dsw-alias-bg-base`（浅色三档画布奶油、深色三档深板岩）—— 与 §51 之后的任务清单、§41 的问题面板多选框同一族。
+- 锚点用 DSH 的 `_checkbox` / `_acknowledgement` 局部类名片段 + `input[type="checkbox"]`：问题面板的盒子是 span、markdown 任务清单没有 `_checkbox` 祖先、onboarding 的 `cardCheckbox` 是大写 C 且自带 SVG，都不会被命中。
+- 未勾选框一起重绘（同一支绿的 68% 描边 + 10% 淡底）；`appearance: none` 会带走原生焦点环，补一条 `:focus-visible` 的 2px outline。
+- 取色走 token、不按变体展开：`--dsw-alias-brand-primary` / `--dsw-alias-bg-base` 已随方案切换，一张表覆盖六档。
+
+### 52.3 验证
+
+- 测试 `tests/form-checkbox.test.mjs`：选择器只匹配原生 input、不出现 `accent-color` 委托、勾色 / 描边 / 几何钉值、六档 pair 的对比度（浅色 1.95 下限、深色 4.5）以及焦点环与无 `!important`。
+- harness `.tmp/build-form-checkbox-harness.mjs`（真实编译 DSH CSS + 真实 token + 新样式表）实测：light · medium 勾 `rgb(253,246,227)` = `#FDF6E3`、实底 `rgb(147,178,89)` = `#93B259`；dark · soft 勾 `rgb(51,60,67)` = `#333C43`、实底 `rgb(167,192,128)` = `#A7C080`；对话框 14px 与通用组件 16px 两种尺寸都正确。
+- 门槛：`node --test` **398/398**；`npm run check`（palette / build / contrast）全绿；contrast 表无需重生成（沿用 G17 / G19 的同一对 token）。

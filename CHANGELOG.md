@@ -11,6 +11,20 @@
 
 ## [Unreleased]
 
+**中文**
+
+### Fixed
+
+- 完全权限确认框的勾选框改为绿底浅勾
+
+---
+
+**English**
+
+### Fixed
+
+- The full-access confirmation checkbox turns theme green with a light tick
+
 ## [1.7.0] - 2026-11-19
 
 **中文**

@@ -844,6 +844,16 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(questionChoiceStylesheets[0].textContent.includes('#93B259'))
   assert.ok(questionChoiceStylesheets[0].textContent.includes('#A7C080'))
 
+  // The always-on form-checkbox stylesheet draws DSH's shared native checkbox
+  // (the risk-confirmation dialog's acknowledgement). 2026-11-20: the light
+  // accent gave the browser-painted glyph a black tick; the sheet draws the box
+  // with the accent fill and the scheme canvas tick instead.
+  const formCheckboxStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/form-checkbox')
+  assert.equal(formCheckboxStylesheets.length, 1, 'form-checkbox stylesheet was not injected')
+  assert.ok(formCheckboxStylesheets[0].textContent.includes('[class*="_acknowledgement"]'))
+  assert.ok(formCheckboxStylesheets[0].textContent.includes('appearance: none'))
+  assert.ok(formCheckboxStylesheets[0].textContent.includes('var(--dsw-alias-bg-base)'))
+
   // The table column-resize stylesheet and its DOM interaction are mounted with
   // the token layer, not with the Settings UI.
   const tableResizeStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize')
@@ -887,6 +897,10 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     effectLabels.includes('everforest: question choices'),
     'the question-choices stylesheet must be mounted with the token layer'
   )
+  assert.ok(
+    effectLabels.includes('everforest: form checkbox'),
+    'the form-checkbox stylesheet must be mounted with the token layer'
+  )
 
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
@@ -896,7 +910,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 18, 'exactly eighteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + running title + running spinner + turn rail + question choices + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
+  assert.equal(styleTags.length, 19, 'exactly nineteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + running title + running spinner + turn rail + question choices + form checkbox + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -1042,6 +1056,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-spinner').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/form-checkbox').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
@@ -1050,7 +1065,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 17)
+  assert.equal(styleTags.length, 18)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -1063,7 +1078,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 18)
+  assert.equal(styleTags.length, 19)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1625,6 +1640,7 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/running-spinner').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/form-checkbox').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
@@ -1633,7 +1649,7 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 18)
+  assert.equal(styleTags.length, 19)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 

@@ -5665,8 +5665,99 @@ function questionChoiceStyles () {
   return { QUESTION_COMPOSER, QUESTION_OPTION_ROW, QUESTION_CHECKBOX, QUESTION_CHECKBOX_CHECKED, QUESTION_CHECKBOX_HOVER, questionChoiceRole, questionChoiceRoles, QUESTION_CHOICE_RULES_PER_VARIANT, questionChoiceStyles }
 })()
 
+// ---------------------------------------------------------------- src/form-checkbox.js
+const __mod_15_form_checkbox_js = (() => {
+// Everforest paint for DSH's native form checkbox (the risk-confirmation dialog
+// and any other `Checkbox` built from the same component).
+//
+// 2026-11-20 report (crop of the 「确认启用完全权限？」 dialog, green box with a
+// black tick): 「浅色模式下对话里面的勾勾没问题了，这里看到还是黑色的」. The surface is
+// the shared `Checkbox`: a `_checkbox` label wrapping a native
+// `<input type="checkbox">`, with DSH setting only
+// `accent-color: var(--dsw-alias-brand-primary)` and letting Chromium paint the
+// control. Chromium derives the glyph from the accent's luminance — measured in
+// the shared debug Chrome at 40px, `#93B259` and `#A7C080` both get a BLACK
+// check and only a dark accent (`#4F6B2F`) flips it to white — so a light-green
+// accent can never carry a cream tick through `accent-color`; the glyph has to
+// be drawn.
+//
+// This sheet therefore draws the box the way the markdown task list is drawn
+// (`src/color-mode.js`): an accent hairline over a 10% tint when idle, the solid
+// accent fill when checked, and the tick as a rotated border pair in
+// `--dsw-alias-bg-base` — the scheme canvas, i.e. the cream in the light schemes
+// and the deep slate in the dark ones. That is exactly the pair the task list
+// carries after design §51 and the question composer after §41, so the three
+// checkboxes read as one control family. The accent is `brand-primary` =
+// `statusline1` (`#93B259` / `#A7C080`), the same green those two use.
+//
+// Anchors are DSH's `_checkbox` / `_acknowledgement` local-name fragments (the
+// same `[class*="_…"]` approach as `_bubble` / `_checkbox`), never the hashed
+// module prefix. The selector ends in `input[type="checkbox"]`, so the question
+// composer's own box (a span) and the markdown task list (no `_checkbox`
+// ancestor) are untouched; the onboarding card uses a hidden input plus its own
+// SVG indicator, which `[class*="_checkbox"]` does not match either.
+//
+// The module is a pure ESM source: no DOM, no state. `scripts/build.mjs`
+// bundles it into `client.js`; `src/client-entry.js` owns the `<style>` element.
+
+/**
+ * Every native form checkbox of the shared `Checkbox` component, plus the
+ * risk-confirmation dialog's `_acknowledgement` label (which may only carry that
+ * local name). `input[type="checkbox"]` keeps the markdown task list and the
+ * question composer out.
+ */
+const FORM_CHECKBOX = ':is([class*="_checkbox"], [class*="_acknowledgement"]) input[type="checkbox"]'
+
+/** The checked box: solid accent fill and the canvas tick. */
+const FORM_CHECKBOX_CHECKED = `${FORM_CHECKBOX}:checked`
+
+/** Keyboard focus ring; `appearance: none` removes the native one. */
+const FORM_CHECKBOX_FOCUS = `${FORM_CHECKBOX}:focus-visible`
+
+/** The complete form-checkbox stylesheet: one rule per state, no variants. */
+function formCheckboxStyles () {
+  return [
+    `${FORM_CHECKBOX} {`,
+    '  -webkit-appearance: none;',
+    '  appearance: none;',
+    '  box-sizing: border-box;',
+    '  border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 68%, transparent);',
+    '  border-radius: 4px;',
+    '  background-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);',
+    '  position: relative;',
+    '  cursor: pointer;',
+    '}',
+    '',
+    `${FORM_CHECKBOX_CHECKED} {`,
+    '  border-color: var(--dsw-alias-brand-primary);',
+    '  background-color: var(--dsw-alias-brand-primary);',
+    '}',
+    '',
+    `${FORM_CHECKBOX_CHECKED}::after {`,
+    '  content: "";',
+    '  position: absolute;',
+    '  left: 50%;',
+    '  top: 50%;',
+    '  width: 4px;',
+    '  height: 8px;',
+    '  border: solid var(--dsw-alias-bg-base);',
+    '  border-width: 0 1.5px 1.5px 0;',
+    '  transform: translate(-50%, -58%) rotate(42deg);',
+    '}',
+    '',
+    `${FORM_CHECKBOX_FOCUS} {`,
+    '  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));',
+    '  outline-offset: 2px;',
+    '}',
+    ''
+  ].join('\n')
+}
+
+  return { FORM_CHECKBOX, FORM_CHECKBOX_CHECKED, FORM_CHECKBOX_FOCUS, formCheckboxStyles }
+})()
+
 // ---------------------------------------------------------------- src/hero-title.js
-const __mod_15_hero_title_js = (() => {
+const __mod_16_hero_title_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5805,7 +5896,7 @@ function heroTitleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/ui-accents.js
-const __mod_16_ui_accents_js = (() => {
+const __mod_17_ui_accents_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -6014,7 +6105,7 @@ function uiAccentStyles () {
 })()
 
 // ---------------------------------------------------------------- src/plugin-update.js
-const __mod_17_plugin_update_js = (() => {
+const __mod_18_plugin_update_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -6179,7 +6270,7 @@ function pluginUpdateStyles () {
 })()
 
 // ---------------------------------------------------------------- src/chat-bubble.js
-const __mod_18_chat_bubble_js = (() => {
+const __mod_19_chat_bubble_js = (() => {
   const { mix, labLightness } = __mod_1_color_js
   const { FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
 
@@ -6606,7 +6697,7 @@ function chatBubbleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/work-steps.js
-const __mod_19_work_steps_js = (() => {
+const __mod_20_work_steps_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
   const { mix } = __mod_1_color_js
@@ -6797,7 +6888,7 @@ function workStepStyles () {
 })()
 
 // ---------------------------------------------------------------- src/home-whale.js
-const __mod_20_home_whale_js = (() => {
+const __mod_21_home_whale_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -6947,7 +7038,7 @@ function homeWhaleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_21_nav_icon_js = (() => {
+const __mod_22_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -7009,7 +7100,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_22_state_js = (() => {
+const __mod_23_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -7303,9 +7394,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_23_durable_js = (() => {
+const __mod_24_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_22_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_23_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -7470,7 +7561,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_24_locale_js = (() => {
+const __mod_25_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -7553,7 +7644,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_25_settings_page_js = (() => {
+const __mod_26_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -8193,7 +8284,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_26_theme_spotlight_js = (() => {
+const __mod_27_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -8500,7 +8591,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_27_client_entry_js = (() => {
+const __mod_28_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -8512,21 +8603,22 @@ const __mod_27_client_entry_js = (() => {
   const { workspaceLabelStyles } = __mod_10_workspace_labels_js
   const { runningTitleStyles } = __mod_11_running_title_js
   const { runningSpinnerStyles } = __mod_12_running_spinner_js
-  const { heroTitleStyles } = __mod_15_hero_title_js
-  const { uiAccentStyles } = __mod_16_ui_accents_js
-  const { pluginUpdateStyles } = __mod_17_plugin_update_js
-  const { chatBubbleStyles } = __mod_18_chat_bubble_js
-  const { workStepStyles } = __mod_19_work_steps_js
-  const { homeWhaleStyles } = __mod_20_home_whale_js
+  const { heroTitleStyles } = __mod_16_hero_title_js
+  const { uiAccentStyles } = __mod_17_ui_accents_js
+  const { pluginUpdateStyles } = __mod_18_plugin_update_js
+  const { chatBubbleStyles } = __mod_19_chat_bubble_js
+  const { workStepStyles } = __mod_20_work_steps_js
+  const { homeWhaleStyles } = __mod_21_home_whale_js
   const { turnRailStyles } = __mod_13_turn_rail_js
   const { questionChoiceStyles } = __mod_14_question_choices_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_21_nav_icon_js
+  const { formCheckboxStyles } = __mod_15_form_checkbox_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_22_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_22_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_23_durable_js
-  const { EN, NS, ZH } = __mod_24_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_25_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_26_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_23_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_24_durable_js
+  const { EN, NS, ZH } = __mod_25_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_26_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_27_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -9277,6 +9369,24 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: question choices')
 
+  // 1s. Native form checkbox. The shared `Checkbox` component (the 「确认启用完全
+  // 权限？」 dialog's acknowledgement, and any other form checkbox) lets Chromium
+  // paint a native control from `accent-color: var(--dsw-alias-brand-primary)`;
+  // with the theme's light green accent the browser derives a BLACK tick (2026-11-20
+  // report: 「浅色模式下对话里面的勾勾没问题了，这里看到还是黑色的」). `src/form-checkbox.js`
+  // redraws the box with the accent fill and the scheme canvas tick, the pair the
+  // markdown task list and the question composer already carry. Always-on chrome,
+  // same injection pattern as 1c–1r.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/form-checkbox'
+    tag.textContent = formCheckboxStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: form checkbox')
+
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
   // stay idempotent: `notify` only invalidates the snapshot and re-renders.
@@ -9734,6 +9844,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_27_client_entry_js
+    return __mod_28_client_entry_js
   },
 })
