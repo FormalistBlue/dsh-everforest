@@ -65,14 +65,14 @@ test('tokensFor emits every explicitly covered colour token with light and dark 
     assert.ok(!pair.light.includes('var('), `${name} light must be explicit`)
     assert.ok(!pair.dark.includes('var('), `${name} dark must be explicit`)
   }
-  // 226 colour tokens + the 6 auxiliary gradients.
-  assert.equal(Object.keys(overlay).length, 232)
+  // 231 colour tokens + the 6 auxiliary gradients.
+  assert.equal(Object.keys(overlay).length, 237)
 })
 
 test('the inherited list is exactly what the overlay leaves to the static layer', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   const inherited = [...INHERITED_TOKEN_NAMES].sort()
-  assert.equal(inherited.length, 18)
+  assert.equal(inherited.length, 13)
   assert.deepEqual(
     inherited,
     inventoryNames.filter((name) => overlay[name] === undefined),
@@ -95,7 +95,7 @@ test('the inherited list is exactly what the overlay leaves to the static layer'
 test('TOKEN_COVERAGE is consistent with tokensFor', () => {
   const overlay = tokensFor(DEFAULT_STATE)
   assert.deepEqual([...TOKEN_COVERAGE.covered].sort(), Object.keys(overlay).sort())
-  assert.equal(TOKEN_COVERAGE.covered.length, 232) // 226 colour + 6 auxiliary
+  assert.equal(TOKEN_COVERAGE.covered.length, 237) // 231 colour + 6 auxiliary
   const covered = new Set(TOKEN_COVERAGE.covered)
   const inherited = new Set(INHERITED_TOKEN_NAMES)
   for (const name of inventoryNames) {

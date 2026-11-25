@@ -524,8 +524,8 @@ const __mod_2_tokens_js = (() => {
 //   11 `--shiki-*` tokens               (explicit; shiki.css light values on :root and
 //                                        --shiki-foreground/background reference body-level
 //                                        aliases, so alias inheritance cannot be relied on)
-//   = 226 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
-//   + 18 contract tokens that resolve through the rewritten static / alias layer
+//   = 231 explicitly covered colour tokens (DSH 0.2.2-rc.2; 217 through rc.1)
+//   + 13 contract tokens that resolve through the rewritten static / alias layer
 //     instead of being emitted again (`INHERITED_TOKEN_NAMES`) = 244 in total
 //   + 6 auxiliary tokens (menu material, think gradients, onboarding gradient stops)
 //
@@ -560,9 +560,10 @@ const __mod_2_tokens_js = (() => {
 //    docs/design.md §4 (bg layers, sidebar = one ramp step off bg0, labels,
 //    borders = bg5 alpha, brand / interaction accent = green, link = blue, states,
 //    diff = bg_green/bg_red + green/red, masks, menu materials, brand
-//    foreground = bg0, tooltip/toast = inverted surfaces, illustration artwork
-//    = neutral luminance anchors, JSON tree = the same syntax roles as shiki, ...).
-//    226 tokens are explicit; the remaining 18 contract tokens are inherited by
+//    foreground = bg0, tooltip = inverted surface / toast = scheme card,
+//    illustration artwork = neutral luminance anchors, JSON tree = the same
+//    syntax roles as shiki, ...).
+//    231 tokens are explicit; the remaining 13 contract tokens are inherited by
 //    design (`INHERITED_TOKEN_NAMES`) because their only declaration is a
 //    reference to a static / alias token this layer already rewrites — except
 //    `--dsw-alias-label-on-color`, DSH's literal "white ink on saturated fills"
@@ -980,19 +981,60 @@ function borderTint (p, ratio) {
   return alpha(borderInk(p), ratio)
 }
 
+/**
+ * Resolve one static neutral anchor exactly the way the static layer does.
+ * The hover-card family is the one place that needs it: DSH declares the whole
+ * family as references to `--dsw-static-*` values, so this keeps the dark
+ * schemes byte-identical to the inherited value while the light schemes can
+ * opt out of DSH's inverted card (see `ALIAS_TOKENS` hover-card block).
+ * @param {{ scheme: string, ramp: object, fg: object }} p
+ * @param {string} name - a key of `STATIC_NEUTRAL_ANCHORS`.
+ * @returns {string}
+ */
+function staticNeutral (p, name) {
+  return interpolateRamp(neutralStops(p), STATIC_NEUTRAL_ANCHORS[name])
+}
+
 /** Menu / floating-panel material fill: `bg2` + 94% opacity. */
 function menuFill (p) {
   return alpha(surface(p, 2), 0.94)
 }
 
-/** Inverted (dark) surface used by toast / tooltip in both schemes. */
+/** Inverted (dark) surface used by the tooltip in both schemes. */
 function invertedSurface (p) {
   return p.scheme === 'light' ? p.fg.fg : p.ramp.bgDim
 }
 
-/** Label colour for inverted surfaces (light ink on the dark surface). */
-function invertedLabel (p) {
-  return p.scheme === 'light' ? p.ramp.bg0 : p.fg.fg
+/**
+ * Toast surface.
+ *
+ * DSH ships an inverted — dark — notice in both schemes (`toast-bg` =
+ * `neutral-bluish-800` in light / `-750` in dark, `toast-label` always
+ * `neutral-bluish-00`). The 2026-11-25 review replaced that in the light
+ * schemes: the dark slab on a cream page reads as a leftover from the dark
+ * theme (user report 「浅色模式下弹出来的这个框也是深色模式的效果」). The light
+ * toast is therefore the same elevated paper the menus / overlays use
+ * (`surface(p, 2)`, guarded to keep `label-primary` at 4.5:1) with the scheme's
+ * primary ink; the dark schemes keep the deep canvas (`bgDim`), where a light
+ * notice would glare. That paper is exactly the surface the same review gave the
+ * light hover cards, so both floating cards read as one material and rely on
+ * DSH's own `shadow-lv3` elevation for the edge.
+ * @param {{ scheme: string, ramp: object, fg: object }} p
+ * @returns {string}
+ */
+function toastSurface (p) {
+  return p.scheme === 'light' ? surface(p, 2) : p.ramp.bgDim
+}
+
+/**
+ * Toast ink: the scheme's primary ink, which is the readable partner of
+ * `toastSurface` in both schemes (light: `fg` on the paper card; dark: `fg` on
+ * `bgDim`). DSH paints the notice text — and only the text — with this token.
+ * @param {{ fg: object }} p
+ * @returns {string}
+ */
+function toastInk (p) {
+  return p.fg.fg
 }
 
 /**
@@ -1186,12 +1228,12 @@ function illustrationNeutral (p, role) {
  * ------------------------------------------------------------------ */
 
 /**
- * The 121 mapped `--dsw-alias-*` colour tokens of the DSH 0.2.2-rc.2 ui-theme
+ * The 127 mapped `--dsw-alias-*` colour tokens of the DSH 0.2.2-rc.2 ui-theme
  * sheets (0.2.1-rc.2 … rc.5 carried 107; 0.2.2-rc.1 added the illustration
  * family and `state-done-primary`; 0.2.2-rc.2 added 24 alias tokens for cards,
  * charts, hovercards, JSON trees and the trajectory accent; see docs/design.md
  * §12). Every entry here is an explicit role mapping (docs/design.md §4); the
- * 17 alias tokens that are *not* listed only reference static / alias tokens
+ * 11 alias tokens that are *not* listed only reference static / alias tokens
  * this layer already rewrites (`INHERITED_TOKEN_NAMES`).
  * @type {Record<string, (p: object) => string>}
  */
@@ -1270,6 +1312,31 @@ const ALIAS_TOKENS = {
   '--dsw-alias-file-diff-deleted-bg': (p) => diffSurface(p, 'bgRed', p.fg.red),
   '--dsw-alias-file-diff-deleted-gutter': (p) => diffGutter(p, diffSurface(p, 'bgRed', p.fg.red)),
   '--dsw-alias-file-diff-deleted-marker': (p) => p.fg.red,
+
+  // Hover cards (session / schedule previews) --------------------------------
+  // DSH declares the whole `hovercard-*` family as references to the inverted
+  // neutral statics: surface `bluish-850`, ink `bluish-00` / `-300` / `-400`. The
+  // upstream card is therefore dark in BOTH schemes ("hover card" = a floating
+  // inverted slab). On the cream light schemes that read as a slate box pasted
+  // over the sidebar (2026-11-25 user report: 「hover 对话过后的弹框颜色不对，怎么是
+  // 深色的」). The dark schemes keep DSH's inverted card verbatim — the value is
+  // the same static resolution, so nothing moves — while the light schemes paint
+  // an ordinary elevated surface (`bg2`, the family menus / tips / cards use) and
+  // the scheme's own label inks, with the muted roles lifted the same way every
+  // other label does. `state-done` / `state-error` stay inherited: their static
+  // hues already resolve to the palette purple / red on both card surfaces.
+  '--dsw-alias-hovercard-bg': (p) => (p.scheme === 'light'
+    ? surface(p, 2)
+    : staticNeutral(p, '--dsw-static-neutral-bluish-850')),
+  '--dsw-alias-hovercard-label-primary': (p) => (p.scheme === 'light'
+    ? p.fg.fg
+    : staticNeutral(p, '--dsw-static-neutral-bluish-00')),
+  '--dsw-alias-hovercard-label-secondary': (p) => (p.scheme === 'light'
+    ? mutedInk(p, p.fg.grey1)
+    : staticNeutral(p, '--dsw-static-neutral-bluish-300')),
+  '--dsw-alias-hovercard-label-tertiary': (p) => (p.scheme === 'light'
+    ? mutedInk(p, p.fg.grey0)
+    : staticNeutral(p, '--dsw-static-neutral-bluish-400')),
 
   // Interactive feedback (subtle translucent overlays). Upstream defines no
   // hover role and marks `bg5` "Not currently used", so the 2026-11-08 palette
@@ -1402,8 +1469,14 @@ const ALIAS_TOKENS = {
 
   // Inverted surfaces / misc -------------------------------------------------
   '--dsw-alias-switch-thumb': (p) => lightAnchor(p),
-  '--dsw-alias-toast-bg': (p) => invertedSurface(p),
-  '--dsw-alias-toast-label': (p) => invertedLabel(p),
+  // Toast (2026-11-25): DSH natively paints the notice dark in both schemes and
+  // its action link in the DeepSeek brand blue (`var(--dsw-static-deepseek-400)`,
+  // inherited through the static layer). The light schemes now get a paper card
+  // with the text green action (the user's "蓝色的强调文字应该用绿色"), the dark
+  // schemes keep the deep canvas with the same green. See `toastSurface()`.
+  '--dsw-alias-toast-action': (p) => p.fg.green,
+  '--dsw-alias-toast-bg': (p) => toastSurface(p),
+  '--dsw-alias-toast-label': (p) => toastInk(p),
   '--dsw-alias-tooltip-bg': (p) => invertedSurface(p),
   '--dsw-alias-tooltip-key-bg': (p) => mix(invertedSurface(p), lightAnchor(p), 0.25),
   '--dsw-alias-turn-trigger-bg': (p) => codeSurface(p),
@@ -1529,7 +1602,7 @@ const TOKEN_ENTRIES = [
 /**
  * The six auxiliary tokens emitted on top of the 244-token colour contract
  * (docs/design.md §4 explicitly requires menu material, think gradients and the
- * onboarding gradient stops; they are not part of the 226 colour + 11 shiki count).
+ * onboarding gradient stops; they are not part of the 231 colour + 11 shiki count).
  * @type {string[]}
  */
 const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort())
@@ -1542,14 +1615,20 @@ const AUXILIARY_TOKEN_NAMES = Object.freeze(Object.keys(AUXILIARY_TOKENS).sort()
  * ever gives one of them a literal value, the test fails instead of the surface
  * silently staying at an editor / native colour.
  *
- * 2026-11-13 rc.2 review: 18 of the 27 new tokens fall in this class (cards,
+ * 2026-11-13 rc.2 review: 18 of the 27 new tokens fell in this class (cards,
  * charts, hovercards, toast / tooltip labels, trajectory accent, guide hero,
  * sidebar-right flash). `--dsw-alias-label-on-color` used to be listed here too
  * (its declaration references `--dsw-static-neutral-bluish-00`), but the
  * luminance-anchored static remap resolved it to the scheme ink in the deep
  * schemes — the composer send / stop glyph went tan (1.18:1 on the accent fill;
  * 2026-11-13 user report). It is emitted as DSH's literal white instead
- * (`ON_COLOR_INK`), so it is no longer inherited.
+ * (`ON_COLOR_INK`), so it is no longer inherited. The four `hovercard-bg` /
+ * `hovercard-label-*` tokens were also pulled out of this class (2026-11-25):
+ * the light schemes need a light card, which the static remap cannot express
+ * (see the hover-card block in `ALIAS_TOKENS`). `--dsw-alias-toast-action` left
+ * the class in the same review: DSH points it at the brand blue
+ * (`var(--dsw-static-deepseek-400)`), while the notice's action is the theme's
+ * text green — the toast tokens are now emitted (see `toastSurface()`).
  * @type {string[]}
  */
 const INHERITED_TOKEN_NAMES = Object.freeze([
@@ -1560,13 +1639,8 @@ const INHERITED_TOKEN_NAMES = Object.freeze([
   '--dsw-alias-chart-messages',
   '--dsw-alias-chart-system',
   '--dsw-alias-chart-tools',
-  '--dsw-alias-hovercard-bg',
-  '--dsw-alias-hovercard-label-primary',
-  '--dsw-alias-hovercard-label-secondary',
-  '--dsw-alias-hovercard-label-tertiary',
   '--dsw-alias-hovercard-state-done',
   '--dsw-alias-hovercard-state-error',
-  '--dsw-alias-toast-action',
   '--dsw-alias-tooltip-label',
   '--dsw-alias-trajectory-accent',
   '--dsw-specific-guide-hero',
@@ -1726,7 +1800,7 @@ function tokensFor (state = DEFAULT_STATE) {
 
 /**
  * Token coverage bookkeeping for docs / startup diagnostics.
- * - `covered`: every CSS variable emitted by `tokensFor` (226 colour + 6 auxiliary)
+ * - `covered`: every CSS variable emitted by `tokensFor` (231 colour + 6 auxiliary)
  * - `uncovered`: native DSH tokens this layer intentionally leaves alone
  *
  * The third-party compatibility aliases (`compatAliasesFor`) are layered on by

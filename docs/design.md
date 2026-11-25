@@ -206,9 +206,9 @@ tokensFor(state) → {
 
 > **2026-11-13 复核修正（0.2.2-rc.2 token 契约 217 → 244）**（证据：安装包 `@deepseek-ai/dsh-client-ui-theme/lib/client.js` 重新提取，`node scripts/extract-theme-tokens.mjs --from <rc.2 client.js>`；与旧 inventory 逐项比对：+27 / −0 / 改值 0）：
 >
-> - **颜色 token 217 → 244**：82 static + 138 alias（+24）+ 13 specific（+3）+ 11 shiki。新增 27 项覆盖卡片、图表、悬停卡片、通知 / tooltip 文字、JSON 树、附件上传槽、侧栏指南 hero 与侧栏闪动 —— 对应上游 release notes「改善自定义主题对通知、卡片、计划和任务等界面颜色的覆盖」。`tokensFor()` 共 **232 条**（226 颜色 + 6 辅助，其中 9 条为显式新增：JSON 树 7 + 上传槽 1 + 下方补记的 `label-on-color` 1）；剩余 **18 条**（`INHERITED_TOKEN_NAMES`）声明值只引用已覆盖的 static / alias，按继承得到主题色。
+> - **颜色 token 217 → 244**：82 static + 138 alias（+24）+ 13 specific（+3）+ 11 shiki。新增 27 项覆盖卡片、图表、悬停卡片、通知 / tooltip 文字、JSON 树、附件上传槽、侧栏指南 hero 与侧栏闪动 —— 对应上游 release notes「改善自定义主题对通知、卡片、计划和任务等界面颜色的覆盖」。`tokensFor()` 共 **232 条**（226 颜色 + 6 辅助，其中 9 条为显式新增：JSON 树 7 + 上传槽 1 + 下方补记的 `label-on-color` 1）；剩余 **18 条**（`INHERITED_TOKEN_NAMES`）声明值只引用已覆盖的 static / alias，按继承得到主题色。（后续改动会增减这两组计数，当前值以 `tests/tokens.test.mjs` 为准；hovercard 的 4 条与通知条 `toast-action` 的 1 条于 2026-11-25 改为显式，见 §53 / §54。）
 > - **显式新增 8 条（rc.2 批次）**（2026-11-13 用户逐项选定，语法角色与 Shiki 层一致）：`json-tree-keyword` = `fg.blue`、`json-tree-number` = `fg.purple`、`json-tree-property` = `fg.aqua`、`json-tree-string` = `fg.yellow`、`json-tree-punctuation` / `-icon` = `fg.grey1`、`json-tree-hover` = `alpha(fg.grey1, 0.08)`；`--dsw-specific-file-upload-track` = `alpha(ramp.bg5, 0.45)`。
-> - **继承 18 条**：卡片 / 图表 / hovercard / `toast-action` / `tooltip-label` / `trajectory-accent` / `guide-hero` / `sidebar-right-flash`。它们的声明是 `var(--dsw-static-*)`、`color-mix(static)` 或 alias 间引用，static 层改写后即为主题色（真机 light·hard 实测：`card-fill #faf7ea`、`hovercard-bg #616f75`、`sidebar-right-flash #93B259`、`guide-hero #e4e5d6`）。测试按 `INHERITED_TOKEN_NAMES` 校验「契约 = 显式 + 继承」，上游把任一项改成字面量会直接失败。（`label-on-color` 原属此类，2026-11-13 因深色图标变成土黄改为显式字面白，见下条补记。）
+> - **继承 18 条**：卡片 / 图表 / hovercard / `toast-action` / `tooltip-label` / `trajectory-accent` / `guide-hero` / `sidebar-right-flash`。它们的声明是 `var(--dsw-static-*)`、`color-mix(static)` 或 alias 间引用，static 层改写后即为主题色（真机 light·hard 实测：`card-fill #faf7ea`、`hovercard-bg #616f75`、`sidebar-right-flash #93B259`、`guide-hero #e4e5d6`）。测试按 `INHERITED_TOKEN_NAMES` 校验「契约 = 显式 + 继承」，上游把任一项改成字面量会直接失败。（`label-on-color` 原属此类，2026-11-13 因深色图标变成土黄改为显式字面白，见下条补记；hovercard 的 `bg` 与三个 `label-*` 于 2026-11-25 改为显式，见 §53；`toast-action` 同日改为显式文字绿、`toast-bg` / `toast-label` 一并分档，见 §54。）
 > - **消费方**：`dsh-client-ui-deliverables` / `-plan` / `-schedule`（card-*）、`-conversation`（chart-*、`label-on-color` 的发送 / 终止按钮）、`-workspace` / `-schedule`（hovercard-*）、`-sidebar-right`（guide-hero、sidebar-right-flash）、`-attachment`（file-upload-track、`label-on-color` 的失败删除按钮）、`-agent-preset`（border-selected）、`-trajectory`（json-tree-*、trajectory-accent）、`-theme`（tooltip-label、toast-action）。
 > - **工具链**：rc.2 的 `ui-theme/lib/client.js` 不再输出 `//#region … dsh-inline-css:`，8 张样式表改为 `var <name>_css_default = ...` 模板字符串；`scripts/extract-theme-tokens.mjs` 已同时支持两种编码。新版 `app.asar` 的 header JSON 后带 NUL padding，`scripts/extract-asar-package.mjs` 已剔除后再 `JSON.parse`。
 > - **删除的规则**：`MENU_SELECTED_FILL` / `MENU_SELECTED_FILL_RADIO`（`selectedFill` 子元素）在 rc.2 整包 0 处；选中项改为在 `_selected_` 行上直接画底，规则与导出删除后颜色不变（真机实测底 `#93B259`、字 `#FFFBEF`）。
@@ -219,7 +219,7 @@ tokensFor(state) → {
 > - **修法**：`--dsw-alias-label-on-color` 改为显式 token，两种 scheme 都取 DSH 的字面白 `#FFFFFF`（`src/tokens.js` 的 `ON_COLOR_INK`），并从 `INHERITED_TOKEN_NAMES` 移除；它不进调色板 —— 「饱和实底上的白墨」是 DSH 的语义常量（与遮罩色同样保留字面值），不是背景 / 前景色阶的一档。契约计数随之变为显式 226 / 继承 18 / `tokensFor()` 232 条。附件上传失败按钮（`-attachment` 的 `.removeFailed`，红底）同样受益：此前深色档也是土黄字。
 > - **对比度**：白字对强调绿 light 2.40 / dark 2.00（hover 1.94–2.10），低于 3:1 的图形门槛，但这是 DSH 原生配对（native 白字压品牌蓝同样约 2:1，按钮靠实底色块与留白辨识），也是用户明确要求的颜色；`reference/contrast.md` 的 G22 钉住「字面白 + 对实底 / hover ≥ 1.9」，防止图标再次退回主题色。
 
-### 第 1 层：派生映射（契约 244 个颜色 token，显式覆盖 226 个）
+### 第 1 层：派生映射（契约 244 个颜色 token，显式覆盖 231 个）
 
 `src/tokens.js` 用「角色 / 表达式」描述，而不是逐条写死六份颜色：
 
@@ -286,10 +286,11 @@ DSH 概念 → Everforest 角色的基线映射（细节在实现时展开）：
 | onboarding（accent + 3 渐变 stops + card/secondary/checkbox 边框） | accent = `statusline1`（2026-11-08 第三轮；此前 2026-11-07 为 `green`、2026-10-24 至 11-07 为 `aqua`）；3 个渐变 stops 仍用 `header-*`（装饰）/ `bg_*` 派生 | 首登页，7 个 token |
 | `brand-primary-new-color` | `statusline1`（2026-11-08 第三轮，见 §23；此前 `green` / `aqua`） | 品牌强调（light 侧是字面量） |
 | `tooltip-key-bg` | tooltip 深色底向亮端 `mix(…, 25%)`（实现修正，原写 `bg3`） | 键帽 |
+| `toast-bg` / `toast-label` / `toast-action` | 浅色：`surface(p, 2)`（`#fcf8eb` / `#faf3df` / `#f0e7d0`）+ `fg` + 文字绿 `green`；深色：`bgDim` + `fg` + 同一支 `green`。tooltip 仍保持反色（见 §6.4） | DSH 浮动通知条；上游在两个 scheme 下都是深色块 + 品牌蓝动作，2026-11-25 用户要求浅色档用浅色卡、动作改绿（§54） |
 | `focus-ring`（不覆盖） | 走 `state-business-primary` 派生 | 焦点环跟随状态色，不单独覆盖 |
 
 - **static 色阶**（82）：把 DSH 的 `neutral-bluish-00…1000`、`neutral-*`、`deepseek-*`、`blue-*`、`green/red/amber-*` 各自映射到 Everforest 对应色相当量。**不能按明度顺序一一对应**（两边步数不同）：以「最暗 = bg5、最亮 = bg0」为端点做分段线性插值，中间按目标色相的明度分布取档；4 个带 alpha 的 static（`green-500-a08/a12`、`red-400-a12`、`red-600-a08`）单独给 rgba。使所有 `var(--dsw-static-*)` 引用自动跟随。
-- **alias / specific**（2026-10-25 口径 118 = 107 alias + 11 specific；2026-11-06 起 124 = 114 alias + 10 specific；2026-11-13 起 **151 = 138 alias + 13 specific**）：97 条直接 static var + 8 条含 static 的 color-mix 自动跟随；**37 条字面量 + 9 条 alias 间引用 = 46 条**必须显式给值（见第 2 层；其中 18 条由 `INHERITED_TOKEN_NAMES` 走 static / alias 继承，其余 28 条显式给值，2026-11-13 新增 9 条字面量，含同日改为显式的 `label-on-color`）。
+- **alias / specific**（2026-10-25 口径 118 = 107 alias + 11 specific；2026-11-06 起 124 = 114 alias + 10 specific；2026-11-13 起 **151 = 138 alias + 13 specific**）：97 条直接 static var + 8 条含 static 的 color-mix 自动跟随；**37 条字面量 + 9 条 alias 间引用 = 46 条**必须显式给值（见第 2 层；其中 13 条由 `INHERITED_TOKEN_NAMES` 走 static / alias 继承，其余 33 条显式给值，2026-11-13 新增 9 条字面量，含同日改为显式的 `label-on-color`；2026-11-25 的悬停卡 4 条与通知条 1 条（§53 / §54）也转显式）。
 - 保底规则：任何没有显式映射、且不引用被覆盖 static 的 `--dsw-alias-*` 不覆盖（保持 DSH 值），避免误伤；在 `src/tokens.js` 顶部列出「未覆盖清单」，便于逐版本核对。
 
 ### 第 2 层：46 个字面量 / alias 间引用（必须显式给值）
@@ -3093,3 +3094,59 @@ hard 保留 Enchanted 的 `#DED8DB` 不动；medium / soft 取**同一色相**�
 - 测试 `tests/form-checkbox.test.mjs`：选择器只匹配原生 input、不出现 `accent-color` 委托、勾色 / 描边 / 几何钉值、六档 pair 的对比度（浅色 1.95 下限、深色 4.5）以及焦点环与无 `!important`。
 - harness `.tmp/build-form-checkbox-harness.mjs`（真实编译 DSH CSS + 真实 token + 新样式表）实测：light · medium 勾 `rgb(253,246,227)` = `#FDF6E3`、实底 `rgb(147,178,89)` = `#93B259`；dark · soft 勾 `rgb(51,60,67)` = `#333C43`、实底 `rgb(167,192,128)` = `#A7C080`；对话框 14px 与通用组件 16px 两种尺寸都正确。
 - 门槛：`node --test` **398/398**；`npm run check`（palette / build / contrast）全绿；contrast 表无需重生成（沿用 G17 / G19 的同一对 token）。
+## 53. 2026-11-25 浅色档会话悬停卡改为浅色卡（hovercard）
+
+> 触发：用户贴出浅色侧栏上悬停会话行后弹出的会话卡（244px，内容「新会话 / H:\workspace\dsh-everforest / 空闲」）：
+> 「这个浅色模式下，hover 对话过后的弹框颜色不对啊，怎么是深色的？修改一下」。
+
+### 53.1 为什么是深色
+
+- 这张卡是 DSH 共享的 hover-card 原语（安装包编译 CSS：`._card_l6gf9_9{position:fixed;width:244px;padding:12px 16px;border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-hovercard-bg);box-shadow:var(--dsw-shadow-lv3)}`），裁图里的宽度、内边距与圆角都与该规则一致；会话内容由 `-workspace` 作为 children 传入。
+- DSH 把整个 `hovercard-*` 家族声明成对反色 static 的引用：表面 `bluish-850`、文字 `bluish-00` / `-300` / `-400`。也就是说上游的悬停卡在两个 scheme 下**都是深色反色卡**；本层此前按 §4 的「继承」处理，浅色档由 static 亮度锚定解析成 `#616f75` 板岩底 + 近白字，落在奶油侧栏上就是裁图里那块深色方块。
+- 文字同样来自这组 token（标题 `label-primary`、路径 `label-secondary`、状态 `label-tertiary`），所以只改底色会得到「浅底浅字」；四条必须一起接管。
+
+### 53.2 做法
+
+- `--dsw-alias-hovercard-bg` / `-label-primary` / `-label-secondary` / `-label-tertiary` 改为显式 token：
+  - 浅色档：表面取 `surface(p, 2)`（与菜单、tip、设置卡同一档浮动面，三档 `#fcf8eb` / `#faf3df` / `#f0e7d0`），字色取 `fg` / `mutedInk(grey1)` / `mutedInk(grey0)`（即 `label-primary` / `-secondary` / `-tertiary` 的同一组值）；
+  - 深色档：**原样**返回 static 层对同四个锚点的解析（新增 `staticNeutral()` 复用 `interpolateRamp(neutralStops(p), anchor)`），三组强度配对下与继承值逐字节相同，深色观感不变。
+- `state-done` / `state-error` 继续继承：它们的 static 色相在两个底上都会落到调色板的 purple / red，不需要为浅卡另配。
+- 契约计数：这四条从 `INHERITED_TOKEN_NAMES` 移入显式层（继承 −4 / 显式 +4）；`tests/tokens.test.mjs` 与 `tests/integration.test.mjs` 的当前总数同步到合并后的工作树，`integration` 另钉死四条值（浅色新值 + 深色不变）。
+
+### 53.3 验证
+
+- harness `.tmp/build-hovercard-harness.mjs`（真实编译 DSH hover-card CSS + 真实 token 层；「改前」用 DSH 自己的 static 引用解析，等于继承值）：light · hard 由 `#616f75` 板岩 + 近白字变为 `#fcf8eb` 奶油底 + 墨字，primary 5.26:1；light · medium `#faf3df` / 5.04:1；light · soft `#f0e7d0` / 4.53:1；secondary / tertiary 为 3.16 / 2.71、3.03 / 2.60、2.73 / 2.34，与主题的次级 / 三级字同一档。dark · soft `#30393d` 与改前逐字节相同（primary 6.99:1）。
+- `node --test` 全绿通过；`scripts/build.mjs` 重建 `client.js`；palette / build / contrast 三项 `--check` 全绿（`docs/reference/contrast.md` 只重算覆盖数）。
+- 边界：只改 token，不加选择器、不写 `!important`，也不动 tooltip —— 它是 DSH 有意的小尺寸深色反色层（§6.4），本次用户点名的是悬停卡；通知条（toast）随后按同一条思路单独处理，见 §54。卡片的阴影、圆角、宽度仍由 DSH 的 `shadow-lv3` / `radius-lg` 决定。
+
+## 54. 2026-11-25 浅色档通知条改为浅色卡 + 绿色动作（toast）
+
+> 触发：用户归档会话后出现的通知条（裁图 697×134，内容「会话已归档，可 **撤销** 或 **筛选已归档会话**」）：
+> 「会话归档过后弹出来的提示框有点问题，蓝色的强调文字应该用绿色，还有我在浅色模式下弹出来的这个框也是深色模式的效果，帮我看看什么情况，修改一下」。
+
+### 54.1 为什么是深色 + 蓝字
+
+- DSH 的共享通知条是 `ui-workspace` 的 toast 工厂（`renderFactorySlot('workspace.toast.content')`）→ `ui-primitives` 的 `Toast`，安装包编译 CSS 只有三块颜色：
+  `._toast_af3m1_6{position:fixed;top:40px;…;background:var(--dsw-alias-toast-bg);color:var(--dsw-alias-toast-label);box-shadow:var(--dsw-shadow-lv3)}`、
+  `._action_af3m1_55{color:var(--dsw-alias-toast-action)}`，成功态图标取 `._success_af3m1_47{color:var(--dsw-alias-state-success-primary)}`。
+- `design-platform.css` 把这组 token 全声明成反色 static 的引用：`toast-bg` = `bluish-800`（light）/ `bluish-750`（dark）、`toast-label` 恒为 `bluish-00`、`toast-action` = `deepseek-400`（DeepSeek 品牌蓝）。
+  也就是说上游的通知条在两个 scheme 下**都是深色块 + 蓝链接**。本层此前只把 `toast-bg` / `toast-label` 映射成「反色深色块」（§6.4），`toast-action` 仍按继承留在 static 层，
+  于是浅色档落在奶油画布上就是裁图里那块板岩底 + 一段与主题无关的蓝字。
+- 这与同日的悬停卡是同一类问题（§53）：DSH 用「反色浮层」表达「这是一张浮起来的卡」，Everforest 的浅色画布需要把这张卡改回浅色材质。
+
+### 54.2 做法
+
+- 三个 token 全部改为显式映射：
+  - `--dsw-alias-toast-bg`：浅色档 `surface(p, 2)`（与菜单、tip、设置卡、浅色悬停卡同一档浮动纸面，三档 `#fcf8eb` / `#faf3df` / `#f0e7d0`）；深色档 `bgDim`（`#1E2326` / `#232A2E` / `#293136`，与改动前逐字节相同）。
+  - `--dsw-alias-toast-label`：两种 scheme 都取方案主墨 `fg`（浅色 `#5C6A72`、深色 `#D3C6AA`）；深色档也与改动前相同。
+  - `--dsw-alias-toast-action`：改用**文字绿 `green`**（浅色 `#8DA101`、深色 `#A7C080`）——与成功勾图标（`state-success-primary`）、目录名、运行中标题同一支绿，通知条里只出现一种绿。
+- 深色档的表面 / 字色保持原样，动作由蓝转绿：这是用户点名要的「强调文字用绿色」，在深色 `bgDim` 上有 6.61–7.93:1。
+- 边缘仍由 DSH 自己的 `shadow-lv3`（1px 描边 + 32px 柔光）承担，不加选择器、不写 `!important`，圆角 / 内边距 / 动画都归 DSH。
+- 契约计数：`--dsw-alias-toast-action` 从 `INHERITED_TOKEN_NAMES` 移入显式层（继承 −1 / 显式 +1；叠加 §53 的 −4 后为继承 13 / 显式 231、`tokensFor()` 237 条）。
+
+### 54.3 验证
+
+- harness `.tmp/build-toast-harness.mjs` → `.tmp/toast-harness.html`（真实安装包编译 CSS `index-*.css` 里的 `._toast_*` / `._action_*` 规则 + 真实 token 层 + 真实通知条 DOM；「改前」用改动前的 token 值 = DSH 反色块 + static 层继承的品牌蓝 `#7db7d3` / `#9cbfb0`）：light · hard 由 `#5C6A72` + 奶油字 + 蓝链接变为 `#fcf8eb` 纸面 + `#5C6A72` 字 + `#8DA101` 绿链接（标签 5.26:1、动作 2.73:1），light · soft 为 `#f0e7d0` / 4.53 / 2.36；dark 三档仍为 `bgDim` + `#D3C6AA`，动作 `#A7C080`（标签 9.39 / 8.62 / 7.83、动作 7.93 / 7.28 / 6.61）。
+- 新增硬门槛 G27（`scripts/check-contrast.mjs`，明细 §2q）：标签墨 ≥ 4.5:1；动作墨必须**逐字节等于**成功图标绿、且不再等于画布链接蓝；动作下限浅色 2.3 / 深色 4.5（浅色 2.3 是本主题绿字在奶油底上的既有上限，与 G18 / G24 / G25 同档）。
+- `node --test` 全绿；`scripts/build.mjs` 重建 `client.js`；palette / build / contrast 三项 `--check` 全绿。`tests/integration.test.mjs` 钉死六组值（浅色纸面 + 绿色动作 + 深色不变）。
+- 边界：只改 token；tooltip 保持反色（§6.4），悬停卡的浅色化见 §53，两者共用同一档纸面是为了让两种浮卡读作同一种材质。

@@ -29,7 +29,7 @@ const read = (relative) => readFileSync(join(ROOT, relative), 'utf8')
 const readJson = (relative) => JSON.parse(read(relative))
 const EXPECTED_TOKEN_COUNT = 244 // 82 static + 138 alias + 13 specific + 11 shiki
 /** Tokens of the contract that resolve through the rewritten static / alias layer. */
-const EXPECTED_INHERITED_COUNT = 18
+const EXPECTED_INHERITED_COUNT = 13
 /** Colour tokens the overlay emits itself. */
 const EXPECTED_EXPLICIT_COUNT = EXPECTED_TOKEN_COUNT - EXPECTED_INHERITED_COUNT
 
@@ -1817,6 +1817,18 @@ test('token values follow the design decisions', async () => {
   assert.equal(layer('--dsw-specific-sidebar-fill').dark, '#39444a')
   assert.equal(layer('--dsw-alias-label-primary').light, '#5C6A72')
   assert.equal(layer('--dsw-alias-label-primary').dark, '#D3C6AA')
+  // 2026-11-25: the session / schedule hover card is a light elevated surface in
+  // the light schemes instead of DSH's inverted card; the dark schemes keep DSH's
+  // static resolution byte-for-byte.
+  assert.deepEqual(layer('--dsw-alias-hovercard-bg'), { light: '#fcf8eb', dark: '#30393d' })
+  assert.equal(layer('--dsw-alias-hovercard-label-primary').light, '#5C6A72')
+  assert.equal(layer('--dsw-alias-hovercard-label-primary').dark, '#d3c6aa')
+  // 2026-11-25: the floating notice follows the same review — a light paper card in
+  // the light schemes (DSH ships a dark slab in both), with the palette text green
+  // as the action ink instead of DSH's DeepSeek blue.
+  assert.deepEqual(layer('--dsw-alias-toast-bg'), { light: '#fcf8eb', dark: '#293136' })
+  assert.deepEqual(layer('--dsw-alias-toast-label'), { light: '#5C6A72', dark: '#D3C6AA' })
+  assert.deepEqual(layer('--dsw-alias-toast-action'), { light: '#8DA101', dark: '#A7C080' })
   // 2026-10-24 accent trial: the UI accent tokens use the official palette
   // accents (fg.blue for text, the interaction accent for filled surfaces), not
   // Enchanted's muted header-* pair. 2026-11-08: the interaction accent is the

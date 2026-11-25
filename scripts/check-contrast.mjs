@@ -187,6 +187,20 @@
  *      blues around. Assistant markdown file links keep the color-mode aqua; the
  *      override is bubble-scoped only.
  *
+ * The floating notice (toast, src/tokens.js, design §54) adds gate 27:
+ *  27. DSH resolves the whole `toast-*` family through the inverted neutral
+ *      statics: the surface is a dark slab in BOTH schemes and the action link
+ *      is the DeepSeek brand blue (`var(--dsw-static-deepseek-400)`). On the
+ *      cream light schemes that read as a dark-mode leftover with a foreign blue
+ *      accent (2026-11-25 report 「弹出来的这个框…浅色模式下…也是深色模式的效果」
+ *      /「蓝色的强调文字应该用绿色」). The light notice now uses the same elevated
+ *      paper as the menus / light hover cards (`surface(p, 2)`), the dark schemes
+ *      keep the deep canvas, and the action is the palette text green. The gate
+ *      requires label ink >= 4.5:1 on the notice surface, the action to be the
+ *      very green the success icon uses (one notice, one green), the canvas link
+ *      blue to be gone, and the action floors: light >= 2.3:1 (the palette's
+ *      green-on-cream ceiling, the same floor G18/G24/G25 pin) and dark >= 4.5:1.
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -356,7 +370,8 @@ const REPORT_PAIRS = [
   ['diff-deleted-marker', '--dsw-alias-file-diff-deleted-marker', '--dsw-alias-file-diff-deleted-bg'],
   ['diff-added-number', '--dsw-alias-file-diff-added-marker', '--dsw-alias-file-diff-added-gutter'],
   ['diff-deleted-number', '--dsw-alias-file-diff-deleted-marker', '--dsw-alias-file-diff-deleted-gutter'],
-  ['toast-label (inverted)', '--dsw-alias-toast-label', '--dsw-alias-toast-bg'],
+  ['toast-label', '--dsw-alias-toast-label', '--dsw-alias-toast-bg'],
+  ['toast-action (green)', '--dsw-alias-toast-action', '--dsw-alias-toast-bg'],
   ['primary-foreground (brand)', '--dsw-alias-label-primary-foreground', '--dsw-alias-brand-primary']
 ]
 
@@ -1266,6 +1281,76 @@ for (const variant of states) {
   }
 }
 
+/* ---- Gate 27: toast (floating notice, both schemes) ----------------------- */
+/**
+ * DSH paints the notice with the `toast-*` family
+ * (`._toast_af3m1_6{background:var(--dsw-alias-toast-bg);color:var(--dsw-alias-toast-label)}`,
+ * `._action_af3m1_55{color:var(--dsw-alias-toast-action)}`) and its success icon
+ * with `--dsw-alias-state-success-primary`. Upstream resolves all of it through
+ * the inverted neutral statics — a dark slab in BOTH schemes, with a DeepSeek
+ * blue action link (`var(--dsw-static-deepseek-400)`, inherited by this layer
+ * until 2026-11-25). On a cream page the dark notice read as a dark-mode leftover
+ * and the blue link as a foreign accent (user report 「弹出来的这个框…浅色模式下…
+ * 也是深色模式的效果」/「蓝色的强调文字应该用绿色」).
+ *
+ * The theme now paints the light notice on the same elevated paper as the menus
+ * and the light hover cards (`surface(p, 2)`), keeps the deep canvas in the dark
+ * schemes, and inks the action — and the shared success icon — with the palette
+ * text green. The gate holds the promises that make that safe:
+ *   - the label ink clears AA on the notice surface in both schemes;
+ *   - the action is the *same* green as the success icon (a palette edit that
+ *     splits them would show two greens inside one notice) and never the canvas
+ *     blue it replaced;
+ *   - the action keeps the documented accent floor: light 2.3:1 (the palette's
+ *     own ceiling for green text on cream — the same floor G18/G24/G25 pin) and
+ *     dark 4.5:1.
+ */
+const TOAST_LABEL_CONTRAST = 4.5
+const TOAST_ACTION_LIGHT_CONTRAST = 2.3
+const TOAST_ACTION_DARK_CONTRAST = 4.5
+const toastRows = []
+for (const variant of states) {
+  const surface = variant.get('--dsw-alias-toast-bg')
+  const ink = variant.get('--dsw-alias-toast-label')
+  const action = variant.get('--dsw-alias-toast-action')
+  const success = variant.get('--dsw-alias-state-success-primary')
+  const labelRatio = contrastRatio(ink, surface)
+  const actionRatio = contrastRatio(action, surface)
+  const floor = variant.scheme === 'dark' ? TOAST_ACTION_DARK_CONTRAST : TOAST_ACTION_LIGHT_CONTRAST
+  toastRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    surface,
+    ink,
+    action,
+    success,
+    labelRatio,
+    actionRatio,
+    floor
+  })
+  if (!LEGAL_ROLE_COLOR.test(surface)) {
+    recordFailure(`g27:${variant.variant}:legal-surface`, `${variant.variant}: toast surface is not a #RRGGBB colour: ${surface}`)
+  }
+  if (!LEGAL_ROLE_COLOR.test(ink)) {
+    recordFailure(`g27:${variant.variant}:legal-label`, `${variant.variant}: toast label is not a #RRGGBB colour: ${ink}`)
+  }
+  if (!LEGAL_ROLE_COLOR.test(action)) {
+    recordFailure(`g27:${variant.variant}:legal-action`, `${variant.variant}: toast action is not a #RRGGBB colour: ${action}`)
+  }
+  if (labelRatio < TOAST_LABEL_CONTRAST) {
+    recordFailure(`g27:${variant.variant}:label`, `${variant.variant}: toast label on the notice surface = ${labelRatio.toFixed(2)} < ${TOAST_LABEL_CONTRAST}`)
+  }
+  if (actionRatio < floor) {
+    recordFailure(`g27:${variant.variant}:action`, `${variant.variant}: toast action on the notice surface = ${actionRatio.toFixed(2)} < ${floor}`)
+  }
+  if (action.toLowerCase() !== success.toLowerCase()) {
+    recordFailure(`g27:${variant.variant}:green`, `${variant.variant}: toast action ${action} is not the palette text green shared with the success icon (${success})`)
+  }
+  if (action === variant.get('--dsw-alias-link')) {
+    recordFailure(`g27:${variant.variant}:blue`, `${variant.variant}: toast action is still the canvas link blue`)
+  }
+}
+
 /* ---- Report-only measurements -------------------------------------------- */
 const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
   const ratios = {}
@@ -1343,6 +1428,7 @@ function renderMarkdown () {
     '24. 运行中会话标题（`src/running-title.js`，常驻、与色彩模式无关）：命中「行首有 `[data-state="ongoing"]` 且未选中」的会话行标题，静止色是合法 `#RRGGBB` 的**文字绿 `green`**（与工作区目录名同色），扫光带永远朝「背离侧栏画布」的方向走——浅色档把绿压深（`#8DA101` → `#667401`，2.35–2.68 → 4.17–4.76:1），深色档把绿提亮（`#A7C080` → `#D3E0C0`，5.00–6.17 → 7.24–8.94:1）；门槛除两档静止 / 光带下限（2.3 / 4.1、4.5 / 7.0）外，还钉住「光带在 CIE L* 上比静止绿离侧栏更远」与「hover 叠加底上的光带不低于静止绿」两条方向不变量——第一版在浅色档刷的是白光（1.29–1.46:1），被用户退回「白光会让文字看不清楚」，6 档实测值见 §2n；',
     '25. 运行中会话 spinner（`src/running-spinner.js`，常驻、与色彩模式无关）：同一批「行首有 `[data-state="ongoing"]` 且未选中」的行，行首那圈 `StateDot` 从 DSH 的 `label-tertiary` 灰改成合法 `#RRGGBB` 的**文字绿 `green`**（与标题 / 目录名同色），只写 `color`，环宽 / 虚线 / 动画仍归 DSH；门槛除沿用该绿的实测下限（浅色 2.3、深色 4.5，实测 2.35–2.68 / 5.00–6.17）外，还钉住「不得比它替换掉的中性灰更弱」（静止与 hover 叠加底上各比一次，容差 0.02）——浅色档实测 2.35–2.68 对中性灰 2.33–2.65，是同对比度下的换色而非可读性取舍；选中行不参与（实色强调底 + 画布墨由 G17 负责），语义状态点也不参与，6 档实测值见 §2o；',
     '26. 气泡内的链接 / 文件引用（`src/chat-bubble.js`，常驻、与色彩模式无关）：DSH 把文件引用渲染成 `ReferenceChip appearance="file"`，其按钮同时带 markdown 的 `_fileMention` 类，于是拿到画布链接蓝 `--dsw-alias-link`（`fg.blue`），压在强调绿气泡上只有 1.41 / 1.09:1；气泡作用域把该 token 重指向**加深蓝**（浅色 `#1E4152` 4.53:1、深色 `#204A5A` 4.80:1）并补实线下划线，助手 markdown 里的文件链接仍走色彩模式 aqua；门槛除 AA 外，还要求新墨比画布蓝高出 ≥ 3:1、且画布蓝本身仍不达标（否则这层 override 已多余，调色板变动时要报警）；6 档实测值见 §2p；',
+    '27. 浮动通知条（`src/tokens.js` 的 `toast-*`，常驻、与色彩模式无关）：DSH 原生把 `toast-bg` / `toast-label` / `toast-action` 全解析到反色 static —— 两个 scheme 都是深色块、动作链接是品牌蓝 `var(--dsw-static-deepseek-400)`，2026-11-25 用户报告「浅色模式下弹出来的这个框也是深色模式的效果」+「蓝色的强调文字应该用绿色」；浅色档改为与菜单 / 浅色悬停卡同一档浮动纸面 `surface(p, 2)`（`#fcf8eb` / `#faf3df` / `#f0e7d0`）+ 方案主墨，深色档保持 `bgDim` + 主墨，动作与成功图标共用文字绿 `green`；门槛：标签墨 ≥ 4.5:1、动作墨必须等于成功图标绿并且不再等于画布链接蓝、浅色动作 ≥ 2.3:1（调色板绿字在奶油底上的上限，与 G18 / G24 / G25 同档）、深色动作 ≥ 4.5:1，6 档实测值见 §2q；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -1789,6 +1875,42 @@ function renderMarkdown () {
   )
   push(
     '',
+    '## 2q. 浮动通知条（toast，硬门槛 G27）',
+    '',
+    'DSH 的共享通知条（`ui-workspace` 的 toast 工厂 → `ui-primitives` 的 `Toast`）只有三块颜色：' +
+      '`._toast_af3m1_6{background:var(--dsw-alias-toast-bg);color:var(--dsw-alias-toast-label)}`、' +
+      '`._action_af3m1_55{color:var(--dsw-alias-toast-action)}`，成功态图标取 `--dsw-alias-state-success-primary`。' +
+      '上游把这组 token 全声明成反色 static 的引用：`toast-bg` = `bluish-800`（light）/ `bluish-750`（dark）、`toast-label` 恒为 `bluish-00`、' +
+      '`toast-action` = `deepseek-400`（品牌蓝）。所以原生通知条在两个 scheme 下都是**深色块 + 蓝链接**；' +
+      '本层此前按「继承」处理，2026-11-25 用户归档会话后看到的就是这块深色块（原话「浅色模式下弹出来的这个框也是深色模式的效果」）配一段蓝字' +
+      '（「蓝色的强调文字应该用绿色」）。',
+    '',
+    '做法与同日的浅色悬停卡（§53）同一条思路，但只落在 token 层：浅色档的表面取 `surface(p, 2)`（与菜单、tip、设置卡、浅色悬停卡同一档浮动纸面），' +
+      '字色取方案主墨 `fg`，动作改为文字绿 `green`（与成功图标、目录名、运行中标题同一支绿）；深色档表面保持 `bgDim`、字色保持 `fg`，动作同样换成这支绿。' +
+      '边缘仍由 DSH 自己的 `shadow-lv3`（1px 描边 + 32px 柔光）承担，不加选择器、不写 `!important`。',
+    '',
+    '| 变体 | 通知底 | 标签墨 | 标签 / 底 | 动作墨 | 动作 / 底 | 动作阈值 | 结果 |',
+    '|---|---|---|---:|---|---:|---:|---|'
+  )
+  for (const row of toastRows) {
+    const ok = LEGAL_ROLE_COLOR.test(row.surface) && LEGAL_ROLE_COLOR.test(row.ink) && LEGAL_ROLE_COLOR.test(row.action) &&
+      row.labelRatio >= TOAST_LABEL_CONTRAST &&
+      row.actionRatio >= row.floor &&
+      row.action.toLowerCase() === row.success.toLowerCase()
+    push(
+      `| ${row.variant} | \`${row.surface}\` | \`${row.ink}\` | ${format(row.labelRatio)} | \`${row.action}\` | ${format(row.actionRatio)} | ${row.floor} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '浅色三档的标签墨 5.26 / 5.04 / 4.53:1 全部过 AA（与浅色悬停卡同一组纸面值），动作绿 2.73 / 2.62 / 2.36:1 —— ' +
+      '这是调色板里唯一的文字绿在奶油底上的上限，与目录名、运行中标题 / spinner 的已记录 2.3 档取同一个下限，' +
+      '不再像画布链接蓝那样与主题脱节；深色三档的标签墨 9.39 / 8.62 / 7.83:1、动作 7.93 / 7.28 / 6.61:1 都在 AA 以上。' +
+      '门槛额外钉住「动作墨 == 成功图标绿」：通知条里只允许出现一支绿，调色板若把两者拆开就会先失败，' +
+      '而不是让勾和链接在同一个框里显示两种绿；同时钉住动作不再等于画布链接蓝，防止退回上游的 `deepseek-400`。',
+  )
+  push(
+    '',
     '## 3. 文本承载表面（label-primary 对比度）',
     '',
     '`docs/design.md` §4 要求这些表面上的主文本可读；`src/tokens.js` 的 `readableSurface` 会在不达标时向方案背景色 `bg0` 微调（light 提亮、dark 压暗，bg0 始终是该 scheme 下与 `fg` 对比最高的背景），实际值如下。',
@@ -1859,9 +1981,10 @@ function renderMarkdown () {
     '',
     '### 6.4 toast / tooltip / 反色前景',
     '',
-    '- DSH 原生 `toast-bg` / `tooltip-bg` 在**两个 scheme 下都是深色表面**（light: `toast-bg` = `neutral-bluish-800`、`tooltip-bg` = `neutral-bluish-850`；dark: 两者都是 `neutral-bluish-750`），`toast-label` 恒为 `neutral-bluish-00`。',
-    '- 因此实现为「反色表面 + 反色前景」：`toast-bg` / `tooltip-bg` = `fg`（light）/ `bgDim`（dark）派生深色，`toast-label` = `bg0`（light）/ `fg`（dark）。design §4 把 `tooltip-key-bg` 标为 `bg3`，这里改为在 tooltip 深色底上向亮端混合 25%（保持键帽可见），属实现细节偏差。',
-    '- `label-primary-inverted` 单独处理：它在 DSH 中与 `label-primary`（侧栏 build 徽标、brand wordmark 的 currentColor 反色镂空）、`button-contrast-fill`（附件删除按钮）配对，必须是 scheme ink 的反色（light = `bg0`、dark = `bgDim`），不能沿用 toast/tooltip 的浅色文字（否则 dark 主题下与背景同色不可见）。真实配对对比度见 §2b。',
+    '- DSH 原生 `toast-bg` / `tooltip-bg` 在**两个 scheme 下都是深色表面**（light: `toast-bg` = `neutral-bluish-800`、`tooltip-bg` = `neutral-bluish-850`；dark: 两者都是 `neutral-bluish-750`），`toast-label` 恒为 `neutral-bluish-00`、`toast-action` 恒为品牌蓝 `deepseek-400`。',
+    '- **toast（2026-11-25 起分档）**：浅色档改为与菜单 / 浅色悬停卡同一档浮动纸面 `surface(p, 2)`（`#fcf8eb` / `#faf3df` / `#f0e7d0`）+ 方案主墨 `fg`，动作链接改为文字绿 `green`；深色档保持 `bgDim` + `fg`，动作同样是这支绿。奶油画布上的深色块会被读成「深色模式的组件」（用户原话「浅色模式下弹出来的这个框也是深色模式的效果」），上游的品牌蓝动作也与主题绿脱节（「蓝色的强调文字应该用绿色」）。数值与门槛见 §2q（G27）；表面与悬停卡（§53）同值，两种浮卡读作同一种材质。',
+    '- **tooltip 保持反色**：`tooltip-bg` = `fg`（light）/ `bgDim`（dark）派生深色，键帽 `tooltip-key-bg` 在该深色底上向亮端混合 25%（design §4 写的是 `bg3`，属实现细节偏差）。tooltip 是贴着指针的小尺寸键位提示，深色底在两种 scheme 下都是 DSH 的既定观感，本次不动。',
+    '- `label-primary-inverted` 单独处理：它在 DSH 中与 `label-primary`（侧栏 build 徽标、brand wordmark 的 currentColor 反色镂空）、`button-contrast-fill`（附件删除按钮）配对，必须是 scheme ink 的反色（light = `bg0`、dark = `bgDim`），不能沿用 tooltip 的浅色文字（否则 dark 主题下与背景同色不可见）。真实配对对比度见 §2b。',
     '',
     '### 6.5 菜单/浮层材质',
     '',
