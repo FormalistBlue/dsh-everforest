@@ -819,15 +819,14 @@ const ALIAS_TOKENS = {
   // upstream card is therefore dark in BOTH schemes ("hover card" = a floating
   // inverted slab). On the cream light schemes that read as a slate box pasted
   // over the sidebar (2026-11-25 user report: 「hover 对话过后的弹框颜色不对，怎么是
-  // 深色的」). The dark schemes keep DSH's inverted card verbatim — the value is
-  // the same static resolution, so nothing moves — while the light schemes paint
-  // an ordinary elevated surface (`bg2`, the family menus / tips / cards use) and
-  // the scheme's own label inks, with the muted roles lifted the same way every
-  // other label does. `state-done` / `state-error` stay inherited: their static
-  // hues already resolve to the palette purple / red on both card surfaces.
-  '--dsw-alias-hovercard-bg': (p) => (p.scheme === 'light'
-    ? surface(p, 2)
-    : staticNeutral(p, '--dsw-static-neutral-bluish-850')),
+  // 深色的」); on the dark schemes the static slab sat *below* the canvas and
+  // disappeared into it (follow-up: 「浅色和深色模式下看着感觉和背景有点融到一起
+  // 了」). Both schemes now paint an ordinary elevated surface (`bg2`, the material
+  // the menus / tips / settings cards use) with the scheme's own label inks, and
+  // `src/hover-card.js` adds the hairline rim + DSH elevation the paper needs to
+  // read as a card. `state-done` / `state-error` stay inherited: their static
+  // hues already resolve to the palette purple / red on the card surface.
+  '--dsw-alias-hovercard-bg': (p) => surface(p, 2),
   '--dsw-alias-hovercard-label-primary': (p) => (p.scheme === 'light'
     ? p.fg.fg
     : staticNeutral(p, '--dsw-static-neutral-bluish-00')),

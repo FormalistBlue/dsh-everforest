@@ -1319,15 +1319,14 @@ const ALIAS_TOKENS = {
   // upstream card is therefore dark in BOTH schemes ("hover card" = a floating
   // inverted slab). On the cream light schemes that read as a slate box pasted
   // over the sidebar (2026-11-25 user report: 「hover 对话过后的弹框颜色不对，怎么是
-  // 深色的」). The dark schemes keep DSH's inverted card verbatim — the value is
-  // the same static resolution, so nothing moves — while the light schemes paint
-  // an ordinary elevated surface (`bg2`, the family menus / tips / cards use) and
-  // the scheme's own label inks, with the muted roles lifted the same way every
-  // other label does. `state-done` / `state-error` stay inherited: their static
-  // hues already resolve to the palette purple / red on both card surfaces.
-  '--dsw-alias-hovercard-bg': (p) => (p.scheme === 'light'
-    ? surface(p, 2)
-    : staticNeutral(p, '--dsw-static-neutral-bluish-850')),
+  // 深色的」); on the dark schemes the static slab sat *below* the canvas and
+  // disappeared into it (follow-up: 「浅色和深色模式下看着感觉和背景有点融到一起
+  // 了」). Both schemes now paint an ordinary elevated surface (`bg2`, the material
+  // the menus / tips / settings cards use) with the scheme's own label inks, and
+  // `src/hover-card.js` adds the hairline rim + DSH elevation the paper needs to
+  // read as a card. `state-done` / `state-error` stay inherited: their static
+  // hues already resolve to the palette purple / red on the card surface.
+  '--dsw-alias-hovercard-bg': (p) => surface(p, 2),
   '--dsw-alias-hovercard-label-primary': (p) => (p.scheme === 'light'
     ? p.fg.fg
     : staticNeutral(p, '--dsw-static-neutral-bluish-00')),
@@ -2803,7 +2802,7 @@ function colorModeStyles () {
   return cachedStyles
 }
 
-  return { COLOR_MODE_ATTRS, colorModeRoles, colorModeDataset, MARKDOWN_SCOPE, colorModeStyles }
+  return { COLOR_MODE_ATTRS, colorModeRoles, colorModeDataset, COLOR_MODE_ON, MARKDOWN_SCOPE, colorModeStyles }
 })()
 
 // ---------------------------------------------------------------- src/colwidth-store.js
@@ -4551,8 +4550,71 @@ function activeSessionStyles () {
   return { ACTIVE_SESSION_ROW, ACTIVE_SESSION_RULES_PER_VARIANT, activeSessionRoles, activeSessionStyles }
 })()
 
+// ---------------------------------------------------------------- src/hover-card.js
+const __mod_9_hover_card_js = (() => {
+  const { COLOR_MODE_ON } = __mod_3_color_mode_js
+
+// Everforest "hover card" surface for DSH's floating previews.
+//
+// The session / schedule preview is ui-primitives' HoverCard: a portalled
+// `<div>` (compiled CSS `._card_l6gf9_9`: fixed, width 244px, padding 12px 16px,
+// radius-lg, `background: var(--dsw-alias-hovercard-bg)`, `box-shadow:
+// var(--dsw-shadow-lv3)`) whose direct child is the hover content root
+// (`_hoverContent_…`, rendered by ui-workspace's `WorkspaceHoverContent` and
+// `SessionHoverContent`).
+//
+// The token layer now paints that card with the same elevated paper the menus
+// and tips use (`--dsw-alias-hovercard-bg` = `surface(p, 2)` in both schemes,
+// see src/tokens.js). On the light cream canvas the paper sits only a ~1 L* step
+// away from the sidebar, and on the dark canvas `bg2` is still a small step from
+// the content — in both schemes the card depended on DSH's own `shadow-lv3`
+// alone, which reads as "no edge" against the busy chat background (2026-11-25
+// follow-up report: 「浅色和深色模式下看着感觉和背景有点融到一起了，看看能不能让
+// 辨识度更高一点」).
+//
+// The rim is the one thing a colour token cannot express, so this always-on
+// sheet adds a 1px hairline on top of DSH's own elevation:
+//
+//   box-shadow: 0 0 0 1px var(--dsw-alias-border-l4), var(--dsw-shadow-lv3, …)
+//
+// Both pieces are theme tokens, so the six variants follow automatically:
+// `border-l4` is the warm `bg5` hairline at 90% in light and its lifted ink at
+// 100% in dark, while the fallback only matters if DSH ever drops the elevation
+// variable. DSH's own `shadow-lv3` starts with a 1px black 20% ring, which is
+// invisible on the dark card — hence the token hairline rather than a second
+// hand-written shadow.
+//
+// The anchor is the workspace content's stable local class name (`hoverContent`)
+// — never the `l6gf9` CSS-module hash, which is build output. No `!important`:
+// `div:has(> [class*="hoverContent"])` (0,2,1) outranks the card's own
+// `._card_l6gf9_9` (0,1,0) in the cascade.
+
+
+/** The hover content root shared by the workspace and session previews. */
+const HOVER_CARD_CONTENT = '[class*="hoverContent"]'
+
+/** The portalled card that wraps the hover content root. */
+const HOVER_CARD_CARD = `${COLOR_MODE_ON} div:has(> ${HOVER_CARD_CONTENT})`
+
+/** DSH's own elevation token, with a literal fallback in case it is renamed. */
+const HOVER_CARD_SHADOW_FALLBACK = '0 8px 24px rgba(0, 0, 0, 0.18)'
+
+/**
+ * The single hover-card rule: a token hairline around DSH's own elevation.
+ * @returns {string}
+ */
+function hoverCardStyles () {
+  return `${HOVER_CARD_CARD} {
+  box-shadow: 0 0 0 1px var(--dsw-alias-border-l4), var(--dsw-shadow-lv3, ${HOVER_CARD_SHADOW_FALLBACK});
+}
+`
+}
+
+  return { HOVER_CARD_CONTENT, HOVER_CARD_CARD, HOVER_CARD_SHADOW_FALLBACK, hoverCardStyles }
+})()
+
 // ---------------------------------------------------------------- src/nav-accent.js
-const __mod_9_nav_accent_js = (() => {
+const __mod_10_nav_accent_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -4719,7 +4781,7 @@ function navAccentStyles () {
 })()
 
 // ---------------------------------------------------------------- src/workspace-labels.js
-const __mod_10_workspace_labels_js = (() => {
+const __mod_11_workspace_labels_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -4924,7 +4986,7 @@ const WORKSPACE_LABEL_RULES_PER_VARIANT = 2
 })()
 
 // ---------------------------------------------------------------- src/running-title.js
-const __mod_11_running_title_js = (() => {
+const __mod_12_running_title_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
   const { mix } = __mod_1_color_js
@@ -5164,10 +5226,10 @@ function runningTitleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/running-spinner.js
-const __mod_12_running_spinner_js = (() => {
+const __mod_13_running_spinner_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
-  const { RUNNING_SESSION_ROW } = __mod_11_running_title_js
+  const { RUNNING_SESSION_ROW } = __mod_12_running_title_js
 
 // Everforest ink for the "running" spinner of a DSH workspace session row.
 //
@@ -5319,7 +5381,7 @@ function runningSpinnerStyles () {
 })()
 
 // ---------------------------------------------------------------- src/turn-rail.js
-const __mod_13_turn_rail_js = (() => {
+const __mod_14_turn_rail_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5568,7 +5630,7 @@ const TURN_RAIL_REDUCED_MOTION_PER_VARIANT = 1
 })()
 
 // ---------------------------------------------------------------- src/question-choices.js
-const __mod_14_question_choices_js = (() => {
+const __mod_15_question_choices_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5740,7 +5802,7 @@ function questionChoiceStyles () {
 })()
 
 // ---------------------------------------------------------------- src/form-checkbox.js
-const __mod_15_form_checkbox_js = (() => {
+const __mod_16_form_checkbox_js = (() => {
 // Everforest paint for DSH's native form checkbox (the risk-confirmation dialog
 // and any other `Checkbox` built from the same component).
 //
@@ -5831,7 +5893,7 @@ function formCheckboxStyles () {
 })()
 
 // ---------------------------------------------------------------- src/hero-title.js
-const __mod_16_hero_title_js = (() => {
+const __mod_17_hero_title_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -5970,7 +6032,7 @@ function heroTitleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/ui-accents.js
-const __mod_17_ui_accents_js = (() => {
+const __mod_18_ui_accents_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -6179,7 +6241,7 @@ function uiAccentStyles () {
 })()
 
 // ---------------------------------------------------------------- src/plugin-update.js
-const __mod_18_plugin_update_js = (() => {
+const __mod_19_plugin_update_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -6344,7 +6406,7 @@ function pluginUpdateStyles () {
 })()
 
 // ---------------------------------------------------------------- src/chat-bubble.js
-const __mod_19_chat_bubble_js = (() => {
+const __mod_20_chat_bubble_js = (() => {
   const { mix, labLightness } = __mod_1_color_js
   const { FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
 
@@ -6771,7 +6833,7 @@ function chatBubbleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/work-steps.js
-const __mod_20_work_steps_js = (() => {
+const __mod_21_work_steps_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
   const { mix } = __mod_1_color_js
@@ -6962,7 +7024,7 @@ function workStepStyles () {
 })()
 
 // ---------------------------------------------------------------- src/home-whale.js
-const __mod_21_home_whale_js = (() => {
+const __mod_22_home_whale_js = (() => {
   const { DEFAULT_STATE, SCHEMES, STRENGTHS, resolvePalette } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS } = __mod_3_color_mode_js
 
@@ -7112,7 +7174,7 @@ function homeWhaleStyles () {
 })()
 
 // ---------------------------------------------------------------- src/nav-icon.js
-const __mod_22_nav_icon_js = (() => {
+const __mod_23_nav_icon_js = (() => {
 // Everforest's own glyph in the Settings navigation.
 //
 // DSH 0.2.2 added the official `settings.section.icon` slot. The settings shell
@@ -7174,7 +7236,7 @@ function createSettingsNavIcon ({ h } = {}) {
 })()
 
 // ---------------------------------------------------------------- src/state.js
-const __mod_23_state_js = (() => {
+const __mod_24_state_js = (() => {
   const { DEFAULT_STATE, STRENGTHS } = __mod_0_palette_js
 
 /**
@@ -7468,9 +7530,9 @@ function resetState(storage) {
 })()
 
 // ---------------------------------------------------------------- src/durable.js
-const __mod_24_durable_js = (() => {
+const __mod_25_durable_js = (() => {
   const { DEFAULT_STATE } = __mod_0_palette_js
-  const { normalizeStrengths, STATE_VERSION } = __mod_23_state_js
+  const { normalizeStrengths, STATE_VERSION } = __mod_24_state_js
 
 /**
  * Client-side glue between the localStorage cache and the Host-backed settings
@@ -7635,7 +7697,7 @@ function bootHintState(hint) {
 })()
 
 // ---------------------------------------------------------------- src/locale.js
-const __mod_25_locale_js = (() => {
+const __mod_26_locale_js = (() => {
 /**
  * Client-side locale dictionaries for the Everforest Settings page.
  *
@@ -7718,7 +7780,7 @@ const ZH = {
 })()
 
 // ---------------------------------------------------------------- src/settings-page.js
-const __mod_26_settings_page_js = (() => {
+const __mod_27_settings_page_js = (() => {
 /**
  * Everforest Settings page (`settings.section` occupant).
  *
@@ -8358,7 +8420,7 @@ function createSettingsComponent(dependencies) {
 })()
 
 // ---------------------------------------------------------------- src/theme-spotlight.js
-const __mod_27_theme_spotlight_js = (() => {
+const __mod_28_theme_spotlight_js = (() => {
 // Spotlight theme switch for light <-> dark: the new palette is revealed by a
 // circular clip-path growing out of the pointer position, with the old palette
 // kept underneath as a static snapshot. This is the View Transitions API pattern
@@ -8665,7 +8727,7 @@ function createThemeSpotlight({
 })()
 
 // ---------------------------------------------------------------- src/client-entry.js
-const __mod_28_client_entry_js = (() => {
+const __mod_29_client_entry_js = (() => {
   const { DEFAULT_STATE, FOREGROUNDS, RAMPS, STRENGTHS } = __mod_0_palette_js
   const { COLOR_MODE_ATTRS, colorModeDataset, colorModeStyles } = __mod_3_color_mode_js
   const { createColumnWidthMemory } = __mod_4_colwidth_store_js
@@ -8673,26 +8735,27 @@ const __mod_28_client_entry_js = (() => {
   const { installTableScrollbarHover } = __mod_6_table_scrollbar_js
   const { selectionStyles } = __mod_7_selection_js
   const { activeSessionStyles } = __mod_8_active_session_js
-  const { navAccentStyles } = __mod_9_nav_accent_js
-  const { workspaceLabelStyles } = __mod_10_workspace_labels_js
-  const { runningTitleStyles } = __mod_11_running_title_js
-  const { runningSpinnerStyles } = __mod_12_running_spinner_js
-  const { heroTitleStyles } = __mod_16_hero_title_js
-  const { uiAccentStyles } = __mod_17_ui_accents_js
-  const { pluginUpdateStyles } = __mod_18_plugin_update_js
-  const { chatBubbleStyles } = __mod_19_chat_bubble_js
-  const { workStepStyles } = __mod_20_work_steps_js
-  const { homeWhaleStyles } = __mod_21_home_whale_js
-  const { turnRailStyles } = __mod_13_turn_rail_js
-  const { questionChoiceStyles } = __mod_14_question_choices_js
-  const { formCheckboxStyles } = __mod_15_form_checkbox_js
-  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_22_nav_icon_js
+  const { navAccentStyles } = __mod_10_nav_accent_js
+  const { workspaceLabelStyles } = __mod_11_workspace_labels_js
+  const { runningTitleStyles } = __mod_12_running_title_js
+  const { runningSpinnerStyles } = __mod_13_running_spinner_js
+  const { heroTitleStyles } = __mod_17_hero_title_js
+  const { uiAccentStyles } = __mod_18_ui_accents_js
+  const { pluginUpdateStyles } = __mod_19_plugin_update_js
+  const { chatBubbleStyles } = __mod_20_chat_bubble_js
+  const { workStepStyles } = __mod_21_work_steps_js
+  const { homeWhaleStyles } = __mod_22_home_whale_js
+  const { turnRailStyles } = __mod_14_turn_rail_js
+  const { questionChoiceStyles } = __mod_15_question_choices_js
+  const { formCheckboxStyles } = __mod_16_form_checkbox_js
+  const { hoverCardStyles } = __mod_9_hover_card_js
+  const { createSettingsNavIcon, NAV_ICON_SLOT } = __mod_23_nav_icon_js
   const { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } = __mod_2_tokens_js
-  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_23_state_js
-  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_24_durable_js
-  const { EN, NS, ZH } = __mod_25_locale_js
-  const { SETTINGS_STYLES, createSettingsComponent } = __mod_26_settings_page_js
-  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_27_theme_spotlight_js
+  const { readState, readStoredState, STORAGE_KEY, writeState } = __mod_24_state_js
+  const { bootHintState, ENTRY_ID, hasUserLayer, shouldSeed, stateFromHost, statesEqual, stateToSetOps, stateToUnsetOps } = __mod_25_durable_js
+  const { EN, NS, ZH } = __mod_26_locale_js
+  const { SETTINGS_STYLES, createSettingsComponent } = __mod_27_settings_page_js
+  const { createThemeSpotlight, resolveSchemePreference, shouldRevealSystemFlip, themeSpotlightStyles } = __mod_28_theme_spotlight_js
 
 /**
  * Browser half of the dsh-everforest bundle.
@@ -9461,6 +9524,23 @@ function apply(ctx) {
     return () => tag.remove()
   }, 'everforest: form checkbox')
 
+  // 1t. Hover-card rim. DSH's floating session / schedule preview relies on its
+  // own `shadow-lv3` for the edge, and the theme's paper surface sits close to
+  // the canvas in both schemes (2026-11-25 follow-up report: 「浅色和深色模式下
+  // 看着感觉和背景有点融到一起了」). `src/hover-card.js` lays a 1px token
+  // hairline around DSH's elevation; the anchor is the preview content's stable
+  // `hoverContent` local class, never the card's CSS-module hash. Always-on
+  // chrome, same injection pattern as 1c–1s.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/hover-card'
+    tag.textContent = hoverCardStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: hover card rim')
+
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must
   // stay idempotent: `notify` only invalidates the snapshot and re-renders.
@@ -9918,6 +9998,6 @@ function apply(ctx) {
   return { name, inject, apply }
 })()
 
-    return __mod_28_client_entry_js
+    return __mod_29_client_entry_js
   },
 })

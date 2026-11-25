@@ -17,6 +17,7 @@
 
 - 完全权限确认框的勾选框改为绿底浅勾
 - 浅色档的会话悬停卡改为浅色卡，不再显示深色底
+- 会话悬停卡加描边并提亮深色档，与背景区分更明显
 - 浅色档的通知条改为浅色卡，「撤销」等强调文字改用主题绿
 
 ---
@@ -27,6 +28,7 @@
 
 - The full-access confirmation checkbox turns theme green with a light tick
 - The session hover card uses a light surface in the light schemes instead of a dark card
+- The session hover card gains a hairline edge and a lighter dark surface
 - The toast uses a light card in the light schemes, with its action text in theme green
 
 ## [1.7.0] - 2026-11-19

@@ -854,6 +854,14 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(formCheckboxStylesheets[0].textContent.includes('appearance: none'))
   assert.ok(formCheckboxStylesheets[0].textContent.includes('var(--dsw-alias-bg-base)'))
 
+  // The always-on hover-card rim: DSH's lv3 elevation is not enough to separate
+  // the preview from cream / dark canvas, so a token hairline is layered over it.
+  const hoverCardStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/hover-card')
+  assert.equal(hoverCardStylesheets.length, 1, 'hover-card stylesheet was not injected')
+  assert.ok(hoverCardStylesheets[0].textContent.includes('[class*="hoverContent"]'))
+  assert.ok(hoverCardStylesheets[0].textContent.includes('var(--dsw-alias-border-l4)'))
+  assert.ok(hoverCardStylesheets[0].textContent.includes('var(--dsw-shadow-lv3'))
+
   // The table column-resize stylesheet and its DOM interaction are mounted with
   // the token layer, not with the Settings UI.
   const tableResizeStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize')
@@ -901,6 +909,10 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
     effectLabels.includes('everforest: form checkbox'),
     'the form-checkbox stylesheet must be mounted with the token layer'
   )
+  assert.ok(
+    effectLabels.includes('everforest: hover card rim'),
+    'the hover-card rim stylesheet must be mounted with the token layer'
+  )
 
   // Locale dictionaries, page stylesheet, Settings page registration.
   assert.equal(recorded.localeRegistrations.length, 1)
@@ -910,7 +922,7 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   const settingsStylesheets = tagsOwnedBy(styleTags, PACKAGE_ID)
   assert.equal(settingsStylesheets.length, 1, 'settings stylesheet was not injected')
   assert.equal(settingsStylesheets[0].dataset.plugin, PACKAGE_ID)
-  assert.equal(styleTags.length, 19, 'exactly nineteen <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + running title + running spinner + turn rail + question choices + form checkbox + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
+  assert.equal(styleTags.length, 20, 'exactly twenty <style> elements (color mode + table resize + selection + active session + navigation selection + workspace labels + running title + running spinner + turn rail + question choices + form checkbox + hover card + chrome accents + plugin update + chat bubble + hero title + work steps + home whale + theme spotlight + settings)')
   assert.equal(recorded.slotRegistrations.length, 2)
   const settingsRegistration = recorded.slotRegistrations.find((entry) => entry.options.name === 'settings.section')
   assert.ok(settingsRegistration, 'the Settings page was not registered')
@@ -1057,6 +1069,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/form-checkbox').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hover-card').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
@@ -1065,7 +1078,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 0)
-  assert.equal(styleTags.length, 18)
+  assert.equal(styleTags.length, 19)
   assert.equal(recorded.injectCalls.length, 2)
   assert.deepEqual(Array.from(recorded.injectCalls[0].services), ['configForms'])
   assert.equal(recorded.injectCalls[0].delivered, true)
@@ -1078,7 +1091,7 @@ test('settings UI mounts when slots/locale arrive after apply()', async () => {
   assert.equal(recorded.slotRegistrations[1].options.name, 'settings.section.icon')
   assert.equal(recorded.localeRegistrations.length, 1)
   assert.equal(recorded.localeRegistrations[0].ns, 'settings.everforest')
-  assert.equal(styleTags.length, 19)
+  assert.equal(styleTags.length, 20)
 
   // Releasing again must not double-register (the router is idempotent).
   harness.releaseUiServices()
@@ -1641,6 +1654,7 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/turn-rail').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/question-choices').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/form-checkbox').length, 1)
+  assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/hover-card').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/ui-accents').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/plugin-update').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/chat-bubble').length, 1)
@@ -1649,7 +1663,7 @@ test('a failed Settings page setup is retried through the inject fallback', () =
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/table-resize').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID + '/home-whale').length, 1)
   assert.equal(tagsOwnedBy(styleTags, PACKAGE_ID).length, 1)
-  assert.equal(styleTags.length, 19)
+  assert.equal(styleTags.length, 20)
   assert.equal(warnings.length, 1)
   assert.match(warnings[0], /settings UI setup failed/)
 
@@ -1817,10 +1831,9 @@ test('token values follow the design decisions', async () => {
   assert.equal(layer('--dsw-specific-sidebar-fill').dark, '#39444a')
   assert.equal(layer('--dsw-alias-label-primary').light, '#5C6A72')
   assert.equal(layer('--dsw-alias-label-primary').dark, '#D3C6AA')
-  // 2026-11-25: the session / schedule hover card is a light elevated surface in
-  // the light schemes instead of DSH's inverted card; the dark schemes keep DSH's
-  // static resolution byte-for-byte.
-  assert.deepEqual(layer('--dsw-alias-hovercard-bg'), { light: '#fcf8eb', dark: '#30393d' })
+  // 2026-11-25: the session / schedule hover card is an elevated `bg2` card in
+  // both schemes instead of DSH's inverted slate (light) / sub-canvas slab (dark).
+  assert.deepEqual(layer('--dsw-alias-hovercard-bg'), { light: '#fcf8eb', dark: '#434F55' })
   assert.equal(layer('--dsw-alias-hovercard-label-primary').light, '#5C6A72')
   assert.equal(layer('--dsw-alias-hovercard-label-primary').dark, '#d3c6aa')
   // 2026-11-25: the floating notice follows the same review — a light paper card in

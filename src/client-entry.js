@@ -86,6 +86,7 @@ import { homeWhaleStyles } from './home-whale.js'
 import { turnRailStyles } from './turn-rail.js'
 import { questionChoiceStyles } from './question-choices.js'
 import { formCheckboxStyles } from './form-checkbox.js'
+import { hoverCardStyles } from './hover-card.js'
 import { createSettingsNavIcon, NAV_ICON_SLOT } from './nav-icon.js'
 import { COMPAT_ALIAS_NAMES, compatAliasesFor, SELF_CHECK_TOKENS, tokensFor } from './tokens.js'
 import { readState, readStoredState, STORAGE_KEY, writeState } from './state.js'
@@ -808,6 +809,23 @@ export function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'everforest: form checkbox')
+
+  // 1t. Hover-card rim. DSH's floating session / schedule preview relies on its
+  // own `shadow-lv3` for the edge, and the theme's paper surface sits close to
+  // the canvas in both schemes (2026-11-25 follow-up report: 「浅色和深色模式下
+  // 看着感觉和背景有点融到一起了」). `src/hover-card.js` lays a 1px token
+  // hairline around DSH's elevation; the anchor is the preview content's stable
+  // `hoverContent` local class, never the card's CSS-module hash. Always-on
+  // chrome, same injection pattern as 1c–1s.
+  ctx.effect(() => {
+    if (typeof document === 'undefined' || !document.head) return undefined
+    const tag = document.createElement('style')
+    tag.dataset.plugin = PACKAGE_ID
+    tag.dataset.pluginCss = PACKAGE_ID + '/hover-card'
+    tag.textContent = hoverCardStyles()
+    document.head.appendChild(tag)
+    return () => tag.remove()
+  }, 'everforest: hover card rim')
 
   // Keep the Settings page's "current" row in sync with DSH's Appearance and
   // font changes. `theme/change` also fires for font changes, so listeners must

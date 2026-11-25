@@ -645,7 +645,7 @@ function cssVariable (role) {
  * Every element rule is scoped to the mode attribute, which this version always
  * sets to `"on"` — the anchor keeps the stylesheet out of the plain-token layer.
  */
-const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
+export const COLOR_MODE_ON = `html[${COLOR_MODE_ATTRS.mode}="on"]`
 
 /**
  * Markdown content container (DSH hashes the class, `markdown` stays a substring).

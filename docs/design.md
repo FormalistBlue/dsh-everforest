@@ -79,7 +79,7 @@
 - **升级 / 回滚需要重启 DSH**：Host 半部（`Config` 注册与 boot 脚本）在 Host 启动时装载，刷新页面不会重载 `index.js`；0.3.0 之后运行中改强度走 settings 通道，不需要重启。**只换 npm 包不重启时**，新 Client 会因 Host 半部仍是旧版而退回 localStorage-only（选择仍生效、只是暂不写 Host）；重启 DSH 后首次加载会把本地缓存一次性播种到 Host。`mutate` 被拒（`response.ok` 为 false / revision 冲突）时回读 Host 值、以 Host 为准并 warn 一次；代码保留 `writable` 守卫只是防御——0.2.1-rc.2 / rc.3 / rc.5 的 native settings provider 恒报告 `writable: true`，实际不可达。
 - **首帧（Client 加载前）**：Host 半部的 boot row 写入 8 个 token（`bg-base`、三级 label、代码块底、`sidebar-fill`、`border-l2`、`brand-primary`），值来自同一份 `tokensFor()`；强度按 B 方案在脚本执行时解析（缓存 → Host → 默认），并把结果发布到 `window.__EVERFOREST_BOOT__` 供 Client 首帧沿用。Client ThemePresenter 首次 apply 用同名 body 内联变量覆盖，因此不会残留。若 Client 半部加载失败，boot 调色板保留到本页结束（可接受的降级）。
 - 设置页点另一深浅色组的色卡会调用 `ctx.theme.setTheme(scheme)` 立即预览；**这会真实写入 DSH 的全局 Appearance 偏好**（Host 设置文档，所有已认证浏览器共享），并把「跟随系统」改成固定深浅色。页面顶部的「跟随系统 / 深色 / 浅色」控制写同一份偏好，可随时恢复 `system`（已决策，2026-10-18；外观控制为后续补充）。
-- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十八张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41）、表单勾选框（§52）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 19 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
+- **内容层与交互层（0.4.0 / 1.0.0 / 1.2.0 / 2026-10-30 起）**：token 层之外另有**十九张常驻**样式表——色彩模式（§13）、原生文本选区（§16.2）、工作区当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽交互（§18）、聚光灯过渡（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41）、表单勾选框（§52）、悬停卡描边（§53）；设置 UI 挂载时再加设置页样式表（§19 的导航图标自 2026-11-06 起走官方槽位，不再注入样式表），全部生效时共 20 张。全部由 `src/client-entry.js` 的独立 `ctx.effect` 注入、与 `configForms` 解耦（设置 UI 不可用时除设置页外的样式仍生效）。dev 监听面板只在 `--dev` 构建里挂 `shell.overlay`（§14）。
 
 ## 3. 数据模型
 
@@ -445,7 +445,7 @@ export function apply(ctx) {
 
 1. **主题聚光灯**（§17）：`createThemeSpotlight()` → 卸载时 `dispose()`；注入 `data-plugin-css="dsh-everforest/theme-spotlight"` 样式表；`spotlight.trackOrigin()` 记录最后一次 `pointerdown`；包装 `ctx.theme.setTheme`（仅跨深浅走 `spotlight.run`，卸载按「原方法是否自有属性」还原）。见 `src/client-entry.js` L212–274。
 2. **token 层与状态属性**：`applyLayer()` = `overrideTokens`（pair 未变时不重栈）+ `applyStateAttributes()`（写 `data-everforest-color-mode` / `-light` / `-dark` 三个属性）。
-3. **常驻样式表（十八张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41）、表单勾选框（§52），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
+3. **常驻样式表（十九张）**：色彩模式（§13）、文本选区（§16.2）、当前会话行（§15）、设置导航选中行（§26）、工作区目录名称（§22.3）、下拉选中项（§25）、表格列宽（§18.3）、聚光灯（§17）、插件更新弹窗（§24）、聊天气泡（§12）、新会话首屏鲸鱼 + 标题（§28）、工作步骤行（§29）、首页鲸鱼动画墨色（§32）、对话轮次导航（§33）、运行中会话标题（§42）、运行中会话转圈图标（§49）、问题面板多选按钮（§41）、表单勾选框（§52）、悬停卡描边（§53），各为 `<style data-plugin="dsh-everforest" data-plugin-css="dsh-everforest/<name>">`，cleanup 里 `tag.remove()`；不依赖 slots / locale / configForms（设置页样式表另行挂载）。
 4. **表单胶水**（把 §7 落到代码）：`queuedWrite`、`hasUserLayer`、`shouldSeed`、`seedHost(snapshot)`（播种时才带 `snapshot.revision`）、`adoptHostState()`、`writeToHost(ops, failureMessage)`（不带 revision）、`warnRefusedOnce()`、`writesInFlight` + `beginWrite()` / `flushQueuedWrite()`。`select()` 的跨深浅分支把 `applyLayer() + ctx.theme.setTheme(scheme)` 一起包进 `spotlight.run()`，同深浅分支只重栈（瞬切），`notify()` 在切换之后；`reset()` 先回默认状态，`persistReset()` 在 `writesInFlight > 0` 时把 unset 排到在途写入之后。
 5. **其它**：`setPreference()`（外观三卡 → `ctx.theme.setTheme(preference)`，写 DSH 全局偏好，不进本插件持久化）；`theme/change → notify()`（幂等，字号/字体变化也会触发）；`storage` 事件比对两个强度后 `applyLayer() + notify()`；启动后 `setTimeout(runSelfCheck, 0)` 用 `SELF_CHECK_TOKENS` 检查 DSH 是否改名/删除 token（缺失只 warn 一次）；dev 构建额外挂 `shell.overlay` 面板（§14）。
 
@@ -3094,30 +3094,49 @@ hard 保留 Enchanted 的 `#DED8DB` 不动；medium / soft 取**同一色相**�
 - 测试 `tests/form-checkbox.test.mjs`：选择器只匹配原生 input、不出现 `accent-color` 委托、勾色 / 描边 / 几何钉值、六档 pair 的对比度（浅色 1.95 下限、深色 4.5）以及焦点环与无 `!important`。
 - harness `.tmp/build-form-checkbox-harness.mjs`（真实编译 DSH CSS + 真实 token + 新样式表）实测：light · medium 勾 `rgb(253,246,227)` = `#FDF6E3`、实底 `rgb(147,178,89)` = `#93B259`；dark · soft 勾 `rgb(51,60,67)` = `#333C43`、实底 `rgb(167,192,128)` = `#A7C080`；对话框 14px 与通用组件 16px 两种尺寸都正确。
 - 门槛：`node --test` **398/398**；`npm run check`（palette / build / contrast）全绿；contrast 表无需重生成（沿用 G17 / G19 的同一对 token）。
-## 53. 2026-11-25 浅色档会话悬停卡改为浅色卡（hovercard）
+## 53. 2026-11-25 会话悬停卡：改为方案纸面 + 描边（hovercard）
 
 > 触发：用户贴出浅色侧栏上悬停会话行后弹出的会话卡（244px，内容「新会话 / H:\workspace\dsh-everforest / 空闲」）：
 > 「这个浅色模式下，hover 对话过后的弹框颜色不对啊，怎么是深色的？修改一下」。
+> 接续反馈（同日）：浅色、深色两张裁图并排 ——「浅色和深色模式下看着感觉和背景有点融到一起了，看看能不能让辨识度更高一点？」。
 
-### 53.1 为什么是深色
+### 53.1 为什么是深色 / 为什么会融
 
 - 这张卡是 DSH 共享的 hover-card 原语（安装包编译 CSS：`._card_l6gf9_9{position:fixed;width:244px;padding:12px 16px;border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-hovercard-bg);box-shadow:var(--dsw-shadow-lv3)}`），裁图里的宽度、内边距与圆角都与该规则一致；会话内容由 `-workspace` 作为 children 传入。
-- DSH 把整个 `hovercard-*` 家族声明成对反色 static 的引用：表面 `bluish-850`、文字 `bluish-00` / `-300` / `-400`。也就是说上游的悬停卡在两个 scheme 下**都是深色反色卡**；本层此前按 §4 的「继承」处理，浅色档由 static 亮度锚定解析成 `#616f75` 板岩底 + 近白字，落在奶油侧栏上就是裁图里那块深色方块。
+- DSH 把整个 `hovercard-*` 家族声明成对反色 static 的引用：表面 `bluish-850`、文字 `bluish-00` / `-300` / `-400`。也就是说上游的悬停卡在两个 scheme 下**都是深色反色卡**；本层此前按 §4 的「继承」处理，浅色档由 static 亮度锚定解析成 `#616f75` 板岩底 + 近白字，落在奶油侧栏上就是第一张裁图里那块深色方块。
+- 深色档同一份 static 解析落在 `#30393d`，比深色画布 `#333C43` 还暗一档 —— 黑色阴影在深色底上本来就不显，卡面又低于画布，于是和背景融在一起。
 - 文字同样来自这组 token（标题 `label-primary`、路径 `label-secondary`、状态 `label-tertiary`），所以只改底色会得到「浅底浅字」；四条必须一起接管。
 
-### 53.2 做法
+### 53.2 做法：两侧都用 bg2 纸面
 
 - `--dsw-alias-hovercard-bg` / `-label-primary` / `-label-secondary` / `-label-tertiary` 改为显式 token：
-  - 浅色档：表面取 `surface(p, 2)`（与菜单、tip、设置卡同一档浮动面，三档 `#fcf8eb` / `#faf3df` / `#f0e7d0`），字色取 `fg` / `mutedInk(grey1)` / `mutedInk(grey0)`（即 `label-primary` / `-secondary` / `-tertiary` 的同一组值）；
-  - 深色档：**原样**返回 static 层对同四个锚点的解析（新增 `staticNeutral()` 复用 `interpolateRamp(neutralStops(p), anchor)`），三组强度配对下与继承值逐字节相同，深色观感不变。
-- `state-done` / `state-error` 继续继承：它们的 static 色相在两个底上都会落到调色板的 purple / red，不需要为浅卡另配。
-- 契约计数：这四条从 `INHERITED_TOKEN_NAMES` 移入显式层（继承 −4 / 显式 +4）；`tests/tokens.test.mjs` 与 `tests/integration.test.mjs` 的当前总数同步到合并后的工作树，`integration` 另钉死四条值（浅色新值 + 深色不变）。
+  - 表面：两个 scheme 都取 `surface(p, 2)`（与菜单、tip、设置卡同一档浮动面；浅色三档 `#fcf8eb` / `#faf3df` / `#f0e7d0`，深色三档 `#434F55` / `#3D484D` / `#374145`）。深色档由「低于画布的 #30393d」改为「高于画布的 bg2」，是这次辨识度调整的核心。
+  - 字色：浅色档取 `fg` / `mutedInk(grey1)` / `mutedInk(grey0)`（即 `label-primary` / `-secondary` / `-tertiary` 的同一组值）；深色档保留 static 层对 `bluish-00` / `-300` / `-400` 的解析（新增 `staticNeutral()` 复用 `interpolateRamp(neutralStops(p), anchor)`），即 `#D3C6AA` / `#A09F8D` / `#83887C`。
+  - 深色档主墨对卡面 4.99 / 5.57 / 6.20:1，浅色档 5.26 / 5.04 / 4.53:1，六档都过 AA。
+- `state-done` / `state-error` 继续继承：它们的 static 色相在两个底上都会落到调色板的 purple / red，不需要为纸面另配。
+- 契约计数：这四条从 `INHERITED_TOKEN_NAMES` 移入显式层（继承 −4 / 显式 +4）；`tests/tokens.test.mjs` 与 `tests/integration.test.mjs` 的当前总数同步到合并后的工作树，`integration` 另钉死四条值。
 
-### 53.3 验证
+### 53.3 描边：把 1px 环交给 token
 
-- harness `.tmp/build-hovercard-harness.mjs`（真实编译 DSH hover-card CSS + 真实 token 层；「改前」用 DSH 自己的 static 引用解析，等于继承值）：light · hard 由 `#616f75` 板岩 + 近白字变为 `#fcf8eb` 奶油底 + 墨字，primary 5.26:1；light · medium `#faf3df` / 5.04:1；light · soft `#f0e7d0` / 4.53:1；secondary / tertiary 为 3.16 / 2.71、3.03 / 2.60、2.73 / 2.34，与主题的次级 / 三级字同一档。dark · soft `#30393d` 与改前逐字节相同（primary 6.99:1）。
-- `node --test` 全绿通过；`scripts/build.mjs` 重建 `client.js`；palette / build / contrast 三项 `--check` 全绿（`docs/reference/contrast.md` 只重算覆盖数）。
-- 边界：只改 token，不加选择器、不写 `!important`，也不动 tooltip —— 它是 DSH 有意的小尺寸深色反色层（§6.4），本次用户点名的是悬停卡；通知条（toast）随后按同一条思路单独处理，见 §54。卡片的阴影、圆角、宽度仍由 DSH 的 `shadow-lv3` / `radius-lg` 决定。
+- 表面差仍然有限：浅色卡面对侧栏只有约 1.0–1.05、深色卡面也只比画布亮 1.33，所以边缘不能只靠 DSH 的 `shadow-lv3`。其定义是 `0 0 1px 0 #0003, 0 0 4px 0 #00000005, 0 12px 32px 0 #00000014` —— 起始的 1px 黑 20% 环在深色卡上直接消失，柔光在奶油底上也很淡。
+- 新增常驻样式表 `src/hover-card.js`（`src/client-entry.js` 1t）：
+
+  ```css
+  html[data-everforest-color-mode="on"] div:has(> [class*="hoverContent"]) {
+    box-shadow: 0 0 0 1px var(--dsw-alias-border-l4), var(--dsw-shadow-lv3, 0 8px 24px rgba(0, 0, 0, 0.18));
+  }
+  ```
+
+- 锚点：ui-workspace 的 `WorkspaceHoverContent` / `SessionHoverContent` 都以稳定局部类名 `hoverContent` 渲染内容根，而卡片本身只有 `_card_l6gf9_9` 这种 CSS-module 哈希 —— 所以用 `:has(> …)` 从内容找卡片（直接子代，不会命中页面容器），不碰哈希；特异性 0,2,1 压过卡片的 0,1,0，不用 `!important`。
+- 为什么用 `border-l4`：把它合成到卡面上，1px 环与卡面的对比是 light 1.58 / dark 1.70；l1–l3 只有 1.25–1.61。它低于文字门槛，但作为非文本分隔已经清楚，且仍是主题 token（浅色 `bg5` 90%、深色 lifted ink 100%）。DSH 的柔光层原样保留，只在其前面加 token 环，不替换高程。
+- 样式表计数：核心常驻表 18 → 19、含设置页 19 → 20；`tests/integration.test.mjs` 同步标签数并新增注入断言。
+
+### 53.4 验证
+
+- harness `.tmp/build-hovercard-harness.mjs`（真实编译 DSH hover-card CSS + 真实 token 层 + 新描边表；「改前」用 DSH 自己的 static 引用解析且不挂描边表）：light · hard 由 `#616f75` 板岩 + 近白字变为 `#fcf8eb` 奶油底 + 墨字 + 1px 环，primary 5.26:1；light · medium `#faf3df` / 5.04:1；light · soft `#f0e7d0` / 4.53:1；secondary / tertiary 为 3.16 / 2.71、3.03 / 2.60、2.73 / 2.34。dark · soft 由 `#30393d`（低于画布）变为 `#434F55`（高于画布）+ 1px 环，primary 4.99:1。
+- 新单测 `tests/hover-card.test.mjs`（4 项）：锚点是 `hoverContent` 局部名而非哈希、只有一条规则且 `border-l4` 环叠在 `shadow-lv3` 前、卡面 = `bg2`、深色卡面高于画布、六个变体的主墨 ≥ 4.5:1。
+- `node --test` **403/403** 通过；`scripts/build.mjs` 重建 `client.js`；palette / build / contrast 三项 `--check` 全绿（`docs/reference/contrast.md` 只重算覆盖数）。
+- 边界：仍不动 tooltip（DSH 有意的小尺寸深色反色层，§6.4）；通知条（toast）按同一条纸面思路单独处理，见 §54。卡片的圆角、宽度仍由 DSH 的 `radius-lg` / 244px 决定。
 
 ## 54. 2026-11-25 浅色档通知条改为浅色卡 + 绿色动作（toast）
 
