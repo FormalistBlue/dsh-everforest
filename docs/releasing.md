@@ -24,6 +24,7 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 | 1.6.0 | 2026-11-13 | GitHub Actions + Trusted Publishing（tag `v1.6.0`，run `43395428684`） | `latest` | `7fbcfbbbeb540a7ba4d1744a6511cc7f8fda0e63` | 有（SLSA v1） |
 | 1.6.2 | 2026-11-15 | GitHub Actions + Trusted Publishing（tag `v1.6.2`，run `43730942050`） | `latest` | `342c3989605ea72a518df4242b3c7a57d2b6b459` | 有（SLSA v1） |
 | 1.7.0 | 2026-11-19 | GitHub Actions + Trusted Publishing（tag `v1.7.0`，run `44537778692`） | `latest` | `5bb76608a2db125bb145d8ad9b69e19e9ec5ebed` | 有（SLSA v1） |
+| 1.7.2 | 2026-11-25 | GitHub Actions + Trusted Publishing（tag `v1.7.2`，run `45639676750`） | `latest` | `c482ff617bb9fb54a8c666a6b1218501f41a3d43` | 有（SLSA v1） |
 
 - 新包名首次发布会进入 npm 的 **staged publishing** 队列：registry 先出现占位版本 `0.0.0-stage`（description = `Temporary package placeholder for staged publishing`），约 1 分钟后 `0.1.0` 生效并接管 `latest`。看到占位版本不要重复发布。
 - 发布后安装验证要使用**空缓存**，否则发布前缓存的 404 packument 会导致 `ETARGET`：`npm install dsh-everforest@0.2.0 --registry=https://registry.npmjs.org --cache <fresh-dir>`。本机 npm 默认 registry 是 `registry.npmmirror.com`（镜像同步有延迟），验证时务必显式指定 npmjs.org。
@@ -127,6 +128,15 @@ npm 只是 **分发渠道**；DSH 用户通过插件管理器按包名安装。�
 > - **验收口径**：`node --test` **393/393**；`npm run check`（palette / build / contrast）全绿；`release-notes --version 1.7.0 --check` 651 字节，远低于市场 4096 字符截断线。
 > - **CHANGELOG 格式**：本版起新小节不写开头总述，直接从 `###` 分类的条目开始（AGENTS.md，2026-11-18 用户要求；`tests/release-notes.test.mjs` 会拦 1.6.2 之后的新小节）。
 > - **2026-11-19 已发布**：tag `v1.7.0`（commit `1961bad`）→ publish run `44537778692` → npm `latest` = `1.7.0`（`dist.shasum` `5bb76608a2db125bb145d8ad9b69e19e9ec5ebed`，SLSA provenance v1），GitHub Release `v1.7.0` 已由 workflow 自动创建（正文取自 CHANGELOG 1.7.0 小节，651 字节）；verify run `44537754038` 在 Linux / Windows × Node 20/22/24 全绿。发布后 registry packument 短时仍返回 1.6.2（边缘缓存），复核时给请求加查询串或稍等传播。
+
+> **1.7.2 发布注意（已发布，2026-11-25）**
+>
+> - **只改 Client 半部，升级不需要重启 DSH**：深色档会话悬停卡改用 `bg2` 纸面并给悬停卡叠 1px token 描边（新增一张常驻样式表）、浅色档通知条改为浅色卡 + 绿色动作、完全权限确认框的勾选框重绘、聊天气泡内的引用改为蓝色小卡，都是 Client 侧；Host 半部与 `Config` schema 未变，插件升级后刷新页面即可。
+> - **升级版本必须重建 `client.js`**：`scripts/build.mjs` 把 `package.json#version` 写进 `client.js` 第一行注释；只改版本号不重建会让 `build.mjs -C` 判陈旧、`npm run check` 失败（本次已在发布提交 `a2efca3` 里重建，449,906 字节）。
+> - **token / API 契约不变**：244 个颜色 token 与 `engines.dsh`（`>=0.2.1-rc.2`，不设上限）均未变；hovercard 四条只是取值调整（深色档从 static 解析的 `#30393d` 改为 `bg2` `#434F55` / `#3D484D` / `#374145`），继承 / 显式计数不变。
+> - **1.7.1 未发布**：本次直接发 1.7.2（补丁版本，无 token/API 变化，用过的版本号不回收）。
+> - **验收口径**：`node --test` **403/403**；`npm run check`（palette / build / contrast）全绿；`release-notes --version 1.7.2 --check` 818 字节（中文 + English 合计），远低于市场 4096 字符截断线；`npm pack --dry-run` 16 个文件（174.4 kB packed，583.0 kB unpacked）。
+> - **2026-11-25 已发布**：tag `v1.7.2`（commit `a2efca3`）→ publish run `45639676750` → npm `latest` = `1.7.2`（`dist.shasum` `c482ff617bb9fb54a8c666a6b1218501f41a3d43`，SLSA provenance v1，transparency log index `4104976115`），GitHub Release `v1.7.2` 已由 workflow 自动创建（正文取自 CHANGELOG 1.7.2 小节，818 字节）；verify run `45639659763` 在 Linux / Windows × Node 20/22/24 全绿。发布瞬间 `npm view` 仍读到 1.7.0（CDN 缓存），用 `registry.npmjs.org/dsh-everforest/1.7.2?cb=…` 复核已 200、`dist-tags` 已是 `latest: 1.7.2`。
 
 ## 0. 发布前必须确认
 
