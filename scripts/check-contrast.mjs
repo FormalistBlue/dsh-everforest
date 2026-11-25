@@ -201,6 +201,20 @@
  *      blue to be gone, and the action floors: light >= 2.3:1 (the palette's
  *      green-on-cream ceiling, the same floor G18/G24/G25 pin) and dark >= 4.5:1.
  *
+ * The quoted excerpt inside the user bubble (src/chat-bubble.js) adds gate 28:
+ *  28. DSH renders a quoted message as `QuotePreview` (`[data-quote-preview]`,
+ *      the ``“`` marker plus the clipped excerpt) and inks it with
+ *      `--dsw-alias-state-business-primary`; the bubble paint re-points that token
+ *      at the bubble ink for the session reference chips, so the quote collapsed
+ *      into the body text (2026-11-25 report "现在效果变成了都是同一颜色"). The user
+ *      reviewed the palette swatches first — all pastel foregrounds land at
+ *      1.04-1.42:1 on the accent fill — and picked the blue swatch `#7FBBB3` as a
+ *      filled chip with the bubble's deep ink: light `#2F3B33` 5.38:1, dark
+ *      `#1B2226` 7.41:1. The gate requires AA text on the chip and keeps the
+ *      chip a hue-only surface: it must clear the 1.05 visibility floor against
+ *      the bubble but stay below 1.5:1, so a palette edit cannot turn the chip
+ *      into a second emphasis fill.
+ *
  * Report-only rows (secondary/tertiary text, links, semantic state colours, diff
  * markers and gutter numbers): upstream Everforest mutes these on purpose
  * (Enchanted does the same). They are reported with their numeric values; only
@@ -245,7 +259,7 @@ import {
   PLUGIN_UPDATE_TEXT_LIGHT_CONTRAST,
   pluginUpdateRoles
 } from '../src/plugin-update.js'
-import { CHAT_BUBBLE_LINK_INK, CHAT_BUBBLE_SELECTION_INK, chatBubbleQuestionInk, chatBubbleRole } from '../src/chat-bubble.js'
+import { CHAT_BUBBLE_LINK_INK, CHAT_BUBBLE_QUOTE_CHIP, CHAT_BUBBLE_QUOTE_CHIP_INK, CHAT_BUBBLE_SELECTION_INK, chatBubbleQuestionInk, chatBubbleRole } from '../src/chat-bubble.js'
 import { RAMPS } from '../src/palette.js'
 import { contrastRatio, hexToRgb, isHex, labLightness, mix, rgbToHex } from '../src/color.js'
 
@@ -1351,6 +1365,63 @@ for (const variant of states) {
   }
 }
 
+/* ---- Gate 28: quoted excerpt chip inside the user bubble ------------------- */
+/**
+ * A user message that quotes an earlier message renders DSH's `QuotePreview`
+ * (`[data-quote-preview]`, the ``“`` marker plus the clipped excerpt) inside the
+ * bubble, coloured by `--dsw-alias-state-business-primary`. The bubble paint
+ * re-points that token at the bubble ink so session reference chips stay
+ * readable, which also collapsed the quote into the body text (2026-11-25 report
+ * "现在效果变成了都是同一颜色"). The user reviewed the palette swatches: all five
+ * pastel foregrounds land at 1.04-1.42:1 on the accent fill, so they picked the
+ * blue swatch `#7FBBB3` as a filled chip with the bubble's deep ink (option
+ * "blue · 原色小卡").
+ *
+ * The gate holds the two promises: the excerpt text clears AA on the chip, and
+ * the chip stays a hue-only surface on the accent fill — it must clear the 1.05
+ * floor shared with the bubble/canvas boundary (G7) but stay under 1.5:1, so a
+ * palette edit cannot quietly turn the quote into a second emphasis fill.
+ */
+const BUBBLE_QUOTE_TEXT_CONTRAST = 4.5
+const BUBBLE_QUOTE_CHIP_FLOOR = 1.05
+const BUBBLE_QUOTE_CHIP_CEILING = 1.5
+const bubbleQuoteRows = []
+for (const variant of states) {
+  const ink = CHAT_BUBBLE_QUOTE_CHIP_INK[variant.scheme]
+  if (!ink) {
+    recordFailure(`g28:${variant.variant}`, `${variant.variant}: src/chat-bubble.js has no quote-chip ink for this scheme`)
+    continue
+  }
+  const bubble = chatBubbleRole(variant.scheme, variant.strength)
+  const textRatio = contrastRatio(ink, CHAT_BUBBLE_QUOTE_CHIP)
+  const chipRatio = contrastRatio(CHAT_BUBBLE_QUOTE_CHIP, bubble.fill)
+  bubbleQuoteRows.push({
+    variant: variant.variant,
+    scheme: variant.scheme,
+    fill: bubble.fill,
+    textRatio,
+    chipRatio
+  })
+  if (!LEGAL_ROLE_COLOR.test(CHAT_BUBBLE_QUOTE_CHIP)) {
+    recordFailure(`g28:${variant.variant}:legal-chip`, `${variant.variant}: quote chip is not a #RRGGBB colour: ${CHAT_BUBBLE_QUOTE_CHIP}`)
+  }
+  if (!LEGAL_ROLE_COLOR.test(ink)) {
+    recordFailure(`g28:${variant.variant}:legal-ink`, `${variant.variant}: quote chip ink is not a #RRGGBB colour: ${ink}`)
+  }
+  if (textRatio < BUBBLE_QUOTE_TEXT_CONTRAST) {
+    recordFailure(`g28:${variant.variant}:text`, `${variant.variant}: quote ink on the chip = ${textRatio.toFixed(2)} < ${BUBBLE_QUOTE_TEXT_CONTRAST}`)
+  }
+  if (chipRatio < BUBBLE_QUOTE_CHIP_FLOOR) {
+    recordFailure(`g28:${variant.variant}:floor`, `${variant.variant}: quote chip on the bubble = ${chipRatio.toFixed(2)} < ${BUBBLE_QUOTE_CHIP_FLOOR}`)
+  }
+  if (chipRatio >= BUBBLE_QUOTE_CHIP_CEILING) {
+    recordFailure(`g28:${variant.variant}:ceiling`, `${variant.variant}: quote chip became a second emphasis fill (${chipRatio.toFixed(2)} >= ${BUBBLE_QUOTE_CHIP_CEILING})`)
+  }
+  if (CHAT_BUBBLE_QUOTE_CHIP === bubble.fill) {
+    recordFailure(`g28:${variant.variant}:same`, `${variant.variant}: quote chip is the bubble fill itself`)
+  }
+}
+
 /* ---- Report-only measurements -------------------------------------------- */
 const reportRows = REPORT_PAIRS.map(([label, token, background]) => {
   const ratios = {}
@@ -1429,6 +1500,7 @@ function renderMarkdown () {
     '25. 运行中会话 spinner（`src/running-spinner.js`，常驻、与色彩模式无关）：同一批「行首有 `[data-state="ongoing"]` 且未选中」的行，行首那圈 `StateDot` 从 DSH 的 `label-tertiary` 灰改成合法 `#RRGGBB` 的**文字绿 `green`**（与标题 / 目录名同色），只写 `color`，环宽 / 虚线 / 动画仍归 DSH；门槛除沿用该绿的实测下限（浅色 2.3、深色 4.5，实测 2.35–2.68 / 5.00–6.17）外，还钉住「不得比它替换掉的中性灰更弱」（静止与 hover 叠加底上各比一次，容差 0.02）——浅色档实测 2.35–2.68 对中性灰 2.33–2.65，是同对比度下的换色而非可读性取舍；选中行不参与（实色强调底 + 画布墨由 G17 负责），语义状态点也不参与，6 档实测值见 §2o；',
     '26. 气泡内的链接 / 文件引用（`src/chat-bubble.js`，常驻、与色彩模式无关）：DSH 把文件引用渲染成 `ReferenceChip appearance="file"`，其按钮同时带 markdown 的 `_fileMention` 类，于是拿到画布链接蓝 `--dsw-alias-link`（`fg.blue`），压在强调绿气泡上只有 1.41 / 1.09:1；气泡作用域把该 token 重指向**加深蓝**（浅色 `#1E4152` 4.53:1、深色 `#204A5A` 4.80:1）并补实线下划线，助手 markdown 里的文件链接仍走色彩模式 aqua；门槛除 AA 外，还要求新墨比画布蓝高出 ≥ 3:1、且画布蓝本身仍不达标（否则这层 override 已多余，调色板变动时要报警）；6 档实测值见 §2p；',
     '27. 浮动通知条（`src/tokens.js` 的 `toast-*`，常驻、与色彩模式无关）：DSH 原生把 `toast-bg` / `toast-label` / `toast-action` 全解析到反色 static —— 两个 scheme 都是深色块、动作链接是品牌蓝 `var(--dsw-static-deepseek-400)`，2026-11-25 用户报告「浅色模式下弹出来的这个框也是深色模式的效果」+「蓝色的强调文字应该用绿色」；浅色档改为与菜单 / 浅色悬停卡同一档浮动纸面 `surface(p, 2)`（`#fcf8eb` / `#faf3df` / `#f0e7d0`）+ 方案主墨，深色档保持 `bgDim` + 主墨，动作与成功图标共用文字绿 `green`；门槛：标签墨 ≥ 4.5:1、动作墨必须等于成功图标绿并且不再等于画布链接蓝、浅色动作 ≥ 2.3:1（调色板绿字在奶油底上的上限，与 G18 / G24 / G25 同档）、深色动作 ≥ 4.5:1，6 档实测值见 §2q；',
+    '28. 气泡内引用的「原色小卡」（`src/chat-bubble.js`，常驻、与色彩模式无关）：DSH 把引用渲染成 `QuotePreview`（`[data-quote-preview]`，“ 引号 + 截断引文），文字色取 `--dsw-alias-state-business-primary`；而气泡作用域为了会话引用 chip 可读已把该 token 重指向气泡墨色，于是引文和正文同色（2026-11-25 用户报告「现在效果变成了都是同一颜色」）。先试了调色板五色直接当字（对气泡底只有 1.04–1.42:1），用户最终选 blue 原色小卡：芯片是调色板蓝 `#7FBBB3`，字是气泡的深墨（浅色 `#2F3B33` 5.38:1、深色 `#1B2226` 7.41:1）；门槛要求引文对芯片 ≥ 4.5:1，芯片对气泡底 ≥ 1.05:1 且 < 1.5:1（只靠蓝 / 绿色相区分，不得变成第二块强调底），6 档实测值见 §2r；',
     '',
     '报告项（不 exit 1，仅低于 1.5 视为映射损坏）：上游 Everforest 的 muted 色对比度有意偏低（Enchanted 亦如此），下表给出数值与 native DSH 参考值对照。',
     '',
@@ -1908,6 +1980,38 @@ function renderMarkdown () {
       '不再像画布链接蓝那样与主题脱节；深色三档的标签墨 9.39 / 8.62 / 7.83:1、动作 7.93 / 7.28 / 6.61:1 都在 AA 以上。' +
       '门槛额外钉住「动作墨 == 成功图标绿」：通知条里只允许出现一支绿，调色板若把两者拆开就会先失败，' +
       '而不是让勾和链接在同一个框里显示两种绿；同时钉住动作不再等于画布链接蓝，防止退回上游的 `deepseek-400`。',
+  )
+  push(
+    '',
+    '## 2r. 气泡内引用小卡（chat-bubble quote chip，硬门槛 G28）',
+    '',
+    '2026-11-25 用户裁图报告：「气泡里面的引用文字需要调整一下，原版是很容易区分出来的，现在效果变成了都是同一颜色」。' +
+      'DSH 的 `QuotePreview`（`ui-primitives`）把引文渲染成 `[data-quote-preview]` 的内联元素，文字色是 `--dsw-alias-state-business-primary`；' +
+      '气泡作用域为了让会话引用 chip 在强调绿上可读，早已把该 token 重指向气泡墨色，于是引文和正文完全同色。',
+    '',
+    '先按用户给的调色板五色（purple / orange / statusline3 / statusline2 / blue）直接当字试了一版：五个 pastel 对气泡底只有 **1.04–1.42:1**，几乎不可见；' +
+      '压深到可读又会发灰、丢掉色相。用户最终选了 **blue 原色小卡**：芯片用调色板蓝 `#7FBBB3` 作底、字用气泡自己的深墨——' +
+      '颜色以「面」的形式原样保留，字/卡配对过 AA（浅色 `#2F3B33` 5.38:1、深色 `#1B2226` 7.41:1）。' +
+      '芯片对气泡底只有 1.10 / 1.09:1，是刻意的「只靠色相」边界（蓝压强调绿）；门槛因此卡两端：可见性下限 1.05 与「不得变成第二块强调底」的上限 1.5。',
+    '',
+    '| 变体 | 引用小卡 | 小卡墨 | 字 / 卡 | 气泡底（statusline1） | 卡 / 气泡底 | 阈值 | 结果 |',
+    '|---|---|---|---:|---|---:|---:|---|'
+  )
+  for (const row of bubbleQuoteRows) {
+    const ok = LEGAL_ROLE_COLOR.test(CHAT_BUBBLE_QUOTE_CHIP) && LEGAL_ROLE_COLOR.test(CHAT_BUBBLE_QUOTE_CHIP_INK[row.scheme]) &&
+      row.textRatio >= BUBBLE_QUOTE_TEXT_CONTRAST &&
+      row.chipRatio >= BUBBLE_QUOTE_CHIP_FLOOR &&
+      row.chipRatio < BUBBLE_QUOTE_CHIP_CEILING
+    push(
+      `| ${row.variant} | \`${CHAT_BUBBLE_QUOTE_CHIP}\` | \`${CHAT_BUBBLE_QUOTE_CHIP_INK[row.scheme]}\` | ${format(row.textRatio)} | \`${row.fill}\` | ${format(row.chipRatio)} | ${BUBBLE_QUOTE_TEXT_CONTRAST} / ${BUBBLE_QUOTE_CHIP_FLOOR}-${BUBBLE_QUOTE_CHIP_CEILING} | ${pass(ok)} |`
+    )
+  }
+  push(
+    '',
+    '浅色三档字/卡 5.38:1、深色三档 7.41:1；芯片对气泡底 1.10 / 1.09:1，靠蓝色相压在绿色气泡上。' +
+      '作用域只有气泡内的 `[data-quote-preview]`：输入框里的引用 chip 仍是 DSH 原生的画布蓝，画布与其它业务色不动。' +
+      '门槛同时钉住「字要够清楚」和「芯片不许变成第二块实底」——后者是这次方案唯一需要守住的取舍：一旦调色板变动把蓝推得更亮/更暗，' +
+      '芯片就会从「色相标签」变成「高对比块」，与气泡本身抢视觉层级。',
   )
   push(
     '',

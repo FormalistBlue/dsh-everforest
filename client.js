@@ -6502,6 +6502,20 @@ const __mod_20_chat_bubble_js = (() => {
 // Scope is the bubble and only the bubble: assistant markdown file links keep
 // the color-mode aqua (`linkInternal` in `src/color-mode.js`), and nothing else
 // on the canvas moves.
+//
+// Quoted text (2026-11-25 report): a user message that quotes an earlier message
+// renders DSH's `QuotePreview` (`_quote_d98g2_1`, the ``“`` excerpt) inside the
+// bubble, and DSH inks that excerpt with `--dsw-alias-state-business-primary`.
+// The paint rule above re-points that token at the bubble ink (so session
+// reference chips stay readable), which collapsed the quote into the body text
+// ("现在效果变成了都是同一颜色"). The user reviewed the palette swatches first: the
+// pastel foregrounds are only 1.04-1.42:1 on the accent fill, so they picked the
+// blue swatch `#7FBBB3` as a filled chip with the bubble's deep ink — the excerpt
+// keeps the palette blue as a surface while the text/chip pair clears AA
+// (light #2F3B33 5.38:1, dark #1B2226 7.41:1). The chip-vs-bubble pair is
+// 1.10 / 1.09:1, a deliberately hue-only edge (blue on the accent green); G28
+// pins the floor. Scope is `[data-quote-preview]` inside a bubble anchor, so the
+// composer's own quote chip keeps DSH's blue-on-canvas look.
 
 // Nested content: the bubble text inherits the painted ink, and session
 // reference chips restate their own colour through
@@ -6640,6 +6654,44 @@ const CHAT_BUBBLE_LINK_TOKEN = '--dsw-alias-link'
  * bubble ink.
  */
 const CHAT_BUBBLE_LINK_SELECTOR = ':is(a, [class*="fileLink"], [data-ref-chip="file"])'
+
+/**
+ * The filled quote chip inside the user bubble (2026-11-25 user choice: the blue
+ * palette swatch as an "原色小卡"). DSH's `QuotePreview` colours the excerpt with
+ * `--dsw-alias-state-business-primary`, and the paint rule re-points that token at
+ * the bubble ink, so the quote has to be re-painted on its own. The chip is the
+ * palette blue `#7FBBB3` (the dark-scheme `fg.blue`, i.e. the swatch the user
+ * tried) and the ink is the bubble's own deep step — the pair the user approved
+ * in the demo:
+ *
+ *   light #2F3B33 on #7FBBB3  5.38:1
+ *   dark  #1B2226 on #7FBBB3  7.41:1
+ *
+ * The chip-vs-bubble pair is only 1.10 / 1.09:1: the surface is meant to read by
+ * its blue hue against the accent green, the same hue-only trade-off the pastel
+ * foregrounds force. G28 pins that floor and the AA text pair.
+ * @type {string}
+ */
+const CHAT_BUBBLE_QUOTE_CHIP = '#7FBBB3'
+
+/**
+ * The quote chip's ink per scheme: the bubble ink moved to its deep step, so the
+ * excerpt's text/chip pair clears AA in both schemes (5.38 / 7.41:1) while the
+ * chip keeps the palette blue as a surface.
+ * @type {Readonly<Record<'light' | 'dark', string>>}
+ */
+const CHAT_BUBBLE_QUOTE_CHIP_INK = Object.freeze({
+  light: '#2F3B33',
+  dark: '#1B2226'
+})
+
+/**
+ * The quote excerpt element DSH renders inside a user bubble: `QuotePreview`
+ * emits `<span data-quote-preview>…</span>` with the ``“`` marker and the clipped
+ * text. The attribute is the published shape; the hashed `_quote_*` class changes
+ * per build.
+ */
+const CHAT_BUBBLE_QUOTE_SELECTOR = '[data-quote-preview]'
 
 /**
  * The bubble element(s): DSH's chat package renders the user row as
@@ -6791,11 +6843,32 @@ function bubbleLinkRule (scheme, strength) {
 }
 
 /**
+ * A variant's quote-chip rule: the filled blue chip plus its deep ink, anchored
+ * per bubble so the composer's own `QuotePreview` keeps DSH's blue-on-canvas
+ * look. Repeats the variant scope and the bubble anchor, so it outranks the
+ * host's `._quote_*` colour rule without `!important`.
+ * @param {'light' | 'dark'} scheme
+ * @param {'hard' | 'medium' | 'soft'} strength
+ * @returns {string}
+ */
+function bubbleQuoteRule (scheme, strength) {
+  return [
+    `${scopedBubbles(scheme, strength, ` ${CHAT_BUBBLE_QUOTE_SELECTOR}`)} {`,
+    `  color: ${CHAT_BUBBLE_QUOTE_CHIP_INK[scheme]};`,
+    `  background-color: ${CHAT_BUBBLE_QUOTE_CHIP};`,
+    '  padding: 0 7px;',
+    '  border-radius: 6px;',
+    '  margin: 0 1px;',
+    '}'
+  ].join('\n')
+}
+
+/**
  * The always-on bubble stylesheet: one paint rule per variant (accent fill, the
  * canvas ink, the muted question ink and the reference-chip token), one
- * text-selection rule and one link rule. No rule paints the question block
- * itself any more — the card is one surface (2026-11-15), and the question
- * recedes through the token the paint rule re-points.
+ * text-selection rule, one link rule and one quote-chip rule. No rule paints the
+ * question block itself any more — the card is one surface (2026-11-15), and the
+ * question recedes through the token the paint rule re-points.
  * @returns {string}
  */
 function chatBubbleStyles () {
@@ -6824,12 +6897,13 @@ function chatBubbleStyles () {
       ].join('\n'))
       rules.push(bubbleSelectionRule(scheme, strength))
       rules.push(bubbleLinkRule(scheme, strength))
+      rules.push(bubbleQuoteRule(scheme, strength))
     }
   }
   return rules.join('\n\n')
 }
 
-  return { CHAT_BUBBLE_LIGHT_FILL, CHAT_BUBBLE_LIGHT_INK, CHAT_BUBBLE_DARK_FILL, CHAT_BUBBLE_DARK_INK, CHAT_BUBBLE_SELECTION_INK, CHAT_BUBBLE_LINK_INK, CHAT_BUBBLE_LINK_TOKEN, CHAT_BUBBLE_LINK_SELECTOR, CHAT_BUBBLE_SELECTORS, CHAT_BUBBLE_QUESTION_INK_TOKEN, CHAT_BUBBLE_QUESTION_INK_STEP, chatBubbleQuestionInk, chatBubbleRole, chatBubbleStyles }
+  return { CHAT_BUBBLE_LIGHT_FILL, CHAT_BUBBLE_LIGHT_INK, CHAT_BUBBLE_DARK_FILL, CHAT_BUBBLE_DARK_INK, CHAT_BUBBLE_SELECTION_INK, CHAT_BUBBLE_LINK_INK, CHAT_BUBBLE_LINK_TOKEN, CHAT_BUBBLE_LINK_SELECTOR, CHAT_BUBBLE_QUOTE_CHIP, CHAT_BUBBLE_QUOTE_CHIP_INK, CHAT_BUBBLE_QUOTE_SELECTOR, CHAT_BUBBLE_SELECTORS, CHAT_BUBBLE_QUESTION_INK_TOKEN, CHAT_BUBBLE_QUESTION_INK_STEP, chatBubbleQuestionInk, chatBubbleRole, chatBubbleStyles }
 })()
 
 // ---------------------------------------------------------------- src/work-steps.js

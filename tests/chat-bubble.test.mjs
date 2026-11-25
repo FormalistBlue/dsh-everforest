@@ -11,6 +11,9 @@ import {
   CHAT_BUBBLE_LINK_TOKEN,
   CHAT_BUBBLE_QUESTION_INK_STEP,
   CHAT_BUBBLE_QUESTION_INK_TOKEN,
+  CHAT_BUBBLE_QUOTE_CHIP,
+  CHAT_BUBBLE_QUOTE_CHIP_INK,
+  CHAT_BUBBLE_QUOTE_SELECTOR,
   CHAT_BUBBLE_SELECTION_INK,
   CHAT_BUBBLE_SELECTORS,
   chatBubbleQuestionInk,
@@ -91,16 +94,16 @@ test('bubble rules cover every surface DSH paints a user message on', () => {
     // scope would only scope the first selector.
     assert.equal(
       css.split(selector).length - 1,
-      VARIANTS.length * 3,
-      `${selector}: paint + selection + link rule per variant`
+      VARIANTS.length * 4,
+      `${selector}: paint + selection + link + quote rule per variant`
     )
   }
   assert.ok(!css.includes('!important'))
-  // Three rules per variant since 2026-11-19: the accent paint (with the muted
-  // question token and the link token), its bubble-scoped `::selection`, and the
-  // link rule. The question paper that used to add a rule per variant is gone —
-  // the card is one surface.
-  assert.equal((css.match(/{/g) ?? []).length, VARIANTS.length * 3, 'paint + selection + link per variant')
+  // Four rules per variant since 2026-11-25: the accent paint (with the muted
+  // question token and the link token), its bubble-scoped `::selection`, the
+  // link rule and the quote-chip rule. The question paper that used to add a
+  // rule per variant is gone — the card is one surface.
+  assert.equal((css.match(/{/g) ?? []).length, VARIANTS.length * 4, 'paint + selection + link + quote per variant')
   assert.equal(
     (css.match(/::selection/g) ?? []).length,
     VARIANTS.length * CHAT_BUBBLE_SELECTORS.length,
@@ -292,6 +295,52 @@ test('bubble links keep their blue but move to a readable step on the accent fil
     const pinned = { light: 4.53, dark: 4.80 }[scheme]
     assert.equal(Math.round(contrastRatio(CHAT_BUBBLE_LINK_INK[scheme], fill) * 100) / 100, pinned, `${scheme}-${strength}: measured link ratio`)
   }
+})
+
+test('the quoted excerpt becomes a blue chip with readable ink', () => {
+  // 2026-11-25 report: a quoted message inside the user bubble collapsed into the
+  // body text ("现在效果变成了都是同一颜色"). DSH's `QuotePreview` reads
+  // `--dsw-alias-state-business-primary`, which the paint rule re-points at the
+  // bubble ink for the session reference chips. The user tried the palette
+  // swatches as text first (1.04-1.42:1 on the accent fill) and picked the blue
+  // swatch as a filled chip: #7FBBB3 + the bubble's deep ink (option `blue · 原色
+  // 小卡` of the demo).
+  assert.equal(CHAT_BUBBLE_QUOTE_CHIP, '#7FBBB3')
+  assert.equal(CHAT_BUBBLE_QUOTE_CHIP, FOREGROUNDS.dark.blue, 'the chip keeps the palette blue swatch')
+  assert.deepEqual({ ...CHAT_BUBBLE_QUOTE_CHIP_INK }, { light: '#2F3B33', dark: '#1B2226' })
+  assert.equal(CHAT_BUBBLE_QUOTE_SELECTOR, '[data-quote-preview]')
+  const css = chatBubbleStyles()
+  for (const { scheme, strength } of VARIANTS) {
+    const ink = CHAT_BUBBLE_QUOTE_CHIP_INK[scheme]
+    const { fill } = chatBubbleRole(scheme, strength)
+    const text = contrastRatio(ink, CHAT_BUBBLE_QUOTE_CHIP)
+    // AA on the chip: the exact pair the demo shipped (5.38 / 7.41:1).
+    assert.ok(text >= 4.5, `${scheme}-${strength}: quote ink on the chip = ${text.toFixed(2)} < 4.5`)
+    assert.equal(Math.round(text * 100) / 100, scheme === 'light' ? 5.38 : 7.41, `${scheme}-${strength}: measured quote-chip text ratio`)
+    // The chip is a hue-only surface on the accent fill (blue vs green); it must
+    // stay visible but may never become a second emphasis fill.
+    const chipStep = contrastRatio(CHAT_BUBBLE_QUOTE_CHIP, fill)
+    assert.ok(chipStep >= 1.05, `${scheme}-${strength}: quote chip vanished on the fill (${chipStep.toFixed(2)}:1 < 1.05)`)
+    assert.ok(chipStep < 1.5, `${scheme}-${strength}: quote chip became a second filled surface (${chipStep.toFixed(2)}:1 >= 1.5)`)
+    assert.notEqual(CHAT_BUBBLE_QUOTE_CHIP, fill, `${scheme}-${strength}: the chip is not the bubble itself`)
+    // The rule carries the approved shape and is anchored on every bubble anchor.
+    assert.ok(css.includes(`  color: ${ink};`), `${scheme}-${strength}: quote chip ink is painted`)
+    assert.ok(css.includes(`  background-color: ${CHAT_BUBBLE_QUOTE_CHIP};`), `${scheme}-${strength}: quote chip is filled`)
+    assert.ok(css.includes('  border-radius: 6px;'), `${scheme}-${strength}: quote chip keeps its radius`)
+    assert.ok(css.includes('  padding: 0 7px;'), `${scheme}-${strength}: quote chip keeps its padding`)
+  }
+  // Scoped inside the bubble and only there: the rule repeats every bubble anchor
+  // and the composer's own quote chip keeps DSH's blue-on-canvas look.
+  const quoteRules = css.split('\n\n').filter((rule) => rule.includes(CHAT_BUBBLE_QUOTE_SELECTOR))
+  assert.equal(quoteRules.length, VARIANTS.length, 'one quote rule per variant')
+  for (const rule of quoteRules) {
+    for (const selector of CHAT_BUBBLE_SELECTORS) {
+      assert.ok(rule.includes(selector), 'the quote rule repeats the bubble anchor itself')
+    }
+  }
+  // The host class is not an anchor: it is a build hash, the data attribute is the
+  // published shape.
+  assert.ok(!css.includes('_quote_'), 'the quote rule does not anchor on the hashed class')
 })
 
 test('losing the sheet falls back to the token layer, not to an unreadable band', () => {

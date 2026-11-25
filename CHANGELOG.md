@@ -19,6 +19,7 @@
 - 浅色档的会话悬停卡改为浅色卡，不再显示深色底
 - 会话悬停卡加描边并提亮深色档，与背景区分更明显
 - 浅色档的通知条改为浅色卡，「撤销」等强调文字改用主题绿
+- 用户气泡内的引用文字改为蓝色小卡，与正文一眼区分
 
 ---
 
@@ -30,6 +31,7 @@
 - The session hover card uses a light surface in the light schemes instead of a dark card
 - The session hover card gains a hairline edge and a lighter dark surface
 - The toast uses a light card in the light schemes, with its action text in theme green
+- Quoted text in a user bubble becomes a blue chip, clearly apart from the message
 
 ## [1.7.0] - 2026-11-19
 

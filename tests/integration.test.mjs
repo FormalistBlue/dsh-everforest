@@ -782,6 +782,9 @@ test('apply() mounts the token layer, settings page, and locale, and cleans up',
   assert.ok(chatBubbleStylesheets[0].textContent.includes('#A7C080'))
   assert.ok(chatBubbleStylesheets[0].textContent.includes('--dsw-alias-state-business-primary'))
   assert.ok(chatBubbleStylesheets[0].textContent.includes('data-everforest-color-mode="on"'))
+  // Quoted excerpts get the filled palette-blue chip (2026-11-25 user choice).
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('[data-quote-preview]'))
+  assert.ok(chatBubbleStylesheets[0].textContent.includes('#7FBBB3'))
 
   // The always-on hero stylesheet paints the new-session whale mark and title
   // with the palette text green (2026-11-09 user request on the welcome screen).
